@@ -1,0 +1,26 @@
+# A custom TruffleHog detector for your COMP4020 proxy key.
+#
+# The key is an ordinary LiteLLM virtual key --- "sk-" followed by at least 20 url-safe
+# characters --- so no built-in detector recognises it, and the verified-only
+# scan in checks.yml would never report one. It cannot be verified from CI
+# either: the proxy's /api/ endpoints answer only to ANU network addresses, and
+# a GitHub runner has none. So this detector matches the key's shape, and the
+# workflow asks for unverified results.
+#
+# A hit means a key is in this repo's Git history, where anyone can read it.
+# Removing the file in a later commit does not help --- the key has to be
+# rotated. Post on Ed.
+detectors:
+  - name: comp4020_course_key
+    keywords:
+      - sk-
+    regex:
+      key: '\bsk-[A-Za-z0-9_-]{20,}\b'
+    # Anthropic's own keys are far longer and have a built-in detector, which
+    # the verified scan already runs.
+    excludeRegexesMatch:
+      - "sk-ant-"
+    # The real thing is ~43 chars of random mixed-case base64url (entropy well
+    # above 5); lowercase kebab-case identifiers like CSS classes top out
+    # around 4.1, so 4.5 catches real keys while sparing them.
+    entropy: 4.5

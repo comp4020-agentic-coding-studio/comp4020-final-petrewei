@@ -1,0 +1,3 @@
+# esbuild (used by Vitest) needs its postinstall to set up its native binary.
+allowBuilds:
+  esbuild: true

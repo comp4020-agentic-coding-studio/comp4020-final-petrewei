@@ -1,0 +1,45 @@
+# Deploy config for the course-managed Fly.io setup. Fly builds the Dockerfile
+# and runs whatever it produces, so the stack is yours. What's fixed is the
+# shape the course watches — leave these settings as they are:
+#
+#   - one shared-cpu-1x machine with 256 MB of memory, so the app has to fit
+#   - one volume, mounted at /data: the only storage that survives a restart
+#     or a redeploy. There's no separate database server; another Fly app
+#     beside this one (a managed Postgres, say) is outside the course setup
+#   - the app serves HTTP on 0.0.0.0:$PORT; Fly's proxy terminates TLS in
+#     front of it, so the app itself sees plain http
+#
+# There's no `app` line: the app is named after this repo, and the deploy
+# command passes it. While the repo is private you deploy by hand from here,
+# with the token the course sent you sitting in mise.local.toml:
+#
+#   flyctl deploy --remote-only --ha=false -a <this-repo-name>
+#
+# (remote build on Fly's builders; one machine, one volume). Once you ship the
+# repo public, CI runs the same command on every push to main.
+
+primary_region = "syd"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+PORT = "8080"
+
+[http_service]
+internal_port = 8080
+force_https = true
+# the machine stops when nobody's using it and starts on the next request —
+# this is most of why the app costs cents, not dollars
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "256mb"
+
+[mounts]
+source = "data"
+destination = "/data"
+initial_size = "1gb"

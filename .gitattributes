@@ -1,0 +1,4 @@
+# Git for Windows checks out text files with CRLF by default
+# (core.autocrlf=true), but sh can't run a script whose lines end in \r.
+# Force LF for the hooks so the pre-commit guard works on Windows too.
+.githooks/* text eol=lf

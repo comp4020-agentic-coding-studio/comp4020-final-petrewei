@@ -1,0 +1,9 @@
+[tools]
+# node and pnpm run the supplied harness (`pnpm check`) whatever your app is
+# built with; add your own stack's tools alongside them
+node = "24.21.0"
+pnpm = "11.9.0"
+
+# Your Fly.io token goes in mise.local.toml (gitignored), not here:
+#   [env]
+#   FLY_API_TOKEN = "..."

@@ -1,0 +1,22 @@
+node_modules/
+dist/
+*.log
+
+# editor and OS junk
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# keep secrets out of the repo: your API key lives in an env var or an
+# untracked file, never in a tracked one
+.env
+.env.*
+.envrc
+mise.local.toml
+*.pem
+
+# Claude Code's project directory is machine-local: settings in here can hold
+# your course API key, and this repo goes public when you ship. Your tracked
+# harness is CLAUDE.md (and any AGENTS.md), not this directory.
+.claude/

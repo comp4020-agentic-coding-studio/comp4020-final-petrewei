@@ -1,0 +1,22 @@
+#!/bin/sh
+# Blocks the commit if anything staged looks like an API key. Your COMP4020
+# key (like any Anthropic key) starts with sk- followed by a long random
+# string, and a key committed here is public the moment you push.
+
+pattern='sk-[A-Za-z0-9_-]{20,}'
+
+# Real keys are random base64url and always contain uppercase; this second
+# grep stage spares lowercase kebab-case identifiers (CSS classes, slugs)
+# that also match the shape.
+hits=$(git grep --cached -noE "$pattern" | grep -E ':[A-Za-z0-9_-]*[A-Z][A-Za-z0-9_-]*$' | cut -d: -f1,2)
+
+if [ -n "$hits" ]; then
+	echo "commit blocked: something staged looks like an API key" >&2
+	echo "$hits" | sed 's/^/  /' >&2
+	echo "" >&2
+	echo "Remove the key from the file (keep it in an environment variable" >&2
+	echo "or an untracked file instead), re-stage, and commit again." >&2
+	echo "If the key has already been pushed to GitHub, it needs to be" >&2
+	echo "rotated: post on Ed." >&2
+	exit 1
+fi

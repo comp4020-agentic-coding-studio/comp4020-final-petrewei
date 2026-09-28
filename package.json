@@ -1,0 +1,22 @@
+{
+  "name": "comp4020-final",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm test",
+    "check:evidence": "node scripts/check-evidence.ts",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "jsdom": "^30.1.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "pnpm": ">=11"
+  }
+}

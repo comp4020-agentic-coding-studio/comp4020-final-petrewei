@@ -1,0 +1,13 @@
+# What a remote build uploads from your working tree. CI checkouts carry none
+# of this, so it only matters for a deploy run from your own machine; without
+# it, node_modules and any local data ship to the builder.
+.git
+node_modules
+dist
+*.log
+.env
+.env.*
+.envrc
+mise.local.toml
+*.pem
+.claude
