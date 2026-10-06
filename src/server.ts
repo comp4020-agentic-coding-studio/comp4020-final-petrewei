@@ -83,7 +83,7 @@ const page = (title: string, main: string): string => `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/fridge.css">
 </head>
 <body class="readme"><main>${main}<p><a href="/">Back to the fridge</a></p></main></body>
@@ -98,6 +98,7 @@ const PAGES: Record<string, [string, string]> = {
   "/": [read("public/index.html"), HTML],
   "/fridge.js": [read("public/fridge.js"), "text/javascript; charset=utf-8"],
   "/fridge.css": [read("public/fridge.css"), "text/css; charset=utf-8"],
+  "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme/": [readme, HTML],
   "/readme": [readme, HTML],
 };
