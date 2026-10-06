@@ -20,7 +20,7 @@ The rows only fixed the first load. When I ran `/simplify`, its altitude review 
 
 ## 5 Making It Look Like a Fridge
 
-I asked for the pages to be beautified, and [`976e919`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/976e919) gave the door enamel, a handle and tilted word tiles, and the README a paper page. I said it still didn't look like a fridge, since a panel has no silhouette, so [`6250c54`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/6250c54) draws the cabinet around it: a freezer door, handles, a grille and feet. The magnet door kept its shape, so no saved position moved. I also had the reflection rewritten from my week 8 lecture notes ([`f18d68e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/f18d68e)).
+I asked for the pages to be beautified, and [`976e919`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/976e919) gave the door enamel, a handle and tilted word tiles, and the README a paper page. I said it still didn't look like a fridge, since a panel has no silhouette, so [`6250c54`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/6250c54) draws the cabinet around it: a freezer door, handles, a grille and feet. The magnet door kept its shape, so no saved position moved. After the crit 8 cutoff I asked for a favicon, a word tile on the mint door ([`581bc28`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/581bc28)). I also had the reflection rewritten from my week 8 lecture notes ([`f18d68e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/f18d68e)).
 
 ## 6 What Comes Next
 
