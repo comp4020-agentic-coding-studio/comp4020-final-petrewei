@@ -31,12 +31,16 @@ function seed(): Magnet[] {
 function load(): Magnet[] {
   if (!existsSync(FILE)) return seed();
   const saved = JSON.parse(readFileSync(FILE, "utf8")) as Magnet[];
-  // The vocabulary is fixed in code: a saved magnet keeps its place, but its
-  // text always comes from VOCABULARY.
-  return seed().map((m) => {
-    const s = saved.find((o) => o.id === m.id);
-    return s ? { ...m, x: s.x, y: s.y, movedBy: s.movedBy } : m;
+  // The vocabulary is fixed in code: a saved magnet keeps its place and its
+  // stacking order (last moved is last, so on top), but its text always comes
+  // from VOCABULARY. A word added to the vocabulary since starts at its seed.
+  const fresh = new Map(seed().map((m) => [m.id, m]));
+  const kept = saved.flatMap((s) => {
+    const m = fresh.get(s.id);
+    fresh.delete(s.id);
+    return m ? [{ ...m, x: s.x, y: s.y, movedBy: s.movedBy }] : [];
   });
+  return [...fresh.values(), ...kept];
 }
 
 function save(): void {
@@ -50,13 +54,12 @@ const magnets = load();
 const visitor = (req: IncomingMessage): string | null =>
   req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
 
-const view = (m: Magnet, who: string | null) => ({
-  id: m.id,
-  text: m.text,
-  x: m.x,
-  y: m.y,
-  mine: who !== null && m.movedBy === who,
+const view = ({ movedBy, ...m }: Magnet, who: string | null) => ({
+  ...m,
+  mine: who !== null && movedBy === who,
 });
+
+const inRange = (n: unknown): n is number => typeof n === "number" && n >= 0 && n <= 1;
 
 function send(res: ServerResponse, status: number, body: string, type: string): void {
   res.writeHead(status, { "content-type": type, "cache-control": "no-store" });
@@ -85,10 +88,17 @@ const page = (title: string, main: string): string => `<!doctype html>
 <body class="readme"><main>${main}<p><a href="/">Back to the fridge</a></p></main></body>
 </html>`;
 
-const STATIC: Record<string, [string, string]> = {
-  "/": ["public/index.html", "text/html; charset=utf-8"],
-  "/fridge.js": ["public/fridge.js", "text/javascript; charset=utf-8"],
-  "/fridge.css": ["public/fridge.css", "text/css; charset=utf-8"],
+// Everything a GET can return besides the API is fixed in the image, so it's
+// read (and README.md rendered) once at startup.
+const HTML = "text/html; charset=utf-8";
+const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
+const readme = page("About the fridge", renderMarkdown(read("README.md")));
+const PAGES: Record<string, [string, string]> = {
+  "/": [read("public/index.html"), HTML],
+  "/fridge.js": [read("public/fridge.js"), "text/javascript; charset=utf-8"],
+  "/fridge.css": [read("public/fridge.css"), "text/css; charset=utf-8"],
+  "/readme/": [readme, HTML],
+  "/readme": [readme, HTML],
 };
 
 const server = createServer(async (req, res) => {
@@ -99,13 +109,8 @@ const server = createServer(async (req, res) => {
     res.setHeader("set-cookie", `v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
   }
 
-  if (req.method === "GET" && STATIC[url.pathname]) {
-    const [file, type] = STATIC[url.pathname];
-    return send(res, 200, readFileSync(join(ROOT, file), "utf8"), type);
-  }
-  if (req.method === "GET" && (url.pathname === "/readme/" || url.pathname === "/readme")) {
-    const md = readFileSync(join(ROOT, "README.md"), "utf8");
-    return send(res, 200, page("About the fridge", renderMarkdown(md)), "text/html; charset=utf-8");
+  if (req.method === "GET" && PAGES[url.pathname]) {
+    return send(res, 200, ...PAGES[url.pathname]);
   }
   if (req.method === "GET" && url.pathname === "/api/magnets") {
     return json(res, 200, { magnets: magnets.map((m) => view(m, who)) });
@@ -123,13 +128,15 @@ const server = createServer(async (req, res) => {
     }
     // Only a position can change. Anything else in the body, text especially,
     // is refused rather than ignored, so a client can't think it renamed a word.
-    const keys = input && typeof input === "object" ? Object.keys(input).sort().join(",") : "";
     const { x, y } = (input ?? {}) as { x: unknown; y: unknown };
-    const inRange = (n: unknown): n is number => typeof n === "number" && n >= 0 && n <= 1;
-    if (keys !== "x,y" || !inRange(x) || !inRange(y)) {
+    if (Object.keys(input ?? {}).length !== 2 || !inRange(x) || !inRange(y)) {
       return json(res, 400, { error: "send exactly {x, y}, each between 0 and 1" });
     }
+    // The magnet moved last goes to the end of the list, which every client
+    // draws last, so it sits on top of anything it now overlaps.
     Object.assign(magnet, { x, y, movedBy: who });
+    magnets.splice(magnets.indexOf(magnet), 1);
+    magnets.push(magnet);
     save();
     return json(res, 200, { magnet: view(magnet, who) });
   }

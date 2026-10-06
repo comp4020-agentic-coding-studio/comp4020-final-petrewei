@@ -64,8 +64,10 @@ describe("a move", () => {
       const res = await move(before.id, { x: 0.4321, y: 0.1234 }, me);
       expect(res.status).toBe(200);
 
-      const mine = (await magnets(me)).find((m) => m.id === before.id);
-      expect(mine).toMatchObject({ x: 0.4321, y: 0.1234, mine: true });
+      const after = await magnets(me);
+      expect(after.find((m) => m.id === before.id)).toMatchObject({ x: 0.4321, y: 0.1234, mine: true });
+      // last in the list is drawn last, so the word just moved is on top
+      expect(after.at(-1)?.id).toBe(before.id);
 
       const theirs = (await magnets(other)).find((m) => m.id === before.id);
       expect(theirs).toMatchObject({ x: 0.4321, y: 0.1234, mine: false });

@@ -3,27 +3,28 @@
 // or shortly after the last arrow key.
 const door = document.getElementById("door");
 const status = document.getElementById("status");
-const els = new Map();
 
 const clamp = (n) => Math.min(1, Math.max(0, n));
 
+// The anchor slides with the position (a magnet at x=1 has its right edge on
+// the door's right edge), so every fraction 0..1 keeps the whole word on the
+// door without measuring it.
 function place(el, m) {
   el.style.left = `${m.x * 100}%`;
   el.style.top = `${m.y * 100}%`;
+  el.style.transform = `translate(${-m.x * 100}%, ${-m.y * 100}%)`;
   el.classList.toggle("mine", m.mine);
 }
 
-async function save(el) {
-  const x = parseFloat(el.style.left) / 100;
-  const y = parseFloat(el.style.top) / 100;
-  const res = await fetch(`/api/magnets/${el.dataset.id}`, {
+async function save(el, m) {
+  const res = await fetch(`/api/magnets/${m.id}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ x, y }),
+    body: JSON.stringify({ x: m.x, y: m.y }),
   });
   if (res.ok) {
-    const { magnet } = await res.json();
-    place(el, magnet);
+    Object.assign(m, (await res.json()).magnet);
+    place(el, m);
     status.textContent = "";
   } else {
     status.textContent = "That move didn't save. Try again.";
@@ -34,14 +35,15 @@ function magnet(m) {
   const el = document.createElement("button");
   el.className = "magnet";
   el.type = "button";
-  el.dataset.id = m.id;
   el.textContent = m.text;
   place(el, m);
 
   let start = null;
   el.addEventListener("pointerdown", (e) => {
-    const box = door.getBoundingClientRect();
-    start = { px: e.clientX, py: e.clientY, x: m.x, y: m.y, box };
+    // The last magnet touched goes on top, as the server orders them, so the
+    // word you grab next is the one you can see.
+    door.append(el);
+    start = { px: e.clientX, py: e.clientY, x: m.x, y: m.y, box: door.getBoundingClientRect() };
     el.setPointerCapture(e.pointerId);
     el.classList.add("held");
   });
@@ -49,14 +51,14 @@ function magnet(m) {
     if (!start) return;
     m.x = clamp(start.x + (e.clientX - start.px) / start.box.width);
     m.y = clamp(start.y + (e.clientY - start.py) / start.box.height);
-    el.style.left = `${m.x * 100}%`;
-    el.style.top = `${m.y * 100}%`;
+    place(el, m);
   });
   el.addEventListener("pointerup", () => {
     if (!start) return;
+    const moved = m.x !== start.x || m.y !== start.y;
     start = null;
     el.classList.remove("held");
-    save(el);
+    if (moved) save(el, m);
   });
 
   let timer;
@@ -67,18 +69,12 @@ function magnet(m) {
     e.preventDefault();
     m.x = clamp(m.x + d[0]);
     m.y = clamp(m.y + d[1]);
-    el.style.left = `${m.x * 100}%`;
-    el.style.top = `${m.y * 100}%`;
+    place(el, m);
     clearTimeout(timer);
-    timer = setTimeout(() => save(el), 400);
+    timer = setTimeout(() => save(el, m), 400);
   });
   return el;
 }
 
-const res = await fetch("/api/magnets");
-const { magnets } = await res.json();
-for (const m of magnets) {
-  const el = magnet(m);
-  els.set(m.id, el);
-  door.append(el);
-}
+const { magnets } = await (await fetch("/api/magnets")).json();
+door.append(...magnets.map(magnet));
