@@ -1,10 +1,52 @@
-# Your harness
+# Fridge Poetry
 
-This file is yours, and it arrives empty on purpose. The rules you hold the
-agent to are part of what gets marked, so they should be rules you decided on.
+This is the working agreement for the final-project repository: each rule and the reason for it. The rules are carried over from crit 7 (`comp4020-crit7-petrewei`) and adapted to this app; the argument they serve is in `README.md`.
 
-Nothing about the template is recorded here. What the repo ships is explained
-where it lives --- `fly.toml`, the `Dockerfile`, the CI workflow and
-`spec/README.md` each say what they fix --- and the course website publishes the
-[final project brief](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/).
-What the agent needs to carry from any of it is your call.
+The platform is fixed and is not restated here: `fly.toml`, the `Dockerfile`, `.github/workflows/checks.yml` and `spec/README.md` each say what they fix. Read the published [brief](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/) and the current crit's spec before planning.
+
+## 1 This Deliverable
+
+The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 October 2026, 07:00) asks for a first working version and a first `README.md`.
+
+## 2 App and Data
+
+- **The vocabulary lives only in `src/words.ts`, and each word appears once.** The server never accepts text from a client; `spec/fridge.test.ts` checks both.
+- **A magnet's position is a fraction of the door, 0 to 1.** Pixel positions would make an arrangement depend on the screen it was made on.
+- **State is `/data/fridge.json`, written by the server alone, via a temporary file and a rename.** The reasons are in `docs/adr/0001-plain-node-and-a-json-file.md`.
+- **The visitor cookie never leaves the server.** Clients learn only whether a magnet is theirs (`mine`), never who moved it.
+- **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
+
+## 3 Working Practices
+
+- **Review the plan adversarially before building.** Ask what is assumed, which choice the spec requires as against merely prefers, and what the alternatives were.
+- **Build the slice the plan describes, and stop there.** Propose extras separately.
+- **Never rewrite the spec to match the build.** A disagreement between the two is a decision to flag.
+
+## 4 Verification
+
+- **Return the evidence itself:** a screenshot, response body, DOM state or exit code.
+- **Verify the deployed app after every deploy.** Move a word on `https://comp4020-final-petrewei.fly.dev/`, reload, and check it is still there and outlined.
+- **Run `pnpm check` against the live app as well as locally:** `APP_URL=https://comp4020-final-petrewei.fly.dev pnpm check`.
+
+## 5 Sensors and Checks
+
+- **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
+- **Spec tests put back what they move.** They run against the live door, where real people's lines are.
+- **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
+
+## 6 Git and CI
+
+- **Commit small and often, and say why in the message.** Stage files by name, and commit only on green.
+- **Push once after a change's commits, without asking.** Each push queues a CI run behind the last.
+
+## 7 PROCESS.md
+
+- **Rewrite `PROCESS.md` at each crit so it describes the project as it stands,** and grow the crit's reflection with each change I direct, citing its commit.
+- **Write each moment in STAR form, weighted:** Situation 20%, Task 10%, Action 60%, Result 10%.
+- **Cite commits inline as links whose text is the hash,** and say which decisions were mine.
+
+## 8 Markdown
+
+- **Keep each prose paragraph on a single line.**
+- **Number document subheadings in Title Case** (`## 1 Heading`), in `CLAUDE.md`, `PROCESS.md` and ADRs, never in `README.md`, which the app serves as its own page.
+- **Use the em dash character for a dash, never `---`.**
