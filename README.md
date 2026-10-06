@@ -14,7 +14,7 @@ A room of people who are using it at the same time: a crit group of about a doze
 - **Nobody can type.** The vocabulary is fixed, about a hundred words, so the door is safe to leave open to strangers without moderation. The cost is expressiveness, and that cost is deliberate: constraint is what makes fridge poetry fun.
 - **Your trace stays.** You come back and find your words where you left them, outlined as yours, unless someone has since taken them. Losing a word to someone else is part of it, not a bug.
 - **It works without a mouse.** Every word is a button you can focus and move with the arrow keys.
-- **It fits any screen.** Positions are fractions of the door, so a line written on a laptop is the same line on a phone.
+- **A line looks the same on every screen.** Positions and word sizes are both fractions of the door, so a line written on a laptop is the same line on a phone. On a narrow screen the door keeps a readable size and scrolls sideways rather than shrinking the words.
 
 ## Enforced and judged
 

@@ -23,7 +23,7 @@ function seed(): Magnet[] {
     id: `m${i}`,
     text,
     x: 0.01 + (i % 9) * 0.11,
-    y: 0.46 + Math.floor(i / 9) * 0.042,
+    y: 0.46 + Math.floor(i / 9) * 0.044,
     movedBy: null,
   }));
 }
@@ -83,6 +83,7 @@ const page = (title: string, main: string): string => `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="/fridge.css">
 </head>
 <body class="readme"><main>${main}<p><a href="/">Back to the fridge</a></p></main></body>
@@ -138,7 +139,7 @@ const server = createServer(async (req, res) => {
     magnets.splice(magnets.indexOf(magnet), 1);
     magnets.push(magnet);
     save();
-    return json(res, 200, { magnet: view(magnet, who) });
+    return json(res, 200, { magnet: view(magnet, who), onTop: magnets.at(-1) === magnet });
   }
 
   json(res, 404, { error: "not found" });
