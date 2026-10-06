@@ -15,7 +15,14 @@
       <p><a href="/readme/">What this is for</a></p>
     </header>
     <main>
-      <div id="fridge"><div id="door" role="group" aria-label="Fridge door" aria-describedby="how"></div></div>
+      <div id="fridge">
+        <div class="cabinet">
+          <div class="freezer" aria-hidden="true"><span class="badge">Fridge Poetry</span></div>
+          <div id="door" role="group" aria-label="Fridge door" aria-describedby="how"></div>
+          <div class="grille" aria-hidden="true"></div>
+        </div>
+        <div class="feet" aria-hidden="true"></div>
+      </div>
       <p id="how" class="visually-hidden">Each word is a button. Use the arrow keys to move the focused word, and Shift with an arrow key to move it further.</p>
       <p id="status" role="status"></p>
     </main>

@@ -45,42 +45,112 @@ a {
   text-underline-offset: 0.2em;
 }
 
-/* The door keeps a readable minimum width and scrolls sideways on a phone,
+/* The fridge keeps a readable minimum width and scrolls sideways on a phone,
    so a word is always the same fraction of the door and an arrangement looks
    the same on every screen. */
 #fridge {
   overflow-x: auto;
-  padding: 0.5rem 0 1rem;
+  padding: 0.5rem 0.5rem 1rem;
+}
+
+/* The cabinet is the appliance's body: a freezer door on top, the magnet door
+   below it, a vent grille, and two feet. Only #door holds magnets. */
+.cabinet {
+  min-width: 720px;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 0.9rem 0.9rem 0;
+  container-type: inline-size;
+  background: linear-gradient(90deg, var(--enamel-edge), var(--enamel-deep) 4%, var(--enamel-deep) 96%, var(--enamel-edge));
+  border-radius: 2.4rem 2.4rem 0.8rem 0.8rem;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.5),
+    0 1.5rem 2.5rem -1rem rgb(60 50 30 / 0.45);
+}
+
+.freezer,
+#door {
+  position: relative;
+  background:
+    linear-gradient(100deg, rgb(255 255 255 / 0.45), transparent 28%),
+    linear-gradient(175deg, var(--enamel), #c1d9cf);
+  border: 1px solid var(--enamel-edge);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.65),
+    inset 0 -2px 0 rgb(0 0 0 / 0.07),
+    0 0.25rem 0.5rem rgb(0 0 0 / 0.18);
+}
+
+.freezer {
+  height: 15cqw;
+  margin-bottom: 0.7cqw;
+  border-radius: 1.8rem 1.8rem 0.5rem 0.5rem;
+}
+
+/* the freezer's handle, along its bottom edge */
+.freezer::before {
+  content: "";
+  position: absolute;
+  left: 6%;
+  bottom: 14%;
+  width: 26%;
+  height: 1.1cqw;
+  border-radius: 1cqw;
+  background: linear-gradient(180deg, #f4f6f5, #8d9692);
+  box-shadow: 0 0.3cqw 0.6cqw rgb(0 0 0 / 0.3);
+}
+
+.badge {
+  position: absolute;
+  right: 5%;
+  top: 50%;
+  translate: 0 -50%;
+  padding: 0.3cqw 1.4cqw;
+  font-size: 1.6cqw;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: #5d655f;
+  background: linear-gradient(180deg, #fafbfa, #bfc6c2);
+  border-radius: 0.6cqw;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgb(0 0 0 / 0.3);
 }
 
 #door {
-  position: relative;
-  min-width: 720px;
   aspect-ratio: 4 / 3;
   container-type: inline-size;
-  background:
-    linear-gradient(100deg, rgb(255 255 255 / 0.35), transparent 30%),
-    linear-gradient(170deg, var(--enamel), var(--enamel-deep));
-  border: 1px solid var(--enamel-edge);
-  border-radius: 2.2cqw;
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 0.6),
-    inset 0 -3px 0 rgb(0 0 0 / 0.08),
-    0 1.2cqw 2.4cqw rgb(60 50 30 / 0.25);
+  border-radius: 0.5rem 0.5rem 1rem 1rem;
   overflow: hidden;
 }
 
-/* the chrome handle, drawn under every magnet */
+/* the main door's handle, down its left edge, drawn under every magnet */
 #door::before {
   content: "";
   position: absolute;
   left: 1.6%;
-  top: 6%;
+  top: 4%;
   width: 1.1%;
-  height: 34%;
+  height: 30%;
   border-radius: 1cqw;
   background: linear-gradient(90deg, #8d9692, #f4f6f5 45%, #a7afab);
-  box-shadow: 0 0.3cqw 0.6cqw rgb(0 0 0 / 0.25);
+  box-shadow: 0 0.3cqw 0.6cqw rgb(0 0 0 / 0.3);
+}
+
+.grille {
+  height: 4cqw;
+  margin: 0.8cqw 2cqw 0;
+  background: repeating-linear-gradient(90deg, #6f8a80 0 0.5cqw, var(--enamel-deep) 0.5cqw 1.2cqw);
+  border-radius: 0.4rem 0.4rem 0 0;
+  opacity: 0.7;
+}
+
+.feet {
+  min-width: 720px;
+  max-width: 56rem;
+  height: 1rem;
+  margin: 0 auto;
+  background:
+    linear-gradient(#3b3f3c, #222) 8% 0 / 3rem 100% no-repeat,
+    linear-gradient(#3b3f3c, #222) 92% 0 / 3rem 100% no-repeat;
 }
 
 .magnet {
