@@ -1,0 +1,81 @@
+:root {
+  --ink: #1d1d1b;
+  --paper: #f4f1ea;
+  --door: #dfe4e2;
+  --door-edge: #b9c1be;
+  --tile: #fffdf7;
+  --mine: #c2410c;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+body {
+  margin: 0 auto;
+  max-width: 64rem;
+  padding: 1rem;
+}
+
+header p {
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
+#door {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  container-type: inline-size;
+  background: linear-gradient(160deg, #eef1f0, var(--door));
+  border: 2px solid var(--door-edge);
+  border-radius: 1.2rem;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.magnet {
+  position: absolute;
+  padding: 0.15em 0.4em;
+  font: inherit;
+  font-size: clamp(11px, 2.2cqw, 20px);
+  color: var(--ink);
+  background: var(--tile);
+  border: 1px solid #d6d1c4;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.magnet.mine {
+  outline: 2px solid var(--mine);
+  outline-offset: 1px;
+}
+
+.magnet.held {
+  cursor: grabbing;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.3);
+}
+
+.magnet:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+  z-index: 5;
+}
+
+#status {
+  min-height: 1.5em;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+body.readme main {
+  max-width: 40rem;
+  line-height: 1.6;
+}

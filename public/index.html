@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fridge Poetry</title>
+    <link rel="stylesheet" href="/fridge.css" />
+    <script type="module" src="/fridge.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Fridge Poetry</h1>
+      <p>One fridge door, shared with everyone who visits. Every word exists once: if it's in someone's line, it isn't in yours. Drag a word, or focus it and use the arrow keys (hold Shift for bigger steps). Words you moved last are outlined, and stay where you left them.</p>
+      <p><a href="/readme/">What this is for</a></p>
+    </header>
+    <main>
+      <div id="door" role="group" aria-label="Fridge door" aria-describedby="how"></div>
+      <p id="how" class="visually-hidden">Each word is a button. Use the arrow keys to move the focused word, and Shift with an arrow key to move it further.</p>
+      <p id="status" role="status"></p>
+    </main>
+  </body>
+</html>
