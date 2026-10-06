@@ -48,6 +48,8 @@ function magnet(m) {
   el.className = "magnet";
   el.type = "button";
   el.textContent = m.text;
+  // a fixed slight tilt per word, as real magnets never sit square
+  el.style.setProperty("--tilt", `${((Number(m.id.slice(1)) * 37) % 7) - 3}deg`);
   place(el, m);
 
   let start = null;
