@@ -31,7 +31,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 ## 5 Sensors and Checks
 
 - **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
-- **Spec tests put back what they move.** They run against the live door, where real people's lines are.
+- **Spec tests put back the position of what they move.** They run against the live door, where real people's lines are; the moved word still ends up on top and unowned, which the API can't undo.
 - **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
 
 ## 6 Git and CI
