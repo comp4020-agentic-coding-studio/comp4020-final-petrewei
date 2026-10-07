@@ -67,11 +67,11 @@ const STAND_MS = 15_000;
 type Poem = { text: string; at: string };
 const poems: Poem[] = existsSync(POEMS_FILE) ? JSON.parse(readFileSync(POEMS_FILE, "utf8")) : [];
 
-// Only words moved off their starting spot can be poetry, so the heap of
-// unused words along the bottom is never read as lines.
-const start = new Map(seed().map((m) => [m.id, m]));
-const placed = (): Magnet[] =>
-  magnets.filter((m) => m.x !== start.get(m.id)!.x || m.y !== start.get(m.id)!.y);
+// Only words someone has moved can be poetry, so the heap of unused words
+// along the bottom is never read as lines. This asks who moved a word, not
+// where it sits: the saved door keeps words at older starting layouts, which
+// a comparison with today's seed() misreads as moved.
+const placed = (): Magnet[] => magnets.filter((m) => m.movedBy !== null);
 
 // The lines on the door now, each keyed by its magnets in order, with when it
 // first stood; a line extended into a longer one keeps its age.
