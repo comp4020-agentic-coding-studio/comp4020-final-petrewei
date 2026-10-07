@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     include: ["spec/**/*.test.ts"],
     globalSetup: ["./spec/global-setup.ts"],
+    // The files share one door, and a word one file holds is refused to
+    // another, so they run one after another.
+    fileParallelism: false,
   },
 });

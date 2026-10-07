@@ -54,18 +54,43 @@ const magnets = load();
 const visitor = (req: IncomingMessage): string | null =>
   req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
 
-const view = ({ movedBy, ...m }: Magnet, who: string | null) => ({
-  ...m,
-  mine: who !== null && movedBy === who,
-});
+// ADR 0002, one hand at a time: who is holding each word, and when that hold
+// lapses if nothing renews it. Holds live in memory only; a restart frees them.
+const HOLD_MS = 30_000;
+const holds = new Map<string, { who: string; until: number }>();
+
+function holder(id: string): string | null {
+  const h = holds.get(id);
+  if (h && h.until < Date.now()) holds.delete(id);
+  return holds.get(id)?.who ?? null;
+}
+
+const view = ({ movedBy, ...m }: Magnet, who: string | null) => {
+  const by = holder(m.id);
+  return { ...m, mine: who !== null && movedBy === who, held: by !== null && by !== who };
+};
 
 // Open /api/events streams, each with its visitor, so a broadcast can tell
 // each listener whether the magnet that moved is now theirs.
 const listeners = new Set<{ res: ServerResponse; who: string }>();
 
-function broadcast(m: Magnet): void {
-  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(m, l.who))}\n\n`);
+function emit(data: unknown, to: (who: string) => boolean = () => true): void {
+  for (const l of listeners) if (to(l.who)) l.res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
+
+function broadcast(m: Magnet): void {
+  for (const l of listeners) l.res.write(`data: ${JSON.stringify({ type: "move", ...view(m, l.who) })}\n\n`);
+}
+
+// Everyone but the holder is told a word is taken; everyone is told it's free.
+function release(id: string): void {
+  if (holds.delete(id)) emit({ type: "released", id });
+}
+
+// A lapsed hold is freed out loud, so pages stop showing it as taken.
+setInterval(() => {
+  for (const [id, h] of holds) if (h.until < Date.now()) release(id);
+}, 1_000).unref();
 
 // Fly's proxy drops an idle connection after about a minute, so each stream
 // gets a comment line well inside that.
@@ -137,11 +162,32 @@ const server = createServer(async (req, res) => {
     res.write(": open\n\n");
     const listener = { res, who };
     listeners.add(listener);
-    req.on("close", () => listeners.delete(listener));
+    req.on("close", () => {
+      listeners.delete(listener);
+      // the holder's last open page is gone, so nobody is holding their words
+      if ([...listeners].some((l) => l.who === listener.who)) return;
+      for (const [id, h] of holds) if (h.who === listener.who) release(id);
+    });
     return;
   }
   if (req.method === "GET" && url.pathname === "/api/magnets") {
     return json(res, 200, { magnets: magnets.map((m) => view(m, who)) });
+  }
+
+  const hand = url.pathname.match(/^\/api\/magnets\/(m\d+)\/(grab|release)$/);
+  if (req.method === "POST" && hand) {
+    const [, id, action] = hand;
+    if (!magnets.some((m) => m.id === id)) return json(res, 404, { error: "no such magnet" });
+    const by = holder(id);
+    if (by !== null && by !== who) return json(res, 409, { error: "someone else is holding that word" });
+    if (action === "release") {
+      release(id);
+      return json(res, 200, { held: false });
+    }
+    // grabbing again renews the hold, which is how a long drag keeps it
+    holds.set(id, { who, until: Date.now() + HOLD_MS });
+    if (by === null) emit({ type: "held", id }, (w) => w !== who);
+    return json(res, 200, { held: true });
   }
 
   const move = url.pathname.match(/^\/api\/magnets\/(m\d+)$/);
@@ -154,6 +200,8 @@ const server = createServer(async (req, res) => {
     } catch {
       return json(res, 400, { error: "send JSON {x, y}" });
     }
+    const by = holder(magnet.id);
+    if (by !== null && by !== who) return json(res, 409, { error: "someone else is holding that word" });
     // Only a position can change. Anything else in the body, text especially,
     // is refused rather than ignored, so a client can't think it renamed a word.
     const { x, y } = (input ?? {}) as { x: unknown; y: unknown };
@@ -166,6 +214,7 @@ const server = createServer(async (req, res) => {
     magnets.splice(magnets.indexOf(magnet), 1);
     magnets.push(magnet);
     save();
+    holds.delete(magnet.id);
     broadcast(magnet);
     return json(res, 200, { magnet: view(magnet, who), onTop: magnets.at(-1) === magnet });
   }

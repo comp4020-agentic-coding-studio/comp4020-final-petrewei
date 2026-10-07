@@ -19,6 +19,7 @@
   --tile-ink: #1d1d1b;
   --tile-edge: #d6d1c4;
   --mine: #c2410c;
+  --taken: #2563eb;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--ink);
   background:
@@ -44,6 +45,7 @@
     --tile: #f1eee6;
     --tile-edge: #b9b4a8;
     --mine: #ea580c;
+    --taken: #60a5fa;
   }
 }
 
@@ -275,6 +277,31 @@ a {
   z-index: 100000;
   transform: rotate(var(--tilt, 0deg)) scale(1.06);
   box-shadow: 0 0.8cqw 1.6cqw rgb(0 0 0 / 0.3);
+}
+
+/* someone else is holding this word (ADR 0002) */
+.magnet.taken {
+  cursor: not-allowed;
+  box-shadow:
+    0 0 0 2px var(--taken),
+    0 0 1.2cqw 0.2cqw var(--taken),
+    0 0.6cqw 1.2cqw rgb(0 0 0 / 0.25);
+  transform: rotate(var(--tilt, 0deg)) translateY(-0.3cqw);
+}
+
+.magnet.refused {
+  animation: refused 0.3s;
+}
+
+@keyframes refused {
+  25% { translate: -0.4cqw 0; }
+  75% { translate: 0.4cqw 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magnet.refused {
+    animation: none;
+  }
 }
 
 .magnet:focus-visible {
