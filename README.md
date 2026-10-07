@@ -11,15 +11,16 @@ A room of people using it at the same time: a crit group of about a dozen, or th
 ## What good means here
 
 - **The words are shared and scarce.** Each word is one magnet. If you want "night" and it's in someone's line, you take it from them or write around it. Unlike a shared canvas or a chat, this makes every other person on the door matter to what you can write.
-- **Nobody can type.** The vocabulary is fixed at about a hundred words, so the door can be left open to strangers without moderation. The cost is expressiveness, and it is deliberate: the constraint is what makes fridge poetry work.
+- **Nobody can type.** A fixed vocabulary of about a hundred words lets strangers share the door without moderation. The lost expressiveness is deliberate: the constraint is what makes fridge poetry work.
 - **One hand at a time.** While someone holds a word, everyone else sees it glow and can't take it, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
-- **Your trace stays, and so does its loss.** Your words stay where you left them, outlined as yours. Take one, and its owner is told, live or on their return, but never by whom: losing words is part of the game.
+- **Your trace stays, and so does its loss.** Your words stay where you left them, outlined as yours. Take one, and its owner is told, but never by whom.
+- **Nothing written is lost.** A line that stood and was broken goes to the archive under the fridge ([ADR 0003](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0003-an-archive-of-broken-lines.md)), so taking a word costs a line but not the poem.
 - **It works without a mouse.** Every word is a button the arrow keys move.
-- **A line looks the same on every screen.** Positions and word sizes are fractions of the door, so a line written on a laptop is the same line on a phone, where the door scrolls sideways rather than shrinking the words.
+- **A line looks the same on every screen.** Positions and word sizes are fractions of the door; on a phone it scrolls sideways rather than shrinking the words.
 
 ## Enforced and judged
 
-Checked by `spec/fridge.test.ts` against the running app:
+Checked in `spec/` against the running app:
 
 - every word exists exactly once
 - the server accepts only a position, so nobody can add or rename a word
@@ -28,6 +29,7 @@ Checked by `spec/fridge.test.ts` against the running app:
 - a move reaches every other open session within a second, with no reload
 - a word someone holds can't be grabbed or moved by anyone else, and is freed when they let go or their last page closes
 - when someone takes your word you're told, and only you
+- a broken line is archived if it stood, and not if it was broken at once
 
 Judged by people, at the crit and the showcase:
 
@@ -37,10 +39,9 @@ Judged by people, at the crit and the showcase:
 ## What I looked at
 
 - The final project brief's notes on good, which point at the small web, games for a handful of friends and tools built for one workshop.
-- The week 8 lecture: good means serving the intended people well rather than counting features, and the README, `CLAUDE.md` and `spec/` should make the same promise.
-- My crit 4 instrument, a solo theremin. I ruled out a shared step sequencer because it would repeat that work.
-- About twenty-five candidate ideas, compared against how the final project is marked. Fridge Poetry and an island-mapping game came out level; I chose the fridge because it is about words only one person can hold at a time.
+- The week 8 lecture: good means serving people well, not counting features, and the README, `CLAUDE.md` and `spec/` should agree.
+- About twenty-five candidate ideas, compared against how the final project is marked. I ruled out a shared sequencer as a repeat of my crit 4 theremin, and chose the fridge over an island-mapping game because it is about words only one person can hold.
 
 ## Not built yet
 
-Not yet decided: whether a finished poem can be protected.
+Not yet decided: whether a poem can be protected on the door, now the archive keeps it.

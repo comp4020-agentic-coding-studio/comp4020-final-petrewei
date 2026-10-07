@@ -192,6 +192,7 @@ function stolen(update) {
 
 function apply(update) {
   if (update.type === "taken") return stolen(update);
+  if (update.type === "poem") return archive(update);
   const entry = live.get(update.id);
   if (!entry) return;
   const { el, m } = entry;
@@ -206,6 +207,30 @@ function apply(update) {
   // a dropped word arrives as a move, so either way a free word clears its notice
   if (!m.held && status.textContent.includes(`“${m.text}”`)) status.textContent = "";
 }
+
+// The archive of broken lines (ADR 0003), newest first.
+const list = document.getElementById("poems");
+const SHOWN = 30;
+const when = new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" });
+
+function poem({ text, at }) {
+  const li = document.createElement("li");
+  const q = document.createElement("q");
+  q.textContent = text;
+  const time = document.createElement("time");
+  time.dateTime = at;
+  time.textContent = when.format(new Date(at));
+  li.append(q, time);
+  return li;
+}
+
+function archive(p) {
+  list.prepend(poem(p));
+  while (list.children.length > SHOWN) list.lastElementChild.remove();
+}
+
+const { poems } = await (await fetch("/api/poems")).json();
+list.append(...poems.slice(0, SHOWN).map(poem));
 
 // Words taken while this visitor was away are told once, then cleared.
 const { taken } = await (await fetch("/api/taken")).json();

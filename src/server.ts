@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
+import { lines, text } from "./lines.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { VOCABULARY } from "./words.ts";
 
@@ -15,6 +16,7 @@ const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const FILE = join(DATA_DIR, "fridge.json");
 const TAKEN_FILE = join(DATA_DIR, "taken.json");
+const POEMS_FILE = join(DATA_DIR, "poems.json");
 const ROOT = join(import.meta.dirname, "..");
 
 function seed(): Magnet[] {
@@ -58,6 +60,51 @@ const magnets = load();
 const taken: Map<string, string[]> = new Map(
   existsSync(TAKEN_FILE) ? Object.entries(JSON.parse(readFileSync(TAKEN_FILE, "utf8"))) : [],
 );
+
+// ADR 0003, an archive of broken lines. A line has to stand this long to be
+// kept when it breaks, so quick rearranging doesn't fill the archive.
+const STAND_MS = 15_000;
+type Poem = { text: string; at: string };
+const poems: Poem[] = existsSync(POEMS_FILE) ? JSON.parse(readFileSync(POEMS_FILE, "utf8")) : [];
+
+// Only words moved off their starting spot can be poetry, so the heap of
+// unused words along the bottom is never read as lines.
+const start = new Map(seed().map((m) => [m.id, m]));
+const placed = (): Magnet[] =>
+  magnets.filter((m) => m.x !== start.get(m.id)!.x || m.y !== start.get(m.id)!.y);
+
+// The lines on the door now, each keyed by its magnets in order, with when it
+// first stood; a line extended into a longer one keeps its age.
+let standing = new Map<string, { text: string; since: number }>();
+
+function survey(): void {
+  const now = Date.now();
+  const current = new Map<string, { text: string; since: number }>();
+  for (const line of lines(placed())) {
+    const key = line.map((m) => m.id).join(",");
+    let since = now;
+    for (const [old, s] of standing) if (`,${key},`.includes(`,${old},`)) since = Math.min(since, s.since);
+    current.set(key, { text: text(line), since });
+  }
+  let archived = false;
+  for (const [old, s] of standing) {
+    const grown = [...current.keys()].some((key) => `,${key},`.includes(`,${old},`));
+    if (grown || now - s.since < STAND_MS) continue;
+    const poem = { text: s.text, at: new Date(now).toISOString() };
+    poems.push(poem);
+    poems.splice(0, poems.length - 200);
+    emit({ type: "poem", ...poem });
+    archived = true;
+  }
+  if (archived) savePoems();
+  standing = current;
+}
+
+function savePoems(): void {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(`${POEMS_FILE}.tmp`, JSON.stringify(poems));
+  renameSync(`${POEMS_FILE}.tmp`, POEMS_FILE);
+}
 
 function saveTaken(): void {
   mkdirSync(DATA_DIR, { recursive: true });
@@ -184,6 +231,9 @@ const server = createServer(async (req, res) => {
     });
     return;
   }
+  if (req.method === "GET" && url.pathname === "/api/poems") {
+    return json(res, 200, { poems: poems.toReversed(), standsFor: STAND_MS });
+  }
   if (req.method === "GET" && url.pathname === "/api/taken") {
     return json(res, 200, { taken: taken.get(who) ?? [] });
   }
@@ -238,6 +288,7 @@ const server = createServer(async (req, res) => {
     save();
     holds.delete(magnet.id);
     broadcast(magnet);
+    survey();
     // Someone else's word was taken: tell them now if they're on the page, or
     // keep it for when they come back.
     if (from !== null && from !== who) {
@@ -259,4 +310,5 @@ const server = createServer(async (req, res) => {
   json(res, 404, { error: "not found" });
 });
 
+survey();
 server.listen(PORT, "0.0.0.0", () => console.log(`fridge on :${PORT}, data in ${FILE}`));

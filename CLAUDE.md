@@ -18,6 +18,8 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **One hand at a time: the server refuses a grab or a move on a word someone else holds.** The decision and its costs are in `docs/adr/0002-one-hand-at-a-time.md`; `spec/hold.test.ts` checks the refusals and every way a hold ends.
 - **A theft notice names the word, never who took it.** It goes live to the robbed visitor's open pages, or waits in `/data/taken.json` until they come back; `spec/taken.test.ts` checks both.
 - **Notices go in `#status`, which floats over the bottom of the screen.** The fridge is taller than most windows, so anything placed below it is never seen.
+- **Lines and the archive follow `docs/adr/0003-an-archive-of-broken-lines.md`.** Keep `width()` in `src/lines.ts` fitted to the magnets as rendered; a change to their font or padding needs it refitted.
+- **Tests that write to the archive skip the live door** (`it.skipIf(live)`), since a test poem there is public.
 - **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
 
 ## 3 Working Practices

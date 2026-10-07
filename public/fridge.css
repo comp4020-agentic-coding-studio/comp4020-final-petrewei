@@ -324,6 +324,66 @@ a {
   z-index: 99999;
 }
 
+/* The archive: slips of paper pinned to the wall under the fridge. */
+#archive {
+  max-width: 56rem;
+  margin: 2.5rem auto 4rem;
+}
+
+#archive h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: normal;
+  font-style: italic;
+}
+
+#archive .note {
+  margin: 0.3rem 0 1.2rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+#poems {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#poems li {
+  padding: 0.8rem 1rem 0.6rem;
+  color: var(--tile-ink);
+  background: var(--tile);
+  box-shadow: 0 0.3rem 0.8rem var(--shadow);
+  rotate: -0.6deg;
+}
+
+#poems li:nth-child(even) {
+  rotate: 0.8deg;
+}
+
+#poems q {
+  display: block;
+  font-size: 1.1rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#poems time {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b6860;
+}
+
+#poems:empty::before {
+  content: "Nothing yet. Break a line and it lands here.";
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* Notices sit over the bottom of the screen, since the fridge is taller than
    most windows and a line below it would never be seen. Empty, it vanishes. */
 #status {
