@@ -34,6 +34,10 @@ The crit 9 decision was what happens when two people grab the same word. The age
 
 Next I had the agent build notices for when someone takes your word ([`c76fed4`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/c76fed4)). There is no notion of a line yet, so "yours" means the words you moved last, and the notice names the word but never the taker. If you are away it waits for your return, which covers the brief's session picked up the next day. `spec/taken.test.ts` failed first. The browser check found something no test could: the notice line sat below the fridge, at 1175px in a 900px window, so neither this notice nor the "someone else is holding" one had ever been visible. It now floats over the bottom of the screen.
 
-## 9 What Comes Next
+## 9 An Archive of Broken Lines
 
-An archive of broken poems, then crit 10's server-side logging.
+The last of the three was an archive, so that taking a word costs the door a line but not the poem. The agent wrote [ADR 0003](docs/adr/0003-an-archive-of-broken-lines.md) with its own thresholds marked as open for me to revise: three moved words in a row make a line, and a line that stood 15 seconds is kept when it breaks. [`b6dcdab`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/b6dcdab) implements it. The server never sees how wide a word is, so the agent measured every magnet in the browser before relying on its estimate: the first formula ran 9% wide on average and up to 29% for some words, which would have missed words placed touching, so it fitted a new one to within 0.66em. The tests that write a poem skip the live door, because a test poem there would be public, which is the first step towards keeping test writes off production.
+
+## 10 What Comes Next
+
+Crit 10's server-side logging, and rewriting this account for crit 9, which is now over its word limit.

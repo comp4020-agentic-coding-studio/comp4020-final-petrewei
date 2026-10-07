@@ -6,7 +6,7 @@ This is a working definition of good; the `crit-*` tags keep each version.
 
 ## Who it is for
 
-A room of people using it at the same time: a crit group of about a dozen, or the capstone showcase. Alone, you get a fridge with strangers' lines on it; the point is several people reaching for the same words.
+A room of people using it at once: a crit group of about a dozen, or the capstone showcase. Alone, you get a fridge with strangers' lines on it; the point is several people reaching for the same words.
 
 ## What good means here
 
