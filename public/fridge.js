@@ -180,7 +180,18 @@ const els = magnets.map((m, i) => {
 top = magnets.length;
 door.append(...els.sort((a, b) => a[0] - b[0]).map(([, el]) => el));
 
+// Someone moved a word this visitor placed. Point at where it went.
+function stolen(update) {
+  const entry = live.get(update.id);
+  status.textContent = `Someone took “${update.text}” from you.`;
+  if (!entry) return;
+  entry.el.classList.remove("stolen");
+  void entry.el.offsetWidth;
+  entry.el.classList.add("stolen");
+}
+
 function apply(update) {
+  if (update.type === "taken") return stolen(update);
   const entry = live.get(update.id);
   if (!entry) return;
   const { el, m } = entry;
@@ -196,7 +207,15 @@ function apply(update) {
   if (!m.held && status.textContent.includes(`“${m.text}”`)) status.textContent = "";
 }
 
-// Every move, pick-up and let-go anyone makes arrives here. EventSource
+// Words taken while this visitor was away are told once, then cleared.
+const { taken } = await (await fetch("/api/taken")).json();
+if (taken.length > 0) {
+  const list = [...new Set(taken)].map((t) => `“${t}”`).join(", ");
+  status.textContent = `While you were away, someone took ${list}.`;
+  post("/api/taken/seen");
+}
+
+// Every move, pick-up, let-go and theft notice arrives here. EventSource
 // reconnects by itself after a drop; whatever changed while it was away is
 // caught up by re-reading the whole door.
 let opened = false;

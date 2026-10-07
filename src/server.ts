@@ -14,6 +14,7 @@ type Magnet = { id: string; text: string; x: number; y: number; movedBy: string 
 const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const FILE = join(DATA_DIR, "fridge.json");
+const TAKEN_FILE = join(DATA_DIR, "taken.json");
 const ROOT = join(import.meta.dirname, "..");
 
 function seed(): Magnet[] {
@@ -50,6 +51,19 @@ function save(): void {
 }
 
 const magnets = load();
+
+// Theft notices that are waiting for someone who wasn't on the page when their
+// word was taken: visitor -> the words, newest last, at most 20 each. Only the
+// word is kept, never who took it, for the 500 most recently robbed visitors.
+const taken: Map<string, string[]> = new Map(
+  existsSync(TAKEN_FILE) ? Object.entries(JSON.parse(readFileSync(TAKEN_FILE, "utf8"))) : [],
+);
+
+function saveTaken(): void {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(`${TAKEN_FILE}.tmp`, JSON.stringify(Object.fromEntries(taken)));
+  renameSync(`${TAKEN_FILE}.tmp`, TAKEN_FILE);
+}
 
 const visitor = (req: IncomingMessage): string | null =>
   req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
@@ -170,6 +184,13 @@ const server = createServer(async (req, res) => {
     });
     return;
   }
+  if (req.method === "GET" && url.pathname === "/api/taken") {
+    return json(res, 200, { taken: taken.get(who) ?? [] });
+  }
+  if (req.method === "POST" && url.pathname === "/api/taken/seen") {
+    if (taken.delete(who)) saveTaken();
+    return json(res, 200, { taken: [] });
+  }
   if (req.method === "GET" && url.pathname === "/api/magnets") {
     return json(res, 200, { magnets: magnets.map((m) => view(m, who)) });
   }
@@ -210,12 +231,28 @@ const server = createServer(async (req, res) => {
     }
     // The magnet moved last goes to the end of the list, which every client
     // draws last, so it sits on top of anything it now overlaps.
+    const from = magnet.movedBy;
     Object.assign(magnet, { x, y, movedBy: who });
     magnets.splice(magnets.indexOf(magnet), 1);
     magnets.push(magnet);
     save();
     holds.delete(magnet.id);
     broadcast(magnet);
+    // Someone else's word was taken: tell them now if they're on the page, or
+    // keep it for when they come back.
+    if (from !== null && from !== who) {
+      const notice = { type: "taken", id: magnet.id, text: magnet.text };
+      if ([...listeners].some((l) => l.who === from)) emit(notice, (w) => w === from);
+      else {
+        const words = [...(taken.get(from) ?? []), magnet.text].slice(-20);
+        taken.delete(from);
+        taken.set(from, words);
+        // Most visitors never come back, so only the 500 most recently robbed
+        // are kept (a Map iterates oldest first).
+        while (taken.size > 500) taken.delete(taken.keys().next().value!);
+        saveTaken();
+      }
+    }
     return json(res, 200, { magnet: view(magnet, who), onTop: magnets.at(-1) === magnet });
   }
 

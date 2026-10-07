@@ -289,6 +289,15 @@ a {
   transform: rotate(var(--tilt, 0deg)) translateY(-0.3cqw);
 }
 
+/* one of this visitor's words was just taken; show where it went */
+.magnet.stolen {
+  animation: stolen 1.6s;
+}
+
+@keyframes stolen {
+  0%, 40% { box-shadow: 0 0 0 3px var(--mine), 0 0 1.6cqw 0.4cqw var(--mine); }
+}
+
 .magnet.refused {
   animation: refused 0.3s;
 }
@@ -302,6 +311,11 @@ a {
   .magnet.refused {
     animation: none;
   }
+
+  .magnet.stolen {
+    animation: none;
+    outline: 3px dashed var(--mine);
+  }
 }
 
 .magnet:focus-visible {
@@ -310,9 +324,27 @@ a {
   z-index: 99999;
 }
 
+/* Notices sit over the bottom of the screen, since the fridge is taller than
+   most windows and a line below it would never be seen. Empty, it vanishes. */
 #status {
-  min-height: 1.5em;
-  color: var(--mine);
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 200000;
+  translate: -50% 0;
+  max-width: min(32rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  color: var(--tile-ink);
+  background: var(--tile);
+  border-left: 4px solid var(--mine);
+  box-shadow: 0 0.5rem 1.5rem var(--shadow);
+  rotate: -1deg;
+}
+
+#status:empty {
+  display: none;
 }
 
 .visually-hidden {
