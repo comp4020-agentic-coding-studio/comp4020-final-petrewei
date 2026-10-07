@@ -1,4 +1,5 @@
 import { describe, expect, inject, it } from "vitest";
+import { live } from "./live.ts";
 
 // The fridge's contract, against the running app: a fixed vocabulary where
 // each word exists once, moves that persist, and a visitor who can find what
@@ -55,7 +56,8 @@ describe("the vocabulary", () => {
   });
 });
 
-describe("a move", () => {
+// The refusals above change nothing, so they run everywhere; a move does.
+describe.skipIf(live)("a move", () => {
   it("is still there when the visitor comes back, marked as theirs and nobody else's", async () => {
     const me = await visitor();
     const other = await visitor();

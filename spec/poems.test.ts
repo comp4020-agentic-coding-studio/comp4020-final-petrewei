@@ -1,13 +1,11 @@
 import { describe, expect, inject, it } from "vitest";
 import { MIN_WORDS, width } from "../src/lines.ts";
+import { live } from "./live.ts";
 
 // ADR 0003, an archive of broken lines: a line of moved words that stood for
 // long enough is kept when it breaks, newest first.
 const baseUrl = inject("baseUrl");
 
-// Writing a line puts a poem in the public archive, so those tests run only
-// against a throwaway server (locally and in CI), never against the live door.
-const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
 type Magnet = { id: string; text: string; x: number; y: number };
 type Poem = { text: string; at: string };

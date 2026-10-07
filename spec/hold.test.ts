@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, inject, it } from "vitest";
+import { live } from "./live.ts";
 
 // ADR 0002, one hand at a time: while one visitor holds a word, nobody else
 // can grab or move it, and every open page is told it is held. Letting go,
@@ -37,7 +38,7 @@ afterEach(async () => {
   holder = "";
 });
 
-describe("one hand at a time", () => {
+describe.skipIf(live)("one hand at a time", () => {
   it("refuses a second grab and a move by anyone but the holder", async () => {
     const a = (holder = await visitor());
     const b = await visitor();

@@ -19,7 +19,6 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **A theft notice names the word, never who took it.** It goes live to the robbed visitor's open pages, or waits in `/data/taken.json` until they come back; `spec/taken.test.ts` checks both.
 - **Notices go in `#status`, which floats over the bottom of the screen.** The fridge is taller than most windows, so anything placed below it is never seen.
 - **Lines and the archive follow `docs/adr/0003-an-archive-of-broken-lines.md`.** Keep `width()` in `src/lines.ts` fitted to the magnets as rendered; a change to their font or padding needs it refitted.
-- **Tests that write to the archive skip the live door** (`it.skipIf(live)`), since a test poem there is public.
 - **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
 
 ## 3 Working Practices
@@ -37,7 +36,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 ## 5 Sensors and Checks
 
 - **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
-- **Spec tests put back the position of what they move.** They run against the live door, where real people's lines are; the moved word still ends up on top and unowned, which the API can't undo.
+- **Tests that change the door skip the live one** (`live` from `spec/live.ts`). Real visitors share it, so a test's move, hold, theft notice or poem would land on them; CI runs those tests against a throwaway copy, and only read-only checks run live.
 - **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
 
 ## 6 Git and CI

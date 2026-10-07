@@ -1,4 +1,5 @@
 import { expect, inject, it } from "vitest";
+import { live } from "./live.ts";
 
 // The brief's real-time requirement, against the running app: a move one
 // visitor makes reaches another visitor's open session within about a second,
@@ -45,7 +46,19 @@ async function nextEvent(
   }
 }
 
-it("sends a move to another open session within a second", async () => {
+// Read-only, so it runs against the live door too: the stream is open.
+it("streams events to an open page", async () => {
+  const page = new AbortController();
+  const res = await fetch(new URL("/api/events", baseUrl), { signal: page.signal });
+  try {
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^text\/event-stream/);
+  } finally {
+    page.abort();
+  }
+});
+
+it.skipIf(live)("sends a move to another open session within a second", async () => {
   const mover = await visitor();
   const watcher = await visitor();
   const { magnets } = (await (await fetch(new URL("/api/magnets", baseUrl))).json()) as {

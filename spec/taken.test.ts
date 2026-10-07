@@ -1,4 +1,5 @@
 import { describe, expect, inject, it } from "vitest";
+import { live } from "./live.ts";
 
 // Theft notices: when someone moves a word you placed, you're told. If you
 // have the page open the notice arrives live; if you don't, it waits for you.
@@ -52,7 +53,7 @@ async function listen(body: ReadableStream<Uint8Array>, needle: string, ms: numb
 
 const TEXT = "letter";
 
-describe("theft notices", () => {
+describe.skipIf(live)("theft notices", () => {
   it("tells you live, and only you, when someone takes a word you placed", async () => {
     const a = await visitor();
     const b = await visitor();
