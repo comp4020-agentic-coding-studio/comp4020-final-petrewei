@@ -59,6 +59,20 @@ const view = ({ movedBy, ...m }: Magnet, who: string | null) => ({
   mine: who !== null && movedBy === who,
 });
 
+// Open /api/events streams, each with its visitor, so a broadcast can tell
+// each listener whether the magnet that moved is now theirs.
+const listeners = new Set<{ res: ServerResponse; who: string }>();
+
+function broadcast(m: Magnet): void {
+  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(m, l.who))}\n\n`);
+}
+
+// Fly's proxy drops an idle connection after about a minute, so each stream
+// gets a comment line well inside that.
+setInterval(() => {
+  for (const l of listeners) l.res.write(": keep-alive\n\n");
+}, 25_000).unref();
+
 const inRange = (n: unknown): n is number => typeof n === "number" && n >= 0 && n <= 1;
 
 function send(res: ServerResponse, status: number, body: string, type: string): void {
@@ -114,6 +128,18 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && PAGES[url.pathname]) {
     return send(res, 200, ...PAGES[url.pathname]);
   }
+  if (req.method === "GET" && url.pathname === "/api/events") {
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+    });
+    res.write(": open\n\n");
+    const listener = { res, who };
+    listeners.add(listener);
+    req.on("close", () => listeners.delete(listener));
+    return;
+  }
   if (req.method === "GET" && url.pathname === "/api/magnets") {
     return json(res, 200, { magnets: magnets.map((m) => view(m, who)) });
   }
@@ -140,6 +166,7 @@ const server = createServer(async (req, res) => {
     magnets.splice(magnets.indexOf(magnet), 1);
     magnets.push(magnet);
     save();
+    broadcast(magnet);
     return json(res, 200, { magnet: view(magnet, who), onTop: magnets.at(-1) === magnet });
   }
 

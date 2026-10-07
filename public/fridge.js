@@ -9,6 +9,8 @@
 const door = document.getElementById("door");
 const status = document.getElementById("status");
 let top = 0;
+// id -> { el, m, busy }, so a move from someone else can find its magnet
+const live = new Map();
 
 function place(el, m) {
   el.style.left = `${m.x * 100}%`;
@@ -96,8 +98,14 @@ function magnet(m) {
     place(el, m);
     el.style.setProperty("--z", ++top);
     clearTimeout(timer);
-    timer = setTimeout(() => save(el, m), 400);
+    timer = setTimeout(() => {
+      timer = null;
+      save(el, m);
+    }, 400);
   });
+  // A word this visitor is dragging or arrow-keying is theirs on screen until
+  // they let go; a move from someone else in the meantime is not drawn.
+  live.set(m.id, { el, m, busy: () => start !== null || timer != null });
   return el;
 }
 
@@ -109,3 +117,25 @@ const els = magnets.map((m, i) => {
 });
 top = magnets.length;
 door.append(...els.sort((a, b) => a[0] - b[0]).map(([, el]) => el));
+
+function apply(update) {
+  const entry = live.get(update.id);
+  if (!entry || entry.busy()) return;
+  Object.assign(entry.m, { x: update.x, y: update.y, mine: update.mine });
+  place(entry.el, entry.m);
+  entry.el.style.setProperty("--z", ++top);
+}
+
+// Every move anyone makes arrives here, including this visitor's own (which
+// changes nothing). EventSource reconnects by itself after a drop; moves made
+// while it was away are caught up by re-reading the whole door.
+let opened = false;
+const events = new EventSource("/api/events");
+events.addEventListener("open", async () => {
+  if (opened) {
+    const { magnets: now } = await (await fetch("/api/magnets")).json();
+    now.forEach(apply);
+  }
+  opened = true;
+});
+events.addEventListener("message", (e) => apply(JSON.parse(e.data)));

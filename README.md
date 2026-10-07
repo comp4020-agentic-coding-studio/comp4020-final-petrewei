@@ -24,6 +24,7 @@ Checked by `spec/fridge.test.ts` against the running app:
 - the server accepts only a position, so nobody can add or rename a word
 - a move persists, and only the visitor who made it sees it marked as theirs
 - the word moved last is drawn on top
+- a move reaches every other open session within a second, with no reload
 
 Judged by people, at the crit and the showcase:
 
@@ -39,4 +40,4 @@ Judged by people, at the crit and the showcase:
 
 ## Not built yet
 
-Real-time updates come next (crit 9); for now you see other people's moves when you reload. Not yet decided: what happens when two people grab the same word at once, and whether a finished poem can be protected.
+Not yet decided: what happens when two people grab the same word at once (for now, whoever lets go last wins), and whether a finished poem can be protected.

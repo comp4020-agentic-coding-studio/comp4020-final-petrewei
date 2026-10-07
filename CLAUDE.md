@@ -14,6 +14,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **A magnet's position is a fraction of the door, 0 to 1.** Pixel positions would make an arrangement depend on the screen it was made on.
 - **State is `/data/fridge.json`, written by the server alone, via a temporary file and a rename.** The reasons are in `docs/adr/0001-plain-node-and-a-json-file.md`.
 - **The visitor cookie never leaves the server.** Clients learn only whether a magnet is theirs (`mine`), never who moved it.
+- **Keep `/api/events` streaming every move to every open page.** It is how the app meets the brief's real-time requirement, and `spec/realtime.test.ts` holds it to under a second.
 - **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
 
 ## 3 Working Practices
