@@ -28,4 +28,4 @@ After crit 8 I also said the app was too simple. Of the agent's six proposals I 
 
 ## 6 What Is Still Open
 
-The archive's thresholds, three words and fifteen seconds, are the agent's proposal and still open. Tests that write a poem now skip the live door, but the older tests still move words there, leaving traces on a public door. The README cites the brief and the week 8 lecture; the small-web writing the brief points to is not yet read, so my position on it is not here yet. Crit 10 adds server-side logging.
+The archive's thresholds, three words and fifteen seconds, are the agent's proposal and still open. Every test that changes the door now skips the live one and runs only against CI's throwaway copy, leaving read-only checks live ([`b5901ea`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/b5901ea)). The README cites the brief and the week 8 lecture; the small-web writing the brief points to is not yet read, so my position on it is not here yet. Crit 10 adds server-side logging.
