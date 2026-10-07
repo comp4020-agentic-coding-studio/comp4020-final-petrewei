@@ -26,6 +26,10 @@ I asked for the pages to be beautified, and [`976e919`](https://github.com/comp4
 
 After crit 8 I said the app was too simple and asked for ideas. The agent proposed six, from live cursors to timed slam rounds, and recommended three that sharpen the rule that each word exists once rather than adding new claims: live hands, notices when someone takes your word, and an archive of broken poems. I told it to start. It began with the part that needed no decision from me: [`39fc956`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/39fc956) streams every move to every open page over server-sent events, which fit because one Node process already owns all the state. `spec/realtime.test.ts` was written first and failed with a 404 before the change, and it now holds the brief's one-second bound; in two browser sessions a drag reached the other one 13ms after the drop.
 
-## 7 What Comes Next
+## 7 One Hand at a Time
 
-The crit 9 decision is what happens when two people grab the same word. For now the last to let go wins, which is a default rather than a decision.
+The crit 9 decision was what happens when two people grab the same word. The agent set out three options without choosing: last to let go wins (the default the real-time layer had left), one hand at a time, and snatching a word out of someone's hand. I chose one hand at a time, because it extends the rule that each word exists once to how a real magnet behaves: only one person can hold it. [ADR 0002](docs/adr/0002-one-hand-at-a-time.md) records the options and what the choice costs, mainly that a hold must end even when its holder vanishes. [`f8464fb`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/f8464fb) implements it test-first: `spec/hold.test.ts` failed before the grab route existed, and covers each refusal and each way a hold ends, including the holder's tab closing. The first two-browser check found that the "someone else is holding" notice stayed after the word was dropped, because a drop arrives as a move rather than a release; that was fixed before the commit.
+
+## 8 What Comes Next
+
+Theft notices, telling you when someone takes a word from your line, and an archive of broken poems. Crit 10 adds server-side logging.
