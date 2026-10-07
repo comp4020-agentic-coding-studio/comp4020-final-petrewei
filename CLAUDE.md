@@ -35,6 +35,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **Return the evidence itself:** a screenshot, response body, DOM state or exit code.
 - **Verify the deployed app after every deploy.** Move a word on `https://comp4020-final-petrewei.fly.dev/`, reload, and check it is still there and outlined.
 - **Run `pnpm check` against the live app as well as locally:** `APP_URL=https://comp4020-final-petrewei.fly.dev pnpm check`.
+- **Close the Playwright browser after a round of checks, and delete its screenshots, snapshots and logs.** They collect in `../.playwright-mcp/` outside the repo, and one session left 48 screenshots there.
 
 ## 5 Sensors and Checks
 
