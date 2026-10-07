@@ -1,19 +1,50 @@
+/* Colours are tokens so dark mode is one redefinition. The fridge is a white
+   fridge in both modes, dimmed in the dark; word tiles always keep dark ink. */
 :root {
+  color-scheme: light dark;
   --ink: #1d1d1b;
   --muted: #5b5a55;
   --wall: #efe9dc;
   --wall-line: #e4dccb;
+  --paper: #fffdf8;
+  --code: #f1ece0;
+  --link: #1f5c4d;
+  --focus: #1d4ed8;
+  --shadow: rgb(60 50 30 / 0.45);
   --enamel: #fbfbf9;
+  --enamel-mid: #eceeea;
   --enamel-deep: #e9eae6;
   --enamel-edge: #c9cbc5;
   --tile: #fffefa;
+  --tile-ink: #1d1d1b;
+  --tile-edge: #d6d1c4;
   --mine: #c2410c;
-  --link: #1f5c4d;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--ink);
   background:
     linear-gradient(var(--wall-line) 1px, transparent 1px) 0 0 / 100% 3rem,
     var(--wall);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ece8df;
+    --muted: #aaa59a;
+    --wall: #1c1b19;
+    --wall-line: #27251f;
+    --paper: #24221e;
+    --code: #33302a;
+    --link: #8fd3bf;
+    --focus: #93b4ff;
+    --shadow: rgb(0 0 0 / 0.7);
+    --enamel: #d9dbd6;
+    --enamel-mid: #cdcfca;
+    --enamel-deep: #c2c4bf;
+    --enamel-edge: #9a9d97;
+    --tile: #f1eee6;
+    --tile-edge: #b9b4a8;
+    --mine: #ea580c;
+  }
 }
 
 body {
@@ -76,9 +107,9 @@ kbd {
   font: inherit;
   font-size: 0.85em;
   text-align: center;
-  color: var(--ink);
+  color: var(--tile-ink);
   background: var(--tile);
-  border: 1px solid #d6d1c4;
+  border: 1px solid var(--tile-edge);
   border-bottom-width: 2px;
   border-radius: 3px;
 }
@@ -86,7 +117,7 @@ kbd {
 .sample {
   margin: 0 0.25em 0 3px;
   padding: 0 0.35em;
-  color: var(--ink);
+  color: var(--tile-ink);
   background: var(--tile);
   outline: 2px solid var(--mine);
   outline-offset: 1px;
@@ -117,7 +148,7 @@ a {
   border-radius: 2.4rem 2.4rem 0.8rem 0.8rem;
   box-shadow:
     inset 0 2px 0 rgb(255 255 255 / 0.5),
-    0 1.5rem 2.5rem -1rem rgb(60 50 30 / 0.45);
+    0 1.5rem 2.5rem -1rem var(--shadow);
 }
 
 .freezer,
@@ -125,7 +156,7 @@ a {
   position: relative;
   background:
     linear-gradient(100deg, rgb(255 255 255 / 0.45), transparent 28%),
-    linear-gradient(175deg, var(--enamel), #eceeea);
+    linear-gradient(175deg, var(--enamel), var(--enamel-mid));
   border: 1px solid var(--enamel-edge);
   box-shadow:
     inset 0 2px 0 rgb(255 255 255 / 0.65),
@@ -211,7 +242,7 @@ a {
   font: inherit;
   font-size: 1.8cqw;
   line-height: 1.15;
-  color: var(--ink);
+  color: var(--tile-ink);
   background: var(--tile);
   border: 0;
   border-radius: 1px;
@@ -247,7 +278,7 @@ a {
 }
 
 .magnet:focus-visible {
-  outline: 3px solid #1d4ed8;
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
   z-index: 99999;
 }
@@ -271,9 +302,9 @@ body.readme main {
   margin: 0 auto;
   padding: 2rem clamp(1.25rem, 5vw, 3rem);
   line-height: 1.65;
-  background: #fffdf8;
+  background: var(--paper);
   border: 1px solid var(--wall-line);
-  box-shadow: 0 0.5rem 1.5rem rgb(60 50 30 / 0.12);
+  box-shadow: 0 0.5rem 1.5rem var(--shadow);
 }
 
 body.readme h1 {
@@ -294,7 +325,7 @@ body.readme li {
 
 body.readme code {
   font-size: 0.9em;
-  background: #f1ece0;
+  background: var(--code);
   padding: 0.05em 0.3em;
   border-radius: 3px;
 }
