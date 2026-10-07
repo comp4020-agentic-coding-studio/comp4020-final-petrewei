@@ -11,6 +11,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 ## 2 App and Data
 
 - **The vocabulary lives only in `src/words.ts`, and each word appears once.** The server never accepts text from a client; `spec/fridge.test.ts` checks both.
+- **Append new words to the end of the vocabulary, never insert.** A magnet's id is its index, and the saved door keys positions by id (`docs/adr/0004-a-vocabulary-of-about-160-words.md`).
 - **A magnet's position is a fraction of the door, 0 to 1.** Pixel positions would make an arrangement depend on the screen it was made on.
 - **State is `/data/fridge.json`, written by the server alone, via a temporary file and a rename.** The reasons are in `docs/adr/0001-plain-node-and-a-json-file.md`.
 - **The visitor cookie never leaves the server.** Clients learn only whether a magnet is theirs (`mine`), never who moved it.

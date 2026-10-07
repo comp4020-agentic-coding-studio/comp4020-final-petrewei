@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
-import { lines, text } from "./lines.ts";
+import { lines, text, width } from "./lines.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { VOCABULARY } from "./words.ts";
 
@@ -19,14 +19,31 @@ const TAKEN_FILE = join(DATA_DIR, "taken.json");
 const POEMS_FILE = join(DATA_DIR, "poems.json");
 const ROOT = join(import.meta.dirname, "..");
 
+// The starting heap: words packed left to right by their estimated width,
+// rows of 0.044, ending at the bottom of the door, so no magnet starts under
+// another and the space above is clear for writing. The gap allows for the
+// width estimate running short by up to 0.66em (src/lines.ts).
+const GAP = 0.016;
+const ROW = 0.044;
+
 function seed(): Magnet[] {
-  // Rows along the bottom half of the door, nine to a row, so no magnet
-  // starts underneath another and the top half is clear for writing.
+  let x = 0.01;
+  let row = 0;
+  const at = VOCABULARY.map((text) => {
+    if (x + width(text) > 0.99) {
+      x = 0.01;
+      row++;
+    }
+    const spot = { x, row };
+    x += width(text) + GAP;
+    return spot;
+  });
+  const top = 0.985 - (row + 1) * ROW;
   return VOCABULARY.map((text, i) => ({
     id: `m${i}`,
     text,
-    x: 0.01 + (i % 9) * 0.11,
-    y: 0.46 + Math.floor(i / 9) * 0.044,
+    x: +at[i].x.toFixed(4),
+    y: +(top + at[i].row * ROW).toFixed(4),
     movedBy: null,
   }));
 }
@@ -36,12 +53,14 @@ function load(): Magnet[] {
   const saved = JSON.parse(readFileSync(FILE, "utf8")) as Magnet[];
   // The vocabulary is fixed in code: a saved magnet keeps its place and its
   // stacking order (last moved is last, so on top), but its text always comes
-  // from VOCABULARY. A word added to the vocabulary since starts at its seed.
+  // from VOCABULARY. Words nobody has moved, and words added since, take
+  // today's seed, so the heap always matches the current layout.
   const fresh = new Map(seed().map((m) => [m.id, m]));
   const kept = saved.flatMap((s) => {
     const m = fresh.get(s.id);
     fresh.delete(s.id);
-    return m ? [{ ...m, x: s.x, y: s.y, movedBy: s.movedBy }] : [];
+    if (!m) return [];
+    return s.movedBy === null ? [m] : [{ ...m, x: s.x, y: s.y, movedBy: s.movedBy }];
   });
   return [...fresh.values(), ...kept];
 }

@@ -22,4 +22,12 @@ export const VOCABULARY: readonly string[] = [
   "not", "to", "for", "like", "almost", "never", "always", "still", "again", "here",
   // endings, as on a real fridge
   "-s", "-ing", "-ed", "-ly",
+  // ADR 0004: the gaps in the first draft. Appended, never inserted: a
+  // magnet's id is its index, and the saved door keys positions by id.
+  "me", "it", "he", "she", "her", "him", "us", "this", "that", "all",
+  "be", "have", "do", "go", "come", "see", "know", "want", "love", "say",
+  "make", "tell", "give", "no", "but", "so", "if", "or", "what", "who",
+  "when", "where", "why", "there", "up", "down", "away", "too",
+  "heart", "sky", "sun", "fire", "water", "star", "hand", "eye", "time",
+  "dark", "old", "new", "sweet", "last",
 ];

@@ -34,7 +34,9 @@ const move = (id: string, body: unknown, cookie?: string): Promise<Response> =>
 describe("the vocabulary", () => {
   it("has every word exactly once", async () => {
     const texts = (await magnets()).map((m) => m.text);
-    expect(texts.length).toBeGreaterThan(50);
+    // ADR 0004: about 160, enough for ordinary lines, few enough to run out
+    expect(texts.length).toBeGreaterThanOrEqual(150);
+    expect(texts.length).toBeLessThanOrEqual(170);
     expect(new Set(texts).size).toBe(texts.length);
   });
 

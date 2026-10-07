@@ -11,7 +11,7 @@ A room of people using it at once: a crit group of about a dozen, or the capston
 ## What good means here
 
 - **The words are shared and scarce.** Each word is one magnet. If you want "night" and it's in someone's line, you take it from them or write around it. Unlike a shared canvas or a chat, this makes every other person on the door matter to what you can write.
-- **Nobody can type.** A fixed vocabulary of about a hundred words lets strangers share the door without moderation; the constraint is the point.
+- **Nobody can type.** A fixed vocabulary of about 160 words ([ADR 0004](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0004-a-vocabulary-of-about-160-words.md)) lets strangers share the door unmoderated; the constraint is the point.
 - **One hand at a time.** While someone holds a word, everyone else sees it glow and can't take it, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
 - **Your trace stays, and so does its loss.** Your words stay where you left them, outlined as yours. Take one, and its owner is told, but never by whom.
 - **Nothing written is lost.** A line that stood and was broken goes to the archive under the fridge ([ADR 0003](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0003-an-archive-of-broken-lines.md)), so taking a word costs a line but not the poem.
@@ -43,6 +43,6 @@ Judged by people, at the crit and the showcase:
 - The week 8 lecture: good means serving people well, not counting features, and the README, `CLAUDE.md` and `spec/` should agree.
 - About twenty-five candidate ideas, compared against how the final project is marked. I ruled out a shared sequencer as a repeat of my crit 4 theremin, and chose the fridge over an island-mapping game because it is about words only one person can hold.
 
-## Not built yet
+## Left out
 
-Not yet decided: whether a poem can be protected on the door.
+Protecting a standing poem on the door. Taking stays free; the archive keeps what breaks.
