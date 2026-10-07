@@ -20,6 +20,8 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **Notices go in `#status`, which floats over the bottom of the screen.** The fridge is taller than most windows, so anything placed below it is never seen.
 - **Lines and the archive follow `docs/adr/0003-an-archive-of-broken-lines.md`.** Keep `width()` in `src/lines.ts` fitted to the magnets as rendered; a change to their font or padding needs it refitted.
 - **Every visitor action goes through `log()` in `src/server.ts`, one JSON line each.** Visitors appear as `short()` hashes, never the cookie; `/stats` and `flyctl logs` read the same lines, and `spec/stats.test.ts` checks it.
+- **Marks on the door use the `--door-*` colours, which dark mode never changes.** The fridge stays light in dark mode, and these are each at least 3.3:1 on both door shades.
+- **A word's `aria-label` carries what its outline and glow show**, and changes to the focused word are spoken through `#aloud`; announcing every move would drown a screen reader.
 - **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
 
 ## 3 Working Practices

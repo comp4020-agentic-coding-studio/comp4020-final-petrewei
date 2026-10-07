@@ -22,7 +22,16 @@ function place(el, m) {
   el.classList.toggle("mine", m.mine);
   el.classList.toggle("taken", m.held);
   el.setAttribute("aria-disabled", m.held ? "true" : "false");
+  // what the outline and the glow say, for a screen reader
+  el.setAttribute("aria-label", `${m.text}${m.mine ? ", yours" : ""}${m.held ? ", someone is holding it" : ""}`);
 }
+
+// A screen reader hears nothing of other people's moves unless told, and
+// hearing every one would drown it out; so only the focused word is spoken.
+const aloud = document.getElementById("aloud");
+const say = (el, text) => {
+  if (el === document.activeElement) aloud.textContent = text;
+};
 
 // Keep the whole word on the door: its top-left corner can go no further than
 // the door's size minus its own.
@@ -234,10 +243,13 @@ function apply(update) {
   if (update.type === "held" || update.type === "released") {
     m.held = update.type === "held";
     place(el, m);
+    say(el, m.held ? `Someone picked up “${m.text}”.` : `“${m.text}” is free.`);
   } else if (!entry.busy()) {
+    const moved = update.x !== m.x || update.y !== m.y;
     Object.assign(m, { x: update.x, y: update.y, mine: update.mine, held: update.held });
     place(el, m);
     el.style.setProperty("--z", ++top);
+    if (moved && !m.mine) say(el, `Someone moved “${m.text}”.`);
   }
   // a dropped word arrives as a move, so either way a free word clears its notice
   if (!m.held && status.textContent.includes(`“${m.text}”`)) status.textContent = "";

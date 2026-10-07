@@ -19,7 +19,11 @@
   --tile-ink: #1d1d1b;
   --tile-edge: #d6d1c4;
   --mine: #c2410c;
-  --taken: #2563eb;
+  /* Marks drawn on the door. The fridge stays light in dark mode, so these
+     keep their light-mode colours: each is at least 3.3:1 on both door shades. */
+  --door-mine: #c2410c;
+  --door-focus: #1d4ed8;
+  --door-taken: #7c3aed;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--ink);
   background:
@@ -45,7 +49,6 @@
     --tile: #f1eee6;
     --tile-edge: #b9b4a8;
     --mine: #ea580c;
-    --taken: #60a5fa;
   }
 }
 
@@ -268,7 +271,7 @@ a {
 }
 
 .magnet.mine {
-  outline: 2px solid var(--mine);
+  outline: 2px solid var(--door-mine);
   outline-offset: 1px;
 }
 
@@ -283,8 +286,8 @@ a {
 .magnet.taken {
   cursor: not-allowed;
   box-shadow:
-    0 0 0 2px var(--taken),
-    0 0 1.2cqw 0.2cqw var(--taken),
+    0 0 0 2px var(--door-taken),
+    0 0 1.2cqw 0.2cqw var(--door-taken),
     0 0.6cqw 1.2cqw rgb(0 0 0 / 0.25);
   transform: rotate(var(--tilt, 0deg)) translateY(-0.3cqw);
 }
@@ -295,7 +298,7 @@ a {
 }
 
 @keyframes stolen {
-  0%, 40% { box-shadow: 0 0 0 3px var(--mine), 0 0 1.6cqw 0.4cqw var(--mine); }
+  0%, 40% { box-shadow: 0 0 0 3px var(--door-mine), 0 0 1.6cqw 0.4cqw var(--door-mine); }
 }
 
 .magnet.refused {
@@ -314,12 +317,12 @@ a {
 
   .magnet.stolen {
     animation: none;
-    outline: 3px dashed var(--mine);
+    outline: 3px dashed var(--door-mine);
   }
 }
 
 .magnet:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--door-focus);
   outline-offset: 2px;
   z-index: 99999;
 }
