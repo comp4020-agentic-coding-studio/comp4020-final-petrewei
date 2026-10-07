@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -93,6 +93,7 @@ function survey(): void {
     const poem = { text: s.text, at: new Date(now).toISOString() };
     poems.push(poem);
     poems.splice(0, poems.length - 200);
+    log(null, "poem", { text: s.text, stood: Math.round((now - s.since) / 1000) });
     emit({ type: "poem", ...poem });
     archived = true;
   }
@@ -114,6 +115,22 @@ function saveTaken(): void {
 
 const visitor = (req: IncomingMessage): string | null =>
   req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
+
+// Crit 10: one structured line per thing a visitor does, to stdout (so
+// `flyctl logs` tails it) and to the last 200 kept for /stats. A visitor is a
+// short hash of their cookie: stable enough to follow one person through the
+// log, and useless for taking over their session.
+type Line = { t: string; who: string; ev: string } & Record<string, unknown>;
+const recent: Line[] = [];
+const short = (who: string): string => createHash("sha256").update(who).digest("hex").slice(0, 6);
+const word = (id: string): string => magnets.find((m) => m.id === id)?.text ?? id;
+
+function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
+  const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ev, ...fields };
+  console.log(JSON.stringify(line));
+  recent.push(line);
+  recent.splice(0, recent.length - 200);
+}
 
 // ADR 0002, one hand at a time: who is holding each word, and when that hold
 // lapses if nothing renews it. Holds live in memory only; a restart frees them.
@@ -150,8 +167,16 @@ function release(id: string): void {
 
 // A lapsed hold is freed out loud, so pages stop showing it as taken.
 setInterval(() => {
-  for (const [id, h] of holds) if (h.until < Date.now()) release(id);
+  for (const [id, h] of holds) {
+    if (h.until >= Date.now()) continue;
+    log(h.who, "lapse", { word: word(id) });
+    release(id);
+  }
 }, 1_000).unref();
+
+// Distinct visitors with the fridge open; every page is told when it changes.
+const here = (): number => new Set([...listeners].map((l) => l.who)).size;
+const presence = (): void => emit({ type: "presence", here: here() });
 
 // Fly's proxy drops an idle connection after about a minute, so each stream
 // gets a comment line well inside that.
@@ -199,6 +224,8 @@ const PAGES: Record<string, [string, string]> = {
   "/fridge.js": [read("public/fridge.js"), "text/javascript; charset=utf-8"],
   "/fridge.css": [read("public/fridge.css"), "text/css; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
+  "/stats": [read("public/stats.html"), HTML],
+  "/stats.js": [read("public/stats.js"), "text/javascript; charset=utf-8"],
   "/readme/": [readme, HTML],
   "/readme": [readme, HTML],
 };
@@ -222,14 +249,29 @@ const server = createServer(async (req, res) => {
     });
     res.write(": open\n\n");
     const listener = { res, who };
+    const already = [...listeners].some((l) => l.who === who);
     listeners.add(listener);
+    if (!already) {
+      log(who, "join", { here: here() });
+      presence();
+    }
     req.on("close", () => {
       listeners.delete(listener);
       // the holder's last open page is gone, so nobody is holding their words
       if ([...listeners].some((l) => l.who === listener.who)) return;
-      for (const [id, h] of holds) if (h.who === listener.who) release(id);
+      for (const [id, h] of holds) {
+        if (h.who !== listener.who) continue;
+        log(listener.who, "drop", { word: word(id) });
+        release(id);
+      }
+      log(listener.who, "leave", { here: here() });
+      presence();
     });
     return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/stats") {
+    const holding = magnets.filter((m) => holder(m.id) !== null).length;
+    return json(res, 200, { here: here(), holding, recent: recent.slice(-100).toReversed() });
   }
   if (req.method === "GET" && url.pathname === "/api/poems") {
     return json(res, 200, { poems: poems.toReversed(), standsFor: STAND_MS });
@@ -238,7 +280,12 @@ const server = createServer(async (req, res) => {
     return json(res, 200, { taken: taken.get(who) ?? [] });
   }
   if (req.method === "POST" && url.pathname === "/api/taken/seen") {
-    if (taken.delete(who)) saveTaken();
+    const words = taken.get(who);
+    if (words) {
+      log(who, "seen", { words });
+      taken.delete(who);
+      saveTaken();
+    }
     return json(res, 200, { taken: [] });
   }
   if (req.method === "GET" && url.pathname === "/api/magnets") {
@@ -250,14 +297,21 @@ const server = createServer(async (req, res) => {
     const [, id, action] = hand;
     if (!magnets.some((m) => m.id === id)) return json(res, 404, { error: "no such magnet" });
     const by = holder(id);
-    if (by !== null && by !== who) return json(res, 409, { error: "someone else is holding that word" });
+    if (by !== null && by !== who) {
+      log(who, "refused", { word: word(id), tried: action, holder: short(by) });
+      return json(res, 409, { error: "someone else is holding that word" });
+    }
     if (action === "release") {
+      if (by === who) log(who, "release", { word: word(id) });
       release(id);
       return json(res, 200, { held: false });
     }
     // grabbing again renews the hold, which is how a long drag keeps it
     holds.set(id, { who, until: Date.now() + HOLD_MS });
-    if (by === null) emit({ type: "held", id }, (w) => w !== who);
+    if (by === null) {
+      log(who, "grab", { word: word(id) });
+      emit({ type: "held", id }, (w) => w !== who);
+    }
     return json(res, 200, { held: true });
   }
 
@@ -272,11 +326,15 @@ const server = createServer(async (req, res) => {
       return json(res, 400, { error: "send JSON {x, y}" });
     }
     const by = holder(magnet.id);
-    if (by !== null && by !== who) return json(res, 409, { error: "someone else is holding that word" });
+    if (by !== null && by !== who) {
+      log(who, "refused", { word: magnet.text, tried: "move", holder: short(by) });
+      return json(res, 409, { error: "someone else is holding that word" });
+    }
     // Only a position can change. Anything else in the body, text especially,
     // is refused rather than ignored, so a client can't think it renamed a word.
     const { x, y } = (input ?? {}) as { x: unknown; y: unknown };
     if (Object.keys(input ?? {}).length !== 2 || !inRange(x) || !inRange(y)) {
+      log(who, "rejected", { word: magnet.text });
       return json(res, 400, { error: "send exactly {x, y}, each between 0 and 1" });
     }
     // The magnet moved last goes to the end of the list, which every client
@@ -287,6 +345,8 @@ const server = createServer(async (req, res) => {
     magnets.push(magnet);
     save();
     holds.delete(magnet.id);
+    const took = from !== null && from !== who ? { from: short(from) } : {};
+    log(who, "move", { word: magnet.text, x: +x.toFixed(3), y: +y.toFixed(3), ...took });
     broadcast(magnet);
     survey();
     // Someone else's word was taken: tell them now if they're on the page, or

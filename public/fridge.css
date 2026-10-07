@@ -448,3 +448,63 @@ body.readme code {
   padding: 0.05em 0.3em;
   border-radius: 3px;
 }
+
+/* the visitor count in the masthead */
+.here {
+  margin-left: auto;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+/* /stats, the live view of the log */
+body.stats main {
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+.counters div {
+  padding: 0.8rem 1rem;
+  color: var(--tile-ink);
+  background: var(--tile);
+  box-shadow: 0 0.3rem 0.8rem var(--shadow);
+}
+
+.counters dt {
+  font-size: 0.85rem;
+  color: #6b6860;
+}
+
+.counters dd {
+  margin: 0.2rem 0 0;
+  font-size: 2rem;
+}
+
+#log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+#log li {
+  border-bottom: 1px solid var(--wall-line);
+}
+
+#log time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+#log code {
+  padding: 0 0.3em;
+  background: var(--code);
+  border-radius: 3px;
+}

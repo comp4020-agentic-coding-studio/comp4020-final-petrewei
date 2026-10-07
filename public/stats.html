@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fridge Poetry: the log</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/fridge.css" />
+    <script type="module" src="/stats.js"></script>
+  </head>
+  <body class="stats">
+    <header>
+      <div class="masthead">
+        <h1>The log</h1>
+        <a class="about" href="/">Back to the fridge</a>
+      </div>
+      <p class="tagline">What the fridge's visitors are doing, from the server's log. Each visitor is a short code, not a name.</p>
+    </header>
+    <main>
+      <dl class="counters">
+        <div><dt>At the fridge</dt><dd id="here">–</dd></div>
+        <div><dt>Holding a word</dt><dd id="holding">–</dd></div>
+        <div><dt>Moves, last 5 min</dt><dd id="moves">–</dd></div>
+        <div><dt>Words taken, last 5 min</dt><dd id="thefts">–</dd></div>
+      </dl>
+      <ol id="log" aria-live="off"></ol>
+    </main>
+  </body>
+</html>

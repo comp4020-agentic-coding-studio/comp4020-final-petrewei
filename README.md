@@ -2,7 +2,7 @@
 
 One fridge door, shared by everyone who visits, with one set of word magnets. Every word exists once, so the "moon" in your line is the "moon" nobody else can use, and when you come back your words are where you left them.
 
-This is a working definition of good; the `crit-*` tags keep each version.
+This is a working definition of good.
 
 ## Who it is for
 
@@ -11,7 +11,7 @@ A room of people using it at once: a crit group of about a dozen, or the capston
 ## What good means here
 
 - **The words are shared and scarce.** Each word is one magnet. If you want "night" and it's in someone's line, you take it from them or write around it. Unlike a shared canvas or a chat, this makes every other person on the door matter to what you can write.
-- **Nobody can type.** A fixed vocabulary of about a hundred words lets strangers share the door without moderation. The lost expressiveness is deliberate: the constraint is what makes fridge poetry work.
+- **Nobody can type.** A fixed vocabulary of about a hundred words lets strangers share the door without moderation; the constraint is the point.
 - **One hand at a time.** While someone holds a word, everyone else sees it glow and can't take it, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
 - **Your trace stays, and so does its loss.** Your words stay where you left them, outlined as yours. Take one, and its owner is told, but never by whom.
 - **Nothing written is lost.** A line that stood and was broken goes to the archive under the fridge ([ADR 0003](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0003-an-archive-of-broken-lines.md)), so taking a word costs a line but not the poem.
@@ -30,6 +30,7 @@ Checked in `spec/` against the running app:
 - a word someone holds can't be grabbed or moved by anyone else, and is freed when they let go or their last page closes
 - when someone takes your word you're told, and only you
 - a broken line is archived if it stood, and not if it was broken at once
+- every action is logged under a short code, never a cookie, and [`/stats`](/stats) shows it live
 
 Judged by people, at the crit and the showcase:
 
@@ -44,4 +45,4 @@ Judged by people, at the crit and the showcase:
 
 ## Not built yet
 
-Not yet decided: whether a poem can be protected on the door, now the archive keeps it.
+Not yet decided: whether a poem can be protected on the door.

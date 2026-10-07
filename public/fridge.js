@@ -49,6 +49,14 @@ function refuse(el, m) {
   status.textContent = `Someone else is holding “${m.text}”.`;
 }
 
+// Reaching for a word someone else holds: refuse at once, and still ask the
+// server, so the reach is in its log (crit 10). If it was freed in the
+// meantime the server grants it, and the hand lets go straight away.
+function reach(el, m) {
+  refuse(el, m);
+  grab(el, m).then((ok) => ok && post(`/api/magnets/${m.id}/release`));
+}
+
 // Resolves true if this visitor now holds the word.
 async function grab(el, m) {
   const res = await post(`/api/magnets/${m.id}/grab`);
@@ -93,7 +101,7 @@ function magnet(m) {
   };
 
   el.addEventListener("pointerdown", async (e) => {
-    if (m.held) return refuse(el, m);
+    if (m.held) return reach(el, m);
     const from = { px: e.clientX, py: e.clientY, x: m.x, y: m.y, box: door.getBoundingClientRect() };
     start = from;
     renewed = Date.now();
@@ -141,7 +149,7 @@ function magnet(m) {
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
     if (!d) return;
     e.preventDefault();
-    if (m.held) return refuse(el, m);
+    if (m.held) return reach(el, m);
     // the first arrow press picks the word up; the save after the last lets go
     if (timer === null) {
       const from = (keyFrom = { x: m.x, y: m.y });
@@ -193,6 +201,11 @@ function stolen(update) {
 function apply(update) {
   if (update.type === "taken") return stolen(update);
   if (update.type === "poem") return archive(update);
+  if (update.type === "presence") {
+    document.getElementById("here").textContent =
+      update.here === 1 ? "Just you at the fridge" : `${update.here} people at the fridge`;
+    return;
+  }
   const entry = live.get(update.id);
   if (!entry) return;
   const { el, m } = entry;
