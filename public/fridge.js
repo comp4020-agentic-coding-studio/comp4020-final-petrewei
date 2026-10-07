@@ -57,15 +57,29 @@ function reach(el, m) {
   grab(el, m).then((ok) => ok && post(`/api/magnets/${m.id}/release`));
 }
 
+// A refusal can arrive after newer news on a slow connection: by then the
+// stream may have said the word is free again. `heard` counts the events seen
+// for a word, so a reply only marks it held if nothing has arrived since.
 // Resolves true if this visitor now holds the word.
 async function grab(el, m) {
+  const heard = m.heard;
   const res = await post(`/api/magnets/${m.id}/grab`);
-  if (res.status === 409) refuse(el, m);
+  if (res.status === 409 && m.heard === heard) refuse(el, m);
   return res.ok;
+}
+
+// After a refused move this page's copy of the word is wrong, so take the
+// server's.
+async function resync(el, m) {
+  const { magnets: now } = await (await fetch("/api/magnets")).json();
+  const fresh = now.find((n) => n.id === m.id);
+  Object.assign(m, { x: fresh.x, y: fresh.y, mine: fresh.mine, held: fresh.held });
+  place(el, m);
 }
 
 async function save(el, m) {
   el.style.setProperty("--z", ++top);
+  const heard = m.heard;
   const res = await post(`/api/magnets/${m.id}`, { x: m.x, y: m.y });
   if (res.ok) {
     // Only ownership comes back: the position may have moved on since this
@@ -74,7 +88,8 @@ async function save(el, m) {
     place(el, m);
     status.textContent = "";
   } else if (res.status === 409) {
-    refuse(el, m);
+    if (m.heard === heard) refuse(el, m);
+    resync(el, m);
   } else {
     status.textContent = "That move didn't save. Try again.";
   }
@@ -122,7 +137,13 @@ function magnet(m) {
     place(el, m);
     if (Date.now() - renewed > RENEW_MS) {
       renewed = Date.now();
-      grab(el, m);
+      // The hold lapsed and someone took the word: this drag is over.
+      const from = start;
+      grab(el, m).then((ok) => {
+        if (ok || start !== from) return;
+        back(from);
+        end();
+      });
     }
   });
   el.addEventListener("pointerup", () => {
@@ -209,6 +230,7 @@ function apply(update) {
   const entry = live.get(update.id);
   if (!entry) return;
   const { el, m } = entry;
+  m.heard = (m.heard ?? 0) + 1;
   if (update.type === "held" || update.type === "released") {
     m.held = update.type === "held";
     place(el, m);
