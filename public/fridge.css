@@ -3,9 +3,9 @@
   --muted: #5b5a55;
   --wall: #efe9dc;
   --wall-line: #e4dccb;
-  --enamel: #cfe3da;
-  --enamel-deep: #b3cfc3;
-  --enamel-edge: #93b3a6;
+  --enamel: #fbfbf9;
+  --enamel-deep: #e9eae6;
+  --enamel-edge: #c9cbc5;
   --tile: #fffefa;
   --mine: #c2410c;
   --link: #1f5c4d;
@@ -125,7 +125,7 @@ a {
   position: relative;
   background:
     linear-gradient(100deg, rgb(255 255 255 / 0.45), transparent 28%),
-    linear-gradient(175deg, var(--enamel), #c1d9cf);
+    linear-gradient(175deg, var(--enamel), #eceeea);
   border: 1px solid var(--enamel-edge);
   box-shadow:
     inset 0 2px 0 rgb(255 255 255 / 0.65),
@@ -190,7 +190,7 @@ a {
 .grille {
   height: 4cqw;
   margin: 0.8cqw 2cqw 0;
-  background: repeating-linear-gradient(90deg, #6f8a80 0 0.5cqw, var(--enamel-deep) 0.5cqw 1.2cqw);
+  background: repeating-linear-gradient(90deg, #9a9d97 0 0.5cqw, var(--enamel-deep) 0.5cqw 1.2cqw);
   border-radius: 0.4rem 0.4rem 0 0;
   opacity: 0.7;
 }
@@ -216,8 +216,9 @@ a {
   border: 0;
   border-radius: 1px;
   box-shadow:
-    0 1px 0 rgb(0 0 0 / 0.18),
-    0 0.2cqw 0.5cqw rgb(0 0 0 / 0.18);
+    0 0 0 1px rgb(0 0 0 / 0.14),
+    0 1px 0 rgb(0 0 0 / 0.2),
+    0 0.2cqw 0.6cqw rgb(0 0 0 / 0.22);
   transform: rotate(var(--tilt, 0deg));
   cursor: grab;
   touch-action: none;
