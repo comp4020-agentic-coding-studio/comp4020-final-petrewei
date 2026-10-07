@@ -30,6 +30,10 @@ After crit 8 I said the app was too simple and asked for ideas. The agent propos
 
 The crit 9 decision was what happens when two people grab the same word. The agent set out three options without choosing: last to let go wins (the default the real-time layer had left), one hand at a time, and snatching a word out of someone's hand. I chose one hand at a time, because it extends the rule that each word exists once to how a real magnet behaves: only one person can hold it. [ADR 0002](docs/adr/0002-one-hand-at-a-time.md) records the options and what the choice costs, mainly that a hold must end even when its holder vanishes. [`f8464fb`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/f8464fb) implements it test-first: `spec/hold.test.ts` failed before the grab route existed, and covers each refusal and each way a hold ends, including the holder's tab closing. The first two-browser check found that the "someone else is holding" notice stayed after the word was dropped, because a drop arrives as a move rather than a release; that was fixed before the commit.
 
-## 8 What Comes Next
+## 8 Theft Notices
 
-Theft notices, telling you when someone takes a word from your line, and an archive of broken poems. Crit 10 adds server-side logging.
+Next I had the agent build notices for when someone takes your word ([`c76fed4`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/c76fed4)). There is no notion of a line yet, so "yours" means the words you moved last, and the notice names the word but never the taker. If you are away it waits for your return, which covers the brief's session picked up the next day. `spec/taken.test.ts` failed first. The browser check found something no test could: the notice line sat below the fridge, at 1175px in a 900px window, so neither this notice nor the "someone else is holding" one had ever been visible. It now floats over the bottom of the screen.
+
+## 9 What Comes Next
+
+An archive of broken poems, then crit 10's server-side logging.
