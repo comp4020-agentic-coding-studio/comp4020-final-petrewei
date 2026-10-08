@@ -6,7 +6,7 @@ The brief asks for a multi-user, real-time website that is good, and leaves what
 
 ## 2 Stack and Harness
 
-I chose plain Node with no dependencies and one JSON file on the Fly volume ([ADR 0001](docs/adr/0001-plain-node-and-a-json-file.md)). The state is about a hundred positions, so crit 7's SQLite and migrations would have had no job, and one process owning all state made server-sent events straightforward. Every move rewrites the file, which is fine for a room of people.
+I chose plain Node with no dependencies and one JSON file on the Fly volume ([ADR 0001](docs/adr/0001-plain-node-and-a-json-file.md)). The state is about 160 positions, so crit 7's SQLite and migrations had no job, and one process owning all state made server-sent events simple. A later `/simplify` batched the writes and versioned every word, so pages ignore stale news ([`d7c3282`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/d7c3282)).
 
 The harness has three parts that are meant to agree. `README.md` argues what good means and lists which claims are enforced and which are judged. `CLAUDE.md`, carried over from crit 7 and cut to the rules this app needs, turns those claims into rules: the server never accepts text, positions are fractions of the door, a theft notice never names the taker. `spec/` holds the testable claims against the running app, 17 checks across six files. From the real-time layer onwards every feature was built test-first: each new spec file failed for the expected reason before the code existed, and commits landed only on green. Decisions that are expensive to reverse are in `docs/adr/`.
 
