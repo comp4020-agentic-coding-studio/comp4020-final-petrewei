@@ -59,13 +59,21 @@ const readJson = <T>(file: string, fallback: T): T =>
 const pending = new Map<string, () => unknown>();
 let flushing: NodeJS.Timeout | null = null;
 
+// A failed write is logged and kept for the next flush rather than thrown
+// from a timer, which would take the whole server down.
 function flush(): void {
+  if (flushing) clearTimeout(flushing);
   flushing = null;
   for (const [file, data] of pending) {
-    writeFileSync(`${file}.tmp`, JSON.stringify(data()));
-    renameSync(`${file}.tmp`, file);
+    try {
+      writeFileSync(`${file}.tmp`, JSON.stringify(data()));
+      renameSync(`${file}.tmp`, file);
+      pending.delete(file);
+    } catch (error) {
+      console.error(`could not write ${file}:`, error);
+    }
   }
-  pending.clear();
+  if (pending.size) flushing = setTimeout(flush, 500);
 }
 
 function persist(file: string, data: () => unknown): void {
@@ -73,12 +81,11 @@ function persist(file: string, data: () => unknown): void {
   flushing ??= setTimeout(flush, 500);
 }
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.on(signal, () => {
-    flush();
-    process.exit(0);
-  });
-}
+// Pending writes go to disk on any exit Node can see: a stop signal, or a
+// crash on an uncaught exception. Only SIGKILL or the kernel's out-of-memory
+// killer can lose the last half second (ADR 0005).
+process.on("exit", flush);
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(0));
 
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -219,8 +226,11 @@ function free(match: (h: { who: string; until: number }) => boolean, ev: string)
   }
 }
 
-// A lapsed hold is freed out loud, so pages stop showing it as taken.
-setInterval(() => free((h) => h.until < Date.now(), "lapse"), 1_000).unref();
+// A lapsed hold is freed out loud, so pages stop showing it as taken: by the
+// sweep every second, and for one word just before anyone acts on it, so a
+// grab or release in between can't swallow the lapse.
+const lapse = (id?: string): void => free((h) => h.until < Date.now() && (id === undefined || holds.get(id) === h), "lapse");
+setInterval(() => lapse(), 1_000).unref();
 
 // Distinct visitors with the fridge open; every page is told when it changes.
 const here = (): number => new Set([...listeners].map((l) => l.who)).size;
@@ -350,12 +360,16 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && hand) {
     const [, id, action] = hand;
     if (!magnets.some((m) => m.id === id)) return json(res, 404, { error: "no such magnet" });
+    lapse(id);
     if (refused(id, action)) return;
     const by = holder(id);
+    const v = () => magnets.find((m) => m.id === id)!.v;
     if (action === "release") {
-      if (by === who) log(who, "release", { word: word(id) });
-      release(id);
-      return json(res, 200, { held: false });
+      if (by === who) {
+        log(who, "release", { word: word(id) });
+        release(id);
+      }
+      return json(res, 200, { held: false, v: v() });
     }
     // grabbing again renews the hold, which is how a long drag keeps it
     holds.set(id, { who, until: Date.now() + HOLD_MS });
@@ -363,7 +377,7 @@ const server = createServer(async (req, res) => {
       log(who, "grab", { word: word(id) });
       emit({ type: "held", id, v: stamp(id) }, (w) => w !== who);
     }
-    return json(res, 200, { held: true });
+    return json(res, 200, { held: true, v: v() });
   }
 
   const move = url.pathname.match(/^\/api\/magnets\/(m\d+)$/);
@@ -376,6 +390,7 @@ const server = createServer(async (req, res) => {
     } catch {
       return json(res, 400, { error: "send JSON {x, y}" });
     }
+    lapse(magnet.id);
     if (refused(magnet.id, "move")) return;
     // Only a position can change. Anything else in the body, text especially,
     // is refused rather than ignored, so a client can't think it renamed a word.

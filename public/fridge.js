@@ -62,8 +62,12 @@ function replay(el, cls) {
 // raises on every move, hold and release. News about a word is applied only
 // if it is newer than what this page has, so a reply that arrives late on a
 // slow connection can't undo something the page has already heard.
-function adopt(el, m, fresh) {
-  if (fresh.v <= m.v) return false;
+// `atLeast` also takes news as new as what the page has: a refusal answers
+// this page's own request, so its word is current even when a `held` event
+// has already brought the version this far, while the page still shows the
+// word where its own unsaved move left it.
+function adopt(el, m, fresh, atLeast = false) {
+  if (fresh.v < m.v || (fresh.v === m.v && !atLeast)) return false;
   Object.assign(m, { x: fresh.x, y: fresh.y, mine: fresh.mine, held: fresh.held, v: fresh.v });
   place(el, m);
   return true;
@@ -77,7 +81,7 @@ function refuse(el, m) {
 // A 409 carries the word as the server has it, so the page takes that
 // rather than asking again, and says so if it is still held.
 async function refused(el, m, res) {
-  adopt(el, m, (await res.json()).magnet);
+  adopt(el, m, (await res.json()).magnet, true);
   if (m.held) refuse(el, m);
 }
 
@@ -297,10 +301,20 @@ if (taken.length > 0) {
 // caught up by re-reading the whole door.
 let opened = false;
 const events = new EventSource("/api/events");
+// The snapshot is taken as it stands, whatever its versions: if the server
+// restarted, its versions may count from a lower number than this page saw.
 events.addEventListener("open", async () => {
   if (opened) {
     const { magnets: now } = await (await fetch("/api/magnets")).json();
-    now.forEach(apply);
+    for (const fresh of now) {
+      const entry = live.get(fresh.id);
+      if (!entry) continue;
+      const { el, m } = entry;
+      // a word in this visitor's hand stays where the hand has it
+      if (entry.busy()) Object.assign(m, { held: fresh.held, v: fresh.v });
+      else Object.assign(m, { x: fresh.x, y: fresh.y, mine: fresh.mine, held: fresh.held, v: fresh.v });
+      place(el, m);
+    }
   }
   opened = true;
 });

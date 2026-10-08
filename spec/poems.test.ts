@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MIN_WORDS, width } from "../src/lines.ts";
 import { get, live, type Magnet, move, page, sleep, visitor, word } from "./helpers.ts";
-import { next } from "./sse.ts";
 
 // ADR 0003, an archive of broken lines: a line of moved words that stood for
 // long enough is kept when it breaks, newest first.
@@ -48,7 +47,7 @@ describe("the archive", () => {
 
       const p = await page();
       try {
-        const heard = next(p.body, (e) => e.type === "poem", 1000);
+        const heard = p.next((e) => e.type === "poem", 1000);
         await move(line[1].id, { x: 0.7, y: 0.3 }, me);
         expect((await archive()).poems[0].text).toBe("the moons is");
         expect(await heard).toMatchObject({ type: "poem", text: "the moons is" });

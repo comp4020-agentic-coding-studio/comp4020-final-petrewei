@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 import { live, magnets, move, page, visitor } from "./helpers.ts";
-import { next } from "./sse.ts";
 
 // The brief's real-time requirement, against the running app: a move one
 // visitor makes reaches another visitor's open page within about a second,
@@ -23,7 +22,7 @@ it.skipIf(live)("sends a move to another open page within a second", async () =>
   const before = (await magnets())[5];
   const target = { x: 0.2468, y: 0.1357 };
   try {
-    const heard = next(watcher.body, (e) => e.id === before.id && e.x === target.x, 1000);
+    const heard = watcher.next((e) => e.id === before.id && e.x === target.x, 1000);
     const started = Date.now();
     expect((await move(before.id, target, mover)).status).toBe(200);
     // the watcher sees it moved, and sees that it isn't theirs

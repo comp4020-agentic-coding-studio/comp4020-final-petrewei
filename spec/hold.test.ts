@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { live, move, page, post, sleep, visitor, word } from "./helpers.ts";
-import { next } from "./sse.ts";
 
 // ADR 0002, one hand at a time: while one visitor holds a word, nobody else
 // can grab or move it, and every open page is told it is held. Letting go,
@@ -69,10 +68,10 @@ describe.skipIf(live)("one hand at a time", () => {
     const m = await word(TEXT);
     const p = await page(await visitor());
     try {
-      const held = next(p.body, (e) => e.type === "held" && e.id === m.id, 1000);
+      const held = p.next((e) => e.type === "held" && e.id === m.id, 1000);
       await post(`/api/magnets/${m.id}/grab`, a);
       expect(await held).not.toBeNull();
-      const freed = next(p.body, (e) => e.type === "released" && e.id === m.id, 1000);
+      const freed = p.next((e) => e.type === "released" && e.id === m.id, 1000);
       await post(`/api/magnets/${m.id}/release`, a);
       expect(await freed).not.toBeNull();
     } finally {

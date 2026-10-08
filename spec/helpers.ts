@@ -1,4 +1,5 @@
 import { inject } from "vitest";
+import { type Listener, listen } from "./sse.ts";
 
 // Shared by every spec file: where the app is, who a visitor is, and how to
 // read and change the door.
@@ -11,7 +12,7 @@ export const baseUrl = inject("baseUrl");
 // use a throwaway copy, where every test runs.
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
-export type Magnet = { id: string; text: string; x: number; y: number; mine: boolean; held: boolean };
+export type Magnet = { id: string; text: string; x: number; y: number; mine: boolean; held: boolean; v: number };
 
 const url = (path: string): URL => new URL(path, baseUrl);
 const send = (path: string, cookie?: string, body?: unknown): Promise<Response> =>
@@ -53,11 +54,11 @@ export const move = (id: string, at: { x: number; y: number }, cookie?: string):
 // A request the server must refuse changes nothing, so it may run anywhere.
 export const attempt = (path: string, body: unknown, cookie?: string): Promise<Response> => send(path, cookie, body);
 
-// An open page: the visitor's event stream, until close().
-export async function page(cookie?: string): Promise<{ res: Response; body: ReadableStream<Uint8Array>; close: () => void }> {
+// An open page: the visitor's event stream, read with next(), until close().
+export async function page(cookie?: string): Promise<{ res: Response; next: Listener["next"]; close: () => void }> {
   const controller = new AbortController();
   const res = await fetch(url("/api/events"), { headers: cookie ? { cookie } : {}, signal: controller.signal });
-  return { res, body: res.body!, close: () => controller.abort() };
+  return { res, next: listen(res.body!).next, close: () => controller.abort() };
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { get, live, move, page, post, visitor, word } from "./helpers.ts";
-import { next } from "./sse.ts";
 
 // Theft notices: when someone moves a word you placed, you're told. If you
 // have the page open the notice arrives live; if you don't, it waits for you.
@@ -20,8 +19,8 @@ describe.skipIf(live)("theft notices", () => {
     const pageB = await page(b);
     try {
       const isNotice = (e: Record<string, unknown>): boolean => e.type === "taken" && e.id === m.id;
-      const heardA = next(pageA.body, isNotice, 1000);
-      const heardB = next(pageB.body, isNotice, 600);
+      const heardA = pageA.next(isNotice, 1000);
+      const heardB = pageB.next(isNotice, 600);
       expect((await move(m.id, { x: 0.31, y: 0.31 }, b)).status).toBe(200);
       expect(await heardA).toEqual({ type: "taken", id: m.id, text: TEXT });
       expect(await heardB).toBeNull();

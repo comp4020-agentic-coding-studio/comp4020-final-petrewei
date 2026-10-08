@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { baseUrl, get, live, move, page, sleep, visitor, word } from "./helpers.ts";
-import { next } from "./sse.ts";
 
 // Crit 10: every action is logged server-side, one structured line each, and
 // /stats is a live view of who is here and what they're doing. Visitors appear
@@ -33,7 +32,7 @@ describe("the live view", () => {
   it.skipIf(live)("counts the visitors with the fridge open, and tells their pages", async () => {
     const before = (await stats()).here;
     const p = await page(await visitor());
-    const told = await next(p.body, (e) => e.type === "presence", 1000);
+    const told = await p.next((e) => e.type === "presence", 1000);
     expect(told).toEqual({ type: "presence", here: before + 1 });
     expect((await stats()).here).toBe(before + 1);
     p.close();
