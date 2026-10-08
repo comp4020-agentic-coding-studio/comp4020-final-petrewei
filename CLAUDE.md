@@ -41,7 +41,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 ## 5 Sensors and Checks
 
 - **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
-- **Tests that change the door skip the live one** (`live` from `spec/live.ts`). Real visitors share it, so a test's move, hold, theft notice or poem would land on them; CI runs those tests against a throwaway copy, and only read-only checks run live.
+- **Tests that change the door skip the live one** (`live` from `spec/helpers.ts`, whose write helpers throw against the live door). Real visitors share it, so a test's move, hold, theft notice or poem would land on them; CI runs those tests against a throwaway copy, and only read-only checks run live.
 - **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
 
 ## 6 Git and CI

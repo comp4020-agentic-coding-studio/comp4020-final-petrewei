@@ -1,22 +1,14 @@
-import { describe, expect, inject, it } from "vitest";
-import { live } from "./live.ts";
+import { describe, expect, it } from "vitest";
+import { baseUrl, get, live, move, page, sleep, visitor, word } from "./helpers.ts";
+import { next } from "./sse.ts";
 
 // Crit 10: every action is logged server-side, one structured line each, and
 // /stats is a live view of who is here and what they're doing. Visitors appear
 // by a short id derived from their cookie, never the cookie itself.
-const baseUrl = inject("baseUrl");
 
 type Line = { t: string; who: string; ev: string; word?: string };
 type Stats = { here: number; holding: number; recent: Line[] };
-
-const stats = async (): Promise<Stats> => (await fetch(new URL("/api/stats", baseUrl))).json() as Promise<Stats>;
-
-async function visitor(): Promise<string> {
-  const res = await fetch(new URL("/api/magnets", baseUrl));
-  const cookie = res.headers.get("set-cookie")?.match(/v=[^;]+/)?.[0];
-  if (!cookie) throw new Error("the server set no visitor cookie");
-  return cookie;
-}
+const stats = (): Promise<Stats> => get("/api/stats");
 
 describe("the live view", () => {
   it("is a page, and its numbers are readable by anyone", async () => {
@@ -29,15 +21,8 @@ describe("the live view", () => {
 
   it.skipIf(live)("logs a move by a short id, never the cookie", async () => {
     const me = await visitor();
-    const res = await fetch(new URL("/api/magnets", baseUrl));
-    const m = ((await res.json()) as { magnets: { id: string; text: string; x: number; y: number }[] }).magnets.find(
-      (w) => w.text === "summer",
-    )!;
-    await fetch(new URL(`/api/magnets/${m.id}`, baseUrl), {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: me },
-      body: JSON.stringify({ x: m.x, y: m.y }),
-    });
+    const m = await word("summer");
+    await move(m.id, { x: m.x, y: m.y }, me);
     const line = (await stats()).recent.find((l) => l.ev === "move" && l.word === "summer");
     expect(line).toBeDefined();
     expect(line!.who).toMatch(/^[0-9a-f]{6}$/);
@@ -47,22 +32,14 @@ describe("the live view", () => {
 
   it.skipIf(live)("counts the visitors with the fridge open, and tells their pages", async () => {
     const before = (await stats()).here;
-    const me = await visitor();
-    const page = new AbortController();
-    const stream = await fetch(new URL("/api/events", baseUrl), { headers: { cookie: me }, signal: page.signal });
-    const reader = stream.body!.getReader();
-    const decoder = new TextDecoder();
-    let text = "";
-    const deadline = Date.now() + 1000;
-    while (!text.includes('"type":"presence"') && Date.now() < deadline) {
-      text += decoder.decode((await reader.read()).value, { stream: true });
-    }
-    expect(text).toContain(`{"type":"presence","here":${before + 1}}`);
+    const p = await page(await visitor());
+    const told = await next(p.body, (e) => e.type === "presence", 1000);
+    expect(told).toEqual({ type: "presence", here: before + 1 });
     expect((await stats()).here).toBe(before + 1);
-    page.abort();
+    p.close();
     let after = -1;
     for (let i = 0; i < 20 && after !== before; i++) {
-      await new Promise((r) => setTimeout(r, 50));
+      await sleep(50);
       after = (await stats()).here;
     }
     expect(after).toBe(before);

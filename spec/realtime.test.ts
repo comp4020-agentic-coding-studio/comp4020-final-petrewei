@@ -1,99 +1,35 @@
-import { expect, inject, it } from "vitest";
-import { live } from "./live.ts";
+import { expect, it } from "vitest";
+import { live, magnets, move, page, visitor } from "./helpers.ts";
+import { next } from "./sse.ts";
 
 // The brief's real-time requirement, against the running app: a move one
-// visitor makes reaches another visitor's open session within about a second,
-// with no reload. The second visitor listens on /api/events (server-sent
-// events), as the page does.
-const baseUrl = inject("baseUrl");
-
-type Magnet = { id: string; x: number; y: number };
-
-async function visitor(): Promise<string> {
-  const res = await fetch(new URL("/api/magnets", baseUrl));
-  const cookie = res.headers.get("set-cookie")?.match(/v=[^;]+/)?.[0];
-  if (!cookie) throw new Error("the server set no visitor cookie");
-  return cookie;
-}
-
-// Resolves with the first event whose data matches, or rejects after `ms`.
-async function nextEvent(
-  body: ReadableStream<Uint8Array>,
-  match: (data: Record<string, unknown>) => boolean,
-  ms: number,
-): Promise<Record<string, unknown>> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  const timeout = setTimeout(() => reader.cancel(), ms);
-  let buffer = "";
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) throw new Error(`no matching event within ${ms}ms`);
-      buffer += decoder.decode(value, { stream: true });
-      let end;
-      while ((end = buffer.indexOf("\n\n")) !== -1) {
-        const frame = buffer.slice(0, end);
-        buffer = buffer.slice(end + 2);
-        const line = frame.split("\n").find((l) => l.startsWith("data: "));
-        if (!line) continue;
-        const data = JSON.parse(line.slice(6)) as Record<string, unknown>;
-        if (match(data)) return data;
-      }
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+// visitor makes reaches another visitor's open page within about a second,
+// with no reload. Pages listen on /api/events (server-sent events).
 
 // Read-only, so it runs against the live door too: the stream is open.
 it("streams events to an open page", async () => {
-  const page = new AbortController();
-  const res = await fetch(new URL("/api/events", baseUrl), { signal: page.signal });
+  const p = await page();
   try {
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toMatch(/^text\/event-stream/);
+    expect(p.res.status).toBe(200);
+    expect(p.res.headers.get("content-type")).toMatch(/^text\/event-stream/);
   } finally {
-    page.abort();
+    p.close();
   }
 });
 
-it.skipIf(live)("sends a move to another open session within a second", async () => {
+it.skipIf(live)("sends a move to another open page within a second", async () => {
   const mover = await visitor();
-  const watcher = await visitor();
-  const { magnets } = (await (await fetch(new URL("/api/magnets", baseUrl))).json()) as {
-    magnets: Magnet[];
-  };
-  const before = magnets[5];
+  const watcher = await page(await visitor());
+  const before = (await magnets())[5];
   const target = { x: 0.2468, y: 0.1357 };
-
-  const controller = new AbortController();
-  const stream = await fetch(new URL("/api/events", baseUrl), {
-    headers: { cookie: watcher, accept: "text/event-stream" },
-    signal: controller.signal,
-  });
-  expect(stream.status).toBe(200);
-  expect(stream.headers.get("content-type")).toMatch(/^text\/event-stream/);
-
   try {
-    const heard = nextEvent(stream.body!, (d) => d.id === before.id && d.x === target.x, 1000);
+    const heard = next(watcher.body, (e) => e.id === before.id && e.x === target.x, 1000);
     const started = Date.now();
-    const res = await fetch(new URL(`/api/magnets/${before.id}`, baseUrl), {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: mover },
-      body: JSON.stringify(target),
-    });
-    expect(res.status).toBe(200);
-
+    expect((await move(before.id, target, mover)).status).toBe(200);
     // the watcher sees it moved, and sees that it isn't theirs
     expect(await heard).toMatchObject({ id: before.id, ...target, mine: false });
     expect(Date.now() - started).toBeLessThan(1000);
   } finally {
-    controller.abort();
-    await fetch(new URL(`/api/magnets/${before.id}`, baseUrl), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ x: before.x, y: before.y }),
-    });
+    watcher.close();
   }
 });

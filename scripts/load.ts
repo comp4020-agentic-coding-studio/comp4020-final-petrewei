@@ -8,6 +8,8 @@
 //
 // APP_URL picks the server (default http://localhost:8080). Never point this
 // at the live door: it moves real people's words and floods the log.
+import { events } from "../spec/sse.ts";
+
 const base = process.env.APP_URL ?? "http://localhost:8080";
 if (new URL(base).hostname.endsWith(".fly.dev")) throw new Error("not against the live door");
 const visitors = Number(process.argv[2] ?? 30);
@@ -28,28 +30,11 @@ async function visitor(): Promise<void> {
   const res = await fetch(`${base}/api/magnets`);
   const cookie = res.headers.get("set-cookie")!.match(/v=[^;]+/)![0];
   const stream = new AbortController();
-  const events = await fetch(`${base}/api/events`, { headers: { cookie }, signal: stream.signal });
-  const reader = events.body!.getReader();
-  const decoder = new TextDecoder();
+  const open = await fetch(`${base}/api/events`, { headers: { cookie }, signal: stream.signal });
   (async () => {
-    let buffer = "";
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) return;
-        buffer += decoder.decode(value, { stream: true });
-        let end;
-        while ((end = buffer.indexOf("\n\n")) !== -1) {
-          const line = buffer.slice(0, end).split("\n").find((l) => l.startsWith("data: "));
-          buffer = buffer.slice(end + 2);
-          if (!line) continue;
-          const d = JSON.parse(line.slice(6));
-          const at = d.type === "move" ? sent.get(`${d.id}@${d.x},${d.y}`) : undefined;
-          if (at) reached.push(performance.now() - at);
-        }
-      }
-    } catch {
-      // the stream was closed at the end of the run
+    for await (const d of events(open.body!)) {
+      const at = d.type === "move" ? sent.get(`${d.id}@${d.x},${d.y}`) : undefined;
+      if (at) reached.push(performance.now() - at);
     }
   })();
 
