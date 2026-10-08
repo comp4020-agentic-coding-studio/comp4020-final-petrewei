@@ -13,7 +13,8 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **The vocabulary lives only in `src/words.ts`, and each word appears once.** The server never accepts text from a client; `spec/fridge.test.ts` checks both.
 - **Append new words to the end of the vocabulary, never insert.** A magnet's id is its index, and the saved door keys positions by id (`docs/adr/0004-a-vocabulary-of-about-160-words.md`).
 - **A magnet's position is a fraction of the door, 0 to 1.** Pixel positions would make an arrangement depend on the screen it was made on.
-- **State is `/data/fridge.json`, written by the server alone, via a temporary file and a rename.** The reasons are in `docs/adr/0001-plain-node-and-a-json-file.md`.
+- **State is `/data/fridge.json`, written by the server alone through `persist()`:** batched to at most every 500ms, via a temporary file and a rename, and flushed on SIGINT or SIGTERM. The reasons are in `docs/adr/0001-plain-node-and-a-json-file.md`.
+- **Every change to a word raises its version `v`, carried by every event and reply.** Pages apply news only if it is newer than what they have; never compare by arrival order.
 - **The visitor cookie never leaves the server.** Clients learn only whether a magnet is theirs (`mine`), never who moved it.
 - **Keep `/api/events` streaming every move to every open page.** It is how the app meets the brief's real-time requirement, and `spec/realtime.test.ts` holds it to under a second.
 - **One hand at a time: the server refuses a grab or a move on a word someone else holds.** The decision and its costs are in `docs/adr/0002-one-hand-at-a-time.md`; `spec/hold.test.ts` checks the refusals and every way a hold ends.

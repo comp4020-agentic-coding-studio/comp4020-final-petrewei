@@ -10,7 +10,6 @@
   --paper: #fffdf8;
   --code: #f1ece0;
   --link: #1f5c4d;
-  --focus: #1d4ed8;
   --shadow: rgb(60 50 30 / 0.45);
   --enamel: #fbfbf9;
   --enamel-mid: #eceeea;
@@ -18,6 +17,8 @@
   --enamel-edge: #c9cbc5;
   --tile: #fffefa;
   --tile-ink: #1d1d1b;
+  /* small print on a tile, such as an archived poem's date */
+  --tile-note: #6b6860;
   --tile-edge: #d6d1c4;
   --mine: #c2410c;
   /* Marks drawn on the door, chosen against the door rather than the wall:
@@ -47,7 +48,6 @@
     --paper: #24221e;
     --code: #33302a;
     --link: #8fd3bf;
-    --focus: #93b4ff;
     --shadow: rgb(0 0 0 / 0.7);
     /* black piano lacquer: near-black with a narrow, cool sheen, and a
        lighter rim so the fridge still reads against a near-black wall */
@@ -159,10 +159,14 @@ a {
 
 /* The cabinet is the appliance's body: a freezer door on top, the magnet door
    below it, a vent grille, and two feet. Only #door holds magnets. */
-.cabinet {
+.cabinet,
+.feet {
   min-width: 720px;
   max-width: 56rem;
   margin: 0 auto;
+}
+
+.cabinet {
   padding: 0.9rem 0.9rem 0;
   container-type: inline-size;
   background: linear-gradient(90deg, var(--enamel-edge), var(--enamel-deep) 4%, var(--enamel-deep) 96%, var(--enamel-edge));
@@ -248,10 +252,7 @@ a {
 }
 
 .feet {
-  min-width: 720px;
-  max-width: 56rem;
   height: 1rem;
-  margin: 0 auto;
   background:
     linear-gradient(#3b3f3c, #222) 8% 0 / 3rem 100% no-repeat,
     linear-gradient(#3b3f3c, #222) 92% 0 / 3rem 100% no-repeat;
@@ -394,7 +395,7 @@ a {
   display: block;
   margin-top: 0.4rem;
   font-size: 0.8rem;
-  color: #6b6860;
+  color: var(--tile-note);
 }
 
 #poems:empty::before {
@@ -497,7 +498,7 @@ body.stats main {
 
 .counters dt {
   font-size: 0.85rem;
-  color: #6b6860;
+  color: var(--tile-note);
 }
 
 .counters dd {

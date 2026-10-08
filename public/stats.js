@@ -32,7 +32,6 @@ async function refresh() {
   $("log").replaceChildren(
     ...recent.slice(0, 60).map((l) => {
       const li = document.createElement("li");
-      li.dataset.ev = l.ev;
       const t = document.createElement("time");
       t.dateTime = l.t;
       t.textContent = time.format(new Date(l.t));

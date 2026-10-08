@@ -25,9 +25,10 @@ export function lines(placed: readonly Placed[]): Placed[][] {
   for (const a of placed) {
     let best: Placed | null = null;
     let bestGap = Infinity;
+    const end = a.x + width(a.text);
     for (const b of placed) {
       if (b === a || Math.abs(b.y - a.y) > SAME_ROW) continue;
-      const gap = b.x - (a.x + width(a.text));
+      const gap = b.x - end;
       if (gap >= GAP_MIN && gap <= GAP_MAX && b.x > a.x && gap < bestGap) {
         best = b;
         bestGap = gap;

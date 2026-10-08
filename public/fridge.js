@@ -49,13 +49,36 @@ const post = (path, body) =>
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-function refuse(el, m) {
-  m.held = true;
-  place(el, m);
-  el.classList.remove("refused");
+const letGo = (m) => post(`/api/magnets/${m.id}/release`);
+
+// Restarts a one-off CSS animation, even if it is already running.
+function replay(el, cls) {
+  el.classList.remove(cls);
   void el.offsetWidth;
-  el.classList.add("refused");
+  el.classList.add(cls);
+}
+
+// Every reply and event carries the word's version (`v`), which the server
+// raises on every move, hold and release. News about a word is applied only
+// if it is newer than what this page has, so a reply that arrives late on a
+// slow connection can't undo something the page has already heard.
+function adopt(el, m, fresh) {
+  if (fresh.v <= m.v) return false;
+  Object.assign(m, { x: fresh.x, y: fresh.y, mine: fresh.mine, held: fresh.held, v: fresh.v });
+  place(el, m);
+  return true;
+}
+
+function refuse(el, m) {
+  replay(el, "refused");
   status.textContent = `Someone else is holding “${m.text}”.`;
+}
+
+// A 409 carries the word as the server has it, so the page takes that
+// rather than asking again, and says so if it is still held.
+async function refused(el, m, res) {
+  adopt(el, m, (await res.json()).magnet);
+  if (m.held) refuse(el, m);
 }
 
 // Reaching for a word someone else holds: refuse at once, and still ask the
@@ -63,42 +86,28 @@ function refuse(el, m) {
 // meantime the server grants it, and the hand lets go straight away.
 function reach(el, m) {
   refuse(el, m);
-  grab(el, m).then((ok) => ok && post(`/api/magnets/${m.id}/release`));
+  grab(el, m).then((ok) => ok && letGo(m));
 }
 
-// A refusal can arrive after newer news on a slow connection: by then the
-// stream may have said the word is free again. `heard` counts the events seen
-// for a word, so a reply only marks it held if nothing has arrived since.
 // Resolves true if this visitor now holds the word.
 async function grab(el, m) {
-  const heard = m.heard;
   const res = await post(`/api/magnets/${m.id}/grab`);
-  if (res.status === 409 && m.heard === heard) refuse(el, m);
+  if (res.status === 409) await refused(el, m, res);
   return res.ok;
-}
-
-// After a refused move this page's copy of the word is wrong, so take the
-// server's.
-async function resync(el, m) {
-  const { magnets: now } = await (await fetch("/api/magnets")).json();
-  const fresh = now.find((n) => n.id === m.id);
-  Object.assign(m, { x: fresh.x, y: fresh.y, mine: fresh.mine, held: fresh.held });
-  place(el, m);
 }
 
 async function save(el, m) {
   el.style.setProperty("--z", ++top);
-  const heard = m.heard;
   const res = await post(`/api/magnets/${m.id}`, { x: m.x, y: m.y });
   if (res.ok) {
-    // Only ownership comes back: the position may have moved on since this
-    // request left, and the local one is newer.
-    m.mine = (await res.json()).magnet.mine;
+    // Only ownership and version come back: the position may have moved on
+    // since this request left, and the local one is newer.
+    const { magnet } = await res.json();
+    Object.assign(m, { mine: magnet.mine, v: Math.max(m.v, magnet.v) });
     place(el, m);
     status.textContent = "";
   } else if (res.status === 409) {
-    if (m.heard === heard) refuse(el, m);
-    resync(el, m);
+    await refused(el, m, res);
   } else {
     status.textContent = "That move didn't save. Try again.";
   }
@@ -161,7 +170,7 @@ function magnet(m) {
     end();
     // a move frees the word on the server; a click with no drag lets go of it
     if (moved) save(el, m);
-    else post(`/api/magnets/${m.id}/release`);
+    else letGo(m);
   });
   // The browser took the pointer away (a system gesture, say): put the word
   // back where the drag began, since nothing was saved, and let go of it.
@@ -169,7 +178,7 @@ function magnet(m) {
     if (!start) return;
     back(start);
     end();
-    post(`/api/magnets/${m.id}/release`);
+    letGo(m);
   });
 
   let timer = null;
@@ -222,10 +231,7 @@ door.append(...els.sort((a, b) => a[0] - b[0]).map(([, el]) => el));
 function stolen(update) {
   const entry = live.get(update.id);
   status.textContent = `Someone took “${update.text}” from you.`;
-  if (!entry) return;
-  entry.el.classList.remove("stolen");
-  void entry.el.offsetWidth;
-  entry.el.classList.add("stolen");
+  if (entry) replay(entry.el, "stolen");
 }
 
 function apply(update) {
@@ -239,15 +245,14 @@ function apply(update) {
   const entry = live.get(update.id);
   if (!entry) return;
   const { el, m } = entry;
-  m.heard = (m.heard ?? 0) + 1;
+  if (update.v <= m.v) return;
   if (update.type === "held" || update.type === "released") {
-    m.held = update.type === "held";
+    Object.assign(m, { held: update.type === "held", v: update.v });
     place(el, m);
     say(el, m.held ? `Someone picked up “${m.text}”.` : `“${m.text}” is free.`);
   } else if (!entry.busy()) {
     const moved = update.x !== m.x || update.y !== m.y;
-    Object.assign(m, { x: update.x, y: update.y, mine: update.mine, held: update.held });
-    place(el, m);
+    adopt(el, m, update);
     el.style.setProperty("--z", ++top);
     if (moved && !m.mine) say(el, `Someone moved “${m.text}”.`);
   }
