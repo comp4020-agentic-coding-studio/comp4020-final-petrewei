@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
+import { Holds } from "./holds.ts";
 import { lines, text, width } from "./lines.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { VOCABULARY } from "./words.ts";
@@ -17,6 +18,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const FILE = join(DATA_DIR, "fridge.json");
 const TAKEN_FILE = join(DATA_DIR, "taken.json");
 const POEMS_FILE = join(DATA_DIR, "poems.json");
+const JOURNAL = join(DATA_DIR, "moves.log");
 const ROOT = join(import.meta.dirname, "..");
 
 // The starting heap: words packed left to right by their estimated width,
@@ -69,6 +71,8 @@ function flush(): void {
       writeFileSync(`${file}.tmp`, JSON.stringify(data()));
       renameSync(`${file}.tmp`, file);
       pending.delete(file);
+      // the door is on disk in full, so the moves journalled since are in it
+      if (file === FILE) writeFileSync(JOURNAL, "");
     } catch (error) {
       console.error(`could not write ${file}:`, error);
     }
@@ -107,7 +111,36 @@ function load(): Magnet[] {
 }
 
 const magnets = load();
-const save = (): void => persist(FILE, () => magnets.map(({ v, ...m }) => m));
+
+// ADR 0006: each move is also appended to a journal the moment it is made,
+// before the visitor is told it worked. An append reaches the operating
+// system at once, so killing the process can't lose it; the batched write of
+// the whole door then empties the journal. At startup, moves journalled after
+// the last full write are replayed in order.
+type Entry = { id: string; x: number; y: number; movedBy: string };
+function replay(): void {
+  if (!existsSync(JOURNAL)) return;
+  for (const line of readFileSync(JOURNAL, "utf8").split("\n")) {
+    if (!line) continue;
+    let e: Entry;
+    try {
+      e = JSON.parse(line) as Entry;
+    } catch {
+      continue; // a line cut short by the kill: its move was never confirmed
+    }
+    const m = magnets.find((n) => n.id === e.id);
+    if (!m) continue;
+    Object.assign(m, { x: e.x, y: e.y, movedBy: e.movedBy });
+    magnets.splice(magnets.indexOf(m), 1);
+    magnets.push(m);
+  }
+}
+replay();
+
+const save = (m: Magnet): void => {
+  appendFileSync(JOURNAL, `${JSON.stringify({ id: m.id, x: m.x, y: m.y, movedBy: m.movedBy })}\n`);
+  persist(FILE, () => magnets.map(({ v, ...n }) => n));
+};
 
 // Every change to a word (a move, a hold, a release) stamps it with a new
 // version, carried by every event and reply, so a page applies news about a
@@ -182,17 +215,16 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
   recent.splice(0, recent.length - 200);
 }
 
-// ADR 0002, one hand at a time: who is holding each word, and when that hold
-// lapses if nothing renews it. Holds live in memory only; a restart frees them.
-// A lapsed hold counts as no hold at once, but only the sweep below removes
-// it, so every lapse is logged and announced.
-const HOLD_MS = 30_000;
-const holds = new Map<string, { who: string; until: number }>();
-
-function holder(id: string): string | null {
-  const h = holds.get(id);
-  return h && h.until >= Date.now() ? h.who : null;
-}
+// ADR 0002, one hand at a time (src/holds.ts). Every end of a hold is logged
+// under its reason and announced, so pages stop showing the word as taken.
+const holds = new Holds({
+  ms: 30_000,
+  ended: (id, who, why) => {
+    log(who, why, { word: word(id) });
+    emit({ type: "released", id, v: stamp(id) });
+  },
+});
+const holder = (id: string): string | null => holds.holder(id);
 
 const view = ({ movedBy, ...m }: Magnet, who: string | null) => {
   const by = holder(m.id);
@@ -212,25 +244,9 @@ function broadcast(m: Magnet): void {
   for (const l of listeners) l.res.write(`data: ${JSON.stringify({ type: "move", ...view(m, l.who) })}\n\n`);
 }
 
-// Everyone but the holder is told a word is taken; everyone is told it's free.
-function release(id: string): void {
-  if (holds.delete(id)) emit({ type: "released", id, v: stamp(id) });
-}
-
-// Lets go of every hold that matches, logging each as `ev`.
-function free(match: (h: { who: string; until: number }) => boolean, ev: string): void {
-  for (const [id, h] of holds) {
-    if (!match(h)) continue;
-    log(h.who, ev, { word: word(id) });
-    release(id);
-  }
-}
-
-// A lapsed hold is freed out loud, so pages stop showing it as taken: by the
-// sweep every second, and for one word just before anyone acts on it, so a
-// grab or release in between can't swallow the lapse.
-const lapse = (id?: string): void => free((h) => h.until < Date.now() && (id === undefined || holds.get(id) === h), "lapse");
-setInterval(() => lapse(), 1_000).unref();
+// Lapsed holds are swept every second, and for one word just before anyone
+// acts on it, so a lapse is always reported first.
+setInterval(() => holds.sweep(), 1_000).unref();
 
 // Distinct visitors with the fridge open; every page is told when it changes.
 const here = (): number => new Set([...listeners].map((l) => l.who)).size;
@@ -317,14 +333,14 @@ const server = createServer(async (req, res) => {
       listeners.delete(listener);
       // the holder's last open page is gone, so nobody is holding their words
       if (isHere(listener.who)) return;
-      free((h) => h.who === listener.who, "drop");
+      holds.drop(listener.who);
       log(listener.who, "leave", { here: here() });
       presence();
     });
     return;
   }
   if (req.method === "GET" && url.pathname === "/api/stats") {
-    const holding = [...holds.keys()].filter((id) => holder(id) !== null).length;
+    const holding = holds.size;
     return json(res, 200, { here: here(), holding, recent: recent.slice(-100).toReversed() });
   }
   if (req.method === "GET" && url.pathname === "/api/poems") {
@@ -360,20 +376,14 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && hand) {
     const [, id, action] = hand;
     if (!magnets.some((m) => m.id === id)) return json(res, 404, { error: "no such magnet" });
-    lapse(id);
+    holds.sweep(id);
     if (refused(id, action)) return;
-    const by = holder(id);
     const v = () => magnets.find((m) => m.id === id)!.v;
     if (action === "release") {
-      if (by === who) {
-        log(who, "release", { word: word(id) });
-        release(id);
-      }
+      holds.release(id, who);
       return json(res, 200, { held: false, v: v() });
     }
-    // grabbing again renews the hold, which is how a long drag keeps it
-    holds.set(id, { who, until: Date.now() + HOLD_MS });
-    if (by === null) {
+    if (holds.grab(id, who) === "new") {
       log(who, "grab", { word: word(id) });
       emit({ type: "held", id, v: stamp(id) }, (w) => w !== who);
     }
@@ -390,7 +400,7 @@ const server = createServer(async (req, res) => {
     } catch {
       return json(res, 400, { error: "send JSON {x, y}" });
     }
-    lapse(magnet.id);
+    holds.sweep(magnet.id);
     if (refused(magnet.id, "move")) return;
     // Only a position can change. Anything else in the body, text especially,
     // is refused rather than ignored, so a client can't think it renamed a word.
@@ -406,8 +416,8 @@ const server = createServer(async (req, res) => {
     Object.assign(magnet, { x, y, movedBy: who, v: ++version });
     magnets.splice(magnets.indexOf(magnet), 1);
     magnets.push(magnet);
-    save();
-    holds.delete(magnet.id);
+    save(magnet);
+    holds.moved(magnet.id);
     log(who, "move", { word: magnet.text, x: +x.toFixed(3), y: +y.toFixed(3), ...(thief ? { from: short(from) } : {}) });
     broadcast(magnet);
     survey();
