@@ -29,5 +29,5 @@ The key is a Fly secret, compared in constant time, and never in the repo. Witho
 
 - "Never by whom" holds for every visitor. A short code is a hash of a cookie, so it can't be turned back into the cookie or used to act as that visitor.
 - The crit 10 demo is narrated from `/stats?key=…` on the presenter's screen; the key must not be shown to the room or put in a shared link.
-- `flyctl logs` shows the same lines to anyone with the app's Fly token, which is the operator and the course staff, never visitors.
+- Holders of the app's Fly token, the operator and the course staff, have full access to the machine through `flyctl ssh`: its files, its memory and `flyctl logs`. The log hides nothing from them by design, since they run the server; the promise of "never by whom" is to visitors, and no visitor holds the token.
 - A visitor who copies another's cookie becomes them. There are no accounts to protect, and nothing here is worth more than a magnet's position, so this is accepted.
