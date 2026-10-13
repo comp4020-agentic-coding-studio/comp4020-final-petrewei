@@ -22,7 +22,7 @@ function say(l) {
 }
 
 async function refresh() {
-  const { here, holding, recent } = await (await fetch("/api/stats")).json();
+  const { here, holding, recent } = await (await fetch(`/api/stats${location.search}`)).json();
   const since = Date.now() - 5 * 60_000;
   const last5 = recent.filter((l) => new Date(l.t).getTime() > since);
   $("here").textContent = here;

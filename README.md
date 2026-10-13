@@ -30,7 +30,7 @@ Checked in `spec/` against the running app:
 - a held word can't be grabbed or moved by anyone else, and is freed when its holder lets go, leaves or lapses
 - when someone takes your word you're told, and only you
 - a broken line is archived if it stood, and not if it was broken at once
-- every action is logged under a short code, never a cookie, and [`/stats`](/stats) shows it live
+- every action is logged by short code, never a cookie, for the operator only ([ADR 0007](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0007-who-may-see-and-change-what.md))
 
 Judged by people, at the crit and the showcase:
 

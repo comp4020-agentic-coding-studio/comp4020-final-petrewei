@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -298,11 +298,26 @@ const PAGES: Record<string, [string, string]> = {
   "/fridge.js": [read("public/fridge.js"), "text/javascript; charset=utf-8"],
   "/fridge.css": [read("public/fridge.css"), "text/css; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
-  "/stats": [read("public/stats.html"), HTML],
-  "/stats.js": [read("public/stats.js"), "text/javascript; charset=utf-8"],
   "/readme/": [readme, HTML],
   "/readme": [readme, HTML],
 };
+
+// ADR 0007: the activity log names visitors by short code, so who took whose
+// word, and the README promises a visitor is never told by whom. Only the
+// holder of STATS_KEY (a Fly secret, never in the repo) may read it; anyone
+// else gets the same 404 as a path that doesn't exist. With no key set, the
+// log is shut to everyone.
+const STATS_KEY = process.env.STATS_KEY ?? "";
+const LOG_PAGES: Record<string, [string, string]> = {
+  "/stats": [read("public/stats.html"), HTML],
+  "/stats.js": [read("public/stats.js"), "text/javascript; charset=utf-8"],
+};
+
+function operator(url: URL): boolean {
+  const given = Buffer.from(url.searchParams.get("key") ?? "");
+  const key = Buffer.from(STATS_KEY);
+  return key.length > 0 && given.length === key.length && timingSafeEqual(given, key);
+}
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -314,6 +329,12 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "GET" && PAGES[url.pathname]) {
     return send(res, 200, ...PAGES[url.pathname]);
+  }
+  if (req.method === "GET" && (LOG_PAGES[url.pathname] || url.pathname === "/api/stats") && !operator(url)) {
+    return json(res, 404, { error: "not found" });
+  }
+  if (req.method === "GET" && LOG_PAGES[url.pathname]) {
+    return send(res, 200, ...LOG_PAGES[url.pathname]);
   }
   if (req.method === "GET" && url.pathname === "/api/events") {
     res.writeHead(200, {
