@@ -72,3 +72,17 @@ it("keeps the log and the hall of fame through a hard kill", async () => {
   expect((await log()).recent.some((l) => l.ev === "stopout" || l.ev === "zerocut")).toBe(true);
   expect((await fame()).find((c) => c.you)?.busts).toBeGreaterThanOrEqual(1);
 }, 30_000);
+
+// ADR 0010: the bell's ranking names everyone who traded, by trader name;
+// it must not carry their cookies, any more than the room does.
+it("keeps cookies out of the bell's ranking", async () => {
+  s = await server(8097, { TICK_MS: "10" });
+  const { visitor, act, open, state } = app();
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  for (let i = 0; i < 400 && (await state()).phase !== "break"; i++) await new Promise((r) => setTimeout(r, 20));
+  const bell = await state(await visitor());
+  expect(bell.phase).toBe("break");
+  expect(JSON.stringify(bell)).not.toContain(a.slice(2));
+}, 20_000);

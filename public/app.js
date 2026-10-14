@@ -25,6 +25,7 @@ $("pray").onclick = () => act("pray");
 $("borrow").onclick = () => act("borrow");
 $("stop").onclick = () => {
   const pos = state?.you.pos;
+  if (!pos) return;
   if (pos.stop) return act("stop", { at: null });
   const price = state.prices.at(-1);
   act("stop", { at: price * (1 - pos.side * 0.01) });
@@ -174,7 +175,7 @@ function render(s) {
   }
   cuts = y.cuts;
 
-  const humans = s.traders.filter((t) => !t.motto).length;
+  const humans = s.traders.filter((t) => !t.bot).length;
   $("count").textContent = `${humans} human${humans === 1 ? "" : "s"}`;
   const list = $("traders");
   list.replaceChildren(
@@ -184,8 +185,8 @@ function render(s) {
       const n = document.createElement("span");
       n.className = "n";
       n.textContent = t.name + (t.you ? " (you)" : "");
-      if (t.motto) {
-        n.title = t.motto;
+      if (t.bot) {
+        n.title = t.motto ?? "";
         n.insertAdjacentHTML("beforeend", ' <span class="botmark">bot</span>');
       }
       const p = document.createElement("span");

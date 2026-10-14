@@ -32,21 +32,11 @@ const history = new History(read("data/ecb.csv"));
 const ADJ = ["Lucky", "Panic", "Diamond", "Paper", "Moon", "Margin", "Lonely", "Golden", "Sleepy", "Brave", "Greedy", "Humble", "Shaky", "Bold", "Tiny", "Mighty", "Nervous", "Hopeful", "Reckless", "Cosy", "Midnight", "Salty", "Dizzy", "Sunny"];
 const NOUN = ["Yen", "Pip", "Bull", "Bear", "Whale", "Candle", "Franc", "Kiwi", "Aussie", "Loonie", "Swap", "Lot", "Spread", "Chart", "Hedge", "Ticker", "Wick", "Dip", "Peg", "Rally", "Gap", "Fiver", "Penny", "Euro"];
 const bot = (who: string) => BOTS.find((b) => b.id === who);
-// Names and codes never change, and every view needs them, so each
-// cookie is hashed once.
-const known = new Map<string, { name: string; code: string }>();
-function ident(who: string): { name: string; code: string } {
-  let id = known.get(who);
-  if (!id) {
-    const b = bot(who);
-    const h = createHash("sha256").update(who).digest();
-    id = b ? { name: b.name, code: b.id } : { name: `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`, code: h.toString("hex").slice(0, 6) };
-    known.set(who, id);
-  }
-  return id;
-}
-const nameOf = (who: string): string => ident(who).name;
-const short = (who: string): string => ident(who).code;
+// Hashed on demand: caching would keep an entry for every cookie ever
+// seen, and a client without cookies gets a new one each request.
+const hash = (who: string): Buffer => createHash("sha256").update(who).digest();
+const nameOf = (who: string): string => bot(who)?.name ?? `${ADJ[hash(who)[0] % ADJ.length]} ${NOUN[hash(who)[1] % NOUN.length]}`;
+const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
 
 // One structured line per thing a trader does, with their short code and
 // trader name. It goes to stdout, so `flyctl logs` tails it, and is
@@ -78,12 +68,13 @@ setInterval(trimActivity, 3_600_000).unref();
 const recent: Line[] = readActivity().slice(-300);
 
 // The bots trade every few seconds; their trades go to stdout only, so the
-// saved record is people and rounds. Their prays and stops are not logged.
+// saved record is people and rounds. Their prays and stops are left out
+// altogether, as noise.
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
   const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
   if (who && bot(who)) {
-    if (ev !== "pray" && ev !== "stop" && ev !== "borrow") console.log(text);
+    if (ev !== "pray" && ev !== "stop") console.log(text);
     return;
   }
   console.log(text);
@@ -99,9 +90,21 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 // Career results across rounds and restarts: the long-term ranking.
 type Career = { name: string; rounds: number; profit: number; wins: number; busts: number; best: number };
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
+// Changes are saved once, just after the code that made them, however
+// many careers changed; a failed write is reported and the game goes on.
+let saving = false;
 function saveCareer(): void {
-  writeFileSync(`${CAREER_FILE}.tmp`, JSON.stringify(career));
-  renameSync(`${CAREER_FILE}.tmp`, CAREER_FILE);
+  if (saving) return;
+  saving = true;
+  setImmediate(() => {
+    saving = false;
+    try {
+      writeFileSync(`${CAREER_FILE}.tmp`, JSON.stringify(career));
+      renameSync(`${CAREER_FILE}.tmp`, CAREER_FILE);
+    } catch (error) {
+      console.error("could not save the hall of fame:", error);
+    }
+  });
 }
 
 // The round being played, or the break after it.
@@ -113,7 +116,7 @@ let desk: Desk;
 let tick = 0;
 let phase: "trade" | "break" = "trade";
 let breakLeft = 0;
-let result: { ranking: { id: string; name: string; balance: number }[]; reveal: string } | null = null;
+let result: { ranking: { who: string; name: string; balance: number }[]; reveal: string } | null = null;
 // What the bell will say, decided when the round starts.
 let reveal = "";
 let feed: { text: string; kind: string }[] = [];
@@ -200,7 +203,7 @@ const fmt = (p: number): string => p.toFixed(digits());
 function record(who: string): Career | null {
   if (bot(who)) return null;
   career[short(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
-  queueMicrotask(saveCareer);
+  saveCareer();
   return career[short(who)];
 }
 
@@ -214,7 +217,7 @@ function end(): void {
     c.best = Math.max(c.best, r.net - START);
     if (r === humans[0] && humans.length > 1) c.wins++;
   }
-  result = { ranking: ranking.map((r) => ({ id: short(r.who), name: nameOf(r.who), balance: r.net })), reveal };
+  result = { ranking: ranking.map((r) => ({ who: r.who, name: nameOf(r.who), balance: r.net })), reveal };
   log(null, "end", { ranking: ranking.map((r) => [short(r.who), r.net]) });
   phase = "break";
   breakLeft = BREAK_TICKS;
@@ -281,10 +284,10 @@ const listeners = new Set<{ res: ServerResponse; who: string }>();
 // The room is the bots, people with the page open, and anyone still
 // holding a position; someone who looked in and left is not listed.
 function room() {
-  const present = new Set([...listeners].map((l) => l.who));
-  const traders = desk.players().filter((p) => bot(p) || present.has(p) || desk.account(p).pos).map((p) => {
+  const open = ids();
+  const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
     const a = desk.account(p);
-    return { id: short(p), name: nameOf(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
+    return { who: p, id: short(p), name: nameOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
   });
   traders.sort((a, b) => b.equity - a.equity);
   const fame = Object.entries(career).map(([id, c]) => ({ id, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
@@ -293,7 +296,6 @@ function room() {
 
 function view(who: string, from = 0, shared = room()) {
   const mine = desk.players().includes(who) ? desk.account(who) : null;
-  const me = short(who);
   return {
     phase,
     round: count,
@@ -320,10 +322,10 @@ function view(who: string, from = 0, shared = room()) {
       cuts: mine?.cuts ?? 0,
       pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
     },
-    traders: shared.traders.map((t) => ({ ...t, you: t.id === me })),
+    traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
     feed,
-    result: result && { ...result, ranking: result.ranking.map((r) => ({ ...r, you: r.id === me })) },
-    career: shared.fame.map(({ id, ...c }) => ({ ...c, you: id === me })),
+    result: result && { ...result, ranking: result.ranking.map(({ who: p, ...r }) => ({ ...r, you: p === who })) },
+    career: shared.fame.map(({ id, ...c }) => ({ ...c, you: id === short(who) })),
     leverages: LEVERAGES,
   };
 }
@@ -380,8 +382,9 @@ function operator(url: URL): boolean {
   const key = Buffer.from(STATS_KEY);
   return key.length > 0 && given.length === key.length && timingSafeEqual(given, key);
 }
-const present = (who: string): boolean => [...listeners].some((l) => l.who === who);
-const here = (): number => new Set([...listeners].map((l) => l.who)).size;
+// Everyone with the page open, however many tabs.
+const ids = (): Set<string> => new Set([...listeners].map((l) => l.who));
+const here = (): number => ids().size;
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -405,7 +408,7 @@ createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/api/events") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
     const listener = { res, who };
-    const already = present(who);
+    const already = ids().has(who);
     listeners.add(listener);
     if (!already) log(who, "join", { here: here() });
     if (phase === "trade" && !desk.players().includes(who)) {
@@ -415,7 +418,7 @@ createServer(async (req, res) => {
     res.write(`data: ${JSON.stringify(view(who))}\n\n`);
     req.on("close", () => {
       listeners.delete(listener);
-      if (!present(who)) log(who, "leave", { here: here() });
+      if (!ids().has(who)) log(who, "leave", { here: here() });
     });
     return;
   }

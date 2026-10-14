@@ -12,7 +12,7 @@ export const baseUrl = inject("baseUrl");
 // local runs use a throwaway copy, where every test runs.
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
-export type Trader = { id: string; name: string; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
+export type Trader = { id: string; name: string; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
 export type State = {
   phase: "trade" | "break";
   start: number;

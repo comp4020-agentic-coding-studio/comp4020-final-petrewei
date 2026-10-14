@@ -10,9 +10,10 @@ function say(l) {
   switch (l.ev) {
     case "join": return `opened the page (${l.here} here)`;
     case "leave": return `closed the page (${l.here} here)`;
-    case "open": return `${l.side === "buy" ? "bought" : "sold"} ${l.pair} at ${l.price}, ${l.leverage}×`;
+    // Lines saved before page visits were renamed join/leave carry no price.
+    case "open": return l.price === undefined ? "opened the page" : `${l.side === "buy" ? "bought" : "sold"} ${l.pair} at ${l.price}, ${l.leverage}×`;
     case "add": return `added to a ${l.side} on ${l.pair} at ${l.price}, now ${l.leverage}×`;
-    case "close": return `closed on ${l.pair} at ${l.price}: ${yen(l.pnl)}`;
+    case "close": return l.price === undefined ? "closed the page" : `closed on ${l.pair} at ${l.price}: ${yen(l.pnl)}`;
     case "stop": return l.price !== undefined ? `stop filled on ${l.pair} at ${l.price}: ${yen(l.pnl)}` : l.at === null ? "removed their stop" : `set a stop at ${l.at}`;
     case "call": return `got a margin call on ${l.pair} at ${l.price}`;
     case "stopout": return `was stopped out on ${l.pair} at ${l.price}: ${yen(l.pnl)}`;
