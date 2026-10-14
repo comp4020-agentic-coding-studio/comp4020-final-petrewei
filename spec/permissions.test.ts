@@ -44,3 +44,14 @@ it.skipIf(live)("never shows a person's cookie or stop to anyone else", async ()
   expect(seen).not.toContain(String(price * 1.05));
   expect((await state(a)).you.pos?.stop).toBeCloseTo(price * 1.05);
 });
+
+// A replay's dates are the round's secret until the bell, so the page is
+// sent day numbers and prices, never a date or the event's name.
+it("keeps a replay's dates from the page until the bell", async () => {
+  const s = await state();
+  const text = JSON.stringify({ ...s, result: null, feed: s.feed.filter((f) => !f.text.startsWith("That was")) });
+  if (s.phase === "trade") {
+    expect(text).not.toMatch(/(19|20)\d\d-\d\d-\d\d/);
+    for (const name of ["Francogeddon", "Lehman", "Brexit", "COVID", "carry trade", "unwind"]) expect(text).not.toContain(name);
+  }
+});

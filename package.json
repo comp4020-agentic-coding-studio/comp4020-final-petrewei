@@ -7,7 +7,6 @@
     "typecheck": "tsc --noEmit",
     "check": "pnpm typecheck && pnpm test",
     "check:evidence": "node scripts/check-evidence.ts",
-    "load": "node scripts/load.ts",
     "test": "vitest run"
   },
   "devDependencies": {
