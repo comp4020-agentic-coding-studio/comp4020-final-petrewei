@@ -1,64 +1,43 @@
-# Fridge Poetry
+# Rules
 
-This is the working agreement for the final-project repository: each rule and the reason for it. The rules are carried over from crit 7 (`comp4020-crit7-petrewei`) and adapted to this app; the argument they serve is in `README.md`.
+## 1 Working Practices
 
-The platform is fixed and is not restated here: `fly.toml`, the `Dockerfile`, `.github/workflows/checks.yml` and `spec/README.md` each say what they fix. Read the published [brief](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/) and the current crit's spec before planning.
-
-## 1 This Deliverable
-
-The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 October 2026, 07:00) asks for a first working version and a first `README.md`.
-
-## 2 App and Data
-
-- **The vocabulary lives only in `src/words.ts`, and each word appears once.** The server never accepts text from a client; `spec/fridge.test.ts` checks both.
-- **Append new words to the end of the vocabulary, never insert.** A magnet's id is its index, and the saved door keys positions by id (`docs/adr/0004-a-vocabulary-of-about-160-words.md`).
-- **A magnet's position is a fraction of the door, 0 to 1.** Pixel positions would make an arrangement depend on the screen it was made on.
-- **State is `/data/fridge.json`, written by the server alone through `persist()`:** batched to at most every 500ms, via a temporary file and a rename, and flushed on any exit Node sees. Each move is also appended to `/data/moves.log` before it is confirmed, and replayed at startup. The reasons are in ADRs 0001, 0005 and 0006 in `docs/adr/`.
-- **Every change to a word raises its version `v`, carried by every event and reply about a word's state**, a 409 included. Pages apply news only if it is newer than what they have, never by arrival order; `spec/version.test.ts` checks it.
-- **The visitor cookie never leaves the server.** Clients learn only whether a magnet is theirs (`mine`), never who moved it.
-- **Keep `/api/events` streaming every move to every open page.** It is how the app meets the brief's real-time requirement, and `spec/realtime.test.ts` holds it to under a second.
-- **One hand at a time: the server refuses a grab or a move on a word someone else holds.** The rules live in `src/holds.ts` and the decision in `docs/adr/0002-one-hand-at-a-time.md`; `spec/hold.test.ts` checks them against the running app, and `test/holds.test.ts` checks every way a hold ends, lapses included, with a controlled clock.
-- **A theft notice names the word, never who took it.** It goes live to the robbed visitor's open pages, or waits in `/data/taken.json` until they come back; `spec/taken.test.ts` checks both.
-- **Notices go in `#status`, which floats over the bottom of the screen.** The fridge is taller than most windows, so anything placed below it is never seen.
-- **Lines and the archive follow `docs/adr/0003-an-archive-of-broken-lines.md`.** Keep `width()` in `src/lines.ts` fitted to the magnets as rendered; a change to their font or padding needs it refitted.
-- **Every visitor action goes through `log()` in `src/server.ts`, one JSON line each.** Visitors appear as `short()` hashes, never the cookie. Each line is also appended to `/data/activity.log`, so the record outlives restarts and the crit (Fly keeps only about 100 lines); `/stats` reads it back, and `test/activity.test.ts` checks it survives a hard kill.
-- **Who may see and change what is decided in `docs/adr/0007-who-may-see-and-change-what.md`, and checked on the server, never the page.** The activity log needs `STATS_KEY`, a Fly secret that never enters the repo or a commit; a new route must say which row of that table it belongs to.
-- **Marks on the door use the `--door-*` colours, chosen against the door, not the wall.** The door is white in light mode and piano black in dark, so each mode sets its own; each is at least 3:1 on its door.
-- **A word's `aria-label` carries what its outline and glow show**, and changes to the focused word are spoken through `#aloud`; announcing every move would drown a screen reader.
-- **Rounds and scoring follow `docs/adr/0008-rounds-with-a-prompt.md`, with the rules in `src/game.ts`.** Every prompt must be answerable from `src/words.ts` alone; `test/game.test.ts` checks scoring and ownership with a controlled clock, `spec/round.test.ts` against the running app.
-- **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
-
-## 3 Working Practices
-
-- **Review the plan adversarially before building.** Ask what is assumed, which choice the spec requires as against merely prefers, and what the alternatives were.
+- **Review the plan adversarially before building.** Ask what is assumed, which choice the brief requires as against merely prefers, and what the alternatives were.
+- **Check decisions against the published brief, not this file.** This file holds rules; the requirements are on the course website.
 - **Build the slice the plan describes, and stop there.** Propose extras separately.
-- **Never rewrite the spec to match the build.** A disagreement between the two is a decision to flag.
+- **Never rewrite a check to match the build.** A disagreement between the two is a decision to flag.
 
-## 4 Verification
+## 2 Data and Access
+
+- **Decide on the server who may see and change what, never in the page.** A page's code is in every visitor's hands.
+- **Never send a visitor's cookie to another visitor.** Show people by a derived name or short code.
+- **Keep secrets out of the repo, commits and logs.** They live in Fly secrets and `mise.local.toml`.
+
+## 3 Verification
 
 - **Return the evidence itself:** a screenshot, response body, DOM state or exit code.
-- **Verify the deployed app after every deploy.** Move a word on `https://comp4020-final-petrewei.fly.dev/`, reload, and check it is still there and outlined.
-- **Run `pnpm check` against the live app as well as locally:** `APP_URL=https://comp4020-final-petrewei.fly.dev pnpm check`.
-- **Close the Playwright browser after a round of checks, and delete its screenshots, snapshots and logs.** They collect in `../.playwright-mcp/` outside the repo, and one session left 48 screenshots there.
+- **Verify the deployed app after every deploy,** in a real browser, with two separate sessions for anything multi-user.
+- **Run `pnpm check` against the live app as well as locally.**
+- **Close the Playwright browser after a round of checks, and delete its screenshots, snapshots and logs.** They collect in `../.playwright-mcp/`, outside the repo.
 
-## 5 Sensors and Checks
+## 4 Sensors and Checks
 
 - **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
-- **Tests that change the door skip the live one** (`live` from `spec/helpers.ts`, whose write helpers throw against the live door). Real visitors share it, so a test's move, hold, theft notice or poem would land on them; CI runs those tests against a throwaway copy, and only read-only checks run live.
+- **Tests that change shared state skip the live app.** Real visitors share it; CI runs those tests against a throwaway copy.
 - **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
 
-## 6 Git and CI
+## 5 Git and CI
 
 - **Commit small and often, and say why in the message.** Stage files by name, and commit only on green.
 - **Push once after a change's commits, without asking.** Each push queues a CI run behind the last.
 
-## 7 PROCESS.md
+## 6 PROCESS.md
 
 - **Rewrite `PROCESS.md` at each crit so it describes the project as it stands,** and grow the crit's reflection with each change I direct, citing its commit.
 - **Write each moment in STAR form, weighted:** Situation 20%, Task 10%, Action 60%, Result 10%.
 - **Cite commits inline as links whose text is the hash,** and say which decisions were mine.
 
-## 8 Markdown
+## 7 Markdown
 
 - **Keep each prose paragraph on a single line.**
 - **Number document subheadings in Title Case** (`## 1 Heading`), in `CLAUDE.md`, `PROCESS.md` and ADRs, never in `README.md`, which the app serves as its own page.
