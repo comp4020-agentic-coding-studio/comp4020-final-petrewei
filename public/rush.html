@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fridge Rush</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/rush.css" />
+    <script type="module" src="/rush.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Fridge Rush</h1>
+      <p class="tagline">One fridge, 98 letters, everyone at once. <strong>Tap</strong> letters to grab them, <strong>spell</strong> a word, and <strong>play</strong> it before anyone else does. Steal from a rival's tray if you dare.</p>
+      <a class="about" href="/readme/">How to play</a>
+    </header>
+
+    <section id="top">
+      <div id="clock-box"><span id="phase">Waiting</span> <strong id="clock">–:––</strong></div>
+      <ol id="board"></ol>
+    </section>
+
+    <main>
+      <div id="door" role="group" aria-label="The fridge door: tap a letter to grab it"></div>
+
+      <aside id="side">
+        <section id="rivals" aria-label="Rivals' trays: tap a letter to steal it"></section>
+        <section id="feed-box">
+          <h2>Happening now</h2>
+          <ol id="feed"></ol>
+        </section>
+        <section id="best-box">
+          <h2>Best words ever</h2>
+          <ol id="best"></ol>
+        </section>
+      </aside>
+    </main>
+
+    <footer id="me">
+      <div class="me-head"><span id="me-name"></span> <span id="me-score"></span></div>
+      <div id="tray" role="group" aria-label="Your tray: tap letters to spell, or drop one back"></div>
+      <div class="spell">
+        <output id="word" aria-live="polite"></output>
+        <button id="play" type="button">Play</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+      <p id="status" role="status"></p>
+    </footer>
+  </body>
+</html>
