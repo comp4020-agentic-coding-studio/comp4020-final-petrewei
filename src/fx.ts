@@ -35,8 +35,9 @@ export type Position = {
   called: boolean;
 };
 // `out` is set when a close leaves nothing and cleared by a loan; `cuts`
-// counts forced closes, so a page can tell when a new one happens.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number };
+// counts forced closes, so a page can tell when a new one happens;
+// `traded` says whether the player placed an order this round at all.
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -52,7 +53,7 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0 });
+    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false });
   }
 
   players(): string[] {
@@ -103,6 +104,7 @@ export class Desk {
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
     const units = notional / fill(this.price, side);
+    account.traded = true;
     const pos = account.pos;
     if (!pos) {
       account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: null, called: false };

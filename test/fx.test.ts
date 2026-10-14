@@ -145,6 +145,15 @@ describe("the trading desk", () => {
     expect(desk.order("a", 1, 5)).toBe("No free margin left.");
   });
 
+  it("knows who traded this round and who only watched", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.join("b");
+    desk.order("a", 1, 5);
+    expect(desk.account("a").traded).toBe(true);
+    expect(desk.account("b").traded).toBe(false);
+  });
+
   it("settles every position at the round's last price and ranks by balance", () => {
     const desk = new Desk(100);
     for (const who of ["a", "b", "c"]) desk.join(who);

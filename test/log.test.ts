@@ -79,10 +79,30 @@ it("keeps cookies out of the bell's ranking", async () => {
   s = await server(8097, { TICK_MS: "10" });
   const { visitor, act, open, state } = app();
   const a = await visitor();
+  const b = await visitor();
   await open(30);
   await act(a, { kind: "buy", leverage: 5 });
-  for (let i = 0; i < 400 && (await state()).phase !== "break"; i++) await new Promise((r) => setTimeout(r, 20));
-  const bell = await state(await visitor());
+  // b's own reading of the bell, taken in the same request that sees it
+  let bell = await state(b);
+  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(b);
   expect(bell.phase).toBe("break");
   expect(JSON.stringify(bell)).not.toContain(a.slice(2));
+}, 20_000);
+
+// A career starts with a trade: someone who only watched a round gets no
+// row in the hall of fame, so it lists players, not passers-by.
+it("gives a career to traders, not watchers", async () => {
+  s = await server(8097, { TICK_MS: "10" });
+  const { visitor, act, open, page, state } = app();
+  const trader = await visitor();
+  const watcher = await visitor();
+  const watching = await page(watcher);
+  await open(30);
+  await act(trader, { kind: "buy", leverage: 5 });
+  let bell = await state(trader);
+  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(trader);
+  watching.close();
+  expect(bell.career.filter((c) => c.rounds > 0)).toHaveLength(1);
+  expect(bell.career[0].you).toBe(true);
+  expect((await state(watcher)).career.some((c) => c.you)).toBe(false);
 }, 20_000);

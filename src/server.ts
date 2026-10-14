@@ -10,6 +10,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, START } from "./fx.ts";
+import { yen } from "../public/format.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
 
@@ -35,8 +36,16 @@ const bot = (who: string) => BOTS.find((b) => b.id === who);
 // Hashed on demand: caching would keep an entry for every cookie ever
 // seen, and a client without cookies gets a new one each request.
 const hash = (who: string): Buffer => createHash("sha256").update(who).digest();
-const nameOf = (who: string): string => bot(who)?.name ?? `${ADJ[hash(who)[0] % ADJ.length]} ${NOUN[hash(who)[1] % NOUN.length]}`;
+function nameOf(who: string): string {
+  const b = bot(who);
+  if (b) return b.name;
+  const h = hash(who);
+  return `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`;
+}
+// Six hex characters tell people apart in the log at a glance; a career
+// is filed under sixteen, so two people's careers never merge.
 const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
+const key = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 16));
 
 // One structured line per thing a trader does, with their short code and
 // trader name. It goes to stdout, so `flyctl logs` tails it, and is
@@ -68,16 +77,15 @@ setInterval(trimActivity, 3_600_000).unref();
 const recent: Line[] = readActivity().slice(-300);
 
 // The bots trade every few seconds; their trades go to stdout only, so the
-// saved record is people and rounds. Their prays and stops are left out
-// altogether, as noise.
+// saved record is people and rounds. Their prayers and stop settings are
+// left out altogether, as noise.
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
+  const isBot = who !== null && !!bot(who);
+  if (isBot && (ev === "pray" || ev === "stop-set")) return;
   const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
-  if (who && bot(who)) {
-    if (ev !== "pray" && ev !== "stop") console.log(text);
-    return;
-  }
   console.log(text);
+  if (isBot) return;
   recent.push(line);
   recent.splice(0, recent.length - 300);
   try {
@@ -116,7 +124,7 @@ let desk: Desk;
 let tick = 0;
 let phase: "trade" | "break" = "trade";
 let breakLeft = 0;
-let result: { ranking: { who: string; name: string; balance: number }[]; reveal: string } | null = null;
+let result: { ranking: { key: string; name: string; balance: number }[]; reveal: string } | null = null;
 // What the bell will say, decided when the round starts.
 let reveal = "";
 let feed: { text: string; kind: string }[] = [];
@@ -173,8 +181,6 @@ function say(text: string, kind: string): void {
   feed.splice(14);
 }
 
-const yen = (n: number): string => `${n < 0 ? "−" : ""}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
-
 // Turn the desk's events into the room's feed. A stop-out is everyone's
 // business; that is the point of trading in the same room.
 function report(events: Fill[]): void {
@@ -198,18 +204,26 @@ function report(events: Fill[]): void {
 const digits = (): number => (round.pair.endsWith("JPY") ? 3 : 5);
 const fmt = (p: number): string => p.toFixed(digits());
 
-// Only people have careers. A change is saved at once (the file is small),
-// so a bust survives a crash mid-round.
+// Only people who trade have careers. A change is saved at once (the
+// file is small), so a bust survives a crash mid-round, and the top ten
+// are worked out again only then.
+let fame: (Career & { key: string })[] = [];
+function rank(): void {
+  fame = Object.entries(career).map(([k, c]) => ({ key: k, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
+}
+rank();
 function record(who: string): Career | null {
   if (bot(who)) return null;
-  career[short(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
+  career[key(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
   saveCareer();
-  return career[short(who)];
+  queueMicrotask(rank);
+  return career[key(who)];
 }
 
 function end(): void {
   const ranking = desk.settle();
-  const humans = ranking.filter((r) => !bot(r.who));
+  // Watchers are on the desk but never ordered, so they get no career.
+  const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
   for (const r of humans) {
     const c = record(r.who)!;
     c.rounds++;
@@ -217,7 +231,8 @@ function end(): void {
     c.best = Math.max(c.best, r.net - START);
     if (r === humans[0] && humans.length > 1) c.wins++;
   }
-  result = { ranking: ranking.map((r) => ({ who: r.who, name: nameOf(r.who), balance: r.net })), reveal };
+  const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
+  result = { ranking: shown.map((r) => ({ key: key(r.who), name: nameOf(r.who), balance: r.net })), reveal };
   log(null, "end", { ranking: ranking.map((r) => [short(r.who), r.net]) });
   phase = "break";
   breakLeft = BREAK_TICKS;
@@ -256,7 +271,7 @@ function apply(who: string, action: Action): string | null {
   }
   if (action.kind === "stop") {
     const refused = desk.stop(who, action.at);
-    if (!refused) log(who, "stop", { at: action.at === null ? null : Number(fmt(action.at)) });
+    if (!refused) log(who, "stop-set", { at: action.at === null ? null : Number(fmt(action.at)) });
     return refused;
   }
   if (action.kind === "borrow") {
@@ -290,12 +305,12 @@ function room() {
     return { who: p, id: short(p), name: nameOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
   });
   traders.sort((a, b) => b.equity - a.equity);
-  const fame = Object.entries(career).map(([id, c]) => ({ id, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
-  return { traders, fame };
+  return { traders };
 }
 
 function view(who: string, from = 0, shared = room()) {
   const mine = desk.players().includes(who) ? desk.account(who) : null;
+  const me = key(who);
   return {
     phase,
     round: count,
@@ -324,8 +339,8 @@ function view(who: string, from = 0, shared = room()) {
     },
     traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
     feed,
-    result: result && { ...result, ranking: result.ranking.map(({ who: p, ...r }) => ({ ...r, you: p === who })) },
-    career: shared.fame.map(({ id, ...c }) => ({ ...c, you: id === short(who) })),
+    result: result && { ...result, ranking: result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
+    career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
     leverages: LEVERAGES,
   };
 }
@@ -400,12 +415,12 @@ createServer(async (req, res) => {
     return json(res, 404, { error: "Not found." });
   }
   if (req.method === "GET" && LOG_PAGES[path]) return send(res, LOG_PAGES[path]);
-  if (req.method === "GET" && url.pathname === "/api/log") {
+  if (req.method === "GET" && path === "/api/log") {
     return json(res, 200, { here: here(), round: count, pair: round.pair, phase, recent: recent.slice(-150).toReversed() });
   }
 
   // Opening the page joins the round in progress with a fresh account.
-  if (req.method === "GET" && url.pathname === "/api/events") {
+  if (req.method === "GET" && path === "/api/events") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
     const listener = { res, who };
     const already = ids().has(who);
@@ -423,9 +438,9 @@ createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, view(who));
+  if (req.method === "GET" && path === "/api/state") return json(res, 200, view(who));
 
-  if (req.method === "POST" && url.pathname === "/api/act") {
+  if (req.method === "POST" && path === "/api/act") {
     let input: Record<string, unknown>;
     try {
       input = await body(req);
