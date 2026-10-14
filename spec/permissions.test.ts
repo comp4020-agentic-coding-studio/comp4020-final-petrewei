@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { act, attempt, live, open, state, visitor } from "./helpers.ts";
+import { act, attempt, live, open, page, sleep, state, type Trader, visitor } from "./helpers.ts";
 
 // ADR 0010: the server decides who may see and change what. A person acts
 // only through their own cookie, on their own account; the page is told
@@ -53,5 +53,26 @@ it("keeps a replay's dates from the page until the bell", async () => {
   if (s.phase === "trade") {
     expect(text).not.toMatch(/(19|20)\d\d-\d\d-\d\d/);
     for (const name of ["Francogeddon", "Lehman", "Brexit", "COVID", "carry trade", "unwind"]) expect(text).not.toContain(name);
+  }
+});
+
+// The room lists who is there: the bots, people with the page open, and
+// anyone still holding a position. A visitor who looked and left is not a
+// trader, so they don't crowd the ranking.
+it.skipIf(live)("lists only people present or trading", async () => {
+  const idle = await visitor();
+  await open();
+  const glance = await page(idle);
+  await glance.next(() => true, 2000);
+  glance.close();
+  await sleep(200);
+  const p = await page(await visitor());
+  try {
+    const seen = (await p.next(() => true, 2000)) as { traders: Trader[]; you: { name: string } };
+    const names = seen.traders.map((t) => t.name);
+    expect(names).toContain(seen.you.name);
+    expect(names).not.toContain((await state(idle)).you.name);
+  } finally {
+    p.close();
   }
 });

@@ -266,7 +266,10 @@ const listeners = new Set<{ res: ServerResponse; who: string }>();
 // Pages are sent the whole price history when they join or a round
 // changes phase, and otherwise only the newest price, from `from` on.
 function view(who: string, from = 0) {
-  const traders = desk.players().map((p) => {
+  // The room is the bots, people with the page open, and anyone still
+  // holding a position; someone who looked in and left is not listed.
+  const present = new Set([...listeners].map((l) => l.who));
+  const traders = desk.players().filter((p) => bot(p) || present.has(p) || desk.account(p).pos).map((p) => {
     const a = desk.account(p);
     return { id: short(p), name: nameOf(p), bot: !!bot(p), equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, you: p === who };
   });
