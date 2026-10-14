@@ -7,7 +7,7 @@ import { join } from "node:path";
 // for checks that need to set its environment or kill it.
 export type Server = { base: string; dir: string; proc: ChildProcess; restart: () => Promise<void>; stop: () => void };
 
-export async function server(port: number, env: Record<string, string> = {}, dir = mkdtempSync(join(tmpdir(), "fridge-"))): Promise<Server> {
+export async function server(port: number, env: Record<string, string> = {}, dir = mkdtempSync(join(tmpdir(), "losscut-"))): Promise<Server> {
   const base = `http://localhost:${port}`;
   const s: Server = { base, dir, proc: undefined as unknown as ChildProcess, restart, stop };
 

@@ -1,0 +1,46 @@
+import { expect, it } from "vitest";
+import { act, attempt, live, open, state, visitor } from "./helpers.ts";
+
+// ADR 0010: the server decides who may see and change what. A person acts
+// only through their own cookie, on their own account; the page is told
+// everyone's side, leverage and net worth, but never their cookie or stop.
+
+it("refuses an order the broker does not offer, changing nothing", async () => {
+  const me = await visitor();
+  for (const body of [{ kind: "buy", leverage: 7 }, { kind: "buy", leverage: 25, stake: 2 }, { kind: "sell", leverage: 25, stake: -1 }, { kind: "hack" }, { kind: "borrow" }]) {
+    const res = await attempt(body, me);
+    expect(res.status, JSON.stringify(body)).toBeGreaterThanOrEqual(400);
+    expect((await res.json()).error).toEqual(expect.any(String));
+  }
+  expect((await state(me)).you).toMatchObject({ balance: 1_000_000, pos: null, debt: 0 });
+});
+
+it("refuses a body too large to be an order", async () => {
+  const res = await attempt({ kind: "buy", leverage: 25, pad: "x".repeat(2000) }, await visitor());
+  expect(res.status).toBe(400);
+});
+
+it.skipIf(live)("acts only on the sender's own account", async () => {
+  const a = await visitor();
+  const b = await visitor();
+  await open();
+  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5 })).status).toBe(200);
+  // b cannot close or stop a's position: b has none of their own
+  expect((await act(b, { kind: "close" })).status).toBe(409);
+  expect((await act(b, { kind: "stop", at: 0.0001 })).status).toBe(409);
+  expect((await state(a)).you.pos).toMatchObject({ side: 1, leverage: 10 });
+  expect((await state(b)).you.pos).toBeNull();
+});
+
+it.skipIf(live)("never shows a person's cookie or stop to anyone else", async () => {
+  const a = await visitor();
+  const b = await visitor();
+  await open();
+  await act(a, { kind: "sell", leverage: 5, stake: 0.5 });
+  const price = (await state(a)).prices.at(-1)!;
+  expect((await act(a, { kind: "stop", at: price * 1.05 })).status).toBe(200);
+  const seen = JSON.stringify(await state(b));
+  expect(seen).not.toContain(a.slice(2));
+  expect(seen).not.toContain(String(price * 1.05));
+  expect((await state(a)).you.pos?.stop).toBeCloseTo(price * 1.05);
+});

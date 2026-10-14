@@ -121,3 +121,9 @@ tr.you { font-weight: 700; }
 footer { padding: 0.5rem 1rem 1.5rem; color: var(--muted); font-size: 0.75rem; max-width: 60rem; }
 
 body.readme main { display: block; max-width: 42rem; margin: 0 auto; padding: 1rem; line-height: 1.55; }
+
+.logpage { display: block; max-width: 60rem; }
+#log { list-style: none; margin: 0; padding: 0.4rem 0.8rem; font: 0.85rem ui-monospace, monospace; }
+#log li { padding: 0.2rem 0; border-bottom: 1px dashed var(--line); }
+#log time { color: var(--muted); }
+#log code { color: var(--bar); }

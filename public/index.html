@@ -1,49 +1,79 @@
 <!doctype html>
 <html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fridge Poetry</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/fridge.css" />
-    <script type="module" src="/fridge.js"></script>
-  </head>
-  <body>
-    <header>
-      <div class="masthead">
-        <h1>Fridge Poetry</h1>
-        <span id="here" class="here"></span>
-        <a class="about" href="/readme/">What this is for</a>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Losscut! Kurumi's FX Fantasy</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header>
+    <h1>Losscut! <span class="jp">Kurumi's FX Fantasy · ロスカット</span></h1>
+    <p class="tag">A parody trading floor. Play money only. Leverage is a joke here, and a trap everywhere else.</p>
+    <a href="/readme/">About</a>
+  </header>
+
+  <main>
+    <section class="win chart-win">
+      <div class="bar"><span class="file" id="title">chart.exe</span><span id="clock"></span></div>
+      <div class="quote"><span id="pair">—</span> <strong id="price">—</strong> <span id="change"></span><span id="mode" class="mode"></span></div>
+      <canvas id="chart" width="800" height="320" aria-label="Price chart"></canvas>
+    </section>
+
+    <section class="win trade-win">
+      <div class="bar"><span class="file">my_account.txt</span><span id="who"></span></div>
+      <dl class="acct">
+        <div><dt>Net worth</dt><dd id="equity">—</dd></div>
+        <div><dt>Open P&amp;L</dt><dd id="pnl">—</dd></div>
+        <div><dt>Margin level</dt><dd id="level">—</dd></div>
+      </dl>
+      <div class="meter"><div id="meter"></div><span class="mark call">call</span><span class="mark out">out</span></div>
+      <p id="position" class="position">No position.</p>
+      <div class="row">
+        <label>Leverage <select id="leverage"></select></label>
+        <label>Stake <select id="stake"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
       </div>
-      <p class="tagline">One fridge door, one set of words, everyone at once. Build a line of three words or more: it scores while it stands, double if it answers the prompt. Every word exists once, so steal theirs, and guard yours.</p>
-      <ul class="hints">
-        <li><strong>Drag</strong> a word to move it</li>
-        <li>Or focus it and press <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd>, with <kbd>Shift</kbd> for bigger steps</li>
-        <li><span class="sample">yours</span> marks the words you moved last; they stay where you left them</li>
-      </ul>
-    </header>
-    <main>
-      <section id="round" aria-label="This round" aria-live="off">
-        <div class="prompt"><span class="label">This round:</span> <strong id="prompt">…</strong></div>
-        <div class="clock" id="clock">–:––</div>
-        <ol id="board"></ol>
-      </section>
-      <div id="fridge">
-        <div class="cabinet">
-          <div class="freezer" aria-hidden="true"><span class="badge">Fridge Poetry</span></div>
-          <div id="door" role="group" aria-label="Fridge door" aria-describedby="how"></div>
-          <div class="grille" aria-hidden="true"></div>
-        </div>
-        <div class="feet" aria-hidden="true"></div>
+      <div class="row big">
+        <button id="buy" class="buy">BUY</button>
+        <button id="sell" class="sell">SELL</button>
       </div>
-      <section id="archive" aria-labelledby="archive-title">
-        <h2 id="archive-title">Poems that were here</h2>
-        <p class="note">When a line of three or more words has stood for a little while and someone breaks it, it's kept here.</p>
-        <ol id="poems"></ol>
-      </section>
-      <p id="how" class="visually-hidden">Each word is a button. Use the arrow keys to move the focused word, and Shift with an arrow key to move it further.</p>
-      <p id="status" role="status"></p>
-      <p id="aloud" class="visually-hidden" aria-live="polite"></p>
-    </main>
-  </body>
+      <div class="row">
+        <button id="close">Close position</button>
+        <button id="stop">Stop at −1%</button>
+        <button id="pray" title="Does nothing. Counted anyway.">🙏 Pray</button>
+      </div>
+      <button id="borrow" class="borrow" hidden>Borrow ¥300,000 from Dad's savings</button>
+      <p id="error" class="error" role="status"></p>
+    </section>
+
+    <section class="win room-win">
+      <div class="bar"><span class="file">traders.csv</span><span id="count"></span></div>
+      <ol id="traders"></ol>
+    </section>
+
+    <section class="win feed-win">
+      <div class="bar"><span class="file">news_feed.log</span></div>
+      <ul id="feed"></ul>
+    </section>
+
+    <section class="win career-win">
+      <div class="bar"><span class="file">hall_of_fame.db</span><span>all-time profit</span></div>
+      <table><thead><tr><th>Trader</th><th>Rounds</th><th>Profit</th><th>Wins</th><th>Busts</th></tr></thead><tbody id="career"></tbody></table>
+    </section>
+  </main>
+
+  <div id="bell" class="overlay" hidden>
+    <div class="card">
+      <h2>The bell</h2>
+      <p id="reveal"></p>
+      <ol id="ranking"></ol>
+      <p class="next">Next round in <span id="next"></span>s</p>
+    </div>
+  </div>
+  <div id="losscut" class="losscut" hidden><span>強制ロスカット</span><small id="losscut-sub">FORCED LOSS CUT</small></div>
+
+  <footer>Rates: ECB euro reference rates (crosses derived) and Frankfurter for today's rate. Live rounds are simulated from today's rate. Parody, not affiliated with any comic, studio or broker. Most retail leveraged FX traders lose money. If gambling or debt is hurting you, in Australia call the Gambling Help line on 1800 858 858.</footer>
+  <script src="/app.js"></script>
+</body>
 </html>

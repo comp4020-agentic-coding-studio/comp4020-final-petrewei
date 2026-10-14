@@ -1,219 +1,48 @@
+// Losscut!'s server: one shared market, traded live by everyone with the
+// page open, plus four house bots. The server owns the price, fills every
+// order at the price when it arrives, and enforces margin calls and
+// stop-outs; pages only show what it sends (ADR 0010). A round is three
+// minutes: a hidden replay of real history, or (every third round) a live
+// round from today's rate. The hall of fame is kept on the volume.
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
-import { Game, owner } from "./game.ts";
-import { Holds } from "./holds.ts";
-import { lines, text, width } from "./lines.ts";
+import { BOTS } from "./bots.ts";
+import { BORROW, Desk, LEVERAGES, LOANS, START, type Event, type Side } from "./fx.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { VOCABULARY } from "./words.ts";
-
-// One fridge door. Positions are fractions of the door (0..1), so an
-// arrangement survives any screen size. `movedBy` is the anonymous visitor
-// cookie of whoever last moved the magnet; it never leaves the server, which
-// only tells each visitor whether a magnet is theirs.
-type Magnet = { id: string; text: string; x: number; y: number; movedBy: string | null; v: number };
+import { DAYS, History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
-const FILE = join(DATA_DIR, "fridge.json");
-const TAKEN_FILE = join(DATA_DIR, "taken.json");
-const POEMS_FILE = join(DATA_DIR, "poems.json");
-const JOURNAL = join(DATA_DIR, "moves.log");
-const ACTIVITY = join(DATA_DIR, "activity.log");
 const ROOT = join(import.meta.dirname, "..");
-
-// The starting heap: words packed left to right by their estimated width,
-// rows of 0.044, ending at the bottom of the door, so no magnet starts under
-// another and the space above is clear for writing. The gap allows for the
-// width estimate running short by up to 0.66em (src/lines.ts).
-const GAP = 0.016;
-const ROW = 0.044;
-
-function seed(): Magnet[] {
-  let x = 0.01;
-  let row = 0;
-  const at = VOCABULARY.map((text) => {
-    if (x + width(text) > 0.99) {
-      x = 0.01;
-      row++;
-    }
-    const spot = { x, row };
-    x += width(text) + GAP;
-    return spot;
-  });
-  const top = 0.985 - (row + 1) * ROW;
-  return VOCABULARY.map((text, i) => ({
-    id: `m${i}`,
-    text,
-    x: +at[i].x.toFixed(4),
-    y: +(top + at[i].row * ROW).toFixed(4),
-    movedBy: null,
-    v: 0,
-  }));
-}
-
-const readJson = <T>(file: string, fallback: T): T =>
-  existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as T) : fallback;
-
-// Writes are batched: a busy room moves several words a second, and each
-// write is a whole file. Whatever changed is written at most every half
-// second, through a temporary file and a rename so a crash can't leave half
-// a file, and once more when the machine stops.
-const pending = new Map<string, () => unknown>();
-let flushing: NodeJS.Timeout | null = null;
-
-// A failed write is logged and kept for the next flush rather than thrown
-// from a timer, which would take the whole server down.
-function flush(): void {
-  if (flushing) clearTimeout(flushing);
-  flushing = null;
-  for (const [file, data] of pending) {
-    try {
-      writeFileSync(`${file}.tmp`, JSON.stringify(data()));
-      renameSync(`${file}.tmp`, file);
-      pending.delete(file);
-      // the door is on disk in full, so the moves journalled since are in it
-      if (file === FILE) writeFileSync(JOURNAL, "");
-    } catch (error) {
-      console.error(`could not write ${file}:`, error);
-    }
-  }
-  if (pending.size) flushing = setTimeout(flush, 500);
-}
-
-function persist(file: string, data: () => unknown): void {
-  pending.set(file, data);
-  flushing ??= setTimeout(flush, 500);
-}
-
-// Pending writes go to disk on any exit Node can see: a stop signal, or a
-// crash on an uncaught exception. Only SIGKILL or the kernel's out-of-memory
-// killer can lose the last half second (ADR 0005).
-process.on("exit", flush);
-for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(0));
-
+const CAREER_FILE = join(DATA_DIR, "career.json");
+const ACTIVITY = join(DATA_DIR, "activity.log");
+// Half a second a tick: forty days of nine ticks is three minutes.
+const TICK_MS = Number(process.env.TICK_MS ?? 500);
+const BREAK_TICKS = 40;
 mkdirSync(DATA_DIR, { recursive: true });
 
-function load(): Magnet[] {
-  const saved = readJson<Magnet[] | null>(FILE, null);
-  if (!saved) return seed();
-  // The vocabulary is fixed in code: a saved magnet keeps its place and its
-  // stacking order (last moved is last, so on top), but its text always comes
-  // from VOCABULARY. Words nobody has moved, and words added since, take
-  // today's seed, so the heap always matches the current layout.
-  const fresh = new Map(seed().map((m) => [m.id, m]));
-  const kept = saved.flatMap((s) => {
-    const m = fresh.get(s.id);
-    fresh.delete(s.id);
-    if (!m) return [];
-    return s.movedBy === null ? [m] : [{ ...m, x: s.x, y: s.y, movedBy: s.movedBy }];
-  });
-  return [...fresh.values(), ...kept];
-}
+const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
+const history = new History(read("data/ecb.csv"));
 
-const magnets = load();
+// A visitor is their cookie; others see them by a trader name drawn from
+// it, and the log by a short hash, so nobody types a name, nothing needs
+// moderating, and no page or log line carries a cookie (ADR 0010).
+const ADJ = ["Lucky", "Panic", "Diamond", "Paper", "Moon", "Margin", "Lonely", "Golden", "Sleepy", "Brave", "Greedy", "Humble", "Shaky", "Bold", "Tiny", "Mighty", "Nervous", "Hopeful", "Reckless", "Cosy", "Midnight", "Salty", "Dizzy", "Sunny"];
+const NOUN = ["Yen", "Pip", "Bull", "Bear", "Whale", "Candle", "Franc", "Kiwi", "Aussie", "Loonie", "Swap", "Lot", "Spread", "Chart", "Hedge", "Ticker", "Wick", "Dip", "Peg", "Rally", "Gap", "Fiver", "Penny", "Euro"];
+const hash = (who: string): Buffer => createHash("sha256").update(who).digest();
+const bot = (who: string) => BOTS.find((b) => b.id === who);
+const nameOf = (who: string): string => bot(who)?.name ?? `${ADJ[hash(who)[0] % ADJ.length]} ${NOUN[hash(who)[1] % NOUN.length]}`;
+const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
 
-// ADR 0006: each move is also appended to a journal the moment it is made,
-// before the visitor is told it worked. An append reaches the operating
-// system at once, so killing the process can't lose it; the batched write of
-// the whole door then empties the journal. At startup, moves journalled after
-// the last full write are replayed in order.
-type Entry = { id: string; x: number; y: number; movedBy: string };
-function replay(): void {
-  if (!existsSync(JOURNAL)) return;
-  for (const line of readFileSync(JOURNAL, "utf8").split("\n")) {
-    if (!line) continue;
-    let e: Entry;
-    try {
-      e = JSON.parse(line) as Entry;
-    } catch {
-      continue; // a line cut short by the kill: its move was never confirmed
-    }
-    const m = magnets.find((n) => n.id === e.id);
-    if (!m) continue;
-    Object.assign(m, { x: e.x, y: e.y, movedBy: e.movedBy });
-    magnets.splice(magnets.indexOf(m), 1);
-    magnets.push(m);
-  }
-}
-replay();
-
-const save = (m: Magnet): void => {
-  appendFileSync(JOURNAL, `${JSON.stringify({ id: m.id, x: m.x, y: m.y, movedBy: m.movedBy })}\n`);
-  persist(FILE, () => magnets.map(({ v, ...n }) => n));
-};
-
-// Every change to a word (a move, a hold, a release) stamps it with a new
-// version, carried by every event and reply, so a page applies news about a
-// word only if it is newer than what it already has. Versions start from the
-// clock, so they keep rising across a restart.
-let version = Date.now();
-for (const m of magnets) m.v = version;
-const stamp = (id: string): number => (magnets.find((m) => m.id === id)!.v = ++version);
-
-// Theft notices that are waiting for someone who wasn't on the page when their
-// word was taken: visitor -> the words, newest last, at most 20 each. Only the
-// word is kept, never who took it, for the 500 most recently robbed visitors.
-const taken = new Map<string, string[]>(Object.entries(readJson(TAKEN_FILE, {})));
-const saveTaken = (): void => persist(TAKEN_FILE, () => Object.fromEntries(taken));
-
-// ADR 0003, an archive of broken lines. A line has to stand this long to be
-// kept when it breaks, so quick rearranging doesn't fill the archive.
-const STAND_MS = 15_000;
-type Poem = { text: string; at: string };
-const poems = readJson<Poem[]>(POEMS_FILE, []);
-
-// Only words someone has moved can be poetry, so the heap of unused words
-// along the bottom is never read as lines. This asks who moved a word, not
-// where it sits: the saved door keeps words at older starting layouts, which
-// a comparison with today's seed() misreads as moved.
-const placed = (): Magnet[] => magnets.filter((m) => m.movedBy !== null);
-
-// The lines on the door now, each keyed by its magnets in order, with when it
-// first stood; a line extended into a longer one keeps its age.
-let standing = new Map<string, { text: string; since: number }>();
-
-function survey(): void {
-  const now = Date.now();
-  const current = new Map<string, { text: string; since: number }>();
-  for (const line of lines(placed())) {
-    const key = line.map((m) => m.id).join(",");
-    let since = now;
-    for (const [old, s] of standing) if (`,${key},`.includes(`,${old},`)) since = Math.min(since, s.since);
-    current.set(key, { text: text(line), since });
-  }
-  let archived = false;
-  for (const [old, s] of standing) {
-    const grown = [...current.keys()].some((key) => `,${key},`.includes(`,${old},`));
-    if (grown || now - s.since < STAND_MS) continue;
-    const poem = { text: s.text, at: new Date(now).toISOString() };
-    poems.push(poem);
-    poems.splice(0, poems.length - 200);
-    log(null, "poem", { text: s.text, stood: Math.round((now - s.since) / 1000) });
-    emit({ type: "poem", ...poem });
-    archived = true;
-  }
-  if (archived) persist(POEMS_FILE, () => poems);
-  standing = current;
-}
-
-const visitor = (req: IncomingMessage): string | null =>
-  req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
-
-// Crit 10: one structured line per thing a visitor does. It goes to stdout,
-// so `flyctl logs` tails it, and is appended to /data/activity.log, so the
-// record outlives restarts and the crit itself: Fly's own buffer keeps only
-// about a hundred lines, and memory is wiped by every restart. /stats reads
-// its last 200 back at startup. A visitor is a short hash of their cookie:
-// stable enough to follow one person through the log, and useless for
-// taking over their session.
+// One structured line per thing a trader does, with their short code and
+// trader name. It goes to stdout, so `flyctl logs` tails it, and is
+// appended to /data/activity.log, so the record outlives restarts: Fly's
+// own buffer keeps about a hundred lines. The operator's /log page reads
+// it back. Past 4 MB the older half is dropped, so it can't fill the volume.
 type Line = { t: string; who: string; ev: string } & Record<string, unknown>;
-
-// When the log passes this size, the older half is dropped, so it can't fill
-// the volume; about 20,000 lines, weeks of a busy room.
 const ACTIVITY_MAX = 4_000_000;
-
 function readActivity(): Line[] {
   if (!existsSync(ACTIVITY)) return [];
   const lines: Line[] = [];
@@ -226,320 +55,375 @@ function readActivity(): Line[] {
   }
   return lines;
 }
-
 function trimActivity(): void {
   if (!existsSync(ACTIVITY) || statSync(ACTIVITY).size <= ACTIVITY_MAX) return;
   const kept = readActivity();
   writeFileSync(`${ACTIVITY}.tmp`, kept.slice(kept.length >> 1).map((l) => JSON.stringify(l)).join("\n") + "\n");
   renameSync(`${ACTIVITY}.tmp`, ACTIVITY);
 }
-
 trimActivity();
 setInterval(trimActivity, 3_600_000).unref();
-const saved = readActivity();
-const recent: Line[] = saved.slice(-200);
+const recent: Line[] = readActivity().slice(-300);
 
-// How often each word has been moved, over the whole saved log: evidence for
-// the README's judged claim about the vocabulary. Counted once at startup,
-// then kept up to date as words move.
-const moves = new Map<string, number>();
-const count = (l: Line): void => {
-  if (l.ev === "move" && typeof l.word === "string") moves.set(l.word, (moves.get(l.word) ?? 0) + 1);
-};
-saved.forEach(count);
-const short = (who: string): string => createHash("sha256").update(who).digest("hex").slice(0, 6);
-const word = (id: string): string => magnets.find((m) => m.id === id)?.text ?? id;
-
+// The bots trade every few seconds; their lines go to stdout only, so the
+// saved record is people and rounds.
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
-  const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ev, ...fields };
+  const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
   console.log(text);
+  if (who && bot(who)) return;
+  recent.push(line);
+  recent.splice(0, recent.length - 300);
   try {
     appendFileSync(ACTIVITY, `${text}\n`);
   } catch (error) {
     console.error("could not append to the activity log:", error);
   }
-  count(line);
-  recent.push(line);
-  recent.splice(0, recent.length - 200);
 }
 
-// ADR 0002, one hand at a time (src/holds.ts). Every end of a hold is logged
-// under its reason and announced, so pages stop showing the word as taken.
-const holds = new Holds({
-  ms: 30_000,
-  ended: (id, who, why) => {
-    log(who, why, { word: word(id) });
-    emit({ type: "released", id, v: stamp(id) });
-  },
-});
-const holder = (id: string): string | null => holds.holder(id);
-
-const view = ({ movedBy, ...m }: Magnet, who: string | null) => {
-  const by = holder(m.id);
-  return { ...m, mine: who !== null && movedBy === who, held: by !== null && by !== who };
-};
-
-// Open /api/events streams, each with its visitor, so a broadcast can tell
-// each listener whether the magnet that moved is now theirs.
-const listeners = new Set<{ res: ServerResponse; who: string }>();
-const isHere = (who: string): boolean => [...listeners].some((l) => l.who === who);
-
-function emit(data: unknown, to: (who: string) => boolean = () => true): void {
-  for (const l of listeners) if (to(l.who)) l.res.write(`data: ${JSON.stringify(data)}\n\n`);
+// Career results across rounds and restarts: the long-term ranking.
+type Career = { name: string; rounds: number; profit: number; wins: number; busts: number; best: number };
+const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
+function saveCareer(): void {
+  writeFileSync(`${CAREER_FILE}.tmp`, JSON.stringify(career));
+  renameSync(`${CAREER_FILE}.tmp`, CAREER_FILE);
 }
 
-function broadcast(m: Magnet): void {
-  for (const l of listeners) l.res.write(`data: ${JSON.stringify({ type: "move", ...view(m, l.who) })}\n\n`);
-}
+// The round being played, or the break after it.
+let seed = Date.now() % 2 ** 31;
+const rnd = random(seed);
+let count = 0;
+let round: Round;
+let desk: Desk;
+let tick = 0;
+let phase: "trade" | "break" = "trade";
+let breakLeft = 0;
+let result: { ranking: { id: string; name: string; balance: number; you?: boolean }[]; reveal: string } | null = null;
+let feed: { text: string; kind: string }[] = [];
+const prays = new Map<string, number>();
 
-// Lapsed holds are swept every second, and for one word just before anyone
-// acts on it, so a lapse is always reported first.
-setInterval(() => holds.sweep(), 1_000).unref();
-
-// Distinct visitors with the fridge open; every page is told when it changes.
-const here = (): number => new Set([...listeners].map((l) => l.who)).size;
-const presence = (): void => emit({ type: "presence", here: here() });
-
-// ADR 0008, rounds with a prompt (src/game.ts). Every second, and after every
-// move, the lines standing on the door are scored, and each open page is told
-// the round: its prompt, when it ends, the ranking by short code with its own
-// marked, and which lines are its own and which answer the prompt. Scores
-// live in memory: a round lost to a restart is three minutes.
-const game = new Game({ roundMs: 180_000, breakMs: 15_000 });
-
-function play(): void {
-  const standing = lines(placed());
-  const ended = game.score(standing);
-  if (ended) log(null, "round", { prompt: ended.prompt, ranking: ended.ranking.slice(0, 5).map(([who, n]) => [short(who), Math.round(n)]) });
-  const { phase, prompt, endsAt, scores } = game.state();
-  const shown = standing.map((line) => ({ ids: line.map((m) => m.id), owner: owner(line), answers: game.answers(line) }));
-  for (const l of listeners) {
-    const round = {
-      type: "round",
-      phase,
-      prompt,
-      endsAt,
-      board: scores.slice(0, 8).map(([who, n]) => ({ who: short(who), points: Math.floor(n), you: who === l.who })),
-      lines: shown.map(({ ids, owner: by, answers }) => ({ ids, mine: by === l.who, answers })),
-    };
-    l.res.write(`data: ${JSON.stringify(round)}\n\n`);
+// Today's real rates for live rounds, fetched at most every hour, falling
+// back to the newest ECB row in the bundled history.
+let today: { date: string; rates: Record<string, number> } | null = null;
+let fetched = 0;
+async function refreshToday(): Promise<void> {
+  if (Date.now() - fetched < 3_600_000) return;
+  fetched = Date.now();
+  try {
+    const res = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY,GBP,CHF,AUD,CNY", { signal: AbortSignal.timeout(5_000) });
+    const data = (await res.json()) as { date: string; rates: Record<string, number> };
+    today = { date: data.date, rates: { EUR: 1, ...data.rates } };
+    log(null, "rates", { date: data.date });
+  } catch (error) {
+    console.error("could not fetch today's rates:", error);
   }
 }
-setInterval(play, 1_000).unref();
-
-// Fly's proxy drops an idle connection after about a minute, so each stream
-// gets a comment line well inside that.
-setInterval(() => {
-  for (const l of listeners) l.res.write(": keep-alive\n\n");
-}, 25_000).unref();
-
-const inRange = (n: unknown): n is number => typeof n === "number" && n >= 0 && n <= 1;
-
-function send(res: ServerResponse, status: number, body: string, type: string): void {
-  res.writeHead(status, { "content-type": type, "cache-control": "no-store" });
-  res.end(body);
+function todayRate(pair: Pair): { rate: number; date: string; source: string } {
+  const [base, quote] = pair.split("/");
+  if (today && today.rates[base] && today.rates[quote]) return { rate: today.rates[quote] / today.rates[base], date: today.date, source: "Frankfurter (ECB and central banks)" };
+  const day = history.latest(pair);
+  return { rate: day.rate, date: day.date, source: "ECB, bundled" };
 }
-const json = (res: ServerResponse, status: number, data: unknown): void =>
-  send(res, status, JSON.stringify(data), "application/json");
+let liveFrom = "";
 
-async function body(req: IncomingMessage): Promise<string> {
+function start(): void {
+  count++;
+  if (count % 3 === 0) {
+    const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
+    const now = todayRate(pair);
+    round = live(history, pair, now.rate, rnd);
+    liveFrom = `${now.date} (${now.source})`;
+  } else {
+    round = replay(history, rnd, 0.6);
+  }
+  desk = new Desk(round.prices[0]);
+  for (const b of BOTS) desk.join(b.id);
+  for (const l of listeners) desk.join(l.who);
+  tick = 0;
+  phase = "trade";
+  result = null;
+  feed = [];
+  prays.clear();
+  say(round.simulated ? `Live round: ${round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${round.pair}, forty real trading days. When? Find out at the bell.`, "info");
+  log(null, "start", { pair: round.pair, from: round.days[0], event: round.event?.title ?? null, simulated: round.simulated });
+  void refreshToday();
+}
+
+function say(text: string, kind: string): void {
+  feed.unshift({ text, kind });
+  feed.splice(14);
+}
+
+const yen = (n: number): string => `${n < 0 ? "−" : ""}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
+
+// Turn the desk's events into the room's feed. A stop-out is everyone's
+// business; that is the point of trading in the same room.
+function report(events: Event[]): void {
+  for (const e of events) {
+    const name = nameOf(e.who);
+    if (e.kind === "open") say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
+    else if (e.kind === "add") say(`${name} doubled down. Now ${e.leverage}×`, "wild");
+    else if (e.kind === "close") say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
+    else if (e.kind === "stop") say(`${name}'s stop filled at ${fmt(e.price)}: ${yen(e.pnl)}`, "loss");
+    else if (e.kind === "call") say(`MARGIN CALL for ${name}!`, "call");
+    else if (e.kind === "stopout") say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
+    else if (e.kind === "zerocut") say(`${name} was wiped out and leaves the market.`, "bust");
+    if ((e.kind === "stopout" || e.kind === "zerocut") && !bot(e.who)) {
+      record(e.who).busts++;
+      saveCareer();
+    }
+    log(e.who, e.kind, { pair: round.pair, price: Number(fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
+  }
+}
+
+const digits = (): number => (round.pair.endsWith("JPY") ? 3 : 5);
+const fmt = (p: number): string => p.toFixed(digits());
+
+function record(who: string): Career {
+  career[short(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
+  return career[short(who)];
+}
+
+function end(): void {
+  const ranking = desk.settle();
+  const humans = ranking.filter((r) => !bot(r.who));
+  ranking.forEach((r, i) => {
+    if (bot(r.who)) return;
+    const c = record(r.who);
+    c.rounds++;
+    c.profit += r.net - START;
+    c.best = Math.max(c.best, r.net - START);
+    if (i === ranking.findIndex((x) => !bot(x.who)) && humans.length > 1) c.wins++;
+  });
+  if (humans.length) saveCareer();
+  const reveal = round.simulated
+    ? `That was a simulation from ${round.pair} on ${liveFrom}.`
+    : `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
+  result = { ranking: ranking.map((r) => ({ id: short(r.who), name: nameOf(r.who), balance: r.net })), reveal };
+  log(null, "end", { ranking: ranking.map((r) => [short(r.who), r.net]) });
+  phase = "break";
+  breakLeft = BREAK_TICKS;
+}
+
+// The clock. Each tick moves the price, lets the bots act, enforces the
+// rules and sends the new state to everyone.
+setInterval(() => {
+  if (phase === "break") {
+    if (--breakLeft <= 0) start();
+    broadcast(true);
+    return;
+  }
+  tick++;
+  report(desk.mark(round.prices[tick]));
+  const seen = round.prices.slice(0, tick + 1);
+  for (const b of BOTS) {
+    const action = b.act(desk, b.id, seen, rnd);
+    if (action) apply(b.id, action);
+  }
+  if (tick >= round.prices.length - 1) end();
+  broadcast();
+}, TICK_MS).unref();
+
+type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; at: number | null } | { kind: "pray" } | { kind: "borrow" };
+function apply(who: string, action: Action): string | null {
+  if (phase !== "trade") return "The market is closed. Next round soon.";
+  desk.join(who);
+  if (action.kind === "pray") {
+    prays.set(who, (prays.get(who) ?? 0) + 1);
+    if (!bot(who)) log(who, "pray", { times: prays.get(who) });
+    if (prays.get(who) === 1 || prays.get(who)! % 10 === 0) say(`${nameOf(who)} is praying to the chart (×${prays.get(who)}). It does nothing.`, "pray");
+    return null;
+  }
+  if (action.kind === "stop") {
+    const refused = desk.stop(who, action.at);
+    if (!refused && !bot(who)) log(who, "stop", { at: action.at === null ? null : Number(fmt(action.at)) });
+    return refused;
+  }
+  if (action.kind === "borrow") {
+    const refused = desk.borrow(who);
+    if (refused) return refused;
+    const first = desk.account(who).debt === BORROW;
+    say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild");
+    log(who, "borrow", { debt: desk.account(who).debt });
+    return null;
+  }
+  if (action.kind === "close") {
+    const pos = desk.account(who).pos;
+    if (!pos) return "Nothing to close.";
+    action = { kind: "order", side: -pos.side as Side, leverage: pos.leverage };
+  }
+  const out = desk.order(who, action.side, action.leverage, action.stake);
+  if (typeof out === "string") return out;
+  report(out);
+  return null;
+}
+
+const listeners = new Set<{ res: ServerResponse; who: string }>();
+
+// What one visitor sees: the shared chart, everyone's standing, and their
+// own account in full. Other people's positions show side and leverage
+// but not their stops, which would be a gift to the room.
+// Pages are sent the whole price history when they join or a round
+// changes phase, and otherwise only the newest price, from `from` on.
+function view(who: string, from = 0) {
+  const traders = desk.players().map((p) => {
+    const a = desk.account(p);
+    return { id: short(p), name: nameOf(p), bot: !!bot(p), equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, you: p === who };
+  });
+  traders.sort((a, b) => b.equity - a.equity);
+  const mine = desk.players().includes(who) ? desk.account(who) : null;
+  return {
+    phase,
+    round: count,
+    pair: round.pair,
+    digits: digits(),
+    simulated: round.simulated,
+    tick,
+    total: DAYS * STEPS,
+    day: Math.floor(tick / STEPS),
+    from,
+    prices: round.prices.slice(from, tick + 1),
+    breakLeft: Math.ceil((breakLeft * TICK_MS) / 1000),
+    you: {
+      name: nameOf(who),
+      balance: mine?.balance ?? START,
+      equity: Math.round(mine ? desk.equity(who) : START),
+      pnl: Math.round(mine ? desk.pnl(who) : 0),
+      level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
+      out: mine?.out ?? false,
+      debt: mine?.debt ?? 0,
+      loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
+      broke: mine ? desk.broke(who) : false,
+      pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
+    },
+    traders,
+    feed,
+    result: result && { ...result, ranking: result.ranking.map((r) => ({ ...r, you: r.id === short(who) })) },
+    career: Object.entries(career)
+      .map(([id, c]) => ({ ...c, you: id === short(who) }))
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 10),
+    leverages: LEVERAGES,
+  };
+}
+
+function broadcast(full = false): void {
+  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who, full ? 0 : tick))}\n\n`);
+}
+
+const json = (res: ServerResponse, status: number, data: unknown): void => {
+  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
+  res.end(JSON.stringify(data));
+};
+
+async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   let s = "";
   for await (const chunk of req) {
     s += chunk;
     if (s.length > 1024) throw new Error("too large");
   }
-  return s;
+  return JSON.parse(s || "{}") as Record<string, unknown>;
 }
 
-const page = (title: string, main: string): string => `<!doctype html>
-<html lang="en-AU">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/fridge.css">
-</head>
-<body class="readme"><main>${main}<p><a href="/">Back to the fridge</a></p></main></body>
-</html>`;
-
-// Everything a GET can return besides the API is fixed in the image, so it's
-// read (and README.md rendered) once at startup.
 const HTML = "text/html; charset=utf-8";
-const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
-const readme = page("About the fridge", renderMarkdown(read("README.md")));
+const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/app.css"></head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
 const PAGES: Record<string, [string, string]> = {
   "/": [read("public/index.html"), HTML],
-  "/fridge.js": [read("public/fridge.js"), "text/javascript; charset=utf-8"],
-  "/fridge.css": [read("public/fridge.css"), "text/css; charset=utf-8"],
+  "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
+  "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme/": [readme, HTML],
   "/readme": [readme, HTML],
 };
 
-// ADR 0007: the activity log names visitors by short code, so who took whose
-// word, and the README promises a visitor is never told by whom. Only the
-// holder of STATS_KEY (a Fly secret, never in the repo) may read it; anyone
-// else gets the same 404 as a path that doesn't exist. With no key set, the
-// log is shut to everyone.
+// The activity log names traders by short code next to what they did, so
+// it is the operator's alone: only the holder of STATS_KEY (a Fly secret,
+// never in the repo) may read it, and anyone else gets the 404 of a path
+// that does not exist. With no key set it is shut to everyone.
 const STATS_KEY = process.env.STATS_KEY ?? "";
 const LOG_PAGES: Record<string, [string, string]> = {
-  "/stats": [read("public/stats.html"), HTML],
-  "/stats.js": [read("public/stats.js"), "text/javascript; charset=utf-8"],
+  "/log": [read("public/log.html"), HTML],
+  "/log.js": [read("public/log.js"), "text/javascript; charset=utf-8"],
 };
-
 function operator(url: URL): boolean {
   const given = Buffer.from(url.searchParams.get("key") ?? "");
   const key = Buffer.from(STATS_KEY);
   return key.length > 0 && given.length === key.length && timingSafeEqual(given, key);
 }
+const here = (): number => new Set([...listeners].map((l) => l.who)).size;
 
-const server = createServer(async (req, res) => {
+createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
-  let who = visitor(req);
+  let who = req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
   if (!who) {
     who = randomUUID();
     res.setHeader("set-cookie", `v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
   }
 
   if (req.method === "GET" && PAGES[url.pathname]) {
-    return send(res, 200, ...PAGES[url.pathname]);
+    res.writeHead(200, { "content-type": PAGES[url.pathname][1], "cache-control": "no-store" });
+    return res.end(PAGES[url.pathname][0]);
   }
-  if (req.method === "GET" && (LOG_PAGES[url.pathname] || url.pathname === "/api/stats") && !operator(url)) {
-    return json(res, 404, { error: "not found" });
+  if (req.method === "GET" && (LOG_PAGES[url.pathname] || url.pathname === "/api/log") && !operator(url)) {
+    return json(res, 404, { error: "Not found." });
   }
   if (req.method === "GET" && LOG_PAGES[url.pathname]) {
-    return send(res, 200, ...LOG_PAGES[url.pathname]);
+    res.writeHead(200, { "content-type": LOG_PAGES[url.pathname][1], "cache-control": "no-store" });
+    return res.end(LOG_PAGES[url.pathname][0]);
   }
+  if (req.method === "GET" && url.pathname === "/api/log") {
+    return json(res, 200, { here: here(), round: count, pair: round.pair, phase, recent: recent.slice(-150).toReversed() });
+  }
+
+  // Opening the page joins the round in progress with a fresh account.
   if (req.method === "GET" && url.pathname === "/api/events") {
-    res.writeHead(200, {
-      "content-type": "text/event-stream",
-      "cache-control": "no-store",
-      connection: "keep-alive",
-    });
-    res.write(": open\n\n");
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
     const listener = { res, who };
-    const already = isHere(who);
+    const already = [...listeners].some((l) => l.who === who);
     listeners.add(listener);
-    if (!already) {
-      log(who, "join", { here: here() });
-      presence();
+    if (!already) log(who, "open", { here: here() });
+    if (phase === "trade" && !desk.players().includes(who)) {
+      desk.join(who);
+      say(`${nameOf(who)} entered the market.`, "info");
     }
+    res.write(`data: ${JSON.stringify(view(who))}\n\n`);
     req.on("close", () => {
       listeners.delete(listener);
-      // the holder's last open page is gone, so nobody is holding their words
-      if (isHere(listener.who)) return;
-      holds.drop(listener.who);
-      log(listener.who, "leave", { here: here() });
-      presence();
+      if (![...listeners].some((l) => l.who === who)) log(who, "close", { here: here() });
     });
     return;
   }
-  if (req.method === "GET" && url.pathname === "/api/stats") {
-    const used = [...moves].sort((a, b) => b[1] - a[1]);
-    const unused = VOCABULARY.filter((w) => !moves.has(w));
-    return json(res, 200, { here: here(), holding: holds.size, recent: recent.slice(-100).toReversed(), words: { used, unused } });
-  }
-  if (req.method === "GET" && url.pathname === "/api/poems") {
-    return json(res, 200, { poems: poems.toReversed(), standsFor: STAND_MS });
-  }
-  if (req.method === "GET" && url.pathname === "/api/taken") {
-    return json(res, 200, { taken: taken.get(who) ?? [] });
-  }
-  if (req.method === "POST" && url.pathname === "/api/taken/seen") {
-    const words = taken.get(who);
-    if (words) {
-      log(who, "seen", { words });
-      taken.delete(who);
-      saveTaken();
-    }
-    return json(res, 200, { taken: [] });
-  }
-  if (req.method === "GET" && url.pathname === "/api/magnets") {
-    return json(res, 200, { magnets: magnets.map((m) => view(m, who)) });
-  }
 
-  // Someone else holds this word: log the reach, and answer 409 with the word
-  // as it stands, so the page can correct itself without another request.
-  const refused = (id: string, tried: string): boolean => {
-    const by = holder(id);
-    if (by === null || by === who) return false;
-    log(who, "refused", { word: word(id), tried, holder: short(by) });
-    json(res, 409, { error: "someone else is holding that word", magnet: view(magnets.find((m) => m.id === id)!, who) });
-    return true;
-  };
+  if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, view(who));
 
-  const hand = url.pathname.match(/^\/api\/magnets\/(m\d+)\/(grab|release)$/);
-  if (req.method === "POST" && hand) {
-    const [, id, action] = hand;
-    if (!magnets.some((m) => m.id === id)) return json(res, 404, { error: "no such magnet" });
-    holds.sweep(id);
-    if (refused(id, action)) return;
-    const v = () => magnets.find((m) => m.id === id)!.v;
-    if (action === "release") {
-      holds.release(id, who);
-      return json(res, 200, { held: false, v: v() });
-    }
-    if (holds.grab(id, who) === "new") {
-      log(who, "grab", { word: word(id) });
-      emit({ type: "held", id, v: stamp(id) }, (w) => w !== who);
-    }
-    return json(res, 200, { held: true, v: v() });
-  }
-
-  const move = url.pathname.match(/^\/api\/magnets\/(m\d+)$/);
-  if (req.method === "POST" && move) {
-    const magnet = magnets.find((m) => m.id === move[1]);
-    if (!magnet) return json(res, 404, { error: "no such magnet" });
-    let input: unknown;
+  if (req.method === "POST" && url.pathname === "/api/act") {
+    let input: Record<string, unknown>;
     try {
-      input = JSON.parse(await body(req));
+      input = await body(req);
     } catch {
-      return json(res, 400, { error: "send JSON {x, y}" });
+      return json(res, 400, { error: "Send JSON." });
     }
-    holds.sweep(magnet.id);
-    if (refused(magnet.id, "move")) return;
-    // Only a position can change. Anything else in the body, text especially,
-    // is refused rather than ignored, so a client can't think it renamed a word.
-    const { x, y } = (input ?? {}) as { x: unknown; y: unknown };
-    if (Object.keys(input ?? {}).length !== 2 || !inRange(x) || !inRange(y)) {
-      log(who, "rejected", { word: magnet.text });
-      return json(res, 400, { error: "send exactly {x, y}, each between 0 and 1" });
-    }
-    // The magnet moved last goes to the end of the list, which every client
-    // draws last, so it sits on top of anything it now overlaps.
-    const from = magnet.movedBy;
-    const thief = from !== null && from !== who;
-    Object.assign(magnet, { x, y, movedBy: who, v: ++version });
-    magnets.splice(magnets.indexOf(magnet), 1);
-    magnets.push(magnet);
-    save(magnet);
-    holds.moved(magnet.id);
-    log(who, "move", { word: magnet.text, x: +x.toFixed(3), y: +y.toFixed(3), ...(thief ? { from: short(from) } : {}) });
-    broadcast(magnet);
-    survey();
-    play();
-    // Someone else's word was taken: tell them now if they're on the page, or
-    // keep it for when they come back.
-    if (thief) {
-      const notice = { type: "taken", id: magnet.id, text: magnet.text };
-      if (isHere(from)) emit(notice, (w) => w === from);
-      else {
-        const words = [...(taken.get(from) ?? []), magnet.text].slice(-20);
-        taken.delete(from);
-        taken.set(from, words);
-        // Most visitors never come back, so only the 500 most recently robbed
-        // are kept (a Map iterates oldest first).
-        while (taken.size > 500) taken.delete(taken.keys().next().value!);
-        saveTaken();
-      }
-    }
-    return json(res, 200, { magnet: view(magnet, who), onTop: magnets.at(-1) === magnet });
+    const kind = input.kind;
+    let action: Action | null = null;
+    if (kind === "buy" || kind === "sell") {
+      const stake = typeof input.stake === "number" ? input.stake : 1;
+      action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake };
+    } else if (kind === "close" || kind === "pray" || kind === "borrow") action = { kind };
+    else if (kind === "stop") action = { kind: "stop", at: typeof input.at === "number" ? input.at : null };
+    if (!action) return json(res, 400, { error: "Unknown action." });
+    const error = apply(who, action);
+    if (error) log(who, "refused", { action: kind, why: error });
+    broadcast();
+    return json(res, error ? 409 : 200, error ? { error } : { ok: true });
   }
+  json(res, 404, { error: "Not found." });
+}).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));
 
-  json(res, 404, { error: "not found" });
-});
-
-survey();
-server.listen(PORT, "0.0.0.0", () => console.log(`fridge on :${PORT}, data in ${FILE}`));
+start();
+// Every page is pinged every 5s so dead connections are found and dropped.
+setInterval(() => {
+  for (const l of [...listeners]) {
+    const ok = l.res.write(": ping\n\n");
+    if (!ok && l.res.writableLength > 64_000) l.res.destroy();
+  }
+}, 5_000).unref();
