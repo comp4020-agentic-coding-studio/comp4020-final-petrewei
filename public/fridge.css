@@ -528,3 +528,19 @@ body.stats main {
   background: var(--code);
   border-radius: 3px;
 }
+
+.words {
+  margin-top: 2rem;
+  line-height: 1.6;
+}
+
+.words h2 {
+  font-size: 1.3rem;
+  font-weight: normal;
+  font-style: italic;
+}
+
+.words .note {
+  color: var(--muted);
+  font-size: 0.92rem;
+}

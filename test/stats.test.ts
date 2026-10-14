@@ -6,7 +6,7 @@ import { type Server, server } from "./server.ts";
 // set, so they run on a server of their own.
 const KEY = "test-key-0123456789abcdef";
 type Line = { t: string; who: string; ev: string; word?: string; from?: string };
-type Stats = { here: number; holding: number; recent: Line[] };
+type Stats = { here: number; holding: number; recent: Line[]; words: { used: [string, number][]; unused: string[] } };
 
 let s: Server;
 beforeAll(async () => {
@@ -45,6 +45,20 @@ describe("the log, with the key", () => {
     expect(line?.from).toMatch(/^[0-9a-f]{6}$/);
     expect(a).not.toContain(line!.from);
     expect(b).not.toContain(line!.who);
+  });
+
+  it("counts how often each word has moved, and names the words nobody has", async () => {
+    const me = await visitor();
+    await move("m13", me, 0.4);
+    await move("m13", me, 0.41);
+    const { words } = await stats();
+    const used = new Map(words.used);
+    expect(used.get("window")).toBeGreaterThanOrEqual(2);
+    expect(words.unused).not.toContain("window");
+    expect(words.unused.length + words.used.length).toBeGreaterThanOrEqual(150);
+    // most used first
+    const counts = words.used.map(([, n]) => n);
+    expect(counts).toEqual([...counts].sort((a, b) => b - a));
   });
 
   it("counts the visitors with the fridge open", async () => {

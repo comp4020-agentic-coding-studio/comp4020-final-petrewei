@@ -21,7 +21,7 @@ Peter chose to keep the log to the operator. Every rule below is checked on the 
 | Any visitor | every word's position and text; whether a word is held, but not by whom; whether a word is theirs, but never who else moved one; the archive's poems, without authors | a word's position, nothing else, and not while someone else holds it | `spec/fridge.test.ts`, `spec/hold.test.ts` |
 | A word's holder | the same | that word, until they let go, leave, or the hold lapses after 30 seconds | `spec/hold.test.ts`, `test/holds.test.ts` |
 | A robbed visitor | which of their words were taken, never by whom; only their own notices | marking their own notices as seen | `spec/taken.test.ts` |
-| The operator, with `STATS_KEY` | the activity log: every action by short code, including whose word was taken | nothing more than any visitor | `spec/stats.test.ts`, `test/stats.test.ts` |
+| The operator, with `STATS_KEY` | the activity log, kept in `/data/activity.log`: every action by short code, including whose word was taken, and how often each word has moved | nothing more than any visitor | `spec/stats.test.ts`, `test/stats.test.ts` |
 
 The key is a Fly secret, compared in constant time, and never in the repo. Without it, `/stats`, `/stats.js` and `/api/stats` answer 404, the same as a path that doesn't exist; with no key set, the log is shut to everyone.
 

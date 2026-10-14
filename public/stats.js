@@ -22,7 +22,10 @@ function say(l) {
 }
 
 async function refresh() {
-  const { here, holding, recent } = await (await fetch(`/api/stats${location.search}`)).json();
+  const { here, holding, recent, words } = await (await fetch(`/api/stats${location.search}`)).json();
+  $("used").textContent = words.used.slice(0, 20).map(([w, n]) => `${w} ${n}`).join(", ") || "none yet";
+  $("unused-count").textContent = words.unused.length;
+  $("unused").textContent = words.unused.join(", ");
   const since = Date.now() - 5 * 60_000;
   const last5 = recent.filter((l) => new Date(l.t).getTime() > since);
   $("here").textContent = here;

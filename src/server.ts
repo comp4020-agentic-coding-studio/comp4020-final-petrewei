@@ -1,5 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { Holds } from "./holds.ts";
@@ -19,6 +19,7 @@ const FILE = join(DATA_DIR, "fridge.json");
 const TAKEN_FILE = join(DATA_DIR, "taken.json");
 const POEMS_FILE = join(DATA_DIR, "poems.json");
 const JOURNAL = join(DATA_DIR, "moves.log");
+const ACTIVITY = join(DATA_DIR, "activity.log");
 const ROOT = join(import.meta.dirname, "..");
 
 // The starting heap: words packed left to right by their estimated width,
@@ -199,18 +200,65 @@ function survey(): void {
 const visitor = (req: IncomingMessage): string | null =>
   req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
 
-// Crit 10: one structured line per thing a visitor does, to stdout (so
-// `flyctl logs` tails it) and to the last 200 kept for /stats. A visitor is a
-// short hash of their cookie: stable enough to follow one person through the
-// log, and useless for taking over their session.
+// Crit 10: one structured line per thing a visitor does. It goes to stdout,
+// so `flyctl logs` tails it, and is appended to /data/activity.log, so the
+// record outlives restarts and the crit itself: Fly's own buffer keeps only
+// about a hundred lines, and memory is wiped by every restart. /stats reads
+// its last 200 back at startup. A visitor is a short hash of their cookie:
+// stable enough to follow one person through the log, and useless for
+// taking over their session.
 type Line = { t: string; who: string; ev: string } & Record<string, unknown>;
-const recent: Line[] = [];
+
+// When the log passes this size, the older half is dropped, so it can't fill
+// the volume; about 20,000 lines, weeks of a busy room.
+const ACTIVITY_MAX = 4_000_000;
+
+function readActivity(): Line[] {
+  if (!existsSync(ACTIVITY)) return [];
+  const lines: Line[] = [];
+  for (const text of readFileSync(ACTIVITY, "utf8").split("\n")) {
+    try {
+      if (text) lines.push(JSON.parse(text) as Line);
+    } catch {
+      // a line cut short by a hard kill
+    }
+  }
+  return lines;
+}
+
+function trimActivity(): void {
+  if (!existsSync(ACTIVITY) || statSync(ACTIVITY).size <= ACTIVITY_MAX) return;
+  const kept = readActivity();
+  writeFileSync(`${ACTIVITY}.tmp`, kept.slice(kept.length >> 1).map((l) => JSON.stringify(l)).join("\n") + "\n");
+  renameSync(`${ACTIVITY}.tmp`, ACTIVITY);
+}
+
+trimActivity();
+setInterval(trimActivity, 3_600_000).unref();
+const saved = readActivity();
+const recent: Line[] = saved.slice(-200);
+
+// How often each word has been moved, over the whole saved log: evidence for
+// the README's judged claim about the vocabulary. Counted once at startup,
+// then kept up to date as words move.
+const moves = new Map<string, number>();
+const count = (l: Line): void => {
+  if (l.ev === "move" && typeof l.word === "string") moves.set(l.word, (moves.get(l.word) ?? 0) + 1);
+};
+saved.forEach(count);
 const short = (who: string): string => createHash("sha256").update(who).digest("hex").slice(0, 6);
 const word = (id: string): string => magnets.find((m) => m.id === id)?.text ?? id;
 
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
   const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ev, ...fields };
-  console.log(JSON.stringify(line));
+  const text = JSON.stringify(line);
+  console.log(text);
+  try {
+    appendFileSync(ACTIVITY, `${text}\n`);
+  } catch (error) {
+    console.error("could not append to the activity log:", error);
+  }
+  count(line);
   recent.push(line);
   recent.splice(0, recent.length - 200);
 }
@@ -361,8 +409,9 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (req.method === "GET" && url.pathname === "/api/stats") {
-    const holding = holds.size;
-    return json(res, 200, { here: here(), holding, recent: recent.slice(-100).toReversed() });
+    const used = [...moves].sort((a, b) => b[1] - a[1]);
+    const unused = VOCABULARY.filter((w) => !moves.has(w));
+    return json(res, 200, { here: here(), holding: holds.size, recent: recent.slice(-100).toReversed(), words: { used, unused } });
   }
   if (req.method === "GET" && url.pathname === "/api/poems") {
     return json(res, 200, { poems: poems.toReversed(), standsFor: STAND_MS });
