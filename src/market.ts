@@ -14,13 +14,13 @@ export const STEPS = 9;
 // A day that moved more than this opens with most of its move at once.
 export const GAP = 0.015;
 
-export type Day = { date: string; rate: number };
-export type Round = { pair: Pair; days: string[]; prices: number[]; event: Event | null; simulated: boolean };
-export type Event = { pair: Pair; date: string; title: string; note: string };
+type Day = { date: string; rate: number };
+export type Round = { pair: Pair; days: string[]; prices: number[]; event: Episode | null; simulated: boolean };
+export type Episode = { pair: Pair; date: string; title: string; note: string };
 
 // The famous days a replay may hide. Each note is shown when the round
 // ends, so the room learns what it just traded through.
-export const EVENTS: Event[] = [
+export const EVENTS: Episode[] = [
   { pair: "EUR/CHF", date: "2015-01-15", title: "Francogeddon", note: "The Swiss National Bank dropped its 1.20 floor without warning. The franc jumped about 15% in a day (30% at the worst minute), stops filled far past their levels, and brokers went bust." },
   { pair: "EUR/CHF", date: "2011-09-06", title: "The franc floor", note: "The Swiss National Bank capped the franc at 1.20 per euro and promised unlimited intervention. EUR/CHF leapt 8% in a morning." },
   { pair: "AUD/JPY", date: "2008-10-24", title: "The carry trade unwinds", note: "After Lehman Brothers failed, leveraged yen-funded bets on the high-yielding Australian dollar were dumped at once. AUD/JPY fell from about 107 in July to about 55 in October." },
@@ -33,7 +33,7 @@ export const EVENTS: Event[] = [
   { pair: "GBP/USD", date: "2022-09-26", title: "The mini-budget", note: "The UK's unfunded tax cuts sent the pound to an all-time low against the dollar and forced the Bank of England to step in." },
 ];
 
-export type Row = { date: string; per: Record<string, number> };
+type Row = { date: string; per: Record<string, number> };
 
 export class History {
   private rows: Row[] = [];
@@ -61,8 +61,15 @@ export class History {
     return row.per[quote] / row.per[base];
   }
 
+  // Each pair's series is built once and kept: a few thousand days each.
+  private cache = new Map<Pair, Day[]>();
   series(pair: Pair): Day[] {
-    return this.rows.map((r) => ({ date: r.date, rate: this.rate(r, pair) })).filter((d) => Number.isFinite(d.rate));
+    let days = this.cache.get(pair);
+    if (!days) {
+      days = this.rows.map((r) => ({ date: r.date, rate: this.rate(r, pair) })).filter((d) => Number.isFinite(d.rate));
+      this.cache.set(pair, days);
+    }
+    return days;
   }
 
   latest(pair: Pair): Day {
@@ -123,7 +130,7 @@ export function replay(history: History, rnd: () => number, eventChance: number)
   return window(series.slice(start, start + DAYS + 1), pair, rnd, null);
 }
 
-function window(days: Day[], pair: Pair, rnd: () => number, event: Event | null): Round {
+function window(days: Day[], pair: Pair, rnd: () => number, event: Episode | null): Round {
   return { pair, days: days.map((d) => d.date), prices: path(days.map((d) => d.rate), rnd), event, simulated: false };
 }
 

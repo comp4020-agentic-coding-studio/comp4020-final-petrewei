@@ -2,9 +2,9 @@
 // someone to laugh at. Each is an original parody of a retail-trader
 // habit the comic satirises; none is a character from it. A bot looks at
 // its own account and the recent prices and returns at most one action.
-import { Desk, type Side } from "./fx.ts";
+import type { Desk, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; at: number } | { kind: "pray" } | { kind: "borrow" };
+export type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; at: number | null } | { kind: "pray" } | { kind: "borrow" };
 export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);

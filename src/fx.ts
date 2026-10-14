@@ -34,8 +34,10 @@ export type Position = {
   stop: number | null;
   called: boolean;
 };
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; trades: number };
-export type Event = { kind: "open" | "add" | "close" | "stop" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
+// `out` is set when a close leaves nothing and cleared by a loan; `cuts`
+// counts forced closes, so a page can tell when a new one happens.
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number };
+export type Fill = { kind: "open" | "add" | "close" | "stop" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
@@ -50,7 +52,7 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, trades: 0 });
+    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0 });
   }
 
   players(): string[] {
@@ -91,17 +93,16 @@ export class Desk {
   // Buy (1) or sell (-1) with a share of free margin. An order against the
   // open position closes it: the desk keeps one position per player, so a
   // reversal takes two clicks and the second is a decision.
-  order(who: string, side: Side, leverage: number, stake = 1): Event[] | string {
+  order(who: string, side: Side, leverage: number, stake = 1): Fill[] | string {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
-    if (account.pos && account.pos.side !== side) return [this.close(who, "close")];
+    if (account.pos && account.pos.side !== side) return this.close(who);
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
     const margin = Math.floor(this.free(who) * stake);
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
     const units = notional / fill(this.price, side);
-    account.trades++;
     const pos = account.pos;
     if (!pos) {
       account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: null, called: false };
@@ -128,18 +129,18 @@ export class Desk {
   }
 
   // Move the price and enforce the rules on every account, in join order.
-  mark(price: number): Event[] {
+  mark(price: number): Fill[] {
     this.price = price;
-    const events: Event[] = [];
+    const events: Fill[] = [];
     for (const [who, account] of this.accounts) {
       const pos = account.pos;
       if (!pos) continue;
       if (pos.stop !== null && (pos.side === 1 ? price <= pos.stop : price >= pos.stop)) {
-        events.push(this.close(who, "stop"));
+        events.push(this.settleOne(who, "stop"));
         continue;
       }
       const level = this.level(who);
-      if (level <= STOP_OUT) events.push(this.close(who, this.equity(who) <= 0 ? "zerocut" : "stopout"));
+      if (level <= STOP_OUT) events.push(this.settleOne(who, this.equity(who) <= 0 ? "zerocut" : "stopout"));
       else if (level <= CALL && !pos.called) {
         pos.called = true;
         events.push({ kind: "call", who, price, pnl: this.pnl(who) });
@@ -148,12 +149,17 @@ export class Desk {
     return events;
   }
 
-  private close(who: string, kind: "close" | "stop" | "stopout" | "zerocut"): Event {
+  close(who: string): Fill[] | string {
+    return this.account(who).pos ? [this.settleOne(who, "close")] : "Nothing to close.";
+  }
+
+  private settleOne(who: string, kind: "close" | "stop" | "stopout" | "zerocut"): Fill {
     const account = this.account(who);
     const pnl = this.pnl(who);
     account.balance = Math.max(0, Math.round(account.balance + pnl));
     account.pos = null;
     if (account.balance === 0) account.out = true;
+    if (kind === "stopout" || kind === "zerocut") account.cuts++;
     return { kind, who, price: this.price, pnl };
   }
 
@@ -174,7 +180,7 @@ export class Desk {
 
   // Close everything at the last price and rank by balance less debt.
   settle(): { who: string; balance: number; net: number }[] {
-    for (const [who, account] of this.accounts) if (account.pos) this.close(who, "close");
+    for (const [who, account] of this.accounts) if (account.pos) this.settleOne(who, "close");
     return [...this.accounts].map(([who, a]) => ({ who, balance: a.balance, net: a.balance - a.debt })).sort((a, b) => b.net - a.net);
   }
 }

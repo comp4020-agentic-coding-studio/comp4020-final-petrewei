@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from "vitest";
+import { client } from "../spec/helpers.ts";
 import { type Server, server } from "./server.ts";
 
 // Crit 10 and ADR 0010: the server logs who did what by short code, the log
@@ -11,19 +12,7 @@ let s: Server;
 afterEach(() => s.stop());
 
 const log = async (): Promise<Log> => (await fetch(`${s.base}/api/log?key=${KEY}`)).json() as Promise<Log>;
-async function visitor(): Promise<string> {
-  return (await fetch(`${s.base}/api/state`)).headers.get("set-cookie")!.match(/v=[^;]+/)![0];
-}
-const act = (cookie: string, body: unknown): Promise<Response> =>
-  fetch(`${s.base}/api/act`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) });
-async function trading(): Promise<void> {
-  for (let i = 0; i < 200; i++) {
-    const st = (await (await fetch(`${s.base}/api/state`)).json()) as { phase: string; tick: number; total: number };
-    if (st.phase === "trade" && st.total - st.tick > 30) return;
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error("never opened");
-}
+const app = () => client(s.base);
 
 it("opens the log with the key, and to nobody else", async () => {
   s = await server(8097, { STATS_KEY: KEY });
@@ -39,9 +28,10 @@ it("is shut to everyone when no key is set", async () => {
 
 it("tells two traders apart by short code and name, never by cookie", async () => {
   s = await server(8097, { STATS_KEY: KEY, TICK_MS: "100" });
+  const { visitor, act, open } = app();
   const a = await visitor();
   const b = await visitor();
-  await trading();
+  await open(30);
   await act(a, { kind: "buy", leverage: 25 });
   await act(b, { kind: "sell", leverage: 5 });
   const trades = (await log()).recent.filter((l) => l.ev === "open" && l.side);
@@ -58,8 +48,9 @@ it("tells two traders apart by short code and name, never by cookie", async () =
 
 it("keeps the log and the hall of fame through a hard kill", async () => {
   s = await server(8097, { STATS_KEY: KEY, TICK_MS: "10" });
+  const { visitor, act, open, state } = app();
   const a = await visitor();
-  await trading();
+  await open(30);
   // a wipe-out at 1000x is recorded at once, before the round ends
   await act(a, { kind: "buy", leverage: 1000 });
   let busted = false;
@@ -67,13 +58,12 @@ it("keeps the log and the hall of fame through a hard kill", async () => {
     busted = (await log()).recent.some((l) => l.ev === "stopout" || l.ev === "zerocut");
     if (!busted) {
       await new Promise((r) => setTimeout(r, 25));
-      const st = (await (await fetch(`${s.base}/api/state`, { headers: { cookie: a } })).json()) as { you: { pos: unknown; out: boolean; broke: boolean } };
+      const st = await state(a);
       if (!st.you.pos && !st.you.out && !st.you.broke) await act(a, { kind: "buy", leverage: 1000 });
     }
   }
   expect(busted).toBe(true);
-  const fame = async (): Promise<{ busts: number; you: boolean }[]> =>
-    ((await (await fetch(`${s.base}/api/state`, { headers: { cookie: a } })).json()) as { career: { busts: number; you: boolean }[] }).career;
+  const fame = async () => (await state(a)).career;
   expect((await fame()).find((c) => c.you)?.busts).toBeGreaterThanOrEqual(1);
 
   s.proc.kill("SIGKILL");

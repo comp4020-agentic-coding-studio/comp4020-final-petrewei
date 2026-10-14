@@ -12,7 +12,8 @@ it("refuses an order the broker does not offer, changing nothing", async () => {
     expect(res.status, JSON.stringify(body)).toBeGreaterThanOrEqual(400);
     expect((await res.json()).error).toEqual(expect.any(String));
   }
-  expect((await state(me)).you).toMatchObject({ balance: 1_000_000, pos: null, debt: 0 });
+  const s = await state(me);
+  expect(s.you).toMatchObject({ balance: s.start, pos: null, debt: 0 });
 });
 
 it("refuses a body too large to be an order", async () => {

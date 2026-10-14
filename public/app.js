@@ -2,10 +2,12 @@
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
-const yen = (n) => `${n < 0 ? "−" : ""}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
+import { yen } from "/format.js";
+
 let state = null;
-let lastBalance = null;
-let lastOut = false;
+// Forced closes seen so far; a new one takes the screen.
+let cuts = null;
+let fame = "";
 
 const lev = $("leverage");
 const LABELS = { 1: "1× (sensible)", 5: "5×", 10: "10×", 25: "25× (Japan's legal cap)", 100: "100× (offshore)", 400: "400× (brave)", 1000: "1000× (Leverage fixes everything~♪)" };
@@ -15,14 +17,14 @@ async function act(kind, extra = {}) {
   const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, ...extra }) });
   if (!res.ok) $("error").textContent = (await res.json()).error ?? "Refused.";
 }
-$("buy").onclick = () => act("buy", { leverage: Number(lev.value), stake: Number($("stake").value) });
-$("sell").onclick = () => act("sell", { leverage: Number(lev.value), stake: Number($("stake").value) });
+const order = (kind) => () => act(kind, { leverage: Number(lev.value), stake: Number($("stake").value) });
+$("buy").onclick = order("buy");
+$("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
 $("pray").onclick = () => act("pray");
 $("borrow").onclick = () => act("borrow");
 $("stop").onclick = () => {
   const pos = state?.you.pos;
-  if (!pos) return act("stop", { at: 0 });
   if (pos.stop) return act("stop", { at: null });
   const price = state.prices.at(-1);
   act("stop", { at: price * (1 - pos.side * 0.01) });
@@ -49,8 +51,9 @@ function draw(s) {
   ctx.lineWidth = 1;
   ctx.fillStyle = "#b9a6cf";
   ctx.font = "12px ui-monospace, monospace";
-  for (let d = 0; d <= 40; d += 5) {
-    const xd = x(d * 9);
+  const k = s.steps;
+  for (let d = 0; d * k <= s.total; d += 5) {
+    const xd = x(d * k);
     ctx.beginPath();
     ctx.moveTo(xd, 0);
     ctx.lineTo(xd, h);
@@ -80,19 +83,19 @@ function draw(s) {
   if (pos) level(pos.entry, pos.side === 1 ? "#12a37a" : "#e5384f", `${pos.side === 1 ? "long" : "short"} ${pos.leverage}×`);
   if (pos?.stop) level(pos.stop, "#ff9f1c", "stop");
   // One candle a day, then the price line through today's ticks.
-  for (let d = 0; d * 9 < prices.length - 1; d++) {
-    const day = prices.slice(d * 9, d * 9 + 10);
+  for (let d = 0; d * k < prices.length - 1; d++) {
+    const day = prices.slice(d * k, d * k + k + 1);
     const open = day[0];
     const close = day.at(-1);
     const colour = close >= open ? "#12a37a" : "#e5384f";
-    const cx = x(d * 9 + 4.5);
+    const cx = x(d * k + k / 2);
     ctx.strokeStyle = colour;
     ctx.beginPath();
     ctx.moveTo(cx, y(Math.max(...day)));
     ctx.lineTo(cx, y(Math.min(...day)));
     ctx.stroke();
     ctx.fillStyle = colour;
-    const bw = Math.max(3, x(9) * 0.6);
+    const bw = Math.max(3, x(k) * 0.6);
     ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(1, Math.abs(y(open) - y(close))));
   }
   const last = prices.at(-1);
@@ -136,7 +139,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   $("mode").textContent = s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
   $("title").textContent = s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
-  $("clock").textContent = s.phase === "trade" ? `day ${s.day + 1} / 40` : "market closed";
+  $("clock").textContent = s.phase === "trade" ? `day ${Math.floor(s.tick / s.steps) + 1} / ${s.total / s.steps}` : "market closed";
   $("who").textContent = s.you.name;
   draw(s);
 
@@ -159,22 +162,20 @@ function render(s) {
       : "No position.";
   if (y.debt) $("position").textContent += ` Owed to Dad: ${yen(y.debt)}.`;
   const closed = s.phase !== "trade" || y.out;
-  for (const id of ["buy", "sell", "close", "stop", "pray"]) $(id).disabled = closed;
+  for (const id of ["buy", "sell", "pray"]) $(id).disabled = closed;
+  for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
   $("stop").textContent = y.pos?.stop ? "Remove stop" : "Stop at −1%";
 
-  // The forced loss cut: a stop-out or wipe-out takes the screen.
-  if (lastBalance !== null && s.phase === "trade" && !y.pos && y.balance < lastBalance * 0.85 && (y.out || lastOut === false)) {
-    const recent = s.feed.slice(0, 3).find((f) => f.kind === "bust" && f.text.includes(y.name));
-    if (recent) {
-      $("losscut-sub").textContent = y.out ? "WIPED OUT · ZERO-CUT" : "FORCED LOSS CUT";
-      $("losscut").hidden = false;
-      setTimeout(() => ($("losscut").hidden = true), 2200);
-    }
+  // The forced loss cut: a new stop-out or wipe-out takes the screen.
+  if (cuts !== null && y.cuts > cuts) {
+    $("losscut-sub").textContent = y.out ? "WIPED OUT · ZERO-CUT" : "FORCED LOSS CUT";
+    $("losscut").hidden = false;
+    setTimeout(() => ($("losscut").hidden = true), 2200);
   }
-  lastBalance = y.pos ? lastBalance ?? y.balance : y.balance;
-  lastOut = y.out;
+  cuts = y.cuts;
 
-  $("count").textContent = `${s.traders.filter((t) => !t.bot).length} human${s.traders.filter((t) => !t.bot).length === 1 ? "" : "s"}`;
+  const humans = s.traders.filter((t) => !t.motto).length;
+  $("count").textContent = `${humans} human${humans === 1 ? "" : "s"}`;
   const list = $("traders");
   list.replaceChildren(
     ...s.traders.map((t) => {
@@ -183,7 +184,10 @@ function render(s) {
       const n = document.createElement("span");
       n.className = "n";
       n.textContent = t.name + (t.you ? " (you)" : "");
-      if (t.bot) n.insertAdjacentHTML("beforeend", ' <span class="botmark">bot</span>');
+      if (t.motto) {
+        n.title = t.motto;
+        n.insertAdjacentHTML("beforeend", ' <span class="botmark">bot</span>');
+      }
       const p = document.createElement("span");
       if (t.side) {
         p.className = `pos ${t.side === 1 ? "long" : "short"}`;
@@ -191,7 +195,7 @@ function render(s) {
       }
       const e = document.createElement("span");
       e.textContent = yen(t.equity);
-      e.className = t.equity >= 1_000_000 ? "up" : "down";
+      e.className = t.equity >= s.start ? "up" : "down";
       li.append(n, p, e);
       return li;
     }),
@@ -204,18 +208,24 @@ function render(s) {
       return li;
     }),
   );
-  $("career").replaceChildren(
-    ...s.career.map((c) => {
-      const tr = document.createElement("tr");
-      if (c.you) tr.className = "you";
-      for (const v of [c.name, c.rounds, yen(c.profit), c.wins, c.busts]) {
-        const td = document.createElement("td");
-        td.textContent = v;
-        tr.append(td);
-      }
-      return tr;
-    }),
-  );
+  // The hall of fame changes only on busts and at the bell.
+  const famed = JSON.stringify(s.career);
+  if (famed !== fame) {
+    fame = famed;
+    $("career").replaceChildren(
+      ...s.career.map((c) => {
+        const tr = document.createElement("tr");
+        if (c.you) tr.className = "you";
+        for (const v of [c.name, c.rounds, yen(c.profit), c.wins, c.busts]) {
+          const td = document.createElement("td");
+          td.textContent = v;
+          tr.append(td);
+        }
+        return tr;
+      }),
+    );
+  }
+
 
   $("bell").hidden = s.phase !== "break" || !s.result;
   if (s.result) {
@@ -225,7 +235,7 @@ function render(s) {
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
         if (r.you) li.className = "you";
-        li.textContent = `${r.name}${r.you ? " (you)" : ""}: ${yen(r.balance)} (${yen(r.balance - 1_000_000)})`;
+        li.textContent = `${r.name}${r.you ? " (you)" : ""}: ${yen(r.balance)} (${yen(r.balance - s.start)})`;
         return li;
       }),
     );

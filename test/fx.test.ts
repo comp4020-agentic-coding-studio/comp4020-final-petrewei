@@ -111,6 +111,24 @@ describe("the trading desk", () => {
     expect(desk.mark(101.2).map((e) => e.kind)).toEqual(["stop"]);
   });
 
+  it("closes on request, and refuses with nothing open", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.close("a")).toBe("Nothing to close.");
+    desk.order("a", -1, 5);
+    expect(desk.close("a")).toMatchObject([{ kind: "close" }]);
+    expect(desk.account("a").pos).toBeNull();
+  });
+
+  it("remembers the last forced close, so the player's page can show it once", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100);
+    expect(desk.account("a").cuts).toBe(0);
+    desk.mark(99.2);
+    expect(desk.account("a").cuts).toBe(1);
+  });
+
   it("refuses a stop on the wrong side of the price, or with nothing open", () => {
     const desk = new Desk(100);
     desk.join("a");

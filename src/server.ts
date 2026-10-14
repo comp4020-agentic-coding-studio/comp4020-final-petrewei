@@ -8,10 +8,10 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
-import { BOTS } from "./bots.ts";
-import { BORROW, Desk, LEVERAGES, LOANS, START, type Event, type Side } from "./fx.ts";
+import { type Action, BOTS } from "./bots.ts";
+import { BORROW, Desk, type Fill, LEVERAGES, LOANS, START } from "./fx.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { DAYS, History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
+import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -31,10 +31,22 @@ const history = new History(read("data/ecb.csv"));
 // moderating, and no page or log line carries a cookie (ADR 0010).
 const ADJ = ["Lucky", "Panic", "Diamond", "Paper", "Moon", "Margin", "Lonely", "Golden", "Sleepy", "Brave", "Greedy", "Humble", "Shaky", "Bold", "Tiny", "Mighty", "Nervous", "Hopeful", "Reckless", "Cosy", "Midnight", "Salty", "Dizzy", "Sunny"];
 const NOUN = ["Yen", "Pip", "Bull", "Bear", "Whale", "Candle", "Franc", "Kiwi", "Aussie", "Loonie", "Swap", "Lot", "Spread", "Chart", "Hedge", "Ticker", "Wick", "Dip", "Peg", "Rally", "Gap", "Fiver", "Penny", "Euro"];
-const hash = (who: string): Buffer => createHash("sha256").update(who).digest();
 const bot = (who: string) => BOTS.find((b) => b.id === who);
-const nameOf = (who: string): string => bot(who)?.name ?? `${ADJ[hash(who)[0] % ADJ.length]} ${NOUN[hash(who)[1] % NOUN.length]}`;
-const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
+// Names and codes never change, and every view needs them, so each
+// cookie is hashed once.
+const known = new Map<string, { name: string; code: string }>();
+function ident(who: string): { name: string; code: string } {
+  let id = known.get(who);
+  if (!id) {
+    const b = bot(who);
+    const h = createHash("sha256").update(who).digest();
+    id = b ? { name: b.name, code: b.id } : { name: `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`, code: h.toString("hex").slice(0, 6) };
+    known.set(who, id);
+  }
+  return id;
+}
+const nameOf = (who: string): string => ident(who).name;
+const short = (who: string): string => ident(who).code;
 
 // One structured line per thing a trader does, with their short code and
 // trader name. It goes to stdout, so `flyctl logs` tails it, and is
@@ -65,13 +77,16 @@ trimActivity();
 setInterval(trimActivity, 3_600_000).unref();
 const recent: Line[] = readActivity().slice(-300);
 
-// The bots trade every few seconds; their lines go to stdout only, so the
-// saved record is people and rounds.
+// The bots trade every few seconds; their trades go to stdout only, so the
+// saved record is people and rounds. Their prays and stops are not logged.
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
   const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
+  if (who && bot(who)) {
+    if (ev !== "pray" && ev !== "stop" && ev !== "borrow") console.log(text);
+    return;
+  }
   console.log(text);
-  if (who && bot(who)) return;
   recent.push(line);
   recent.splice(0, recent.length - 300);
   try {
@@ -90,7 +105,7 @@ function saveCareer(): void {
 }
 
 // The round being played, or the break after it.
-let seed = Date.now() % 2 ** 31;
+const seed = Date.now() % 2 ** 31;
 const rnd = random(seed);
 let count = 0;
 let round: Round;
@@ -98,7 +113,9 @@ let desk: Desk;
 let tick = 0;
 let phase: "trade" | "break" = "trade";
 let breakLeft = 0;
-let result: { ranking: { id: string; name: string; balance: number; you?: boolean }[]; reveal: string } | null = null;
+let result: { ranking: { id: string; name: string; balance: number }[]; reveal: string } | null = null;
+// What the bell will say, decided when the round starts.
+let reveal = "";
 let feed: { text: string; kind: string }[] = [];
 const prays = new Map<string, number>();
 
@@ -124,17 +141,16 @@ function todayRate(pair: Pair): { rate: number; date: string; source: string } {
   const day = history.latest(pair);
   return { rate: day.rate, date: day.date, source: "ECB, bundled" };
 }
-let liveFrom = "";
-
 function start(): void {
   count++;
   if (count % 3 === 0) {
     const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
     const now = todayRate(pair);
     round = live(history, pair, now.rate, rnd);
-    liveFrom = `${now.date} (${now.source})`;
+    reveal = `That was a simulation from ${round.pair} on ${now.date} (${now.source}).`;
   } else {
     round = replay(history, rnd, 0.6);
+    reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
   }
   desk = new Desk(round.prices[0]);
   for (const b of BOTS) desk.join(b.id);
@@ -158,7 +174,7 @@ const yen = (n: number): string => `${n < 0 ? "−" : ""}¥${Math.abs(Math.round
 
 // Turn the desk's events into the room's feed. A stop-out is everyone's
 // business; that is the point of trading in the same room.
-function report(events: Event[]): void {
+function report(events: Fill[]): void {
   for (const e of events) {
     const name = nameOf(e.who);
     if (e.kind === "open") say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
@@ -168,9 +184,9 @@ function report(events: Event[]): void {
     else if (e.kind === "call") say(`MARGIN CALL for ${name}!`, "call");
     else if (e.kind === "stopout") say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
     else if (e.kind === "zerocut") say(`${name} was wiped out and leaves the market.`, "bust");
-    if ((e.kind === "stopout" || e.kind === "zerocut") && !bot(e.who)) {
-      record(e.who).busts++;
-      saveCareer();
+    if (e.kind === "stopout" || e.kind === "zerocut") {
+      const c = record(e.who);
+      if (c) c.busts++;
     }
     log(e.who, e.kind, { pair: round.pair, price: Number(fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
   }
@@ -179,26 +195,25 @@ function report(events: Event[]): void {
 const digits = (): number => (round.pair.endsWith("JPY") ? 3 : 5);
 const fmt = (p: number): string => p.toFixed(digits());
 
-function record(who: string): Career {
+// Only people have careers. A change is saved at once (the file is small),
+// so a bust survives a crash mid-round.
+function record(who: string): Career | null {
+  if (bot(who)) return null;
   career[short(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
+  queueMicrotask(saveCareer);
   return career[short(who)];
 }
 
 function end(): void {
   const ranking = desk.settle();
   const humans = ranking.filter((r) => !bot(r.who));
-  ranking.forEach((r, i) => {
-    if (bot(r.who)) return;
-    const c = record(r.who);
+  for (const r of humans) {
+    const c = record(r.who)!;
     c.rounds++;
     c.profit += r.net - START;
     c.best = Math.max(c.best, r.net - START);
-    if (i === ranking.findIndex((x) => !bot(x.who)) && humans.length > 1) c.wins++;
-  });
-  if (humans.length) saveCareer();
-  const reveal = round.simulated
-    ? `That was a simulation from ${round.pair} on ${liveFrom}.`
-    : `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
+    if (r === humans[0] && humans.length > 1) c.wins++;
+  }
   result = { ranking: ranking.map((r) => ({ id: short(r.who), name: nameOf(r.who), balance: r.net })), reveal };
   log(null, "end", { ranking: ranking.map((r) => [short(r.who), r.net]) });
   phase = "break";
@@ -209,9 +224,9 @@ function end(): void {
 // rules and sends the new state to everyone.
 setInterval(() => {
   if (phase === "break") {
-    if (--breakLeft <= 0) start();
-    broadcast(true);
-    return;
+    const next = --breakLeft <= 0;
+    if (next) start();
+    return broadcast(next);
   }
   tick++;
   report(desk.mark(round.prices[tick]));
@@ -220,23 +235,25 @@ setInterval(() => {
     const action = b.act(desk, b.id, seen, rnd);
     if (action) apply(b.id, action);
   }
-  if (tick >= round.prices.length - 1) end();
+  if (tick >= round.prices.length - 1) {
+    end();
+    return broadcast(true);
+  }
   broadcast();
 }, TICK_MS).unref();
 
-type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; at: number | null } | { kind: "pray" } | { kind: "borrow" };
 function apply(who: string, action: Action): string | null {
   if (phase !== "trade") return "The market is closed. Next round soon.";
   desk.join(who);
   if (action.kind === "pray") {
     prays.set(who, (prays.get(who) ?? 0) + 1);
-    if (!bot(who)) log(who, "pray", { times: prays.get(who) });
+    log(who, "pray", { times: prays.get(who) });
     if (prays.get(who) === 1 || prays.get(who)! % 10 === 0) say(`${nameOf(who)} is praying to the chart (×${prays.get(who)}). It does nothing.`, "pray");
     return null;
   }
   if (action.kind === "stop") {
     const refused = desk.stop(who, action.at);
-    if (!refused && !bot(who)) log(who, "stop", { at: action.at === null ? null : Number(fmt(action.at)) });
+    if (!refused) log(who, "stop", { at: action.at === null ? null : Number(fmt(action.at)) });
     return refused;
   }
   if (action.kind === "borrow") {
@@ -247,12 +264,7 @@ function apply(who: string, action: Action): string | null {
     log(who, "borrow", { debt: desk.account(who).debt });
     return null;
   }
-  if (action.kind === "close") {
-    const pos = desk.account(who).pos;
-    if (!pos) return "Nothing to close.";
-    action = { kind: "order", side: -pos.side as Side, leverage: pos.leverage };
-  }
-  const out = desk.order(who, action.side, action.leverage, action.stake);
+  const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake);
   if (typeof out === "string") return out;
   report(out);
   return null;
@@ -262,19 +274,26 @@ const listeners = new Set<{ res: ServerResponse; who: string }>();
 
 // What one visitor sees: the shared chart, everyone's standing, and their
 // own account in full. Other people's positions show side and leverage
-// but not their stops, which would be a gift to the room.
-// Pages are sent the whole price history when they join or a round
-// changes phase, and otherwise only the newest price, from `from` on.
-function view(who: string, from = 0) {
-  // The room is the bots, people with the page open, and anyone still
-  // holding a position; someone who looked in and left is not listed.
+// but not their stops, which would be a gift to the room. Pages are sent
+// the whole price history when they join or a round changes phase, and
+// otherwise only the newest price, from `from` on.
+//
+// The room is the bots, people with the page open, and anyone still
+// holding a position; someone who looked in and left is not listed.
+function room() {
   const present = new Set([...listeners].map((l) => l.who));
   const traders = desk.players().filter((p) => bot(p) || present.has(p) || desk.account(p).pos).map((p) => {
     const a = desk.account(p);
-    return { id: short(p), name: nameOf(p), bot: !!bot(p), equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, you: p === who };
+    return { id: short(p), name: nameOf(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
   });
   traders.sort((a, b) => b.equity - a.equity);
+  const fame = Object.entries(career).map(([id, c]) => ({ id, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
+  return { traders, fame };
+}
+
+function view(who: string, from = 0, shared = room()) {
   const mine = desk.players().includes(who) ? desk.account(who) : null;
+  const me = short(who);
   return {
     phase,
     round: count,
@@ -282,8 +301,9 @@ function view(who: string, from = 0) {
     digits: digits(),
     simulated: round.simulated,
     tick,
-    total: DAYS * STEPS,
-    day: Math.floor(tick / STEPS),
+    total: round.prices.length - 1,
+    steps: STEPS,
+    start: START,
     from,
     prices: round.prices.slice(from, tick + 1),
     breakLeft: Math.ceil((breakLeft * TICK_MS) / 1000),
@@ -297,22 +317,29 @@ function view(who: string, from = 0) {
       debt: mine?.debt ?? 0,
       loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
       broke: mine ? desk.broke(who) : false,
+      cuts: mine?.cuts ?? 0,
       pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
     },
-    traders,
+    traders: shared.traders.map((t) => ({ ...t, you: t.id === me })),
     feed,
-    result: result && { ...result, ranking: result.ranking.map((r) => ({ ...r, you: r.id === short(who) })) },
-    career: Object.entries(career)
-      .map(([id, c]) => ({ ...c, you: id === short(who) }))
-      .sort((a, b) => b.profit - a.profit)
-      .slice(0, 10),
+    result: result && { ...result, ranking: result.ranking.map((r) => ({ ...r, you: r.id === me })) },
+    career: shared.fame.map(({ id, ...c }) => ({ ...c, you: id === me })),
     leverages: LEVERAGES,
   };
 }
 
+// The room is worked out once per broadcast and shared by every view.
+// During the break nothing moves but the clock, so after the bell's full
+// message the pages are sent only an empty price list.
 function broadcast(full = false): void {
-  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who, full ? 0 : tick))}\n\n`);
+  const shared = room();
+  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who, full ? 0 : phase === "break" ? tick + 1 : tick, shared))}\n\n`);
 }
+
+const send = (res: ServerResponse, [content, type]: [string, string]): void => {
+  res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
+  res.end(content);
+};
 
 const json = (res: ServerResponse, status: number, data: unknown): void => {
   res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
@@ -334,8 +361,8 @@ const PAGES: Record<string, [string, string]> = {
   "/": [read("public/index.html"), HTML],
   "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
   "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
+  "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
-  "/readme/": [readme, HTML],
   "/readme": [readme, HTML],
 };
 
@@ -353,27 +380,23 @@ function operator(url: URL): boolean {
   const key = Buffer.from(STATS_KEY);
   return key.length > 0 && given.length === key.length && timingSafeEqual(given, key);
 }
+const present = (who: string): boolean => [...listeners].some((l) => l.who === who);
 const here = (): number => new Set([...listeners].map((l) => l.who)).size;
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
+  const path = url.pathname.length > 1 ? url.pathname.replace(/\/$/, "") : url.pathname;
   let who = req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
   if (!who) {
     who = randomUUID();
     res.setHeader("set-cookie", `v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
   }
 
-  if (req.method === "GET" && PAGES[url.pathname]) {
-    res.writeHead(200, { "content-type": PAGES[url.pathname][1], "cache-control": "no-store" });
-    return res.end(PAGES[url.pathname][0]);
-  }
-  if (req.method === "GET" && (LOG_PAGES[url.pathname] || url.pathname === "/api/log") && !operator(url)) {
+  if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path]);
+  if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {
     return json(res, 404, { error: "Not found." });
   }
-  if (req.method === "GET" && LOG_PAGES[url.pathname]) {
-    res.writeHead(200, { "content-type": LOG_PAGES[url.pathname][1], "cache-control": "no-store" });
-    return res.end(LOG_PAGES[url.pathname][0]);
-  }
+  if (req.method === "GET" && LOG_PAGES[path]) return send(res, LOG_PAGES[path]);
   if (req.method === "GET" && url.pathname === "/api/log") {
     return json(res, 200, { here: here(), round: count, pair: round.pair, phase, recent: recent.slice(-150).toReversed() });
   }
@@ -382,9 +405,9 @@ createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/api/events") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
     const listener = { res, who };
-    const already = [...listeners].some((l) => l.who === who);
+    const already = present(who);
     listeners.add(listener);
-    if (!already) log(who, "open", { here: here() });
+    if (!already) log(who, "join", { here: here() });
     if (phase === "trade" && !desk.players().includes(who)) {
       desk.join(who);
       say(`${nameOf(who)} entered the market.`, "info");
@@ -392,7 +415,7 @@ createServer(async (req, res) => {
     res.write(`data: ${JSON.stringify(view(who))}\n\n`);
     req.on("close", () => {
       listeners.delete(listener);
-      if (![...listeners].some((l) => l.who === who)) log(who, "close", { here: here() });
+      if (!present(who)) log(who, "leave", { here: here() });
     });
     return;
   }
