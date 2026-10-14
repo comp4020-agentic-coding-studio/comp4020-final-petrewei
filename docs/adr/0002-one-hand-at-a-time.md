@@ -1,6 +1,6 @@
 # ADR 0002: One Hand at a Time
 
-Status: accepted, 8 October 2026 (crit 9).
+Status: accepted, 8 October 2026 (crit 9). Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 

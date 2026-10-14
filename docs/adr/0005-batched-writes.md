@@ -1,6 +1,6 @@
 # ADR 0005: Batched Writes
 
-Status: accepted, 9 October 2026. Supersedes the write-per-move consequence of [ADR 0001](0001-plain-node-and-a-json-file.md); the rest of ADR 0001 stands. Its loss window for moves is closed by [ADR 0006](0006-a-journal-of-moves.md).
+Status: accepted, 9 October 2026. Supersedes the write-per-move consequence of [ADR 0001](0001-plain-node-and-a-json-file.md); the rest of ADR 0001 stands. Its loss window for moves is closed by [ADR 0006](0006-a-journal-of-moves.md). Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 

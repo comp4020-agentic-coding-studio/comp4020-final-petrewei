@@ -1,6 +1,6 @@
 # ADR 0006: A Journal of Moves
 
-Status: accepted, 14 October 2026. Supersedes the loss window that [ADR 0005](0005-batched-writes.md) accepted; batching stands.
+Status: accepted, 14 October 2026. Supersedes the loss window that [ADR 0005](0005-batched-writes.md) accepted; batching stands. Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 

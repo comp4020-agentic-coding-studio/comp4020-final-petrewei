@@ -1,6 +1,6 @@
 # ADR 0001: Plain Node and a JSON File
 
-Status: accepted, 7 October 2026 (crit 8).
+Status: accepted, 7 October 2026 (crit 8). Its stack stands for the game that replaced the fridge ([ADR 0009](0009-a-parody-fx-trading-floor.md)); the state is now a hall of fame and an activity log.
 
 ## 1 Context
 

@@ -1,6 +1,6 @@
 # ADR 0007: Who May See and Change What
 
-Status: accepted, 14 October 2026 (crit 10).
+Status: accepted, 14 October 2026 (crit 10). Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 

@@ -1,53 +1,47 @@
-# Fridge Poetry
+# Losscut! Kurumi's FX Fantasy
 
-One fridge door, one set of word magnets, everyone at once. Every word exists once, so the "moon" in your line is the "moon" nobody else can use.
+One shared currency market, traded by everyone at once with play money. A round is three minutes of forty trading days, mostly real history with the dates hidden: you might be long euros against francs on 15 January 2015 and not know it until the bell.
 
 This is a working definition of good.
 
 ## Who it is for
 
-A room of people using it at once: a crit group of a dozen, or the showcase. It is situated software in Clay Shirky's sense, "designed in and for a particular social situation", and built the way Robin Sloan cooks his family's messaging app: for the people present, not to scale.
+A room of people at once: a crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her mother lost in 2008. The comic is funny and grim at once, and so is this game.
 
 ## What good means here
 
-- **The words are shared and scarce.** Each word is one magnet: take it or write around it.
-- **A round has a winner** ([ADR 0008](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0008-rounds-with-a-prompt.md)). A line scores while it stands, double if it answers the round's prompt, so taking a word stops a rival or wins their line.
-- **Nobody can type.** A fixed vocabulary of about 160 words ([ADR 0004](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0004-a-vocabulary-of-about-160-words.md)) lets strangers share the door unmoderated. The constraint is the point, as for the Oulipo, and Dave Kapell's 1993 kit began as guests composing on his fridge.
-- **One hand at a time.** A held word glows and can't be taken, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
-- **Your trace stays, and so does its loss.** Your words stay, outlined; take one, and its owner is told, never by whom.
-- **Nothing written is lost.** A line that stood and was broken goes to the archive under the fridge ([ADR 0003](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0003-an-archive-of-broken-lines.md)), so taking a word costs a line, not the poem.
-- **It works without a mouse.** The arrow keys move any word.
-- **A line looks the same on every screen;** a phone scrolls the door sideways.
+- **Everyone trades the same price, in the same room.** The server owns the price and fills each order on arrival. Everyone sees your side, leverage and net worth, live.
+- **History is the dealer.** Replays use the European Central Bank's daily rates since 1999. Most hide a famous day, such as Lehman Brothers, Brexit or the franc's unpegging, revealed at the bell with what happened. Every third round starts from today's real rate and simulates from there.
+- **Leverage is the joke, and the lesson.** You choose from 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level and a forced stop-out (強制ロスカット) at 20%. A gap can wipe out your account in one tick, and a stop fills where the price lands, not where you set it.
+- **Losing is public.** Margin calls and stop-outs go to the room's feed. A broke player can borrow from Dad's savings, twice, which is announced and counted against them.
+- **There's always someone to trade against.** Four house traders, each parodying a habit, play every round, so one person can play alone.
+- **There's a short game and a long game.** Each round ranks net worth; a hall of fame keeps profit and busts across rounds and restarts.
 
 ## Enforced and judged
 
-Checked in `spec/` against the running app:
+Checked in `spec/` and `test/`:
 
-- every word exists exactly once
-- the server accepts only a position, so nobody adds or renames a word
-- a move persists, and only the visitor who made it sees it marked as theirs
-- the word moved last is drawn on top
-- a move reaches every other open session within a second, with no reload
-- a held word can't be grabbed or moved by anyone else, and is freed when its holder lets go, leaves or lapses
-- when someone takes your word you're told, and only you
-- a broken line is archived if it stood, and not if it was broken at once
-- a standing line scores its owner, and every page sees the round
-- every action is logged by short code, never a cookie, for the operator only ([ADR 0007](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0007-who-may-see-and-change-what.md))
+- an order reaches every other open page within a second, with no reload
+- the price moves on its own about twice a second
+- the server refuses orders the broker does not offer, and acts only on the sender's account
+- nobody is shown another person's cookie or stop
+- margin calls, stop-outs, zero-cuts, slipping stops and Dad's loans follow the rules in `src/fx.ts`
+- replays pass through every real daily close, gap on big days, and hide each event inside the window
+- who did what is logged by short code, for the operator only, and survives a hard kill, as does the hall of fame
 
 Judged by people, at the crit and the showcase:
 
-- whether the vocabulary lets people write something worth reading
-- whether taking words feels like play
+- whether a room laughs, groans and learns when the bell names the date
+- whether it makes leverage look as dangerous as it is
 
 ## What I looked at
 
-- Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): his students' apps for groups of dozens to a couple of hundred, against the Web School's "scalability, generality, and completeness".
-- Robin Sloan, ["An app can be a home-cooked meal"](https://www.robinsloan.com/notes/home-cooked-app/): an app for his family of four.
-- Maggie Appleton, ["Home-Cooked Software and Barefoot Developers"](https://maggieappleton.com/home-cooked-software): language models put such apps within more people's reach, as they did mine.
-- The [Oulipo](https://en.wikipedia.org/wiki/Oulipo) and [Magnetic Poetry](https://en.wikipedia.org/wiki/Magnetic_Poetry): writing from constraint.
-- The brief and week 8 lecture: good means serving people well, and README, `CLAUDE.md` and `spec/` agree.
-- About twenty-five candidate ideas; a sequencer was out as a repeat of my crit 4 theremin.
+- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan) and its [anime site](https://fxkurumi-info.com/); no art, names or text are used.
+- The ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
+- ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money; major pairs capped at 30:1.
+- FXCM after the franc unpegged: clients owed it about [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
+- Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): software for a particular group, not for scale.
 
 ## Left out
 
-Protecting a standing poem: taking is the game, and the archive keeps what breaks.
+Real money, broker links and anything that rewards depositing. The comic's family tragedy is the premise, not a joke here. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.

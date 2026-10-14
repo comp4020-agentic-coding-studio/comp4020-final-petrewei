@@ -1,6 +1,6 @@
 # ADR 0003: An Archive of Broken Lines
 
-Status: accepted, 8 October 2026 (after crit 8). The thresholds were the agent's proposal; Peter kept them on 8 October, and decided against protecting a standing poem on the door, since the archive keeps it.
+Status: accepted, 8 October 2026 (after crit 8). The thresholds were the agent's proposal; Peter kept them on 8 October, and decided against protecting a standing poem on the door, since the archive keeps it. Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 

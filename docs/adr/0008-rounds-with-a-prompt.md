@@ -1,6 +1,6 @@
 # ADR 0008: Rounds with a Prompt
 
-Status: accepted, 15 October 2026.
+Status: accepted, 15 October 2026. Superseded on 15 October 2026 by [ADR 0009](0009-a-parody-fx-trading-floor.md): the fridge was replaced.
 
 ## 1 Context
 
