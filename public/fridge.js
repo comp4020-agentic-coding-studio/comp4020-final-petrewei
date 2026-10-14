@@ -241,6 +241,7 @@ function stolen(update) {
 function apply(update) {
   if (update.type === "taken") return stolen(update);
   if (update.type === "poem") return archive(update);
+  if (update.type === "round") return round(update);
   if (update.type === "presence") {
     document.getElementById("here").textContent =
       update.here === 1 ? "Just you at the fridge" : `${update.here} people at the fridge`;
@@ -262,6 +263,43 @@ function apply(update) {
   }
   // a dropped word arrives as a move, so either way a free word clears its notice
   if (!m.held && status.textContent.includes(`“${m.text}”`)) status.textContent = "";
+}
+
+// ADR 0008: the round's prompt, its clock, the ranking, and which lines on
+// the door are scoring, and whose. Arrives every second from the server.
+const promptEl = document.getElementById("prompt");
+const clockEl = document.getElementById("clock");
+const boardEl = document.getElementById("board");
+let lastPhase = null;
+
+function round(r) {
+  const left = Math.max(0, Math.round((r.endsAt - Date.now()) / 1000));
+  clockEl.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  promptEl.textContent = r.phase === "play" ? r.prompt : "Round over. Next round soon.";
+  document.getElementById("round").dataset.phase = r.phase;
+  boardEl.replaceChildren(
+    ...r.board.map((b, i) => {
+      const li = document.createElement("li");
+      li.classList.toggle("you", b.you);
+      li.textContent = `${i + 1}. ${b.you ? "you" : b.who} — ${b.points}`;
+      return li;
+    }),
+  );
+  if (r.phase !== lastPhase && r.phase === "break" && r.board.length) {
+    const top = r.board[0];
+    status.textContent = top.you ? `You won the round with ${top.points}!` : `Round over: ${top.who} won with ${top.points}.`;
+  }
+  lastPhase = r.phase;
+  for (const { el } of live.values()) el.classList.remove("scoring", "scoring-mine", "answers");
+  if (r.phase !== "play") return;
+  for (const line of r.lines) {
+    for (const id of line.ids) {
+      const entry = live.get(id);
+      if (!entry) continue;
+      entry.el.classList.add(line.mine ? "scoring-mine" : "scoring");
+      entry.el.classList.toggle("answers", line.answers);
+    }
+  }
 }
 
 // The archive of broken lines (ADR 0003), newest first.

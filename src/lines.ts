@@ -20,10 +20,10 @@ export const MIN_WORDS = 3;
 export type Placed = { id: string; text: string; x: number; y: number };
 
 // Each line is its magnets left to right. A magnet belongs to at most one line.
-export function lines(placed: readonly Placed[]): Placed[][] {
-  const next = new Map<string, Placed>();
+export function lines<T extends Placed>(placed: readonly T[]): T[][] {
+  const next = new Map<string, T>();
   for (const a of placed) {
-    let best: Placed | null = null;
+    let best: T | null = null;
     let bestGap = Infinity;
     const end = a.x + width(a.text);
     for (const b of placed) {
@@ -38,7 +38,7 @@ export function lines(placed: readonly Placed[]): Placed[][] {
   }
   // Two words can't both follow the same one: keep the chain from whichever
   // is nearer, so every magnet has at most one predecessor.
-  const prev = new Map<string, Placed>();
+  const prev = new Map<string, T>();
   for (const a of placed) {
     const b = next.get(a.id);
     if (!b) continue;
@@ -48,7 +48,7 @@ export function lines(placed: readonly Placed[]): Placed[][] {
       prev.set(b.id, a);
     } else next.delete(a.id);
   }
-  const found: Placed[][] = [];
+  const found: T[][] = [];
   for (const a of placed) {
     if (prev.has(a.id)) continue;
     const line = [a];

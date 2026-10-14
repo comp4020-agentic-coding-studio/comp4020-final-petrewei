@@ -344,6 +344,70 @@ a {
   z-index: 99999;
 }
 
+/* ADR 0008: the round panel above the fridge */
+#round {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem 1.5rem;
+  align-items: baseline;
+  max-width: 56rem;
+  margin: 0 auto 1rem;
+  padding: 0.8rem 1.1rem;
+  color: var(--tile-ink);
+  background: var(--tile);
+  box-shadow: 0 0.3rem 0.8rem var(--shadow);
+}
+
+#round .label {
+  color: var(--tile-note);
+}
+
+#round .prompt {
+  font-size: 1.15rem;
+}
+
+#round .clock {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+#round[data-phase="break"] .prompt strong {
+  font-style: italic;
+  font-weight: normal;
+}
+
+#board {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.95rem;
+}
+
+#board li.you {
+  font-weight: bold;
+  color: var(--door-mine);
+}
+
+/* a standing line that scores: underlined, double when it answers the prompt */
+.magnet.scoring,
+.magnet.scoring-mine {
+  text-decoration: underline 2px var(--door-focus);
+  text-underline-offset: 0.2em;
+}
+
+.magnet.scoring-mine {
+  text-decoration-color: var(--door-mine);
+}
+
+.magnet.answers {
+  text-decoration-style: double;
+  text-decoration-thickness: 3px;
+}
+
 /* The archive: slips of paper pinned to the wall under the fridge. */
 #archive {
   max-width: 56rem;

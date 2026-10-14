@@ -15,7 +15,7 @@
         <span id="here" class="here"></span>
         <a class="about" href="/readme/">What this is for</a>
       </div>
-      <p class="tagline">One fridge door for everyone who visits. Every word exists once: if it's in someone's line, it isn't in yours.</p>
+      <p class="tagline">One fridge door, one set of words, everyone at once. Build a line of three words or more: it scores while it stands, double if it answers the prompt. Every word exists once, so steal theirs, and guard yours.</p>
       <ul class="hints">
         <li><strong>Drag</strong> a word to move it</li>
         <li>Or focus it and press <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd>, with <kbd>Shift</kbd> for bigger steps</li>
@@ -23,6 +23,11 @@
       </ul>
     </header>
     <main>
+      <section id="round" aria-label="This round" aria-live="off">
+        <div class="prompt"><span class="label">This round:</span> <strong id="prompt">…</strong></div>
+        <div class="clock" id="clock">–:––</div>
+        <ol id="board"></ol>
+      </section>
       <div id="fridge">
         <div class="cabinet">
           <div class="freezer" aria-hidden="true"><span class="badge">Fridge Poetry</span></div>

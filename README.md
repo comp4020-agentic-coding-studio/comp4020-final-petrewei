@@ -1,6 +1,6 @@
 # Fridge Poetry
 
-One fridge door, shared by everyone who visits, with one set of word magnets. Every word exists once, so the "moon" in your line is the "moon" nobody else can use.
+One fridge door, one set of word magnets, everyone at once. Every word exists once, so the "moon" in your line is the "moon" nobody else can use.
 
 This is a working definition of good.
 
@@ -10,13 +10,14 @@ A room of people using it at once: a crit group of a dozen, or the showcase. It 
 
 ## What good means here
 
-- **The words are shared and scarce.** Each word is one magnet. If you want "night" and it's in someone's line, you take it or write around it. Unlike a canvas or a chat, this makes everyone on the door matter to what you can write.
+- **The words are shared and scarce.** Each word is one magnet: take it or write around it.
+- **A round has a winner** ([ADR 0008](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0008-rounds-with-a-prompt.md)). A line scores while it stands, double if it answers the round's prompt, so taking a word stops a rival or wins their line.
 - **Nobody can type.** A fixed vocabulary of about 160 words ([ADR 0004](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0004-a-vocabulary-of-about-160-words.md)) lets strangers share the door unmoderated. The constraint is the point, as for the Oulipo, and Dave Kapell's 1993 kit began as guests composing on his fridge.
-- **One hand at a time.** A held word glows for everyone else and can't be taken, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
-- **Your trace stays, and so does its loss.** Your words stay where you left them, outlined as yours; take one, and its owner is told, never by whom.
+- **One hand at a time.** A held word glows and can't be taken, as with a real magnet ([ADR 0002](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0002-one-hand-at-a-time.md)).
+- **Your trace stays, and so does its loss.** Your words stay, outlined; take one, and its owner is told, never by whom.
 - **Nothing written is lost.** A line that stood and was broken goes to the archive under the fridge ([ADR 0003](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0003-an-archive-of-broken-lines.md)), so taking a word costs a line, not the poem.
 - **It works without a mouse.** The arrow keys move any word.
-- **A line looks the same on every screen.** Positions and sizes are fractions of the door; a phone scrolls it sideways.
+- **A line looks the same on every screen;** a phone scrolls the door sideways.
 
 ## Enforced and judged
 
@@ -30,12 +31,13 @@ Checked in `spec/` against the running app:
 - a held word can't be grabbed or moved by anyone else, and is freed when its holder lets go, leaves or lapses
 - when someone takes your word you're told, and only you
 - a broken line is archived if it stood, and not if it was broken at once
+- a standing line scores its owner, and every page sees the round
 - every action is logged by short code, never a cookie, for the operator only ([ADR 0007](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0007-who-may-see-and-change-what.md))
 
 Judged by people, at the crit and the showcase:
 
 - whether the vocabulary lets people write something worth reading
-- whether taking words feels like play or vandalism
+- whether taking words feels like play
 
 ## What I looked at
 
@@ -48,4 +50,4 @@ Judged by people, at the crit and the showcase:
 
 ## Left out
 
-Protecting a standing poem. Taking stays free; the archive keeps what breaks.
+Protecting a standing poem: taking is the game, and the archive keeps what breaks.

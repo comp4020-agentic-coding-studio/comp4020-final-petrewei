@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
+import { Game, owner } from "./game.ts";
 import { Holds } from "./holds.ts";
 import { lines, text, width } from "./lines.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -300,6 +301,33 @@ setInterval(() => holds.sweep(), 1_000).unref();
 const here = (): number => new Set([...listeners].map((l) => l.who)).size;
 const presence = (): void => emit({ type: "presence", here: here() });
 
+// ADR 0008, rounds with a prompt (src/game.ts). Every second, and after every
+// move, the lines standing on the door are scored, and each open page is told
+// the round: its prompt, when it ends, the ranking by short code with its own
+// marked, and which lines are its own and which answer the prompt. Scores
+// live in memory: a round lost to a restart is three minutes.
+const game = new Game({ roundMs: 180_000, breakMs: 15_000 });
+
+function play(): void {
+  const standing = lines(placed());
+  const ended = game.score(standing);
+  if (ended) log(null, "round", { prompt: ended.prompt, ranking: ended.ranking.slice(0, 5).map(([who, n]) => [short(who), Math.round(n)]) });
+  const { phase, prompt, endsAt, scores } = game.state();
+  const shown = standing.map((line) => ({ ids: line.map((m) => m.id), owner: owner(line), answers: game.answers(line) }));
+  for (const l of listeners) {
+    const round = {
+      type: "round",
+      phase,
+      prompt,
+      endsAt,
+      board: scores.slice(0, 8).map(([who, n]) => ({ who: short(who), points: Math.floor(n), you: who === l.who })),
+      lines: shown.map(({ ids, owner: by, answers }) => ({ ids, mine: by === l.who, answers })),
+    };
+    l.res.write(`data: ${JSON.stringify(round)}\n\n`);
+  }
+}
+setInterval(play, 1_000).unref();
+
 // Fly's proxy drops an idle connection after about a minute, so each stream
 // gets a comment line well inside that.
 setInterval(() => {
@@ -491,6 +519,7 @@ const server = createServer(async (req, res) => {
     log(who, "move", { word: magnet.text, x: +x.toFixed(3), y: +y.toFixed(3), ...(thief ? { from: short(from) } : {}) });
     broadcast(magnet);
     survey();
+    play();
     // Someone else's word was taken: tell them now if they're on the page, or
     // keep it for when they come back.
     if (thief) {

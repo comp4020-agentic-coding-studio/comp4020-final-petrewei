@@ -25,6 +25,7 @@ The final project, built across crits 8, 9 and 10. Crit 8 (cutoff Wednesday 7 Oc
 - **Who may see and change what is decided in `docs/adr/0007-who-may-see-and-change-what.md`, and checked on the server, never the page.** The activity log needs `STATS_KEY`, a Fly secret that never enters the repo or a commit; a new route must say which row of that table it belongs to.
 - **Marks on the door use the `--door-*` colours, chosen against the door, not the wall.** The door is white in light mode and piano black in dark, so each mode sets its own; each is at least 3:1 on its door.
 - **A word's `aria-label` carries what its outline and glow show**, and changes to the focused word are spoken through `#aloud`; announcing every move would drown a screen reader.
+- **Rounds and scoring follow `docs/adr/0008-rounds-with-a-prompt.md`, with the rules in `src/game.ts`.** Every prompt must be answerable from `src/words.ts` alone; `test/game.test.ts` checks scoring and ownership with a controlled clock, `spec/round.test.ts` against the running app.
 - **Every word stays reachable by keyboard.** Each magnet is a button, and the arrow keys move it.
 
 ## 3 Working Practices
