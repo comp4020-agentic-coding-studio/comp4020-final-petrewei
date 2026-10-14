@@ -14,10 +14,12 @@ export const LEVERAGES = [1, 5, 10, 25, 100, 400, 1000];
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
 export const STOP_OUT = 0.2;
-// A wiped-out player may borrow from Dad's savings, twice a round. It
-// gets them back in the game but the debt comes off their result.
+// A broke player (wiped out, or left with crumbs and nothing open) may
+// borrow from Dad's savings, twice a round. It gets them back in the game
+// but the debt comes off their result.
 export const BORROW = 300_000;
 export const LOANS = 2;
+export const BROKE = 100_000;
 
 export type Side = 1 | -1;
 export type Position = {
@@ -155,9 +157,14 @@ export class Desk {
     return { kind, who, price: this.price, pnl };
   }
 
+  broke(who: string): boolean {
+    const account = this.account(who);
+    return !account.pos && (account.out || account.balance < BROKE);
+  }
+
   borrow(who: string): string | null {
     const account = this.account(who);
-    if (!account.out) return "You still have money. For now.";
+    if (!this.broke(who)) return "You still have money. For now.";
     if (account.debt >= BORROW * LOANS) return "Dad's savings are gone.";
     account.balance += BORROW;
     account.debt += BORROW;

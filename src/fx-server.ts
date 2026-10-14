@@ -172,7 +172,7 @@ function end(): void {
 setInterval(() => {
   if (phase === "break") {
     if (--breakLeft <= 0) start();
-    broadcast();
+    broadcast(true);
     return;
   }
   tick++;
@@ -220,7 +220,9 @@ const listeners = new Set<{ res: ServerResponse; who: string }>();
 // What one visitor sees: the shared chart, everyone's standing, and their
 // own account in full. Other people's positions show side and leverage
 // but not their stops, which would be a gift to the room.
-function view(who: string) {
+// Pages are sent the whole price history when they join or a round
+// changes phase, and otherwise only the newest price, from `from` on.
+function view(who: string, from = 0) {
   const traders = desk.players().map((p) => {
     const a = desk.account(p);
     return { id: short(p), name: nameOf(p), bot: !!bot(p), equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, you: p === who };
@@ -229,13 +231,15 @@ function view(who: string) {
   const mine = desk.players().includes(who) ? desk.account(who) : null;
   return {
     phase,
+    round: count,
     pair: round.pair,
     digits: digits(),
     simulated: round.simulated,
     tick,
     total: DAYS * STEPS,
     day: Math.floor(tick / STEPS),
-    prices: round.prices.slice(0, tick + 1),
+    from,
+    prices: round.prices.slice(from, tick + 1),
     breakLeft: Math.ceil((breakLeft * TICK_MS) / 1000),
     you: {
       name: nameOf(who),
@@ -246,6 +250,7 @@ function view(who: string) {
       out: mine?.out ?? false,
       debt: mine?.debt ?? 0,
       loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
+      broke: mine ? desk.broke(who) : false,
       pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
     },
     traders,
@@ -259,8 +264,8 @@ function view(who: string) {
   };
 }
 
-function broadcast(): void {
-  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who))}\n\n`);
+function broadcast(full = false): void {
+  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who, full ? 0 : tick))}\n\n`);
 }
 
 const json = (res: ServerResponse, status: number, data: unknown): void => {

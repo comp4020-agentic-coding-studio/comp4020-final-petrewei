@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BORROW, Desk, LOANS, SPREAD, START } from "../src/fx.ts";
+import { BORROW, BROKE, Desk, LOANS, SPREAD, START } from "../src/fx.ts";
 
 const half = SPREAD / 2;
 
@@ -161,7 +161,19 @@ describe("the trading desk", () => {
     expect(ranking[1].net).toBe(-BORROW * LOANS);
   });
 
-  it("only lends to a player who is out", () => {
+  it("lends to a player left with crumbs after a stop-out, once nothing is open", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 1000);
+    desk.mark(99.92);
+    expect(desk.account("a").balance).toBeGreaterThan(0);
+    expect(desk.account("a").balance).toBeLessThan(BROKE);
+    expect(desk.account("a").out).toBe(false);
+    expect(desk.borrow("a")).toBeNull();
+    expect(desk.account("a").debt).toBe(BORROW);
+  });
+
+  it("only lends to a player who is broke", () => {
     const desk = new Desk(1.2);
     desk.join("a");
     expect(desk.borrow("a")).toBe("You still have money. For now.");

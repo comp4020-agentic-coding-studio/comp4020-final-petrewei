@@ -62,7 +62,7 @@ function draw(s) {
     ctx.moveTo(0, y(p));
     ctx.lineTo(w - 70, y(p));
     ctx.stroke();
-    ctx.fillText(p.toFixed(s.digits), w - 66, y(p) + 4);
+    ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - 4, Math.max(12, y(p) + 4)));
   }
   // The entry and the stop of my own position.
   const pos = s.you.pos;
@@ -75,7 +75,7 @@ function draw(s) {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = colour;
-    ctx.fillText(label, 4, y(p) - 4);
+    ctx.fillText(label, w - 70 - ctx.measureText(label).width - 6, y(p) - 4);
   };
   if (pos) level(pos.entry, pos.side === 1 ? "#12a37a" : "#e5384f", `${pos.side === 1 ? "long" : "short"} ${pos.leverage}×`);
   if (pos?.stop) level(pos.stop, "#ff9f1c", "stop");
@@ -107,6 +107,21 @@ function draw(s) {
   ctx.fillText(last.toFixed(s.digits), w - 66, y(last) + 4);
 }
 
+// The server sends the full history on joining and each phase, and after
+// that only new prices. A gap (a missed message) asks for the whole state.
+let prices = [];
+let roundNo = 0;
+async function receive(s) {
+  if (s.from === 0) prices = s.prices;
+  else if (s.round === roundNo && s.from <= prices.length) prices = prices.slice(0, s.from).concat(s.prices);
+  else {
+    const res = await fetch("/api/state");
+    return receive(await res.json());
+  }
+  roundNo = s.round;
+  render({ ...s, prices });
+}
+
 function render(s) {
   state = s;
   if (!lev.options.length) {
@@ -134,11 +149,11 @@ function render(s) {
   const fill = y.level === null ? 100 : Math.min(100, y.level / 2);
   $("meter").style.width = `${fill}%`;
   $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
-  $("borrow").hidden = !(y.out && y.loansLeft > 0 && s.phase === "trade");
-  $("position").textContent = y.out
-    ? y.loansLeft > 0
-      ? "Wiped out. Dad's savings are right there…"
-      : "Wiped out, and Dad's savings are gone. Watch the others until next round."
+  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && s.phase === "trade");
+  $("position").textContent = y.broke && y.loansLeft > 0
+    ? "Broke. Dad's savings are right there…"
+    : y.out
+      ? "Wiped out, and Dad's savings are gone. Watch the others until next round."
     : y.pos
       ? `${y.pos.side === 1 ? "LONG" : "SHORT"} at ${y.pos.entry.toFixed(s.digits)}, ${y.pos.leverage}×, margin ${yen(y.pos.margin)}${y.pos.stop ? `, stop ${y.pos.stop.toFixed(s.digits)}` : ", no stop"}`
       : "No position.";
@@ -218,4 +233,4 @@ function render(s) {
 }
 
 const events = new EventSource("/api/events");
-events.onmessage = (e) => render(JSON.parse(e.data));
+events.onmessage = (e) => receive(JSON.parse(e.data));
