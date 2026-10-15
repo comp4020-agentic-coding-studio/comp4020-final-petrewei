@@ -4,7 +4,7 @@
 
 The brief asks for a multi-user, real-time website that is good, and leaves what "good" means to me. For crits 8 and 9 the app was Fridge Poetry, a shared door of word magnets where each word exists once ([ADR 0001](docs/adr/0001-plain-node-and-a-json-file.md) to [0008](docs/adr/0008-rounds-with-a-prompt.md)). It met every spec, but after crit 9 I judged it neither playable nor competitive. Scored rounds with prompts ([`4c5f328`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/4c5f328)) did not change that, and nor did a fast letter race the agent built on a branch ([`c6fa7a1`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/c6fa7a1)): I don't find word games fun, and I told the agent the fridge mattered less than multiplayer.
 
-I asked it to read classmates' work before proposing more. It surveyed about 125 projects across six crit groups: co-op, arenas, racing and card games were crowded, and nobody had built a market. I said I was interested in strategy games and live markets, and twice had to correct it for combining the two when I meant either. Then I proposed my own idea: a shared foreign-exchange market on real or simulated prices, where players compete by prediction and leverage, parodying *FX Fighter Kurumi-chan*. I asked for mainstream currencies, hidden-date replays of crises such as 2008 and the 2015 franc unpegging, and a mode from today's real price. I played the prototype, found it fun, chose to replace the fridge with it ([`66449d4`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/66449d4), [ADR 0009](docs/adr/0009-a-parody-fx-trading-floor.md)), and named it Losscut! Kurumi's FX Fantasy, after weighing the agent's suggestions.
+I asked it to read classmates' work before proposing more. It surveyed about 125 projects across six crit groups: co-op, arenas, racing and card games were crowded, and nobody had built a market. I named strategy games and live markets, and twice corrected it for combining them. Then I proposed my own idea: a shared foreign-exchange market on real or simulated prices, where players compete by prediction and leverage, parodying *FX Fighter Kurumi-chan*. I asked for mainstream currencies, hidden-date replays of crises such as 2008 and the 2015 franc unpegging, and a mode from today's real price. I played the prototype, found it fun, chose to replace the fridge with it ([`66449d4`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/66449d4), [ADR 0009](docs/adr/0009-a-parody-fx-trading-floor.md)), and named it Losscut! Kurumi's FX Fantasy, after weighing the agent's suggestions.
 
 ## 2 Stack and Harness
 
@@ -16,7 +16,7 @@ The harness has three parts that are meant to agree. `README.md` argues what goo
 
 I asked the agent to research forex and the comic rather than guess. Two subagents ran in parallel: one fetched and tested free data sources, the other read the comic's coverage and real broker rules. The first found that every free source is daily, so the agent proposed bridging real daily closes with nine ticks of pinned random walk, gapping on big days so stops slip ([ADR 0011](docs/adr/0011-daily-rates-bridged-into-ticks.md)). A replay's closes are all real, and the bell can name the date. The second supplied the broker rules the desk uses, such as Japan's 25× cap and offshore 1000×, and tone guidance from reviews, which the agent turned into the README's "Left out".
 
-Partway through I asked whether it had used the official anime site. It hadn't; it read the site, took only the general look of a trading terminal and the 強制ロスカット gag, and reworded a bot's motto it found was close to an episode title. I questioned "Losscut" as English. The agent said it is Japanese broker usage, while English says stop-out or liquidation, and I kept it.
+I asked whether it had used the official anime site. It hadn't; it read it, took only the trading-terminal look and the 強制ロスカット gag, and reworded a bot's motto that was close to an episode title. I questioned "Losscut" as English. The agent said it is Japanese broker usage, while English says stop-out or liquidation, and I kept it.
 
 ## 4 Corrections
 
@@ -26,7 +26,7 @@ Some corrections were to the agent's tests rather than the code. Its first borro
 
 ## 5 Several People at Once
 
-Co-presence is the game: one price, one feed of margin calls and stop-outs, one ranking, and the bell's reveal is something the room hears together. `spec/realtime.test.ts` holds the brief's bound: a trade reaches another page within a second. Four house bots, each parodying a retail habit, make a round worth playing alone. In one test round of the 2024 yen unwind, the perma-short bot won and the carry trader was wiped out, with nothing scripted.
+Co-presence is the game: one price, one feed of margin calls and stop-outs, one ranking, and the bell's reveal is something the room hears together. I then asked for History and Live as tabs rather than alternating rounds, and chose to keep rounds in both, so each tab is its own room ([`95c69b1`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/95c69b1), [ADR 0012](docs/adr/0012-history-and-live-as-tabs.md)). `spec/realtime.test.ts` holds the brief's bound: a trade reaches another page within a second. Four house bots, each parodying a retail habit, make a round worth playing alone. In one test round of the 2024 yen unwind, the perma-short bot won and the carry trader was wiped out, with nothing scripted.
 
 ## 6 Who May See What, and the Log
 
@@ -34,4 +34,4 @@ For crit 10 the server decides everything ([ADR 0010](docs/adr/0010-who-may-see-
 
 ## 7 What Is Still Open
 
-Whether a room laughs and learns at the bell is for the crit and showcase to judge. Quiet replays are dull, since a day only moves as far as it really did. The bundled history ends on 14 October 2026.
+Whether a room laughs and learns at the bell is for the crit and showcase to judge. Quiet replays are dull, and the bundled history ends on 14 October 2026.
