@@ -26,9 +26,7 @@ $("borrow").onclick = () => act("borrow");
 $("stop").onclick = () => {
   const pos = state?.you.pos;
   if (!pos) return;
-  if (pos.stop) return act("stop", { at: null });
-  const price = state.prices.at(-1);
-  act("stop", { at: price * (1 - pos.side * 0.01) });
+  act("stop", pos.stop ? {} : { pct: 1 });
 };
 
 function draw(s) {
@@ -140,7 +138,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   $("mode").textContent = s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
   $("title").textContent = s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
-  $("clock").textContent = s.phase === "trade" ? `day ${Math.floor(s.tick / s.steps) + 1} / ${s.total / s.steps}` : "market closed";
+  $("clock").textContent = s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : "market closed";
   $("who").textContent = s.you.name;
   draw(s);
 

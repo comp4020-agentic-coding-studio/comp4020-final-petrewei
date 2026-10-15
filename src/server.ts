@@ -189,7 +189,7 @@ function report(events: Fill[]): void {
     if (e.kind === "open") say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
     else if (e.kind === "add") say(`${name} doubled down. Now ${e.leverage}×`, "wild");
     else if (e.kind === "close") say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
-    else if (e.kind === "stop") say(`${name}'s stop filled at ${fmt(e.price)}: ${yen(e.pnl)}`, "loss");
+    else if (e.kind === "stop") say(`${name}'s stop filled at ${fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
     else if (e.kind === "call") say(`MARGIN CALL for ${name}!`, "call");
     else if (e.kind === "stopout") say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
     else if (e.kind === "zerocut") say(`${name} was wiped out and leaves the market.`, "bust");
@@ -270,8 +270,11 @@ function apply(who: string, action: Action): string | null {
     return null;
   }
   if (action.kind === "stop") {
-    const refused = desk.stop(who, action.at);
-    if (!refused) log(who, "stop-set", { at: action.at === null ? null : Number(fmt(action.at)) });
+    const pos = desk.account(who).pos;
+    if (action.pct !== null && !(action.pct > 0 && action.pct <= 50)) return "A stop must be between 0% and 50% away.";
+    const at = pos && action.pct !== null ? desk.price * (1 - (pos.side * action.pct) / 100) : null;
+    const refused = desk.stop(who, at);
+    if (!refused) log(who, "stop-set", { at: at === null ? null : Number(fmt(at)) });
     return refused;
   }
   if (action.kind === "borrow") {
@@ -363,13 +366,18 @@ const json = (res: ServerResponse, status: number, data: unknown): void => {
   res.end(JSON.stringify(data));
 };
 
+// An order is a small JSON object; anything else, or over 1 KB, is refused.
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
-  let s = "";
-  for await (const chunk of req) {
-    s += chunk;
-    if (s.length > 1024) throw new Error("too large");
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    size += chunk.length;
+    if (size > 1024) throw new Error("too large");
+    chunks.push(chunk);
   }
-  return JSON.parse(s || "{}") as Record<string, unknown>;
+  const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("not an object");
+  return value as Record<string, unknown>;
 }
 
 const HTML = "text/html; charset=utf-8";
@@ -453,12 +461,17 @@ createServer(async (req, res) => {
       const stake = typeof input.stake === "number" ? input.stake : 1;
       action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake };
     } else if (kind === "close" || kind === "pray" || kind === "borrow") action = { kind };
-    else if (kind === "stop") action = { kind: "stop", at: typeof input.at === "number" ? input.at : null };
+    // A stop is asked for as a distance from the price, and set from the
+    // server's price; none removes it.
+    else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
     if (!action) return json(res, 400, { error: "Unknown action." });
     const error = apply(who, action);
-    if (error) log(who, "refused", { action: kind, why: error });
+    if (error) {
+      log(who, "refused", { action: kind, why: error });
+      return json(res, 409, { error });
+    }
     broadcast();
-    return json(res, error ? 409 : 200, error ? { error } : { ok: true });
+    return json(res, 200, { ok: true });
   }
   json(res, 404, { error: "Not found." });
 }).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));

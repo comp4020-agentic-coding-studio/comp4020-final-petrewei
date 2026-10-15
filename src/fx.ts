@@ -97,9 +97,9 @@ export class Desk {
   order(who: string, side: Side, leverage: number, stake = 1): Fill[] | string {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
-    if (account.pos && account.pos.side !== side) return this.close(who);
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
+    if (account.pos && account.pos.side !== side) return this.close(who);
     const margin = Math.floor(this.free(who) * stake);
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
@@ -137,16 +137,21 @@ export class Desk {
     for (const [who, account] of this.accounts) {
       const pos = account.pos;
       if (!pos) continue;
+      // A gap through everything is a wipe-out, whatever stop was set.
+      if (this.equity(who) <= 0) {
+        events.push(this.settleOne(who, "zerocut"));
+        continue;
+      }
       if (pos.stop !== null && (pos.side === 1 ? price <= pos.stop : price >= pos.stop)) {
         events.push(this.settleOne(who, "stop"));
         continue;
       }
       const level = this.level(who);
-      if (level <= STOP_OUT) events.push(this.settleOne(who, this.equity(who) <= 0 ? "zerocut" : "stopout"));
+      if (level <= STOP_OUT) events.push(this.settleOne(who, "stopout"));
       else if (level <= CALL && !pos.called) {
         pos.called = true;
         events.push({ kind: "call", who, price, pnl: this.pnl(who) });
-      }
+      } else if (level > CALL) pos.called = false;
     }
     return events;
   }

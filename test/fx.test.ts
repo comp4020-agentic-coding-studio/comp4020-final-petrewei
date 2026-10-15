@@ -102,6 +102,34 @@ describe("the trading desk", () => {
     expect(desk.account("a").balance).toBeCloseTo(START + START * 5 * (1.03 * (1 - half) / (1.2 * (1 + half)) - 1), 0);
   });
 
+  it("counts a stop that gaps past everything as a wipe-out, not a stop", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 1000);
+    desk.stop("a", 99.99);
+    const events = desk.mark(98);
+    expect(events.map((e) => e.kind)).toEqual(["zerocut"]);
+    expect(desk.account("a")).toMatchObject({ balance: 0, out: true, cuts: 1 });
+  });
+
+  it("warns again after a recovery", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100);
+    expect(desk.mark(99.5).map((e) => e.kind)).toEqual(["call"]);
+    expect(desk.mark(100.5)).toEqual([]);
+    expect(desk.mark(99.5).map((e) => e.kind)).toEqual(["call"]);
+  });
+
+  it("refuses an order it does not offer even when it would close the position", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10);
+    expect(desk.order("a", -1, 7)).toBe("No such leverage.");
+    expect(desk.order("a", -1, 10, 99)).toBe("Stake must be between 0 and 1.");
+    expect(desk.account("a").pos).not.toBeNull();
+  });
+
   it("triggers a short's stop when the price rises to it", () => {
     const desk = new Desk(100);
     desk.join("a");

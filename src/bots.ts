@@ -4,22 +4,25 @@
 // its own account and the recent prices and returns at most one action.
 import type { Desk, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; at: number | null } | { kind: "pray" } | { kind: "borrow" };
+export type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "pray" } | { kind: "borrow" };
 export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);
 
 export const BOTS: Bot[] = [
   {
-    // Buys every dip with absurd leverage, never cuts, averages down, prays.
+    // Buys every dip with absurd leverage, never cuts, averages down while
+    // there is margin to do it with, then prays, then borrows from Dad.
     id: "bot:hana",
     name: "Hana All-In",
     motto: "Leverage fixes everything~♪",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
-      if (desk.account(me).out) return rnd() < 0.1 ? { kind: "borrow" } : null;
+      if (desk.broke(me)) return rnd() < 0.1 ? { kind: "borrow" } : null;
       if (!pos) return rnd() < 0.15 ? { kind: "order", side: trend(prices, 9) < 0 ? 1 : -1, leverage: rnd() < 0.5 ? 400 : 1000, stake: 0.5 } : null;
-      if (desk.pnl(me) < 0 && desk.level(me) < 0.8) return rnd() < 0.3 ? { kind: "order", side: pos.side, leverage: 1000, stake: 1 } : { kind: "pray" };
+      if (desk.pnl(me) >= 0) return null;
+      if (desk.free(me) > 0) return rnd() < 0.3 ? { kind: "order", side: pos.side, leverage: pos.leverage, stake: 1 } : null;
+      if (desk.level(me) < 0.8) return { kind: "pray" };
       return null;
     },
   },
@@ -35,7 +38,7 @@ export const BOTS: Bot[] = [
         if (Math.abs(t) < 0.002 || rnd() > 0.2) return null;
         return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6 };
       }
-      if (pos.stop === null) return { kind: "stop", at: desk.price * (1 - pos.side * 0.004) };
+      if (pos.stop === null) return { kind: "stop", pct: 0.4 };
       if (desk.pnl(me) > pos.margin * 0.3) return { kind: "close" };
       return null;
     },
