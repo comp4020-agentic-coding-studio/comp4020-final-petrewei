@@ -18,7 +18,25 @@
     <nav class="tabs" role="tablist" aria-label="Market">
       <button role="tab" data-mode="history" aria-selected="true"><strong>History</strong> <span>real days, date hidden</span> <em id="here-history"></em></button>
       <button role="tab" data-mode="live" aria-selected="false"><strong>Live</strong> <span>from today's real rate</span> <em id="here-live"></em></button>
+      <button role="tab" data-mode="tutorial" aria-selected="false"><strong>Tutorial</strong> <span>new to trading? start here</span></button>
     </nav>
+
+    <section class="win lesson-win" id="lesson" hidden aria-live="polite">
+      <div class="bar"><span class="file">lesson.txt</span><span id="lesson-n"></span></div>
+      <div class="lesson-body">
+        <div>
+          <h2 id="lesson-title"></h2>
+          <p id="lesson-text"></p>
+        </div>
+        <div class="lesson-do">
+          <p class="task"><span>Your turn:</span> <strong id="lesson-task"></strong></p>
+          <div class="row">
+            <button id="lesson-next" class="next">Next →</button>
+            <button id="restart">Start again</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <section class="win chart-win">
       <div class="bar"><span class="file" id="title">chart.exe</span><span id="clock"></span></div>
@@ -30,14 +48,14 @@
       <div class="bar"><span class="file">my_account.txt</span><span id="who"></span></div>
       <dl class="acct">
         <div><dt>Net worth</dt><dd id="equity">—</dd></div>
-        <div><dt>Open P&amp;L</dt><dd id="pnl">—</dd></div>
-        <div><dt>Margin level</dt><dd id="level">—</dd></div>
+        <div id="pnl-box"><dt>Open P&amp;L</dt><dd id="pnl">—</dd></div>
+        <div id="level-box"><dt>Margin level</dt><dd id="level">—</dd></div>
       </dl>
       <div class="meter"><div id="meter"></div><span class="mark call">call</span><span class="mark out">out</span></div>
       <p id="position" class="position">No position.</p>
       <div class="row">
-        <label>Leverage <select id="leverage"></select></label>
-        <label>Stake <select id="stake"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
+        <label id="leverage-box">Leverage <select id="leverage"></select></label>
+        <label id="stake-box">Stake <select id="stake"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
       </div>
       <div class="row big">
         <button id="buy" class="buy">BUY</button>

@@ -14,7 +14,8 @@ const LABELS = { 1: "1× (sensible)", 5: "5×", 10: "10×", 25: "25× (Japan's l
 
 // The market this page is on, from the tab, kept in the address so a
 // shared link or a reload opens the same one.
-let mode = location.hash === "#live" ? "live" : "history";
+const MODES = ["history", "live", "tutorial"];
+let mode = MODES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "history";
 
 async function act(kind, extra = {}) {
   $("error").textContent = "";
@@ -27,6 +28,25 @@ $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
 $("pray").onclick = () => act("pray");
 $("borrow").onclick = () => act("borrow");
+$("lesson-next").onclick = () => act("next");
+$("restart").onclick = () => act("restart");
+
+// The tutorial names the controls a lesson is about; the page highlights
+// them.
+const FOCUS = { chart: "chart", equity: "equity", pnl: "pnl-box", level: "level-box", leverage: "leverage-box", stake: "stake-box", buy: "buy", sell: "sell", close: "close", stop: "stop", borrow: "borrow" };
+function lesson(s) {
+  $("lesson").hidden = !s.lesson;
+  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
+  if (!s.lesson) return;
+  const l = s.lesson;
+  const moving = s.phase === "moving";
+  $("lesson-n").textContent = l.finished ? "done" : `lesson ${l.n} of ${l.of}`;
+  $("lesson-title").textContent = l.finished ? "Tutorial complete" : l.title;
+  $("lesson-text").textContent = l.finished ? "Well done. Choose History or Live above to trade against other people, or start the tutorial again." : l.text;
+  $("lesson-task").textContent = l.finished ? "Pick a tab above." : moving ? "Watch the chart…" : l.task;
+  $("lesson-next").hidden = l.finished || moving || !/Next/.test(l.task);
+  if (!l.finished && !moving) for (const f of l.focus) $(FOCUS[f])?.classList.add("focus");
+}
 $("stop").onclick = () => {
   const pos = state?.you.pos;
   if (!pos) return;
@@ -134,9 +154,18 @@ async function receive(s) {
 
 function render(s) {
   state = s;
+  const tutorial = s.mode === "tutorial";
+  // Whether orders are taken now: a round's trading, or a tutorial whose
+  // price is standing still for the player's move.
+  const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade";
+  document.body.classList.toggle("tutorial", tutorial);
+  lesson(s);
   for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? `${s.here[m]} here` : "";
+  // On first load the menu starts at the open position's leverage, if
+  // any, so a reload shows what the player chose.
   if (!lev.options.length) {
-    for (const l of s.leverages) lev.add(new Option(LABELS[l] ?? `${l}×`, l, false, l === 25));
+    const chosen = s.you.pos?.leverage ?? 25;
+    for (const l of s.leverages) lev.add(new Option(LABELS[l] ?? `${l}×`, l, false, l === chosen));
   }
   const price = s.prices.at(-1);
   const first = s.prices[0];
@@ -145,9 +174,9 @@ function render(s) {
   const ch = (price / first - 1) * 100;
   $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
   $("change").className = ch >= 0 ? "up" : "down";
-  $("mode").textContent = s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
-  $("title").textContent = s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
-  $("clock").textContent = s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : "market closed";
+  $("mode").textContent = tutorial ? "TUTORIAL · scripted prices" : s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
+  $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
+  $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : "market closed";
   $("who").textContent = s.you.name;
   draw(s);
 
@@ -160,7 +189,7 @@ function render(s) {
   const fill = y.level === null ? 100 : Math.min(100, y.level / 2);
   $("meter").style.width = `${fill}%`;
   $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
-  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && s.phase === "trade");
+  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && open);
   $("position").textContent = y.broke && y.loansLeft > 0
     ? "Broke. Dad's savings are right there…"
     : y.out
@@ -169,7 +198,7 @@ function render(s) {
       ? `${y.pos.side === 1 ? "LONG" : "SHORT"} at ${y.pos.entry.toFixed(s.digits)}, ${y.pos.leverage}×, margin ${yen(y.pos.margin)}${y.pos.stop ? `, stop ${y.pos.stop.toFixed(s.digits)}` : ", no stop"}`
       : "No position.";
   if (y.debt) $("position").textContent += ` Owed to Dad: ${yen(y.debt)}.`;
-  const closed = s.phase !== "trade" || y.out;
+  const closed = !open || y.out;
   for (const id of ["buy", "sell", "pray"]) $(id).disabled = closed;
   for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
   $("stop").textContent = y.pos?.stop ? "Remove stop" : "Stop at −1%";
@@ -211,7 +240,7 @@ function render(s) {
   $("feed").replaceChildren(
     ...s.feed.map((f) => {
       const li = document.createElement("li");
-      li.className = f.kind;
+      li.className = `k-${f.kind}`;
       li.textContent = f.text;
       return li;
     }),
@@ -255,7 +284,7 @@ function render(s) {
 let events = null;
 function watch(next) {
   mode = next;
-  history.replaceState(null, "", mode === "live" ? "#live" : "#history");
+  history.replaceState(null, "", `#${mode}`);
   for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   events?.close();
   shown = null;

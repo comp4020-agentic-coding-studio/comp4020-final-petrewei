@@ -119,6 +119,14 @@ export class Desk {
     return [{ kind: "add", who, price: this.price, pnl: this.pnl(who), leverage: pos.leverage, side }];
   }
 
+  // A stop `pct` percent from the current price on the losing side, or no
+  // stop with null: what a player asks for, set from the desk's own price.
+  stopAway(who: string, pct: number | null): string | null {
+    if (pct !== null && !(pct > 0 && pct <= 50)) return "A stop must be between 0% and 50% away.";
+    const pos = this.account(who).pos;
+    return this.stop(who, pos && pct !== null ? this.price * (1 - (pos.side * pct) / 100) : null);
+  }
+
   // A stop closes the position once the price reaches it, filling at that
   // price, which after a gap may be far past the stop.
   stop(who: string, at: number | null): string | null {

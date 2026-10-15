@@ -14,6 +14,7 @@ import { BORROW, Desk, type Fill, LEVERAGES, LOANS, START } from "./fx.ts";
 import { yen } from "../public/format.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
+import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -164,7 +165,7 @@ function record(who: string): Career | null {
 // starts from today's real rate and simulates on.
 const MODES = ["history", "live"] as const;
 type Mode = (typeof MODES)[number];
-type Listener = { res: ServerResponse; who: string; mode: Mode };
+type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 const listeners = new Set<Listener>();
 
 class Market {
@@ -300,10 +301,8 @@ class Market {
       return null;
     }
     if (action.kind === "stop") {
-      const pos = desk.account(who).pos;
-      if (action.pct !== null && !(action.pct > 0 && action.pct <= 50)) return "A stop must be between 0% and 50% away.";
-      const at = pos && action.pct !== null ? desk.price * (1 - (pos.side * action.pct) / 100) : null;
-      const refused = desk.stop(who, at);
+      const refused = desk.stopAway(who, action.pct);
+      const at = desk.account(who).pos?.stop ?? null;
       if (!refused) log(who, "stop-set", { mode: this.mode, at: at === null ? null : Number(this.fmt(at)) });
       return refused;
     }
@@ -393,8 +392,74 @@ class Market {
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
 const modeOf = (value: unknown): Mode => (MODES.includes(value as Mode) ? (value as Mode) : "history");
 
+// The Tutorial tab: each visitor's own private market (src/tutorial.ts),
+// kept in memory, seen by nobody else and never in the hall of fame. One
+// left untouched for an hour is dropped, so the map can't grow forever.
+const tutorials = new Map<string, { t: Tutorial; used: number }>();
+function tutorialOf(who: string): Tutorial {
+  let entry = tutorials.get(who);
+  if (!entry) {
+    entry = { t: new Tutorial(), used: 0 };
+    tutorials.set(who, entry);
+  }
+  entry.used = Date.now();
+  return entry.t;
+}
+setInterval(() => {
+  for (const [who, e] of tutorials) if (Date.now() - e.used > 3_600_000) tutorials.delete(who);
+}, 600_000).unref();
+
+function tutorialView(who: string) {
+  const t = tutorialOf(who);
+  const a = t.desk.account("me");
+  const l = t.lesson();
+  return {
+    mode: "tutorial",
+    phase: t.moving() ? "moving" : "waiting",
+    round: t.runs,
+    pair: "USD/JPY",
+    digits: 3,
+    simulated: true,
+    from: 0,
+    prices: t.prices,
+    // The chart fits whatever has played so far, a candle every 4 ticks.
+    total: Math.max(40, t.prices.length - 1),
+    tick: t.prices.length - 1,
+    steps: 4,
+    start: START,
+    lesson: { n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
+    you: {
+      name: nameOf(who),
+      balance: a.balance,
+      equity: Math.round(t.desk.equity("me")),
+      pnl: Math.round(t.desk.pnl("me")),
+      level: a.pos ? Math.round(t.desk.level("me") * 100) : null,
+      out: a.out,
+      debt: a.debt,
+      loansLeft: LOANS - a.debt / BORROW,
+      broke: t.desk.broke("me"),
+      cuts: a.cuts,
+      pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop } : null,
+    },
+    traders: [],
+    feed: t.feed,
+    result: null,
+    career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
+    leverages: LEVERAGES,
+    here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
+  };
+}
+function sendTutorial(who: string): void {
+  const text = `data: ${JSON.stringify(tutorialView(who))}\n\n`;
+  for (const l of listeners) if (l.mode === "tutorial" && l.who === who) l.res.write(text);
+}
+
 setInterval(() => {
   for (const m of MODES) markets[m].step();
+  for (const [who, e] of tutorials) if (e.t.moving()) {
+    e.t.step();
+    sendTutorial(who);
+  }
 }, TICK_MS).unref();
 
 const send = (res: ServerResponse, [content, type]: [string, string]): void => {
@@ -471,6 +536,19 @@ createServer(async (req, res) => {
 
   // Opening a tab joins that market's round in progress with a fresh
   // account; switching tabs opens a new stream on the other market.
+  if (req.method === "GET" && path === "/api/events" && url.searchParams.get("mode") === "tutorial") {
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
+    const listener: Listener = { res, who, mode: "tutorial" };
+    const already = ids().has(who);
+    listeners.add(listener);
+    log(who, already ? "tab" : "join", { mode: "tutorial", ...(already ? {} : { here: here() }) });
+    res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
+    req.on("close", () => {
+      listeners.delete(listener);
+      if (!ids().has(who)) log(who, "leave", { here: here() });
+    });
+    return;
+  }
   if (req.method === "GET" && path === "/api/events") {
     const market = markets[modeOf(url.searchParams.get("mode"))];
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
@@ -491,7 +569,10 @@ createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && path === "/api/state") return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
+  if (req.method === "GET" && path === "/api/state") {
+    if (url.searchParams.get("mode") === "tutorial") return json(res, 200, tutorialView(who));
+    return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
+  }
 
   if (req.method === "POST" && path === "/api/act") {
     let input: Record<string, unknown>;
@@ -509,6 +590,18 @@ createServer(async (req, res) => {
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.
     else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
+    if (input.mode === "tutorial") {
+      const t = tutorialOf(who);
+      let error: string | null = null;
+      if (kind === "restart") t.restart();
+      else if (kind === "next") error = t.act({ kind: "next" });
+      else if (action && action.kind !== "pray") error = t.act(action as Move);
+      else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";
+      else return json(res, 400, { error: "Unknown action." });
+      log(who, error ? "refused" : "lesson", { mode: "tutorial", action: kind, lesson: t.lesson().id, ...(error ? { why: error } : {}) });
+      sendTutorial(who);
+      return json(res, error ? 409 : 200, error ? { error } : { ok: true });
+    }
     if (!action) return json(res, 400, { error: "Unknown action." });
     const market = markets[modeOf(input.mode)];
     const error = market.apply(who, action);

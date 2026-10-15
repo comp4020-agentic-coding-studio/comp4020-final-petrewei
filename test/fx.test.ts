@@ -157,6 +157,17 @@ describe("the trading desk", () => {
     expect(desk.account("a").cuts).toBe(1);
   });
 
+  it("sets a stop a percentage away on the losing side, from its own price", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", -1, 5);
+    expect(desk.stopAway("a", 2)).toBeNull();
+    expect(desk.account("a").pos?.stop).toBeCloseTo(102);
+    expect(desk.stopAway("a", 80)).toBe("A stop must be between 0% and 50% away.");
+    expect(desk.stopAway("a", null)).toBeNull();
+    expect(desk.account("a").pos?.stop).toBeNull();
+  });
+
   it("refuses a stop on the wrong side of the price, or with nothing open", () => {
     const desk = new Desk(100);
     desk.join("a");
