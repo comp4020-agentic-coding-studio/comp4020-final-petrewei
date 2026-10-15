@@ -80,6 +80,14 @@ body.tutorial .room-win, body.tutorial .career-win, body.tutorial #pray { displa
 #price { font-size: 1.8rem; }
 .mode { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
 canvas { display: block; width: 100%; height: auto; background: var(--chart); margin-top: 0.4rem; }
+.chart-box { position: relative; }
+/* The lobby sits over the chart until someone presses Start. */
+.lobby { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; text-align: center; padding: 1rem; background: rgb(31 21 48 / 0.82); color: #f6e9f2; }
+.lobby[hidden] { display: none; }
+.lobby p { margin: 0; max-width: 28rem; }
+.lobby-title { font-size: 1.6rem; font-weight: 800; }
+.start { flex: 0 0 auto; margin-top: 0.4rem; font-size: 1.2rem; padding: 0.6rem 1.6rem; color: white; background: var(--bar); border: none; box-shadow: 4px 4px 0 rgb(0 0 0 / 0.3); }
+.start[hidden] { display: none; }
 .up { color: var(--up); }
 .down { color: var(--down); }
 
@@ -139,7 +147,7 @@ tr.you { font-weight: 700; }
 #reveal { line-height: 1.45; }
 #ranking { font-variant-numeric: tabular-nums; padding-left: 1.4rem; }
 #ranking li.you { font-weight: 700; }
-.next { color: var(--muted); margin-bottom: 0; }
+.bell-next { color: var(--muted); margin-bottom: 0; }
 
 .losscut { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; z-index: 10; background: rgb(229 56 79 / 0.25); animation: shake 0.5s 3; }
 .losscut span { font-size: clamp(2.5rem, 11vw, 7rem); font-weight: 900; color: white; -webkit-text-stroke: 3px var(--down); text-shadow: 6px 6px 0 var(--down); transform: rotate(-6deg); }

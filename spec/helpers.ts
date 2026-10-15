@@ -18,7 +18,9 @@ export type State = {
   mode: Mode;
   here: Record<Mode, number>;
   simulated: boolean;
-  phase: "trade" | "break";
+  phase: "lobby" | "countdown" | "trade" | "break";
+  countdown: number;
+  startedBy: string | null;
   start: number;
   round: number;
   pair: string;
@@ -44,15 +46,23 @@ export function client(base: string, guard = false) {
     });
   const state = async (cookie?: string, mode: Mode = "history"): Promise<State> =>
     (await fetch(url(`/api/state?mode=${mode}`), { headers: cookie ? { cookie } : {} })).json() as Promise<State>;
+  // A cookie jar of one: each visitor is the v= cookie the server hands out.
+  async function visitor(): Promise<string> {
+    const res = await fetch(url("/api/state"));
+    const cookie = res.headers.get("set-cookie")?.match(/v=[^;]+/)?.[0];
+    if (!cookie) throw new Error("the server set no visitor cookie");
+    return cookie;
+  }
+  // An open page: the visitor's event stream, read with next(), until close().
+  async function page(cookie?: string, mode: Mode = "history"): Promise<{ res: Response; next: Listener["next"]; close: () => void }> {
+    const controller = new AbortController();
+    const res = await fetch(url(`/api/events?mode=${mode}`), { headers: cookie ? { cookie } : {}, signal: controller.signal });
+    return { res, next: listen(res.body!).next, close: () => controller.abort() };
+  }
   return {
-    // A cookie jar of one: each visitor is the v= cookie the server hands out.
-    async visitor(): Promise<string> {
-      const res = await fetch(url("/api/state"));
-      const cookie = res.headers.get("set-cookie")?.match(/v=[^;]+/)?.[0];
-      if (!cookie) throw new Error("the server set no visitor cookie");
-      return cookie;
-    },
+    visitor,
     state,
+    page,
     // Trades on the shared market, so never against the live one.
     act(cookie: string, body: Record<string, unknown>): Promise<Response> {
       if (guard) throw new Error(`a test traded on the live market (${JSON.stringify(body)}); skip it there with it.skipIf(live)`);
@@ -60,21 +70,24 @@ export function client(base: string, guard = false) {
     },
     // A request the server must refuse changes nothing, so it may run anywhere.
     attempt: (body: unknown, cookie?: string): Promise<Response> => send("/api/act", cookie, body),
-    // Waits until the market is open with at least `ticks` of trading left,
-    // so a test's orders don't land in the break between rounds.
+    // Waits until the market is trading with at least `ticks` left. A
+    // market in the lobby waits for someone on its tab to press Start, so
+    // this opens the tab as a visitor of its own and presses it.
     async open(ticks = 8, mode: Mode = "history"): Promise<void> {
-      for (let i = 0; i < 400; i++) {
-        const s = await state(undefined, mode);
-        if (s.phase === "trade" && s.total - s.tick > ticks) return;
-        await sleep(50);
+      if (guard) throw new Error("a test started a round on the live market; skip it there with it.skipIf(live)");
+      const starter = await visitor();
+      const tab = await page(starter, mode);
+      try {
+        for (const until = Date.now() + 30_000; Date.now() < until; ) {
+          const s = await state(undefined, mode);
+          if (s.phase === "trade" && s.total - s.tick > ticks) return;
+          if (s.phase === "lobby") await send("/api/act", starter, { kind: "start", mode });
+          await sleep(50);
+        }
+        throw new Error("the market never opened");
+      } finally {
+        tab.close();
       }
-      throw new Error("the market never opened");
-    },
-    // An open page: the visitor's event stream, read with next(), until close().
-    async page(cookie?: string, mode: Mode = "history"): Promise<{ res: Response; next: Listener["next"]; close: () => void }> {
-      const controller = new AbortController();
-      const res = await fetch(url(`/api/events?mode=${mode}`), { headers: cookie ? { cookie } : {}, signal: controller.signal });
-      return { res, next: listen(res.body!).next, close: () => controller.abort() };
     },
   };
 }

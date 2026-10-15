@@ -41,7 +41,14 @@
     <section class="win chart-win">
       <div class="bar"><span class="file" id="title">chart.exe</span><span id="clock"></span></div>
       <div class="quote"><span id="pair">—</span> <strong id="price">—</strong> <span id="change"></span><span id="mode" class="mode"></span></div>
-      <canvas id="chart" width="800" height="320" aria-label="Price chart"></canvas>
+      <div class="chart-box">
+        <canvas id="chart" width="800" height="320" aria-label="Price chart"></canvas>
+        <div id="lobby" class="lobby" hidden>
+          <p id="lobby-title" class="lobby-title"></p>
+          <p id="lobby-text"></p>
+          <button id="start" class="start">Start round</button>
+        </div>
+      </div>
     </section>
 
     <section class="win trade-win">
@@ -91,7 +98,7 @@
       <h2>The bell</h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
-      <p class="next">Next round in <span id="next"></span>s</p>
+      <p class="bell-next">Back to the lobby in <span id="next"></span>s</p>
     </div>
   </div>
   <div id="losscut" class="losscut" hidden><span>強制ロスカット</span><small id="losscut-sub">FORCED LOSS CUT</small></div>

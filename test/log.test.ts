@@ -106,3 +106,17 @@ it("gives a career to traders, not watchers", async () => {
   expect(bell.career[0].you).toBe(true);
   expect((await state(watcher)).career.some((c) => c.you)).toBe(false);
 }, 20_000);
+
+// After the bell a market goes back to the lobby and waits, rather than
+// starting the next round by itself.
+it("returns to the lobby after the bell, and stays there", async () => {
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  const { open, state } = app();
+  expect((await state()).phase).toBe("lobby");
+  await open(30);
+  let seen = await state();
+  for (const until = Date.now() + 15_000; seen.phase !== "lobby" && Date.now() < until; ) seen = await state();
+  expect(seen.phase).toBe("lobby");
+  await new Promise((r) => setTimeout(r, 500));
+  expect((await state()).phase).toBe("lobby");
+}, 30_000);

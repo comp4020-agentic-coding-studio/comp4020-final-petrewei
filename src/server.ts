@@ -24,6 +24,8 @@ const ACTIVITY = join(DATA_DIR, "activity.log");
 // Half a second a tick: forty days of nine ticks is three minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
 const BREAK_TICKS = 40;
+// After Start, ten seconds for others on the tab to join before trading.
+const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 20);
 mkdirSync(DATA_DIR, { recursive: true });
 
 const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
@@ -174,8 +176,13 @@ class Market {
   round!: Round;
   desk!: Desk;
   tick = 0;
-  phase: "trade" | "break" = "trade";
+  // A market waits in the lobby until someone on its tab presses Start,
+  // counts down so others can join, trades, rings the bell, and goes back
+  // to the lobby. Nothing moves while nobody has asked to play.
+  phase: "lobby" | "countdown" | "trade" | "break" = "lobby";
   breakLeft = 0;
+  countdown = 0;
+  startedBy: string | null = null;
   result: { ranking: { key: string; name: string; balance: number }[]; reveal: string } | null = null;
   // What the bell will say, decided when the round starts.
   reveal = "";
@@ -186,8 +193,8 @@ class Market {
     this.mode = mode;
   }
 
-  start(): void {
-    this.count++;
+  // Draws the next round and parks it, its price still, in the lobby.
+  ready(): void {
     if (this.mode === "live") {
       const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
@@ -202,10 +209,30 @@ class Market {
     for (const b of BOTS) this.desk.join(b.id);
     for (const l of this.listeners()) this.desk.join(l.who);
     this.tick = 0;
-    this.phase = "trade";
+    this.phase = "lobby";
+    this.startedBy = null;
+    this.prays.clear();
+  }
+
+  // Someone on the tab asks to play: the countdown begins.
+  request(who: string): string | null {
+    if (this.phase === "countdown") return "The round is already about to start.";
+    if (this.phase !== "lobby") return "A round is already running.";
+    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to start its round.";
+    this.phase = "countdown";
+    this.countdown = COUNTDOWN_TICKS;
+    this.startedBy = who;
     this.result = null;
     this.feed = [];
-    this.prays.clear();
+    this.say(`${nameOf(who)} pressed Start. Trading opens in ${Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000)} seconds.`, "info");
+    log(who, "ask", { mode: this.mode });
+    return null;
+  }
+
+  start(): void {
+    this.count++;
+    this.phase = "trade";
+    for (const l of this.listeners()) this.desk.join(l.who);
     this.say(this.round.simulated ? `Live round: ${this.round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info");
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
@@ -270,10 +297,16 @@ class Market {
   // Each tick moves the price, lets the bots act, enforces the rules and
   // sends the new state to everyone on this tab.
   step(): void {
+    if (this.phase === "lobby") return;
+    if (this.phase === "countdown") {
+      const go = --this.countdown <= 0;
+      if (go) this.start();
+      return this.broadcast(go);
+    }
     if (this.phase === "break") {
-      const next = --this.breakLeft <= 0;
-      if (next) this.start();
-      return this.broadcast(next);
+      const over = --this.breakLeft <= 0;
+      if (over) this.ready();
+      return this.broadcast(over);
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
@@ -290,6 +323,8 @@ class Market {
   }
 
   apply(who: string, action: Action): string | null {
+    if (this.phase === "lobby") return "The market is closed. Press Start to begin a round.";
+    if (this.phase === "countdown") return "Trading opens when the countdown ends.";
     if (this.phase !== "trade") return "The market is closed. Next round soon.";
     const desk = this.desk;
     desk.join(who);
@@ -345,6 +380,8 @@ class Market {
     return {
       mode: this.mode,
       phase: this.phase,
+      countdown: Math.ceil((this.countdown * TICK_MS) / 1000),
+      startedBy: this.startedBy && nameOf(this.startedBy),
       round: this.count,
       pair: round.pair,
       digits: this.digits(),
@@ -557,7 +594,7 @@ createServer(async (req, res) => {
     listeners.add(listener);
     if (!already) log(who, "join", { mode: market.mode, here: here() });
     else log(who, "tab", { mode: market.mode });
-    if (market.phase === "trade" && !market.desk.players().includes(who)) {
+    if (market.phase !== "break" && !market.desk.players().includes(who)) {
       market.desk.join(who);
       market.say(`${nameOf(who)} entered the market.`, "info");
     }
@@ -602,6 +639,13 @@ createServer(async (req, res) => {
       sendTutorial(who);
       return json(res, error ? 409 : 200, error ? { error } : { ok: true });
     }
+    if (kind === "start" && input.mode !== "tutorial") {
+      const market = markets[modeOf(input.mode)];
+      const error = market.request(who);
+      if (error) return json(res, 409, { error });
+      market.broadcast(true);
+      return json(res, 200, { ok: true });
+    }
     if (!action) return json(res, 400, { error: "Unknown action." });
     const market = markets[modeOf(input.mode)];
     const error = market.apply(who, action);
@@ -615,7 +659,7 @@ createServer(async (req, res) => {
   json(res, 404, { error: "Not found." });
 }).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));
 
-for (const m of MODES) markets[m].start();
+for (const m of MODES) markets[m].ready();
 // Every page is pinged every 5s so dead connections are found and dropped.
 setInterval(() => {
   for (const l of [...listeners]) {

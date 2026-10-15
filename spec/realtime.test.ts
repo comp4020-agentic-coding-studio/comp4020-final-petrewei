@@ -17,7 +17,8 @@ it("streams the market to an open page", async () => {
   }
 });
 
-it("moves the price on its own, about twice a second", async () => {
+it.skipIf(live)("moves the price on its own once a round is running, about twice a second", async () => {
+  await open();
   const p = await page();
   try {
     const first = (await p.next(() => true, 2000)) as { round: number; tick: number };

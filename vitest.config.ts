@@ -7,8 +7,11 @@ export default defineConfig({
   test: {
     include: ["spec/**/*.test.ts", "test/**/*.test.ts"],
     globalSetup: ["./spec/global-setup.ts"],
-    // The files share one door, and a word one file holds is refused to
-    // another, so they run one after another.
+    // The files share one pair of markets, and one file's round is another's,
+    // so they run one after another.
     fileParallelism: false,
+    // A round waits for Start and then a ten-second countdown before
+    // trading opens, so a check that trades takes longer than the default.
+    testTimeout: 30_000,
   },
 });

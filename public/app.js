@@ -29,6 +29,24 @@ $("close").onclick = () => act("close");
 $("pray").onclick = () => act("pray");
 $("borrow").onclick = () => act("borrow");
 $("lesson-next").onclick = () => act("next");
+$("start").onclick = () => act("start");
+
+// The lobby: a market waits for someone on the tab to press Start, then
+// counts down so others can join.
+function lobby(s) {
+  const waiting = s.phase === "lobby" || s.phase === "countdown";
+  $("lobby").hidden = s.mode === "tutorial" || !waiting;
+  if (!waiting) return;
+  const counting = s.phase === "countdown";
+  const name = s.mode === "live" ? "Live" : "History";
+  $("lobby-title").textContent = counting ? `Trading opens in ${s.countdown}s` : `${name} is waiting`;
+  $("lobby-text").textContent = counting
+    ? `${s.startedBy} pressed Start. Everyone on this tab is in the round.`
+    : s.mode === "live"
+      ? "Forty days from today's real rate, simulated. Anyone on this tab can start the next round, and everyone here plays it."
+      : "Forty real trading days, the date hidden until the bell. Anyone on this tab can start the next round, and everyone here plays it.";
+  $("start").hidden = counting;
+}
 $("restart").onclick = () => act("restart");
 
 // The tutorial names the controls a lesson is about; the page highlights
@@ -160,6 +178,7 @@ function render(s) {
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade";
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
+  lobby(s);
   for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? `${s.here[m]} here` : "";
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
@@ -176,7 +195,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   $("mode").textContent = tutorial ? "TUTORIAL · scripted prices" : s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
   $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
-  $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : "market closed";
+  $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : s.phase === "countdown" ? `opens in ${s.countdown}s` : s.phase === "lobby" ? "waiting for Start" : "market closed";
   $("who").textContent = s.you.name;
   draw(s);
 
