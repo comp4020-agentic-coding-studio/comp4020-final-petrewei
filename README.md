@@ -1,6 +1,6 @@
 # Losscut! Kurumi's FX Fantasy
 
-Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days. On History the days are real and the dates hidden: you might be long francs on 15 January 2015 and not know until the bell.
+Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days, started by anyone on the tab. On History the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 A working definition of good.
 
@@ -10,9 +10,9 @@ A room at once: a crit group, or the showcase. It parodies *FX Fighter Kurumi-ch
 
 ## What good means here
 
-- **Everyone on a tab trades the same price, in the same room.** The server owns the price and fills each order on arrival; everyone sees your side, leverage and net worth.
+- **Everyone on a tab trades one price, in one room.** The server owns the price and fills each order on arrival; everyone sees your side, leverage and net worth.
 - **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, such as Lehman Brothers, Brexit or the franc's unpegging, revealed at the bell. Live starts from today's real rate and simulates from there.
-- **Leverage is the joke, and the lesson.** From 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level, a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick, and a stop fills where the price lands.
+- **Leverage is the joke, and the lesson.** From 1× to 1000×, as offshore brokers allow. A margin call comes at 50% margin level, a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick, and a stop fills where the price lands.
 - **Losing is public.** Margin calls and stop-outs go to the feed. A broke player may borrow from Dad's savings twice, counted against them.
 - **There's always someone to trade against.** Four house traders, each parodying a habit, play every round.
 - **Beginners get a private tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): twelve lessons, one idea and one move each.
@@ -23,12 +23,12 @@ A room at once: a crit group, or the showcase. It parodies *FX Fighter Kurumi-ch
 Checked in `spec/` and `test/`:
 
 - an order reaches every other page on its tab within a second, with no reload, and never the other tab
-- the price moves on its own about twice a second
+- a round waits for a Start from someone on its tab, then the price moves twice a second
 - the server refuses orders the broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop, or their tutorial
-- margin calls, stop-outs, zero-cuts, slipping stops and Dad's loans follow the rules in `src/fx.ts`
-- replays pass through every real daily close, gap on big days, and hide each event inside the window
-- who did what is logged by short code, for the operator only, and survives a hard kill, as does the hall of fame
+- margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
+- replays pass through every real daily close, gap on big days, and hide each event mid-window
+- who did what is logged by short code for the operator, and survives a hard kill, as does the hall of fame
 
 Judged by people, at the crit and showcase:
 
