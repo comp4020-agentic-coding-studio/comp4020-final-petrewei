@@ -8,7 +8,8 @@ const time = new Intl.DateTimeFormat("en-AU", { timeStyle: "medium" });
 // One log line in words, so the page can be read aloud without the JSON.
 function say(l) {
   switch (l.ev) {
-    case "join": return `opened the page (${l.here} here)`;
+    case "join": return `opened the ${l.mode ?? "history"} tab (${l.here} here)`;
+    case "tab": return `switched to the ${l.mode} tab`;
     case "leave": return `closed the page (${l.here} here)`;
     // Lines saved before page visits were renamed join/leave carry no price.
     case "open": return l.price === undefined ? "opened the page" : `${l.side === "buy" ? "bought" : "sold"} ${l.pair} at ${l.price}, ${l.leverage}×`;
@@ -22,16 +23,16 @@ function say(l) {
     case "borrow": return `borrowed from Dad, owing ${yen(l.debt)}`;
     case "pray": return `prayed to the chart (×${l.times})`;
     case "refused": return `tried to ${l.action}; refused: ${l.why}`;
-    case "start": return `round began: ${l.pair}${l.simulated ? " (live, simulated)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
-    case "end": return `round ended: ${l.ranking.map(([w, n]) => `${w} ${yen(n)}`).join(", ")}`;
+    case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.simulated ? " (live, simulated)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
+    case "end": return `${l.mode ?? ""} round ended: ${l.ranking.map(([w, n]) => `${w} ${yen(n)}`).join(", ")}`;
     case "rates": return `fetched today's rates (${l.date})`;
     default: return l.ev;
   }
 }
 
 async function refresh() {
-  const { here, round, pair, phase, recent } = await (await fetch(`/api/log${location.search}`)).json();
-  $("summary").textContent = `${here} here · round ${round} · ${pair} · ${phase}`;
+  const { here, rooms, recent } = await (await fetch(`/api/log${location.search}`)).json();
+  $("summary").textContent = `${here} here · ${rooms.map((r) => `${r.mode} round ${r.round} ${r.pair} ${r.phase}`).join(" · ")}`;
   $("log").replaceChildren(
     ...recent.map((l) => {
       const li = document.createElement("li");

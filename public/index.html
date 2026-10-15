@@ -15,6 +15,11 @@
   </header>
 
   <main>
+    <nav class="tabs" role="tablist" aria-label="Market">
+      <button role="tab" data-mode="history" aria-selected="true"><strong>History</strong> <span>real days, date hidden</span> <em id="here-history"></em></button>
+      <button role="tab" data-mode="live" aria-selected="false"><strong>Live</strong> <span>from today's real rate</span> <em id="here-live"></em></button>
+    </nav>
+
     <section class="win chart-win">
       <div class="bar"><span class="file" id="title">chart.exe</span><span id="clock"></span></div>
       <div class="quote"><span id="pair">—</span> <strong id="price">—</strong> <span id="change"></span><span id="mode" class="mode"></span></div>

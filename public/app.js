@@ -12,9 +12,13 @@ let fame = "";
 const lev = $("leverage");
 const LABELS = { 1: "1× (sensible)", 5: "5×", 10: "10×", 25: "25× (Japan's legal cap)", 100: "100× (offshore)", 400: "400× (brave)", 1000: "1000× (Leverage fixes everything~♪)" };
 
+// The market this page is on, from the tab, kept in the address so a
+// shared link or a reload opens the same one.
+let mode = location.hash === "#live" ? "live" : "history";
+
 async function act(kind, extra = {}) {
   $("error").textContent = "";
-  const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, ...extra }) });
+  const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
   if (!res.ok) $("error").textContent = (await res.json()).error ?? "Refused.";
 }
 const order = (kind) => () => act(kind, { leverage: Number(lev.value), stake: Number($("stake").value) });
@@ -113,19 +117,24 @@ function draw(s) {
 // that only new prices. A gap (a missed message) asks for the whole state.
 let prices = [];
 let roundNo = 0;
+let shown = null;
 async function receive(s) {
+  // A message from the market this page just left is dropped.
+  if (s.mode !== mode) return;
   if (s.from === 0) prices = s.prices;
-  else if (s.round === roundNo && s.from <= prices.length) prices = prices.slice(0, s.from).concat(s.prices);
+  else if (s.mode === shown && s.round === roundNo && s.from <= prices.length) prices = prices.slice(0, s.from).concat(s.prices);
   else {
-    const res = await fetch("/api/state");
+    const res = await fetch(`/api/state?mode=${mode}`);
     return receive(await res.json());
   }
   roundNo = s.round;
+  shown = s.mode;
   render({ ...s, prices });
 }
 
 function render(s) {
   state = s;
+  for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? `${s.here[m]} here` : "";
   if (!lev.options.length) {
     for (const l of s.leverages) lev.add(new Option(LABELS[l] ?? `${l}×`, l, false, l === 25));
   }
@@ -241,5 +250,19 @@ function render(s) {
   }
 }
 
-const events = new EventSource("/api/events");
-events.onmessage = (e) => receive(JSON.parse(e.data));
+// One stream at a time, on the chosen market. Switching tabs closes it and
+// opens the other; the two markets keep running either way.
+let events = null;
+function watch(next) {
+  mode = next;
+  history.replaceState(null, "", mode === "live" ? "#live" : "#history");
+  for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
+  events?.close();
+  shown = null;
+  cuts = null;
+  $("error").textContent = "";
+  events = new EventSource(`/api/events?mode=${mode}`);
+  events.onmessage = (e) => receive(JSON.parse(e.data));
+}
+for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
+watch(mode);

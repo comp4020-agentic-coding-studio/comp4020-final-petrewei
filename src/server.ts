@@ -1,9 +1,10 @@
-// Losscut!'s server: one shared market, traded live by everyone with the
-// page open, plus four house bots. The server owns the price, fills every
-// order at the price when it arrives, and enforces margin calls and
-// stop-outs; pages only show what it sends (ADR 0010). A round is three
-// minutes: a hidden replay of real history, or (every third round) a live
-// round from today's rate. The hall of fame is kept on the volume.
+// Losscut!'s server: two shared markets, History and Live, each traded
+// live by everyone on that tab, plus four house bots in each. The server
+// owns the price, fills every order at the price when it arrives, and
+// enforces margin calls and stop-outs; pages only show what it sends (ADR
+// 0010). A round is three minutes: History replays real days with the
+// date hidden, Live simulates on from today's rate. The hall of fame,
+// across both, is kept on the volume.
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -115,20 +116,8 @@ function saveCareer(): void {
   });
 }
 
-// The round being played, or the break after it.
 const seed = Date.now() % 2 ** 31;
 const rnd = random(seed);
-let count = 0;
-let round: Round;
-let desk: Desk;
-let tick = 0;
-let phase: "trade" | "break" = "trade";
-let breakLeft = 0;
-let result: { ranking: { key: string; name: string; balance: number }[]; reveal: string } | null = null;
-// What the bell will say, decided when the round starts.
-let reveal = "";
-let feed: { text: string; kind: string }[] = [];
-const prays = new Map<string, number>();
 
 // Today's real rates for live rounds, fetched at most every hour, falling
 // back to the newest ECB row in the bundled history.
@@ -152,61 +141,10 @@ function todayRate(pair: Pair): { rate: number; date: string; source: string } {
   const day = history.latest(pair);
   return { rate: day.rate, date: day.date, source: "ECB, bundled" };
 }
-function start(): void {
-  count++;
-  if (count % 3 === 0) {
-    const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
-    const now = todayRate(pair);
-    round = live(history, pair, now.rate, rnd);
-    reveal = `That was a simulation from ${round.pair} on ${now.date} (${now.source}).`;
-  } else {
-    round = replay(history, rnd, 0.6);
-    reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
-  }
-  desk = new Desk(round.prices[0]);
-  for (const b of BOTS) desk.join(b.id);
-  for (const l of listeners) desk.join(l.who);
-  tick = 0;
-  phase = "trade";
-  result = null;
-  feed = [];
-  prays.clear();
-  say(round.simulated ? `Live round: ${round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${round.pair}, forty real trading days. When? Find out at the bell.`, "info");
-  log(null, "start", { pair: round.pair, from: round.days[0], event: round.event?.title ?? null, simulated: round.simulated });
-  void refreshToday();
-}
 
-function say(text: string, kind: string): void {
-  feed.unshift({ text, kind });
-  feed.splice(14);
-}
-
-// Turn the desk's events into the room's feed. A stop-out is everyone's
-// business; that is the point of trading in the same room.
-function report(events: Fill[]): void {
-  for (const e of events) {
-    const name = nameOf(e.who);
-    if (e.kind === "open") say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
-    else if (e.kind === "add") say(`${name} doubled down. Now ${e.leverage}×`, "wild");
-    else if (e.kind === "close") say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
-    else if (e.kind === "stop") say(`${name}'s stop filled at ${fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
-    else if (e.kind === "call") say(`MARGIN CALL for ${name}!`, "call");
-    else if (e.kind === "stopout") say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
-    else if (e.kind === "zerocut") say(`${name} was wiped out and leaves the market.`, "bust");
-    if (e.kind === "stopout" || e.kind === "zerocut") {
-      const c = record(e.who);
-      if (c) c.busts++;
-    }
-    log(e.who, e.kind, { pair: round.pair, price: Number(fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
-  }
-}
-
-const digits = (): number => (round.pair.endsWith("JPY") ? 3 : 5);
-const fmt = (p: number): string => p.toFixed(digits());
-
-// Only people who trade have careers. A change is saved at once (the
-// file is small), so a bust survives a crash mid-round, and the top ten
-// are worked out again only then.
+// Only people who trade have careers, one per person across both modes.
+// A change is saved at once (the file is small), so a bust survives a
+// crash mid-round, and the top ten are worked out again only then.
 let fame: (Career & { key: string })[] = [];
 function rank(): void {
   fame = Object.entries(career).map(([k, c]) => ({ key: k, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
@@ -220,141 +158,244 @@ function record(who: string): Career | null {
   return career[key(who)];
 }
 
-function end(): void {
-  const ranking = desk.settle();
-  // Watchers are on the desk but never ordered, so they get no career.
-  const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
-  for (const r of humans) {
-    const c = record(r.who)!;
-    c.rounds++;
-    c.profit += r.net - START;
-    c.best = Math.max(c.best, r.net - START);
-    if (r === humans[0] && humans.length > 1) c.wins++;
+// The two markets a visitor can pick between by tab. Each is a room of
+// its own, with its own round, desk, bots, feed and bell, and both run
+// all the time: History replays real days with the date hidden, Live
+// starts from today's real rate and simulates on.
+const MODES = ["history", "live"] as const;
+type Mode = (typeof MODES)[number];
+type Listener = { res: ServerResponse; who: string; mode: Mode };
+const listeners = new Set<Listener>();
+
+class Market {
+  readonly mode: Mode;
+  count = 0;
+  round!: Round;
+  desk!: Desk;
+  tick = 0;
+  phase: "trade" | "break" = "trade";
+  breakLeft = 0;
+  result: { ranking: { key: string; name: string; balance: number }[]; reveal: string } | null = null;
+  // What the bell will say, decided when the round starts.
+  reveal = "";
+  feed: { text: string; kind: string }[] = [];
+  prays = new Map<string, number>();
+
+  constructor(mode: Mode) {
+    this.mode = mode;
   }
-  const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
-  result = { ranking: shown.map((r) => ({ key: key(r.who), name: nameOf(r.who), balance: r.net })), reveal };
-  log(null, "end", { ranking: ranking.map((r) => [short(r.who), r.net]) });
-  phase = "break";
-  breakLeft = BREAK_TICKS;
+
+  start(): void {
+    this.count++;
+    if (this.mode === "live") {
+      const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
+      const now = todayRate(pair);
+      this.round = live(history, pair, now.rate, rnd);
+      this.reveal = `That was a simulation from ${pair} on ${now.date} (${now.source}).`;
+    } else {
+      const round = replay(history, rnd, 0.6);
+      this.round = round;
+      this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
+    }
+    this.desk = new Desk(this.round.prices[0]);
+    for (const b of BOTS) this.desk.join(b.id);
+    for (const l of this.listeners()) this.desk.join(l.who);
+    this.tick = 0;
+    this.phase = "trade";
+    this.result = null;
+    this.feed = [];
+    this.prays.clear();
+    this.say(this.round.simulated ? `Live round: ${this.round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info");
+    log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
+    void refreshToday();
+  }
+
+  listeners(): Listener[] {
+    return [...listeners].filter((l) => l.mode === this.mode);
+  }
+
+  say(text: string, kind: string): void {
+    this.feed.unshift({ text, kind });
+    this.feed.splice(14);
+  }
+
+  digits(): number {
+    return this.round.pair.endsWith("JPY") ? 3 : 5;
+  }
+
+  fmt(p: number): string {
+    return p.toFixed(this.digits());
+  }
+
+  // Turn the desk's events into the room's feed. A stop-out is everyone's
+  // business; that is the point of trading in the same room.
+  report(events: Fill[]): void {
+    for (const e of events) {
+      const name = nameOf(e.who);
+      if (e.kind === "open") this.say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
+      else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild");
+      else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
+      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${this.fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
+      else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call");
+      else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
+      else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust");
+      if (e.kind === "stopout" || e.kind === "zerocut") {
+        const c = record(e.who);
+        if (c) c.busts++;
+      }
+      log(e.who, e.kind, { mode: this.mode, pair: this.round.pair, price: Number(this.fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
+    }
+  }
+
+  end(): void {
+    const desk = this.desk;
+    const ranking = desk.settle();
+    // Watchers are on the desk but never ordered, so they get no career.
+    const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
+    for (const r of humans) {
+      const c = record(r.who)!;
+      c.rounds++;
+      c.profit += r.net - START;
+      c.best = Math.max(c.best, r.net - START);
+      if (r === humans[0] && humans.length > 1) c.wins++;
+    }
+    const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), name: nameOf(r.who), balance: r.net })), reveal: this.reveal };
+    log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
+    this.phase = "break";
+    this.breakLeft = BREAK_TICKS;
+  }
+
+  // Each tick moves the price, lets the bots act, enforces the rules and
+  // sends the new state to everyone on this tab.
+  step(): void {
+    if (this.phase === "break") {
+      const next = --this.breakLeft <= 0;
+      if (next) this.start();
+      return this.broadcast(next);
+    }
+    this.tick++;
+    this.report(this.desk.mark(this.round.prices[this.tick]));
+    const seen = this.round.prices.slice(0, this.tick + 1);
+    for (const b of BOTS) {
+      const action = b.act(this.desk, b.id, seen, rnd);
+      if (action) this.apply(b.id, action);
+    }
+    if (this.tick >= this.round.prices.length - 1) {
+      this.end();
+      return this.broadcast(true);
+    }
+    this.broadcast();
+  }
+
+  apply(who: string, action: Action): string | null {
+    if (this.phase !== "trade") return "The market is closed. Next round soon.";
+    const desk = this.desk;
+    desk.join(who);
+    if (action.kind === "pray") {
+      const n = (this.prays.get(who) ?? 0) + 1;
+      this.prays.set(who, n);
+      log(who, "pray", { mode: this.mode, times: n });
+      if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray");
+      return null;
+    }
+    if (action.kind === "stop") {
+      const pos = desk.account(who).pos;
+      if (action.pct !== null && !(action.pct > 0 && action.pct <= 50)) return "A stop must be between 0% and 50% away.";
+      const at = pos && action.pct !== null ? desk.price * (1 - (pos.side * action.pct) / 100) : null;
+      const refused = desk.stop(who, at);
+      if (!refused) log(who, "stop-set", { mode: this.mode, at: at === null ? null : Number(this.fmt(at)) });
+      return refused;
+    }
+    if (action.kind === "borrow") {
+      const refused = desk.borrow(who);
+      if (refused) return refused;
+      const first = desk.account(who).debt === BORROW;
+      this.say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild");
+      log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
+      return null;
+    }
+    const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake);
+    if (typeof out === "string") return out;
+    this.report(out);
+    return null;
+  }
+
+  // The room is the bots, people with this tab open, and anyone still
+  // holding a position; someone who looked in and left is not listed.
+  room() {
+    const desk = this.desk;
+    const open = new Set(this.listeners().map((l) => l.who));
+    const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
+      const a = desk.account(p);
+      return { who: p, id: short(p), name: nameOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
+    });
+    traders.sort((a, b) => b.equity - a.equity);
+    return { traders };
+  }
+
+  // What one visitor sees: the shared chart, everyone's standing, and
+  // their own account in full. Other people's positions show side and
+  // leverage but not their stops, which would be a gift to the room.
+  // Pages are sent the whole price history when they join or a round
+  // changes phase, and otherwise only the newest price, from `from` on.
+  view(who: string, from = 0, shared = this.room()) {
+    const { desk, round, tick } = this;
+    const mine = desk.players().includes(who) ? desk.account(who) : null;
+    const me = key(who);
+    return {
+      mode: this.mode,
+      phase: this.phase,
+      round: this.count,
+      pair: round.pair,
+      digits: this.digits(),
+      simulated: round.simulated,
+      tick,
+      total: round.prices.length - 1,
+      steps: STEPS,
+      start: START,
+      from,
+      prices: round.prices.slice(from, tick + 1),
+      breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
+      you: {
+        name: nameOf(who),
+        balance: mine?.balance ?? START,
+        equity: Math.round(mine ? desk.equity(who) : START),
+        pnl: Math.round(mine ? desk.pnl(who) : 0),
+        level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
+        out: mine?.out ?? false,
+        debt: mine?.debt ?? 0,
+        loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
+        broke: mine ? desk.broke(who) : false,
+        cuts: mine?.cuts ?? 0,
+        pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
+      },
+      traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
+      feed: this.feed,
+      result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
+      career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
+      leverages: LEVERAGES,
+      // How many people are on each tab, for the tab labels.
+      here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
+    };
+  }
+
+  // The room is worked out once per broadcast and shared by every view.
+  // During the break nothing moves but the clock, so after the bell's full
+  // message the pages are sent only an empty price list.
+  broadcast(full = false): void {
+    const shared = this.room();
+    const from = full ? 0 : this.phase === "break" ? this.tick + 1 : this.tick;
+    for (const l of this.listeners()) l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared))}\n\n`);
+  }
 }
 
-// The clock. Each tick moves the price, lets the bots act, enforces the
-// rules and sends the new state to everyone.
+const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
+const modeOf = (value: unknown): Mode => (MODES.includes(value as Mode) ? (value as Mode) : "history");
+
 setInterval(() => {
-  if (phase === "break") {
-    const next = --breakLeft <= 0;
-    if (next) start();
-    return broadcast(next);
-  }
-  tick++;
-  report(desk.mark(round.prices[tick]));
-  const seen = round.prices.slice(0, tick + 1);
-  for (const b of BOTS) {
-    const action = b.act(desk, b.id, seen, rnd);
-    if (action) apply(b.id, action);
-  }
-  if (tick >= round.prices.length - 1) {
-    end();
-    return broadcast(true);
-  }
-  broadcast();
+  for (const m of MODES) markets[m].step();
 }, TICK_MS).unref();
-
-function apply(who: string, action: Action): string | null {
-  if (phase !== "trade") return "The market is closed. Next round soon.";
-  desk.join(who);
-  if (action.kind === "pray") {
-    prays.set(who, (prays.get(who) ?? 0) + 1);
-    log(who, "pray", { times: prays.get(who) });
-    if (prays.get(who) === 1 || prays.get(who)! % 10 === 0) say(`${nameOf(who)} is praying to the chart (×${prays.get(who)}). It does nothing.`, "pray");
-    return null;
-  }
-  if (action.kind === "stop") {
-    const pos = desk.account(who).pos;
-    if (action.pct !== null && !(action.pct > 0 && action.pct <= 50)) return "A stop must be between 0% and 50% away.";
-    const at = pos && action.pct !== null ? desk.price * (1 - (pos.side * action.pct) / 100) : null;
-    const refused = desk.stop(who, at);
-    if (!refused) log(who, "stop-set", { at: at === null ? null : Number(fmt(at)) });
-    return refused;
-  }
-  if (action.kind === "borrow") {
-    const refused = desk.borrow(who);
-    if (refused) return refused;
-    const first = desk.account(who).debt === BORROW;
-    say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild");
-    log(who, "borrow", { debt: desk.account(who).debt });
-    return null;
-  }
-  const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake);
-  if (typeof out === "string") return out;
-  report(out);
-  return null;
-}
-
-const listeners = new Set<{ res: ServerResponse; who: string }>();
-
-// What one visitor sees: the shared chart, everyone's standing, and their
-// own account in full. Other people's positions show side and leverage
-// but not their stops, which would be a gift to the room. Pages are sent
-// the whole price history when they join or a round changes phase, and
-// otherwise only the newest price, from `from` on.
-//
-// The room is the bots, people with the page open, and anyone still
-// holding a position; someone who looked in and left is not listed.
-function room() {
-  const open = ids();
-  const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
-    const a = desk.account(p);
-    return { who: p, id: short(p), name: nameOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
-  });
-  traders.sort((a, b) => b.equity - a.equity);
-  return { traders };
-}
-
-function view(who: string, from = 0, shared = room()) {
-  const mine = desk.players().includes(who) ? desk.account(who) : null;
-  const me = key(who);
-  return {
-    phase,
-    round: count,
-    pair: round.pair,
-    digits: digits(),
-    simulated: round.simulated,
-    tick,
-    total: round.prices.length - 1,
-    steps: STEPS,
-    start: START,
-    from,
-    prices: round.prices.slice(from, tick + 1),
-    breakLeft: Math.ceil((breakLeft * TICK_MS) / 1000),
-    you: {
-      name: nameOf(who),
-      balance: mine?.balance ?? START,
-      equity: Math.round(mine ? desk.equity(who) : START),
-      pnl: Math.round(mine ? desk.pnl(who) : 0),
-      level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
-      out: mine?.out ?? false,
-      debt: mine?.debt ?? 0,
-      loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
-      broke: mine ? desk.broke(who) : false,
-      cuts: mine?.cuts ?? 0,
-      pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop } : null,
-    },
-    traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
-    feed,
-    result: result && { ...result, ranking: result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
-    career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
-    leverages: LEVERAGES,
-  };
-}
-
-// The room is worked out once per broadcast and shared by every view.
-// During the break nothing moves but the clock, so after the bell's full
-// message the pages are sent only an empty price list.
-function broadcast(full = false): void {
-  const shared = room();
-  for (const l of listeners) l.res.write(`data: ${JSON.stringify(view(l.who, full ? 0 : phase === "break" ? tick + 1 : tick, shared))}\n\n`);
-}
 
 const send = (res: ServerResponse, [content, type]: [string, string]): void => {
   res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
@@ -424,21 +465,25 @@ createServer(async (req, res) => {
   }
   if (req.method === "GET" && LOG_PAGES[path]) return send(res, LOG_PAGES[path]);
   if (req.method === "GET" && path === "/api/log") {
-    return json(res, 200, { here: here(), round: count, pair: round.pair, phase, recent: recent.slice(-150).toReversed() });
+    const rooms = MODES.map((m) => ({ mode: m, round: markets[m].count, pair: markets[m].round.pair, phase: markets[m].phase }));
+    return json(res, 200, { here: here(), rooms, recent: recent.slice(-150).toReversed() });
   }
 
-  // Opening the page joins the round in progress with a fresh account.
+  // Opening a tab joins that market's round in progress with a fresh
+  // account; switching tabs opens a new stream on the other market.
   if (req.method === "GET" && path === "/api/events") {
+    const market = markets[modeOf(url.searchParams.get("mode"))];
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-    const listener = { res, who };
+    const listener: Listener = { res, who, mode: market.mode };
     const already = ids().has(who);
     listeners.add(listener);
-    if (!already) log(who, "join", { here: here() });
-    if (phase === "trade" && !desk.players().includes(who)) {
-      desk.join(who);
-      say(`${nameOf(who)} entered the market.`, "info");
+    if (!already) log(who, "join", { mode: market.mode, here: here() });
+    else log(who, "tab", { mode: market.mode });
+    if (market.phase === "trade" && !market.desk.players().includes(who)) {
+      market.desk.join(who);
+      market.say(`${nameOf(who)} entered the market.`, "info");
     }
-    res.write(`data: ${JSON.stringify(view(who))}\n\n`);
+    res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
     req.on("close", () => {
       listeners.delete(listener);
       if (!ids().has(who)) log(who, "leave", { here: here() });
@@ -446,7 +491,7 @@ createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === "GET" && path === "/api/state") return json(res, 200, view(who));
+  if (req.method === "GET" && path === "/api/state") return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
 
   if (req.method === "POST" && path === "/api/act") {
     let input: Record<string, unknown>;
@@ -465,18 +510,19 @@ createServer(async (req, res) => {
     // server's price; none removes it.
     else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
     if (!action) return json(res, 400, { error: "Unknown action." });
-    const error = apply(who, action);
+    const market = markets[modeOf(input.mode)];
+    const error = market.apply(who, action);
     if (error) {
-      log(who, "refused", { action: kind, why: error });
+      log(who, "refused", { mode: market.mode, action: kind, why: error });
       return json(res, 409, { error });
     }
-    broadcast();
+    market.broadcast();
     return json(res, 200, { ok: true });
   }
   json(res, 404, { error: "Not found." });
 }).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));
 
-start();
+for (const m of MODES) markets[m].start();
 // Every page is pinged every 5s so dead connections are found and dropped.
 setInterval(() => {
   for (const l of [...listeners]) {
