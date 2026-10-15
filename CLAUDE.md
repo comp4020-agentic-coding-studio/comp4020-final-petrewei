@@ -14,6 +14,7 @@
 - **Keep secrets out of the repo, commits and logs.** They live in Fly secrets and `mise.local.toml`.
 - **The server owns the price, the fills and the broker's rules.** A page sends only what the player chose, never a price or an amount of money.
 - **Keep a replay's dates and event off the page until the bell.**
+- **Start a round only when someone on its tab asks.** Never let a market run by itself.
 
 ## 3 Theme and Data
 
