@@ -1,6 +1,6 @@
 # ADR 0009: A Parody FX Trading Floor
 
-Status: accepted, 15 October 2026. Supersedes ADRs 0002 to 0008, which described the fridge.
+Status: accepted, 15 October 2026. Supersedes ADRs 0002 to 0008, which described the fridge. The round mix is changed by [ADR 0012](0012-history-and-live-as-tabs.md): History and Live are now tabs.
 
 ## 1 Context
 

@@ -1,27 +1,27 @@
 # Losscut! Kurumi's FX Fantasy
 
-One shared currency market, traded by everyone at once with play money. A round is three minutes of forty trading days, mostly real history with the dates hidden: you might be long euros against francs on 15 January 2015 and not know it until the bell.
+Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days. On History the days are real and the dates hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 This is a working definition of good.
 
 ## Who it is for
 
-A room of people at once: a crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her mother lost in 2008. The comic is funny and grim at once, and so is this game.
+A room at once: a crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her mother lost in 2008. The comic is funny and grim at once, and so is this game.
 
 ## What good means here
 
-- **Everyone trades the same price, in the same room.** The server owns the price and fills each order on arrival. Everyone sees your side, leverage and net worth, live.
-- **History is the dealer.** Replays use the European Central Bank's daily rates since 1999. Most hide a famous day, such as Lehman Brothers, Brexit or the franc's unpegging, revealed at the bell with what happened. Every third round starts from today's real rate and simulates from there.
-- **Leverage is the joke, and the lesson.** You choose from 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level and a forced stop-out (強制ロスカット) at 20%. A gap can wipe out your account in one tick, and a stop fills where the price lands, not where you set it.
-- **Losing is public.** Margin calls and stop-outs go to the room's feed. A broke player can borrow from Dad's savings, twice, which is announced and counted against them.
-- **There's always someone to trade against.** Four house traders, each parodying a habit, play every round, so one person can play alone.
+- **Everyone on a tab trades the same price, in the same room.** The server owns the price and fills each order on arrival. Everyone sees your side, leverage and net worth, live.
+- **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). History replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, such as Lehman Brothers, Brexit or the franc's unpegging, revealed at the bell. Live starts from today's real rate and simulates from there.
+- **Leverage is the joke, and the lesson.** You choose from 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level and a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick, and a stop fills where the price lands.
+- **Losing is public.** Margin calls and stop-outs go to the feed. A broke player can borrow from Dad's savings, twice, announced and counted against them.
+- **There's always someone to trade against.** Four house traders, each parodying a habit, play every round.
 - **There's a short game and a long game.** Each round ranks net worth; a hall of fame keeps profit and busts across rounds and restarts.
 
 ## Enforced and judged
 
 Checked in `spec/` and `test/`:
 
-- an order reaches every other open page within a second, with no reload
+- an order reaches every other page on its tab within a second, with no reload, and never the other tab
 - the price moves on its own about twice a second
 - the server refuses orders the broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop
