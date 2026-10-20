@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap">
   <link rel="stylesheet" href="/app.css">
+  <!-- A saved light or dark choice applies before the page paints, so it
+       never flashes the other theme first. -->
+  <script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
   <header class="top">
@@ -22,6 +25,7 @@
       <button role="tab" data-mode="tutorial" aria-selected="false">Tutorial</button>
     </nav>
     <p id="whoami" class="whoami"></p>
+    <button id="theme" class="theme" type="button" aria-label="Switch between light and dark"></button>
     <a class="about" href="/readme/">About</a>
   </header>
 

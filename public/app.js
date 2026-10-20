@@ -57,6 +57,31 @@ $("close").onclick = () => act("close");
 $("pray").onclick = () => act("pray");
 $("borrow").onclick = () => act("borrow");
 $("lesson-next").onclick = () => act("next");
+
+// Light or dark: the system's choice until the toggle is used, then the
+// toggle's, remembered in this browser. The chart reads its colours from
+// the theme, so it is redrawn at once.
+const dark = matchMedia("(prefers-color-scheme: dark)");
+const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "dark" : "light");
+function label() {
+  $("theme").textContent = theme() === "dark" ? "Light mode" : "Dark mode";
+}
+$("theme").onclick = () => {
+  const next = theme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem("theme", next);
+  } catch {
+    // a private window: the choice lasts this visit
+  }
+  label();
+  if (state) draw(state);
+};
+dark.addEventListener("change", () => {
+  label();
+  if (state) draw(state);
+});
+label();
 $("start").onclick = () => act("start");
 
 // The lobby: a market waits for someone on the tab to press Start, then
