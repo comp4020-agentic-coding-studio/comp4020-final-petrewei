@@ -28,7 +28,8 @@ Checked in `spec/` and `test/`:
 - nobody is shown another person's cookie or stop, or their tutorial
 - margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
 - replays pass through every real daily close, gap on big days, and hide each event mid-window
-- who did what is logged by short code for the operator, and survives a hard kill, as does the hall of fame
+- simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
+- who did what is logged by short code and request, and survives a hard kill
 
 Judged by people, at the crit and showcase:
 
