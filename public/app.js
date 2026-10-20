@@ -2,7 +2,61 @@
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
-import { yen } from "/format.js";
+import { LANGS, T, money, news, refusal } from "/i18n.js";
+
+// The page's language: chosen in the top bar and kept in this browser,
+// else the browser's own if it is Japanese or Chinese, else English.
+const guess = () => {
+  const l = (navigator.language || "en").slice(0, 2);
+  return LANGS.includes(l) ? l : "en";
+};
+let lang = (() => {
+  try {
+    const saved = localStorage.getItem("lang");
+    if (LANGS.includes(saved)) return saved;
+  } catch {
+    // no storage: use the browser's language
+  }
+  return guess();
+})();
+// A slot not given here is left as {slot}, for rich() to fill as bold.
+const t = (k, vars = {}) => (T[lang].ui[k] ?? T.en.ui[k]).replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
+const yen = (n) => money(lang, n);
+// A trader's name in this language: a character's in the page's script,
+// a person's as the server made it, found by short code.
+const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
+let names = new Map();
+const nameOf = (code) => names.get(code) ?? botName(code, code);
+
+// Every fixed string on the page carries data-t (its text), data-t-title
+// (its tooltip) or data-t-label (a phone label). Switching language fills
+// them again and redraws what the server last sent.
+function translate() {
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+  for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
+  for (const el of document.querySelectorAll("[data-t-title]")) el.title = t(el.dataset.tTitle);
+  for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
+  for (const b of document.querySelectorAll("[data-lang]")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
+  document.title = lang === "en" ? "Losscut! Kurumi's FX Fantasy" : `Losscut! ${t("sub")}`;
+}
+for (const b of document.querySelectorAll("[data-lang]")) {
+  b.onclick = () => {
+    lang = b.dataset.lang;
+    try {
+      localStorage.setItem("lang", lang);
+    } catch {
+      // a private window: the choice lasts this visit
+    }
+    translate();
+    label();
+    fame = "";
+    if (state) {
+      mark();
+      render(state);
+    }
+  };
+}
 
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
@@ -11,7 +65,6 @@ let fame = "";
 
 // Leverage and stake are chip groups that hold their choice. What each
 // leverage means is said beside it, in the parody's voice.
-const NOTES = { 1: "sensible", 5: "", 10: "", 25: "Japan's legal cap", 100: "offshore", 400: "brave", 1000: "Leverage fixes everything~♪" };
 const STAKES = [0.25, 0.5, 1];
 const choice = { leverage: 25, stake: 1 };
 function chips(id, values, label, key, risky = () => false) {
@@ -36,7 +89,7 @@ function mark() {
   for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"]]) {
     for (const b of $(id).children) b.setAttribute("aria-checked", String(Number(b.dataset.value) === choice[key]));
   }
-  $("lev-note").textContent = NOTES[choice.leverage] ?? "";
+  $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
 }
 chips("stake", STAKES, (v) => `${v * 100}%`, "stake");
 
@@ -48,7 +101,7 @@ let mode = MODES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "hi
 async function act(kind, extra = {}) {
   $("error").textContent = "";
   const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
-  if (!res.ok) $("error").textContent = (await res.json()).error ?? "Refused.";
+  if (!res.ok) $("error").textContent = refusal(lang, (await res.json()).error ?? "Refused.");
 }
 const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake });
 $("buy").onclick = order("buy");
@@ -64,7 +117,7 @@ $("lesson-next").onclick = () => act("next");
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "dark" : "light");
 function label() {
-  $("theme").textContent = theme() === "dark" ? "Light mode" : "Dark mode";
+  $("theme").textContent = theme() === "dark" ? t("toLight") : t("toDark");
 }
 $("theme").onclick = () => {
   const next = theme() === "dark" ? "light" : "dark";
@@ -81,7 +134,6 @@ dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
 });
-label();
 $("start").onclick = () => act("start");
 
 // The lobby: a market waits for someone on the tab to press Start, then
@@ -91,13 +143,8 @@ function lobby(s) {
   $("lobby").hidden = s.mode === "tutorial" || !waiting;
   if (!waiting) return;
   const counting = s.phase === "countdown";
-  const name = s.mode === "live" ? "Live" : "History";
-  $("lobby-title").textContent = counting ? `Trading opens in ${s.countdown}s` : `${name} is waiting`;
-  $("lobby-text").textContent = counting
-    ? `${s.startedBy} pressed Start. Everyone on this tab is in the round.`
-    : s.mode === "live"
-      ? "Forty days from today's real rate, simulated. Anyone on this tab can start the next round, and everyone here plays it."
-      : "Forty real trading days, the date hidden until the bell. Anyone on this tab can start the next round, and everyone here plays it.";
+  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
+  $("lobby-text").textContent = counting ? t("lobbyStarted", { who: s.startedBy }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
@@ -111,11 +158,13 @@ function lesson(s) {
   if (!s.lesson) return;
   const l = s.lesson;
   const moving = s.phase === "moving";
-  $("lesson-n").textContent = l.finished ? "done" : `lesson ${l.n} of ${l.of}`;
-  $("lesson-title").textContent = l.finished ? "Tutorial complete" : l.title;
-  $("lesson-text").textContent = l.finished ? "Well done. Choose History or Live above to trade against other people, or start the tutorial again." : l.text;
-  $("lesson-task").textContent = l.finished ? "Pick a tab above." : moving ? "Watch the chart…" : l.task;
-  $("lesson-next").hidden = l.finished || moving || !/Next/.test(l.task);
+  // The lesson in this language; in English, as the server sent it.
+  const own = T[lang].lessons[l.id] ?? l;
+  $("lesson-n").textContent = l.finished ? t("lessonDone") : t("lessonN", { n: l.n, of: l.of });
+  $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
+  $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
+  $("lesson-task").textContent = l.finished ? t("doneTask") : moving ? t("watch") : own.task;
+  $("lesson-next").hidden = l.finished || moving || !l.next;
   if (!l.finished && !moving) for (const f of l.focus) $(FOCUS[f])?.classList.add("focus");
 }
 $("stop").onclick = () => {
@@ -129,7 +178,7 @@ $("stop").onclick = () => {
 function ticket(s) {
   $("bid").textContent = s.bid.toFixed(s.digits);
   $("ask").textContent = s.ask.toFixed(s.digits);
-  $("spread").textContent = `spread ${((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1)} pips`;
+  $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
   const free = Math.max(0, s.you.equity - (s.you.pos?.margin ?? 0));
   const margin = Math.floor(free * choice.stake);
   const controls = margin * choice.leverage;
@@ -138,18 +187,31 @@ function ticket(s) {
   // With a position open, a same-side order adds to it and an opposite
   // one closes it, so the preview says which.
   const pos = s.you.pos;
-  const move = `A ${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}% move against you loses all of it.`;
+  const same = pos?.side === 1 ? t("buy") : t("sell");
+  const other = pos?.side === 1 ? t("sell") : t("buy");
+  const pct = wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0);
   $("preview").replaceChildren(
-    ...(pos
-      ? margin > 0
-        ? [`${pos.side === 1 ? "Buy" : "Sell"} adds `, strong(yen(margin)), ` at ${choice.leverage}×; ${pos.side === 1 ? "Sell" : "Buy"} closes your position.`]
-        : [`All your money is in this position. ${pos.side === 1 ? "Sell" : "Buy"} closes it.`]
-      : margin > 0
-        ? ["Puts in ", strong(yen(margin)), " to control ", strong(yen(controls)), `. ${move}`]
-        : ["No free money to trade with."]),
+    ...rich(
+      pos
+        ? margin > 0
+          ? t("previewAdd", { same, other, lev: choice.leverage })
+          : t("previewFull", { other })
+        : margin > 0
+          ? t("previewOpen", { pct })
+          : t("previewNone"),
+      { margin: yen(margin), controls: yen(controls) },
+    ),
   );
 }
 const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
+// Text with {slots} left in it, the slots filled as bold nodes, so a
+// translation can put the amounts wherever its grammar wants them.
+function rich(text, slots) {
+  return text.split(/(\{\w+\})/).map((part) => {
+    const k = part.match(/^\{(\w+)\}$/)?.[1];
+    return k && k in slots ? strong(slots[k]) : part;
+  });
+}
 
 function draw(s) {
   const canvas = $("chart");
@@ -204,8 +266,8 @@ function draw(s) {
     ctx.fillStyle = colour;
     ctx.fillText(label, w - 70 - ctx.measureText(label).width - 6, y(p) - 4);
   };
-  if (pos) level(pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? "long" : "short"} ${pos.leverage}×`);
-  if (pos?.stop) level(pos.stop, css.getPropertyValue("--call"), "stop");
+  if (pos) level(pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`);
+  if (pos?.stop) level(pos.stop, css.getPropertyValue("--call"), t("thStop"));
   // One candle a day, then the price line through today's ticks.
   for (let d = 0; d * k < prices.length - 1; d++) {
     const day = prices.slice(d * k, d * k + k + 1);
@@ -262,7 +324,8 @@ function render(s) {
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
   lobby(s);
-  for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? `${s.here[m]} here` : "";
+  for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] }) : "";
+  names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : tr.name]));
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
   if (!$("leverage").children.length) {
@@ -277,12 +340,18 @@ function render(s) {
   const ch = (price / first - 1) * 100;
   $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
   $("change").className = ch >= 0 ? "up" : "down";
-  $("mode").textContent = tutorial ? "Tutorial: scripted prices" : s.simulated ? "Live: today's rate, then simulated" : "Replay: the date is hidden until the bell";
+  $("mode").textContent = t(tutorial ? "modeTutorial" : s.simulated ? "modeLive" : "modeReplay");
   $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
-  $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : s.phase === "countdown" ? `opens in ${s.countdown}s` : s.phase === "lobby" ? "waiting for Start" : "market closed";
+  $("clock").textContent = tutorial
+    ? t("clockTutorial")
+    : s.phase === "trade"
+      ? t("clockDay", { d: Math.max(1, Math.ceil(s.tick / s.steps)), of: s.total / s.steps })
+      : s.phase === "countdown"
+        ? t("clockOpens", { s: s.countdown })
+        : t(s.phase === "lobby" ? "clockLobby" : "clockClosed");
   // Built from text nodes: the name comes from the server, never as HTML.
-  $("whoami").replaceChildren("You are ", strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }));
-  $("whoami").title = "This browser is your trader. Others see you by this name.";
+  $("whoami").replaceChildren(`${t("youAre")} `, strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }));
+  $("whoami").title = t("youAreTitle");
   draw(s);
   ticket(s);
 
@@ -301,59 +370,57 @@ function render(s) {
   $("pos-row").hidden = !y.pos;
   $("pos-empty").hidden = !!y.pos;
   if (y.pos) {
-    const side = Object.assign(document.createElement("span"), { className: `tag ${y.pos.side === 1 ? "long" : "short"}`, textContent: y.pos.side === 1 ? "Long" : "Short" });
+    const side = Object.assign(document.createElement("span"), { className: `tag ${y.pos.side === 1 ? "long" : "short"}`, textContent: y.pos.side === 1 ? t("long") : t("short") });
     $("pos-side").replaceChildren(side, ` ${s.pair} ${y.pos.leverage}×`);
     $("pos-entry").textContent = y.pos.entry.toFixed(s.digits);
     $("pos-now").textContent = price.toFixed(s.digits);
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
-    $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : "Add 1% stop";
-    $("stop").title = y.pos.stop ? "Remove the stop" : "Close automatically if the price moves 1% against you";
+    $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : t("addStop");
+    $("stop").title = y.pos.stop ? t("removeStopTitle") : t("addStopTitle");
   } else {
-    $("position").textContent = y.broke && y.loansLeft > 0
-      ? "You're broke. Dad's savings are right there…"
-      : y.out
-        ? "Wiped out, and Dad's savings are gone. Watch the others until the next round."
-        : open
-          ? "No open position. Pick a leverage, then Buy or Sell."
-          : "No open position.";
+    $("position").textContent = t(y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
-  if (y.debt) $("position").textContent += ` You owe Dad ${yen(y.debt)}.`;
+  if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
   const closed = !open || y.out;
   for (const id of ["buy", "sell", "pray"]) $(id).disabled = closed;
   for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
-    $("losscut-sub").textContent = y.out ? "WIPED OUT · ZERO-CUT" : "FORCED LOSS CUT";
+    $("losscut-sub").textContent = t(y.out ? "zerocut" : "losscut");
+    // The stamp is the parody's catchphrase: Japanese in Japanese and
+    // English, as the comic says it; in Chinese, what Chinese traders say.
+    $("losscut-big").textContent = lang === "zh" ? "强制平仓！" : "強制ロスカット";
+    $("losscut-big").lang = lang === "zh" ? "zh-CN" : "ja";
     $("losscut").hidden = false;
     setTimeout(() => ($("losscut").hidden = true), 2200);
   }
   cuts = y.cuts;
 
   const humans = s.traders.filter((t) => !t.bot).length;
-  $("count").textContent = `${humans} human${humans === 1 ? "" : "s"}`;
+  $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
   const list = $("traders");
   list.replaceChildren(
-    ...s.traders.map((t) => {
+    ...s.traders.map((tr) => {
       const li = document.createElement("li");
-      li.className = `${t.you ? "you" : ""} ${t.out ? "out" : ""}`;
+      li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
       const n = document.createElement("span");
       n.className = "n";
-      n.textContent = t.name + (t.you ? " (you)" : "");
-      if (t.bot) {
-        n.title = t.motto ?? "";
-        n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: "bot" }));
+      n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
+      if (tr.bot) {
+        n.title = T[lang].bots[tr.id]?.motto ?? tr.motto ?? "";
+        n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: t("bot") }));
       }
       const p = document.createElement("span");
-      if (t.side) {
-        p.className = `pos ${t.side === 1 ? "long" : "short"}`;
-        p.textContent = `${t.side === 1 ? "▲" : "▼"} ${t.leverage}×`;
+      if (tr.side) {
+        p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
+        p.textContent = `${tr.side === 1 ? "▲" : "▼"} ${tr.leverage}×`;
       }
       const e = document.createElement("span");
-      e.textContent = yen(t.equity);
-      e.className = `eq ${t.equity >= s.start ? "up" : "down"}`;
+      e.textContent = yen(tr.equity);
+      e.className = `eq ${tr.equity >= s.start ? "up" : "down"}`;
       li.append(n, p, e);
       return li;
     }),
@@ -362,7 +429,7 @@ function render(s) {
     ...s.feed.map((f) => {
       const li = document.createElement("li");
       li.className = `k-${f.kind}`;
-      li.textContent = f.text;
+      li.textContent = news(lang, f, nameOf);
       return li;
     }),
   );
@@ -387,13 +454,14 @@ function render(s) {
 
   $("bell").hidden = s.phase !== "break" || !s.result;
   if (s.result) {
-    $("reveal").textContent = s.result.reveal;
-    $("next").textContent = s.breakLeft;
+    $("reveal").textContent = reveal(s.result);
+    $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
         if (r.you) li.className = "you";
-        li.textContent = `${r.name}${r.you ? " (you)" : ""}: ${yen(r.balance)} (${yen(r.balance - s.start)})`;
+        const delta = r.balance - s.start;
+        li.textContent = `${botName(r.code, r.name)}${r.you ? ` ${t("youTag")}` : ""}: ${yen(r.balance)} (${delta >= 0 ? "+" : ""}${yen(delta)})`;
         return li;
       }),
     );
@@ -415,4 +483,17 @@ function watch(next) {
   events.onmessage = (e) => receive(JSON.parse(e.data));
 }
 for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
+translate();
+label();
 watch(mode);
+
+// The bell's reveal in this language: the pair and dates, then the
+// famous day hidden in it, if any. English is the server's own sentence.
+function reveal(result) {
+  if (lang === "en") return result.reveal;
+  const f = result.facts;
+  if (f.simulated) return t("revealSim", { pair: f.pair, date: f.from });
+  const said = t("revealReplay", { pair: f.pair, from: f.from, to: f.to });
+  const e = f.event && T[lang].events[f.event.date];
+  return e ? `${said} ${e.title}（${f.event.date}）：${e.note}` : said;
+}

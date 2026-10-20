@@ -7,7 +7,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+SC:wght@400;700&display=swap">
   <link rel="stylesheet" href="/app.css">
   <!-- A saved light or dark choice applies before the page paints, so it
        never flashes the other theme first. -->
@@ -17,16 +17,21 @@
   <header class="top">
     <a class="brand" href="/" aria-label="Losscut! home">
       <span class="logo">Losscut!</span>
-      <span class="sub">Kurumi's FX Fantasy <span lang="ja">ロスカット</span></span>
+      <span class="sub"><span data-t="sub">Kurumi's FX Fantasy</span> <span lang="ja">ロスカット</span></span>
     </a>
     <nav class="tabs" role="tablist" aria-label="Market">
-      <button role="tab" data-mode="history" aria-selected="true">History <em id="here-history"></em></button>
-      <button role="tab" data-mode="live" aria-selected="false">Live <em id="here-live"></em></button>
-      <button role="tab" data-mode="tutorial" aria-selected="false">Tutorial</button>
+      <button role="tab" data-mode="history" aria-selected="true"><span data-t="history">History</span> <em id="here-history"></em></button>
+      <button role="tab" data-mode="live" aria-selected="false"><span data-t="live">Live</span> <em id="here-live"></em></button>
+      <button role="tab" data-mode="tutorial" aria-selected="false"><span data-t="tutorial">Tutorial</span></button>
     </nav>
     <p id="whoami" class="whoami"></p>
-    <button id="theme" class="theme" type="button" aria-label="Switch between light and dark"></button>
-    <a class="about" href="/readme/">About</a>
+    <div class="langs" role="group" aria-label="Language">
+      <button type="button" data-lang="en" lang="en">EN</button>
+      <button type="button" data-lang="ja" lang="ja">日本語</button>
+      <button type="button" data-lang="zh" lang="zh-CN">中文</button>
+    </div>
+    <button id="theme" class="theme" type="button" aria-label="Light or dark"></button>
+    <a class="about" href="/readme/" data-t="about">About</a>
   </header>
 
   <main>
@@ -38,10 +43,10 @@
           <p id="lesson-text"></p>
         </div>
         <div class="lesson-do">
-          <p class="task"><span>Your turn</span> <strong id="lesson-task"></strong></p>
+          <p class="task"><span data-t="yourTurn">Your turn</span> <strong id="lesson-task"></strong></p>
           <div class="row">
-            <button id="lesson-next" class="next">Next</button>
-            <button id="restart" class="ghost">Start again</button>
+            <button id="lesson-next" class="next" data-t="next">Next</button>
+            <button id="restart" class="ghost" data-t="restart">Start again</button>
           </div>
         </div>
       </div>
@@ -62,23 +67,23 @@
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
-          <button id="start" class="start">Start round</button>
+          <button id="start" class="start" data-t="start">Start round</button>
         </div>
       </div>
     </section>
 
     <section class="panel positions" aria-label="Your position">
       <table>
-        <thead><tr><th>Position</th><th>Entry</th><th>Now</th><th>Margin</th><th>P&amp;L</th><th>Stop</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thStop">Stop</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
-            <td id="pos-entry" data-label="Entry"></td>
-            <td id="pos-now" data-label="Now"></td>
-            <td id="pos-margin" data-label="Margin"></td>
-            <td id="pos-pnl" data-label="P&amp;L"></td>
+            <td id="pos-entry" data-label="Entry" data-t-label="thEntry"></td>
+            <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
+            <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
+            <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
             <td><button id="stop" class="mini"></button></td>
-            <td><button id="close" class="close" aria-label="Close this position">Close</button></td>
+            <td><button id="close" class="close" data-t="close">Close</button></td>
           </tr>
           <tr id="pos-empty"><td colspan="7" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
@@ -86,44 +91,44 @@
     </section>
 
     <section class="panel feed" aria-label="Feed">
-      <h2>Feed</h2>
+      <h2 data-t="feed">Feed</h2>
       <ul id="feed"></ul>
     </section>
 
     <section class="panel fame" aria-label="Hall of fame">
-      <h2>Hall of fame <span>all-time profit</span></h2>
-      <table><thead><tr><th>Trader</th><th>Rounds</th><th>Profit</th><th>Wins</th><th>Busts</th></tr></thead><tbody id="career"></tbody></table>
+      <h2><span data-t="fame">Hall of fame</span> <span data-t="fameNote">all-time profit</span></h2>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
     </section>
     </div>
     <div class="col side-col">
     <section class="panel ticket" aria-label="Order ticket">
       <div class="quotes">
-        <button id="sell" class="side sell"><span>Sell</span><strong id="bid">—</strong></button>
-        <span class="spread" id="spread" title="The spread: the broker's cut between the selling and buying price"></span>
-        <button id="buy" class="side buy"><span>Buy</span><strong id="ask">—</strong></button>
+        <button id="sell" class="side sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
+        <span class="spread" id="spread" data-t-title="spreadTitle"></span>
+        <button id="buy" class="side buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
       </div>
       <div class="field" id="leverage-box">
-        <p class="label">Leverage <span id="lev-note" class="note"></span></p>
+        <p class="label"><span data-t="leverage">Leverage</span> <span id="lev-note" class="note"></span></p>
         <div class="chips" id="leverage" role="radiogroup" aria-label="Leverage"></div>
       </div>
       <div class="field" id="stake-box">
-        <p class="label">Stake <span class="note">of your free money</span></p>
+        <p class="label"><span data-t="stake">Stake</span> <span class="note" data-t="stakeNote">of your free money</span></p>
         <div class="chips" id="stake" role="radiogroup" aria-label="Stake"></div>
       </div>
       <p class="preview" id="preview"></p>
       <dl class="acct">
-        <div><dt>Net worth</dt><dd id="equity">—</dd></div>
-        <div id="pnl-box"><dt>Open P&amp;L</dt><dd id="pnl">—</dd></div>
-        <div id="level-box"><dt>Margin level</dt><dd id="level">—</dd></div>
+        <div><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd></div>
+        <div id="pnl-box"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd></div>
+        <div id="level-box"><dt data-t="level">Margin level</dt><dd id="level">—</dd></div>
       </dl>
       <div class="meter" aria-hidden="true"><div id="meter"></div><span class="mark out">20%</span><span class="mark call">50%</span></div>
-      <p class="meter-key">Margin call at 50%, forced loss cut at 20%</p>
-      <button id="borrow" class="borrow" hidden>Borrow ¥300,000 from Dad's savings</button>
-      <button id="pray" class="pray" title="Does nothing. Counted anyway.">Pray to the chart</button>
+      <p class="meter-key" data-t="meterKey">Margin call at 50%, forced loss cut at 20%</p>
+      <button id="borrow" class="borrow" hidden></button>
+      <button id="pray" class="pray" data-t="pray" data-t-title="prayTitle">Pray to the chart</button>
       <p id="error" class="error" role="status"></p>
     </section>
     <section class="panel room" aria-label="Traders in this room">
-      <h2>Room <span id="count"></span></h2>
+      <h2><span data-t="room">Room</span> <span id="count"></span></h2>
       <ol id="traders"></ol>
     </section>
     </div>
@@ -131,15 +136,15 @@
 
   <div id="bell" class="overlay" hidden>
     <div class="card">
-      <h2>The bell</h2>
+      <h2 data-t="bell">The bell</h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
-      <p class="bell-next">Back to the lobby in <span id="next"></span>s</p>
+      <p class="bell-next" id="bell-next"></p>
     </div>
   </div>
-  <div id="losscut" class="losscut" hidden><span lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
+  <div id="losscut" class="losscut" hidden><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
 
-  <footer>Rates: ECB euro reference rates (crosses derived), and Frankfurter for today's rate; Live moves are simulated. A parody, not affiliated with any comic, studio or broker. Play money only. Most retail leveraged FX traders lose money. If gambling or debt is hurting you, in Australia call the Gambling Help line on 1800 858 858.</footer>
+  <footer data-t="footer"></footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
