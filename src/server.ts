@@ -182,6 +182,8 @@ function record(who: string): Career | null {
 const MODES = ["history", "live"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
+type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
+type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string };
 const listeners = new Set<Listener>();
 
 class Market {
@@ -197,10 +199,14 @@ class Market {
   breakLeft = 0;
   countdown = 0;
   startedBy: string | null = null;
-  result: { ranking: { key: string; name: string; balance: number }[]; reveal: string } | null = null;
+  result: { ranking: { key: string; code: string; name: string; balance: number }[]; reveal: string; facts: Facts } | null = null;
+  // The bell's facts, for a page to tell in its own language.
+  facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
   reveal = "";
-  feed: { text: string; kind: string }[] = [];
+  // Each line is English text for the log and for pages without a
+  // translation, plus a key and values a page translates from.
+  feed: News[] = [];
   prays = new Map<string, number>();
 
   constructor(mode: Mode) {
@@ -214,10 +220,12 @@ class Market {
       const now = todayRate(pair);
       this.round = live(history, pair, now.rate, rnd);
       this.reveal = `That was a simulation from ${pair} on ${now.date} (${now.source}).`;
+      this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source };
     } else {
       const round = replay(history, rnd, 0.6);
       this.round = round;
       this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
+      this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
     }
     this.desk = new Desk(this.round.prices[0]);
     for (const b of BOTS) this.desk.join(b.id);
@@ -239,7 +247,7 @@ class Market {
     this.result = null;
     this.feed = [];
     const secs = Math.max(1, Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000));
-    this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info");
+    this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info", "started", { who: short(who), secs });
     log(who, "ask", { mode: this.mode });
     return null;
   }
@@ -248,7 +256,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Live round: ${this.round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info");
+    this.say(this.round.simulated ? `Live round: ${this.round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "live-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -257,8 +265,8 @@ class Market {
     return [...listeners].filter((l) => l.mode === this.mode);
   }
 
-  say(text: string, kind: string): void {
-    this.feed.unshift({ text, kind });
+  say(text: string, kind: string, key = "", args: Record<string, string | number> = {}): void {
+    this.feed.unshift({ text, kind, key, args });
     this.feed.splice(14);
   }
 
@@ -275,13 +283,16 @@ class Market {
   report(events: Fill[]): void {
     for (const e of events) {
       const name = nameOf(e.who);
-      if (e.kind === "open") this.say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade");
-      else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild");
-      else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
-      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${this.fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
-      else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call");
-      else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust");
-      else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust");
+      // `who` is the short code, so a page can put each trader's name in
+      // its own language; `pnl` stays a number for the page to format.
+      const a = { who: short(e.who), pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: this.fmt(e.price) };
+      if (e.kind === "open") this.say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= 400 ? "wild" : "trade", e.side === 1 ? "bought" : "sold", a);
+      else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild", "added", a);
+      else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "closed", a);
+      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${this.fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
+      else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
+      else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust", "stopout", a);
+      else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
       if (e.kind === "stopout" || e.kind === "zerocut") {
         const c = record(e.who);
         if (c) c.busts++;
@@ -303,7 +314,7 @@ class Market {
       if (r === humans[0] && humans.length > 1) c.wins++;
     }
     const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), name: nameOf(r.who), balance: r.net })), reveal: this.reveal };
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -347,7 +358,7 @@ class Market {
       const n = (this.prays.get(who) ?? 0) + 1;
       this.prays.set(who, n);
       log(who, "pray", { mode: this.mode, times: n });
-      if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray");
+      if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray", "prayed", { who: short(who), n });
       return null;
     }
     if (action.kind === "stop") {
@@ -360,7 +371,7 @@ class Market {
       const refused = desk.borrow(who);
       if (refused) return refused;
       const first = desk.account(who).debt === BORROW;
-      this.say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild");
+      this.say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild", first ? "borrowed" : "borrowed-again", { who: short(who), amount: BORROW });
       log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
       return null;
     }
@@ -481,7 +492,7 @@ function tutorialView(who: string) {
     tick: t.prices.length - 1,
     steps: 4,
     start: START,
-    lesson: { n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
+    lesson: { id: l.id, next: l.allow({ kind: "next" }) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
     you: {
       name: nameOf(who),
       code: short(who),
@@ -549,6 +560,8 @@ const PAGES: Record<string, [string, string]> = {
   "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
   "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
   "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
+  "/i18n.js": [read("public/i18n.js"), "text/javascript; charset=utf-8"],
+  "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],
 };
@@ -618,7 +631,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     else log(who, "tab", { mode: market.mode });
     if (market.phase !== "break" && !market.desk.players().includes(who)) {
       market.desk.join(who);
-      market.say(`${nameOf(who)} entered the market.`, "info");
+      market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
     }
     res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
     // The page's close runs later, outside this request; it keeps the ID

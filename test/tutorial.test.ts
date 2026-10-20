@@ -28,7 +28,7 @@ describe("the tutorial", () => {
     const t = new Tutorial();
     t.act({ kind: "next" });
     const refused = t.act({ kind: "order", side: -1, leverage: 1 });
-    expect(refused).toMatch(/BUY/);
+    expect(refused).toMatch(/a Buy at 1×/);
     expect(t.desk.account("me").pos).toBeNull();
   });
 
