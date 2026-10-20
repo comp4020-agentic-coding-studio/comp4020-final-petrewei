@@ -53,7 +53,12 @@ body.tutorial .room-win, body.tutorial .career-win, body.tutorial #pray { displa
 .focus { outline: 3px solid var(--call); outline-offset: 3px; border-radius: 8px; animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { outline-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { .focus { animation: none; } }
-.tabs { grid-area: tabs; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tabs { grid-area: tabs; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+/* Who this browser is, so a classmate can find themselves in the log. */
+.whoami { margin: 0 0 0 auto; font-size: 0.85rem; color: var(--muted); }
+.whoami strong { color: var(--ink); }
+.whoami code { font: 0.8rem ui-monospace, monospace; color: var(--bar); }
+@media (max-width: 820px) { .whoami { margin: 0; flex-basis: 100%; } }
 .tabs button { flex: 0 1 auto; display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; text-align: left; border: 2px solid var(--bar); border-radius: 10px; padding: 0.45rem 0.9rem; background: var(--win); color: var(--ink); font-weight: 400; }
 .tabs button strong { font-size: 1.05rem; }
 .tabs button span { color: var(--muted); font-size: 0.8rem; }

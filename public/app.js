@@ -197,6 +197,8 @@ function render(s) {
   $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
   $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : s.phase === "countdown" ? `opens in ${s.countdown}s` : s.phase === "lobby" ? "waiting for Start" : "market closed";
   $("who").textContent = s.you.name;
+  // Built from text nodes: the name comes from the server, never as HTML.
+  $("whoami").replaceChildren("You are ", Object.assign(document.createElement("strong"), { textContent: s.you.name }), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), " · this browser is your trader");
   draw(s);
 
   const y = s.you;
