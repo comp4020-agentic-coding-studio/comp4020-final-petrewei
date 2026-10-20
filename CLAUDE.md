@@ -20,7 +20,9 @@
 
 - **Play money only.** No broker names, links, deposit offers or anything that rewards spending.
 - **Satirise the habits and the system, never the people they hurt.** Never joke about the comic's family tragedy.
-- **Use no official art, names or text from the comic.** Say on the page that it is a parody.
+- **Use no official art, and copy no passage from the comic.** Its characters may appear by name (ADR 0015); say on every page that it is an unaffiliated fan parody.
+- **Never use Kurumi's mother or her death,** in any language.
+- **Give every string the page shows, and every message the server sends, all three languages.** The server speaks English; pages translate.
 - **Credit the ECB wherever its rates appear, and say when prices are simulated.**
 
 ## 4 Verification
