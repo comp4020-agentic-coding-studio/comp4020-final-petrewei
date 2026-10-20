@@ -4,10 +4,10 @@ import { Desk } from "../src/fx.ts";
 
 // The house traders' habits have to be ones the desk lets them act out,
 // or a parody is only a name.
-const hana = BOTS.find((b) => b.id === "bot:hana")!;
+const hana = BOTS.find((b) => b.id === "bot:kurumi")!;
 const always = () => 0;
 
-describe("Hana All-In", () => {
+describe("Kurumi", () => {
   it("averages down on a losing position while she still has margin", () => {
     const desk = new Desk(100);
     desk.join(hana.id);

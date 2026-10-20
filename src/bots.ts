@@ -1,6 +1,7 @@
 // The house traders, so one person can play a round and a crowd has
-// someone to laugh at. Each is an original parody of a retail-trader
-// habit the comic satirises; none is a character from it. A bot looks at
+// someone to laugh at. Each is a character from the comic, playing the
+// retail-trader habit the comic gives her (ADR 0015); the page shows
+// their names and mottos in its own language. A bot looks at
 // its own account and the recent prices and returns at most one action.
 import type { Desk, Side } from "./fx.ts";
 
@@ -11,11 +12,11 @@ const trend = (prices: number[], n: number): number => (prices.length > n ? pric
 
 export const BOTS: Bot[] = [
   {
-    // Buys every dip with absurd leverage, never cuts, averages down while
-    // there is margin to do it with, then prays, then borrows from Dad.
-    id: "bot:hana",
-    name: "Hana All-In",
-    motto: "Leverage fixes everything~♪",
+    // Kurumi: a stop-loss is admitting defeat. Buys every dip with absurd
+    // leverage, averages down while there is margin, prays, borrows.
+    id: "bot:kurumi",
+    name: "Kurumi",
+    motto: "It's okay, I've got leverage~♪",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
       if (desk.broke(me)) return rnd() < 0.1 ? { kind: "borrow" } : null;
@@ -27,10 +28,11 @@ export const BOTS: Bot[] = [
     },
   },
   {
-    // Follows the trend at modest leverage, always with a tight stop.
-    id: "bot:rei",
-    name: "Rei Glacier",
-    motto: "Cut the loss. Feelings are a spread you pay.",
+    // Mochiko: cold and rational. Follows the trend at modest leverage,
+    // always with a tight stop.
+    id: "bot:mochiko",
+    name: "Mochiko",
+    motto: "A stable market is a trader's enemy.",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
       const t = trend(prices, 18);
@@ -44,20 +46,21 @@ export const BOTS: Bot[] = [
     },
   },
   {
-    // Only ever sells, and holds, because the end is always near.
-    id: "bot:natsu",
-    name: "Natsu Shortwell",
-    motto: "Everything goes down eventually. I can wait.",
+    // Yasuko: burned once already, so she only ever sells, and holds.
+    id: "bot:yasuko",
+    name: "Yasuko",
+    motto: "I've seen how this ends. It goes down.",
     act(desk, me, _prices, rnd) {
       if (!desk.account(me).pos && rnd() < 0.05) return { kind: "order", side: -1, leverage: 25, stake: 0.7 };
       return null;
     },
   },
   {
-    // The housewife carry trader: buys the high-yielder and never sells.
-    id: "bot:carry",
-    name: "Mrs Carry",
-    motto: "The interest pays for dinner. What could go wrong?",
+    // Mebuki: trades so she never has to work. Buys the high-yielder for
+    // the interest and never sells.
+    id: "bot:mebuki",
+    name: "Mebuki",
+    motto: "I just don't want to work. The interest can do it.",
     act(desk, me, _prices, rnd) {
       const pos = desk.account(me).pos;
       if (!pos && rnd() < 0.1) return { kind: "order", side: 1, leverage: 25, stake: 0.5 };
