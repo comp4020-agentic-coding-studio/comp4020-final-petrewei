@@ -43,6 +43,8 @@ export type Fill = { kind: "open" | "add" | "close" | "stop" | "call" | "stopout
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
 const fill = (mid: number, side: Side): number => mid * (1 + side * half);
+// The prices a sell and a buy fill at now, for a page to show.
+export const quote = (mid: number): { bid: number; ask: number } => ({ bid: fill(mid, -1), ask: fill(mid, 1) });
 
 export class Desk {
   price: number;

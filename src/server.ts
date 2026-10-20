@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSy
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
-import { BORROW, Desk, type Fill, LEVERAGES, LOANS, START } from "./fx.ts";
+import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
 import { yen } from "../public/format.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
@@ -238,7 +238,8 @@ class Market {
     this.startedBy = who;
     this.result = null;
     this.feed = [];
-    this.say(`${nameOf(who)} pressed Start. Trading opens in ${Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000)} seconds.`, "info");
+    const secs = Math.max(1, Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000));
+    this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info");
     log(who, "ask", { mode: this.mode });
     return null;
   }
@@ -426,6 +427,7 @@ class Market {
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
       leverages: LEVERAGES,
+      ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
       here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
     };
@@ -499,6 +501,7 @@ function tutorialView(who: string) {
     result: null,
     career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
     leverages: LEVERAGES,
+    ...quote(t.price()),
     here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
   };
 }
@@ -540,7 +543,7 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 }
 
 const HTML = "text/html; charset=utf-8";
-const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/app.css"></head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
+const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap"><link rel="stylesheet" href="/app.css"></head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
 const PAGES: Record<string, [string, string]> = {
   "/": [read("public/index.html"), HTML],
   "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],

@@ -108,3 +108,14 @@ it("tells a visitor their own trader name and short code on the page", async () 
   expect(me).not.toContain(s.you.code);
   expect(await (await fetch(new URL("/", baseUrl))).text()).toContain('id="whoami"');
 });
+
+// The order ticket shows the price a buy and a sell would fill at. The
+// spread is the broker's rule, so the server sends both prices; the page
+// never works one out.
+it("sends the buy and sell price, the spread apart, around the price", async () => {
+  const s = (await state()) as unknown as { prices: number[]; bid: number; ask: number };
+  const mid = s.prices.at(-1)!;
+  expect(s.bid).toBeLessThan(mid);
+  expect(s.ask).toBeGreaterThan(mid);
+  expect((s.ask - s.bid) / mid).toBeCloseTo(0.0002, 6);
+});
