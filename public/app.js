@@ -36,27 +36,26 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
   for (const el of document.querySelectorAll("[data-t-title]")) el.title = t(el.dataset.tTitle);
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
-  for (const b of document.querySelectorAll("[data-lang]")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
+  $("lang").value = lang;
   $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
   document.title = lang === "en" ? "Losscut! Kurumi's FX Fantasy" : `Losscut! ${t("sub")}`;
 }
-for (const b of document.querySelectorAll("[data-lang]")) {
-  b.onclick = () => {
-    lang = b.dataset.lang;
-    try {
-      localStorage.setItem("lang", lang);
-    } catch {
-      // a private window: the choice lasts this visit
-    }
-    translate();
-    label();
-    fame = "";
-    if (state) {
-      mark();
-      render(state);
-    }
-  };
-}
+$("lang").onchange = () => {
+  lang = $("lang").value;
+  try {
+    localStorage.setItem("lang", lang);
+  } catch {
+    // a private window: the choice lasts this visit
+  }
+  translate();
+  label();
+  fame = "";
+  if (state) {
+    mark();
+    render(state);
+  }
+};
 
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
@@ -116,8 +115,13 @@ $("lesson-next").onclick = () => act("next");
 // the theme, so it is redrawn at once.
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "dark" : "light");
+// The button shows the sun in dark mode and the moon in light: what a
+// click switches to. Its name, for screen readers and the tooltip, says so.
 function label() {
-  $("theme").textContent = theme() === "dark" ? t("toLight") : t("toDark");
+  document.documentElement.dataset.modeShown = theme();
+  const name = theme() === "dark" ? t("toLight") : t("toDark");
+  $("theme").title = name;
+  $("theme").setAttribute("aria-label", name);
 }
 $("theme").onclick = () => {
   const next = theme() === "dark" ? "light" : "dark";
@@ -324,7 +328,11 @@ function render(s) {
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
   lobby(s);
-  for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] }) : "";
+  // The tab shows a head count as a bare number; its tooltip says what.
+  for (const m of ["history", "live"]) {
+    $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
+    $(`here-${m}`).title = s.here[m] ? t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] }) : "";
+  }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : tr.name]));
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.

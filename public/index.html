@@ -25,13 +25,24 @@
       <button role="tab" data-mode="tutorial" aria-selected="false"><span data-t="tutorial">Tutorial</span></button>
     </nav>
     <p id="whoami" class="whoami"></p>
-    <div class="langs" role="group" aria-label="Language">
-      <button type="button" data-lang="en" lang="en">EN</button>
-      <button type="button" data-lang="ja" lang="ja">日本語</button>
-      <button type="button" data-lang="zh" lang="zh-CN">中文</button>
+    <div class="tools">
+      <label class="lang">
+        <span class="sr-only">Language</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        <select id="lang" aria-label="Language">
+          <option value="en" lang="en">English</option>
+          <option value="ja" lang="ja">日本語</option>
+          <option value="zh" lang="zh-CN">简体中文</option>
+        </select>
+      </label>
+      <button id="theme" class="icon" type="button">
+        <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
+        <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
+      </button>
+      <a class="icon about" href="/readme/" data-t-title="about" data-t-aria="about">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>
+      </a>
     </div>
-    <button id="theme" class="theme" type="button" aria-label="Light or dark"></button>
-    <a class="about" href="/readme/" data-t="about">About</a>
   </header>
 
   <main>
@@ -104,9 +115,9 @@
     <section class="panel ticket" aria-label="Order ticket">
       <div class="quotes">
         <button id="sell" class="side sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
-        <span class="spread" id="spread" data-t-title="spreadTitle"></span>
         <button id="buy" class="side buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
       </div>
+      <p class="spread" id="spread" data-t-title="spreadTitle"></p>
       <div class="field" id="leverage-box">
         <p class="label"><span data-t="leverage">Leverage</span> <span id="lev-note" class="note"></span></p>
         <div class="chips" id="leverage" role="radiogroup" aria-label="Leverage"></div>

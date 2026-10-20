@@ -108,24 +108,43 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .down { color: var(--down); }
 
 /* The top bar: brand, market tabs, who you are. */
-.top { display: flex; align-items: center; gap: 0.6rem 1.4rem; flex-wrap: wrap; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
-.brand { display: flex; align-items: baseline; gap: 0.6rem; color: inherit; text-decoration: none; }
+/* The top bar is a grid of fixed slots, so no language's longer or
+   shorter words move anything: brand, tabs, who you are, tools. Text
+   that cannot fit its slot is cut with an ellipsis, never wrapped. */
+/* Slot widths fit the longest language: the brand's Japanese subtitle,
+   the tabs' longest label three times over. */
+.top { display: grid; grid-template-columns: 344px 390px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
+.sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .logo { font-weight: 800; font-size: 1.45rem; letter-spacing: -0.01em; color: var(--pink); transform: rotate(-3deg); display: inline-block; text-shadow: 2px 2px 0 var(--logo-shadow); }
 .sub { color: var(--soft); font-size: 0.85rem; }
 .sub span { color: var(--muted); margin-left: 0.25rem; }
-.tabs { display: flex; gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
-.tabs button { border: none; background: none; border-radius: 7px; padding: 0.35rem 0.9rem; color: var(--soft); font-weight: 700; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
+.tabs button { border: none; background: none; border-radius: 7px; padding: 0.35rem 0.4rem; color: var(--soft); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tabs button[aria-selected="true"] { background: var(--pink); color: var(--on-pink); }
-.tabs em { font-style: normal; font-weight: 400; font-size: 0.75rem; margin-left: 0.2rem; opacity: 0.8; }
-.whoami { margin: 0 0 0 auto; color: var(--muted); font-size: 0.85rem; }
+/* Who is on each tab, as a small count badge. */
+.tabs em { font-style: normal; font-weight: 700; font-size: 0.7rem; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 999px; background: var(--raise); color: var(--soft); }
+.tabs em:empty { display: none; }
+.tabs button[aria-selected="true"] em { background: rgb(255 255 255 / 0.25); color: inherit; }
+.whoami { margin: 0; justify-self: end; max-width: 100%; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .whoami strong { color: var(--ink); }
 .whoami code { font: 0.8rem var(--mono); color: var(--pink); }
-.about { color: var(--soft); font-size: 0.85rem; white-space: nowrap; }
-.theme { padding: 0.3rem 0.6rem; font-size: 0.8rem; background: none; color: var(--soft); }
+/* The tools: a language menu, the theme as a sun or moon, About as an
+   info icon. Icons and a fixed-width menu are the same size in every
+   language. */
+.tools { display: flex; align-items: center; gap: 0.4rem; height: 34px; }
+.lang { position: relative; display: flex; align-items: center; color: var(--soft); }
+.lang svg { position: absolute; left: 0.55rem; pointer-events: none; }
+.lang select { width: 8.5rem; height: 34px; padding: 0 0.5rem 0 1.9rem; font-size: 0.82rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); cursor: pointer; }
+.icon { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--soft); }
+.icon:hover { color: var(--ink); border-color: var(--muted); }
+/* The button shows what a click switches to: the sun in dark mode, the
+   moon in light. */
+#theme .moon, :root[data-mode-shown="light"] #theme .sun { display: none; }
+:root[data-mode-shown="light"] #theme .moon { display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* The language switch: three short labels, the chosen one filled. */
-.langs { display: flex; gap: 0.15rem; padding: 0.15rem; border: 1px solid var(--line); border-radius: 8px; }
-.langs button { border: none; background: none; padding: 0.2rem 0.5rem; font-size: 0.78rem; color: var(--soft); border-radius: 6px; }
-.langs button[aria-pressed="true"] { background: var(--raise); color: var(--ink); font-weight: 700; }
+
 
 /* The terminal: chart and ticket on top, your position beneath the chart. */
 /* Two columns that stack on their own, so neither waits on the other's
@@ -140,12 +159,16 @@ main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-co
 .ticket { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
 /* The quote line above the chart. */
-.quote { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.3rem 0.9rem; padding: 0.7rem 0.9rem; }
+/* Pair, price and change on the first row, the clock at its end; the
+   mode line on a fixed second row, so its length moves nothing. */
+.quote { display: grid; grid-template-columns: auto auto 1fr auto; align-items: baseline; gap: 0.1rem 0.9rem; padding: 0.6rem 0.9rem; height: 4.6rem; overflow: hidden; }
+.quote .mode { grid-column: 1 / -1; grid-row: 2; }
+.quote .clock { grid-column: 4; grid-row: 1; justify-self: end; }
 .pair { font-weight: 800; font-size: 1.05rem; }
 .price { font: 600 1.9rem var(--mono); letter-spacing: -0.02em; }
 #change { font: 0.95rem var(--mono); }
-.mode { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
-.clock { font: 0.8rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.5rem; border-radius: 6px; }
+.mode { min-width: 0; color: var(--muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clock { flex: none; width: 10rem; text-align: center; font: 0.8rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-box { position: relative; }
 canvas { display: block; width: 100%; height: auto; background: var(--chart); }
 /* The parody's one wink: the chart window has a filename. */
@@ -156,45 +179,47 @@ canvas { display: block; width: 100%; height: auto; background: var(--chart); }
 .lobby[hidden] { display: none; }
 .lobby p { margin: 0; max-width: 30rem; color: var(--soft); }
 .lobby .lobby-title { font-size: 1.7rem; font-weight: 800; color: var(--ink); }
-.start { margin-top: 0.5rem; font-size: 1.1rem; font-weight: 800; padding: 0.65rem 1.8rem; border: none; border-radius: 999px; background: var(--pink); color: var(--on-pink); box-shadow: 0 4px 0 var(--press); }
+.start { margin-top: 0.5rem; width: 11rem; font-size: 1.1rem; font-weight: 800; padding: 0.65rem 1rem; white-space: nowrap; border: none; border-radius: 999px; background: var(--pink); color: var(--on-pink); box-shadow: 0 4px 0 var(--press); }
 .start:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--press); }
 .start[hidden] { display: none; }
 
 /* The order ticket. Sell sits left at the bid, buy right at the ask, as
    on every dealing screen; the spread sits between them. */
-.quotes { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: 0.4rem; }
+.quotes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; height: 88px; }
 .side { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 0.6rem 0.75rem; border: none; border-radius: 10px; color: var(--on-fill); }
 .side span { font-weight: 800; font-size: 0.95rem; }
 .side strong { font: 600 1.25rem var(--mono); }
 .side.sell { background: var(--down); }
 .side.buy { background: var(--up); align-items: flex-end; }
 .side:active:not(:disabled) { transform: translateY(1px); }
-.spread { align-self: center; font: 0.72rem var(--mono); color: var(--muted); writing-mode: vertical-rl; transform: rotate(180deg); }
-/* Japanese and Chinese stand upright in a vertical line, as in print. */
-:root:lang(ja) .spread, :root:lang(zh-CN) .spread { transform: none; text-orientation: upright; font-family: var(--round); letter-spacing: -0.05em; }
+.spread { margin: -0.4rem 0 0; height: 1.1rem; text-align: center; font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .field { display: grid; gap: 0.35rem; }
-.label { margin: 0; font-size: 0.82rem; color: var(--soft); }
+.label { margin: 0; height: 1.25rem; font-size: 0.82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .note { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .chips button { padding: 0.25rem 0.55rem; font: 0.82rem var(--mono); border-radius: 6px; background: var(--screen); color: var(--soft); }
 .chips button[aria-checked="true"] { background: var(--soft); color: var(--screen); border-color: var(--soft); }
 .chips button.risky[aria-checked="true"] { background: var(--pink); border-color: var(--pink); color: var(--on-pink); }
-.preview { margin: 0; font-size: 0.82rem; color: var(--muted); min-height: 2.4em; }
+/* Room for three lines, the longest any language's preview takes. */
+.preview { margin: 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); height: 4.35em; overflow: hidden; }
 .preview strong { color: var(--soft); font-family: var(--mono); font-weight: 600; }
 .acct { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0; padding-top: 0.7rem; border-top: 1px solid var(--line); }
 .acct dt { font-size: 0.72rem; color: var(--muted); }
-.acct dd { margin: 0; font: 600 0.95rem var(--mono); }
+/* Lines set to an exact height: Japanese and Chinese glyphs are taller
+   than Latin ones and would otherwise grow the row by a pixel. */
+.acct dt { height: 1.1rem; line-height: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct dd { margin: 0; height: 1.5rem; line-height: 1.5rem; font: 600 0.95rem/1.5rem var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meter { position: relative; height: 8px; margin-bottom: 1rem; border-radius: 4px; background: var(--raise); }
 #meter { height: 100%; border-radius: 4px; background: var(--up); transition: width 0.3s, background 0.3s; }
 .mark { position: absolute; top: 11px; font-size: 0.66rem; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
 .mark::before { content: ""; position: absolute; left: 50%; top: -11px; height: 8px; border-left: 1px dashed var(--muted); }
 .mark.out { left: 10%; }
-.meter-key { margin: -0.4rem 0 0; font-size: 0.72rem; color: var(--muted); }
+.meter-key { margin: -0.4rem 0 0; height: 1rem; line-height: 1rem; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mark.call { left: 25%; }
-.borrow { background: var(--loan-bg); border-color: var(--call); color: var(--loan-ink); font-weight: 700; }
+.borrow { height: 2.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--loan-bg); border-color: var(--call); color: var(--loan-ink); font-weight: 700; }
 .borrow[hidden] { display: none; }
-.pray { background: none; border-style: dashed; color: var(--muted); font-size: 0.85rem; }
-.error { margin: 0; min-height: 1.2em; color: var(--down); font-size: 0.85rem; }
+.pray { height: 2.25rem; background: none; border-style: dashed; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.error { margin: 0; height: 2.6em; color: var(--down); font-size: 0.85rem; overflow: hidden; }
 
 /* Your position, one row with its own close button, as on any platform. */
 table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -223,8 +248,10 @@ th:first-child, td:first-child { text-align: left; }
 .pos.short { background: var(--down); }
 
 /* The feed: what just happened in the room. */
-#feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; max-height: 15rem; overflow: auto; }
-#feed li { padding: 0.15rem 0; color: var(--soft); }
+/* A fixed window onto the feed, so a language with longer lines, or a
+   busy round, never pushes the panels below. */
+#feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; height: 15rem; overflow: auto; }
+#feed li { padding: 0.15rem 0; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #feed .k-call { color: var(--call); font-weight: 700; }
 #feed .k-bust { color: var(--down); font-weight: 700; }
 #feed .k-win { color: var(--up); }
@@ -251,6 +278,13 @@ th:first-child, td:first-child { text-align: left; }
 /* The tutorial: a lesson across the top, the controls it names lit. */
 body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
 .lesson[hidden] { display: none; }
+/* A fixed height, set by the longest lesson in any language at each
+   width, so no lesson and no language moves the market below it. */
+.lesson { height: 196px; overflow: hidden; display: flex; flex-direction: column; }
+.lesson .lesson-body { flex: 1; min-height: 0; }
+/* The lesson's words scroll in their column if they ever run long; the
+   task and its buttons stay put. */
+.lesson .lesson-body > div:first-child { min-height: 0; overflow: auto; }
 .lesson-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 0.4rem 1.4rem; padding: 0.9rem 1rem; }
 .lesson-n { margin: 0; font-size: 0.78rem; color: var(--pink); }
 .lesson h2 { margin: 0.1rem 0 0.4rem; padding: 0; border: none; font-size: 1.2rem; color: var(--ink); }
@@ -259,6 +293,8 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
 .task span { display: block; font-size: 0.75rem; color: var(--pink); }
 .task strong { color: var(--ink); }
 .lesson .row { display: flex; gap: 0.5rem; }
+.lesson .row button { width: 7.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task { height: 4.6rem; overflow: hidden; }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }
 .next[hidden] { display: none; }
 .ghost { background: none; }
@@ -272,6 +308,14 @@ body.readme main { display: block; max-width: 44rem; margin: 0 auto; padding: 1.
 body.readme a { color: var(--pink); }
 body.readme h1, body.readme h2 { color: var(--ink); }
 
+/* Middle widths: who you are takes a row of its own beneath, so brand,
+   tabs and tools keep their slots. */
+@media (max-width: 1180px) {
+  .lesson { height: 220px; }
+  .top { grid-template-columns: 344px 390px minmax(0, 1fr); }
+  .tools { justify-self: end; }
+  .whoami { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+}
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */
 @media (max-width: 900px) {
@@ -283,16 +327,33 @@ body.readme h1, body.readme h2 { color: var(--ink); }
   .room { order: 4; }
   .feed { order: 5; }
   .fame { order: 6; }
-  .lesson-body { grid-template-columns: minmax(0, 1fr); }
-  .whoami { margin: 0; flex-basis: 100%; order: 3; }
+  /* One column: the words take what is left, the task and buttons a
+     fixed row at the bottom. */
+  .lesson-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .lesson { height: 360px; }
+  .top { grid-template-columns: minmax(0, 1fr) auto; }
+  .brand { grid-column: 1; grid-row: 1; }
+  .tools { grid-column: 2; grid-row: 1; }
+  .tabs { grid-column: 1 / -1; grid-row: 2; }
+  .whoami { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
 }
 /* On a phone the position row becomes a card, each figure labelled, and
    Close spans the width: it must never scroll out of reach. */
 @media (max-width: 560px) {
   /* Tabs share the width, labels kept on one line; the chart is tall
      enough to hold the lobby and its Start button. */
-  .tabs { width: 100%; }
-  .tabs button { flex: 1 1 0; padding: 0.35rem 0.3rem; white-space: nowrap; font-size: 0.85rem; }
+  .tabs button { font-size: 0.85rem; }
+  .lesson { height: 472px; }
+  /* The empty-position line wraps in a box sized for two lines. */
+  #pos-empty td { height: 3.6rem; vertical-align: top; }
+  /* The brand is the logo alone; the subtitle is in the page title. */
+  .sub { display: none; }
+  /* Pair and price, then the clock, then the mode, each its own row. */
+  .quote { grid-template-columns: auto 1fr; height: 6.6rem; }
+  .quote .price { grid-column: 2; }
+  .quote #change { grid-column: 1; grid-row: 2; }
+  .quote .clock { grid-column: 2; grid-row: 2; }
+  .quote .mode { grid-row: 3; white-space: normal; }
   .tabs em { display: none; }
   .chart-box { min-height: 270px; }
   canvas { height: 270px; }
