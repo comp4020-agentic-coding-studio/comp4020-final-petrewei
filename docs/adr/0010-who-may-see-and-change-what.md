@@ -23,7 +23,7 @@ The agent proposed the third; Peter accepted it with the game. Every rule below 
 | A learner, on the Tutorial tab | their own tutorial: lesson, practice account and scripted prices, and nobody else's ([ADR 0013](0013-a-private-tutorial.md)) | their own tutorial, by the move the lesson teaches, or starting again | `spec/tutorial.test.ts`, `test/tutorial.test.ts` |
 | The operator, with `STATS_KEY` | the activity log in `/data/activity.log`: every person's action by short code and trader name | nothing more than any visitor | `spec/log.test.ts`, `test/log.test.ts` |
 
-Prices, fills, margin calls and stop-outs happen on the server's clock at the server's price; a page cannot send a price. A request body over 1 KB is refused. The key is a Fly secret compared in constant time; without it `/log`, `/log.js` and `/api/log` answer 404. The bots' trades go to stdout but not to the saved log, so the crit's narration shows people.
+Prices, fills, margin calls and stop-outs happen on the server's clock at the server's price; a page cannot send a price. A request body over 1 KB is refused. The key is a Fly secret compared in constant time; without it `/log`, `/log.js` and `/api/log` answer 404. The bots' trades are logged nowhere, neither to stdout nor to the saved log, so the crit's narration from `flyctl logs` shows people; the room's feed shows the bots' trades, and each round's end line their results.
 
 ## 4 Consequences
 
