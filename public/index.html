@@ -5,45 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Losscut! Kurumi's FX Fantasy</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap">
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <header>
-    <h1>Losscut! <span class="jp">Kurumi's FX Fantasy · ロスカット</span></h1>
-    <p class="tag">A parody trading floor. Play money only. Leverage is a joke here, and a trap everywhere else.</p>
-    <a href="/readme/">About</a>
+  <header class="top">
+    <a class="brand" href="/" aria-label="Losscut! home">
+      <span class="logo">Losscut!</span>
+      <span class="sub">Kurumi's FX Fantasy <span lang="ja">ロスカット</span></span>
+    </a>
+    <nav class="tabs" role="tablist" aria-label="Market">
+      <button role="tab" data-mode="history" aria-selected="true">History <em id="here-history"></em></button>
+      <button role="tab" data-mode="live" aria-selected="false">Live <em id="here-live"></em></button>
+      <button role="tab" data-mode="tutorial" aria-selected="false">Tutorial</button>
+    </nav>
+    <p id="whoami" class="whoami"></p>
+    <a class="about" href="/readme/">About</a>
   </header>
 
   <main>
-    <nav class="tabs" role="tablist" aria-label="Market">
-      <button role="tab" data-mode="history" aria-selected="true"><strong>History</strong> <span>real days, date hidden</span> <em id="here-history"></em></button>
-      <button role="tab" data-mode="live" aria-selected="false"><strong>Live</strong> <span>from today's real rate</span> <em id="here-live"></em></button>
-      <button role="tab" data-mode="tutorial" aria-selected="false"><strong>Tutorial</strong> <span>new to trading? start here</span></button>
-      <p id="whoami" class="whoami"></p>
-    </nav>
-
-    <section class="win lesson-win" id="lesson" hidden aria-live="polite">
-      <div class="bar"><span class="file">lesson.txt</span><span id="lesson-n"></span></div>
+    <section class="panel lesson" id="lesson" hidden aria-live="polite">
       <div class="lesson-body">
         <div>
+          <p class="lesson-n" id="lesson-n"></p>
           <h2 id="lesson-title"></h2>
           <p id="lesson-text"></p>
         </div>
         <div class="lesson-do">
-          <p class="task"><span>Your turn:</span> <strong id="lesson-task"></strong></p>
+          <p class="task"><span>Your turn</span> <strong id="lesson-task"></strong></p>
           <div class="row">
-            <button id="lesson-next" class="next">Next →</button>
-            <button id="restart">Start again</button>
+            <button id="lesson-next" class="next">Next</button>
+            <button id="restart" class="ghost">Start again</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="win chart-win">
-      <div class="bar"><span class="file" id="title">chart.exe</span><span id="clock"></span></div>
-      <div class="quote"><span id="pair">—</span> <strong id="price">—</strong> <span id="change"></span><span id="mode" class="mode"></span></div>
+    <div class="col main-col">
+    <section class="panel chart-panel" aria-label="Chart">
+      <div class="quote">
+        <span class="pair" id="pair">—</span>
+        <strong class="price" id="price">—</strong>
+        <span id="change"></span>
+        <span class="mode" id="mode"></span>
+        <span class="clock" id="clock"></span>
+      </div>
       <div class="chart-box">
-        <canvas id="chart" width="800" height="320" aria-label="Price chart"></canvas>
+        <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
+        <p class="file" id="title">chart.exe</p>
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
@@ -52,46 +63,66 @@
       </div>
     </section>
 
-    <section class="win trade-win">
-      <div class="bar"><span class="file">my_account.txt</span><span id="who"></span></div>
+    <section class="panel positions" aria-label="Your position">
+      <table>
+        <thead><tr><th>Position</th><th>Entry</th><th>Now</th><th>Margin</th><th>P&amp;L</th><th>Stop</th><th></th></tr></thead>
+        <tbody>
+          <tr id="pos-row" hidden>
+            <td id="pos-side"></td>
+            <td id="pos-entry" data-label="Entry"></td>
+            <td id="pos-now" data-label="Now"></td>
+            <td id="pos-margin" data-label="Margin"></td>
+            <td id="pos-pnl" data-label="P&amp;L"></td>
+            <td><button id="stop" class="mini"></button></td>
+            <td><button id="close" class="close" aria-label="Close this position">Close</button></td>
+          </tr>
+          <tr id="pos-empty"><td colspan="7" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel feed" aria-label="Feed">
+      <h2>Feed</h2>
+      <ul id="feed"></ul>
+    </section>
+
+    <section class="panel fame" aria-label="Hall of fame">
+      <h2>Hall of fame <span>all-time profit</span></h2>
+      <table><thead><tr><th>Trader</th><th>Rounds</th><th>Profit</th><th>Wins</th><th>Busts</th></tr></thead><tbody id="career"></tbody></table>
+    </section>
+    </div>
+    <div class="col side-col">
+    <section class="panel ticket" aria-label="Order ticket">
+      <div class="quotes">
+        <button id="sell" class="side sell"><span>Sell</span><strong id="bid">—</strong></button>
+        <span class="spread" id="spread" title="The spread: the broker's cut between the selling and buying price"></span>
+        <button id="buy" class="side buy"><span>Buy</span><strong id="ask">—</strong></button>
+      </div>
+      <div class="field" id="leverage-box">
+        <p class="label">Leverage <span id="lev-note" class="note"></span></p>
+        <div class="chips" id="leverage" role="radiogroup" aria-label="Leverage"></div>
+      </div>
+      <div class="field" id="stake-box">
+        <p class="label">Stake <span class="note">of your free money</span></p>
+        <div class="chips" id="stake" role="radiogroup" aria-label="Stake"></div>
+      </div>
+      <p class="preview" id="preview"></p>
       <dl class="acct">
         <div><dt>Net worth</dt><dd id="equity">—</dd></div>
         <div id="pnl-box"><dt>Open P&amp;L</dt><dd id="pnl">—</dd></div>
         <div id="level-box"><dt>Margin level</dt><dd id="level">—</dd></div>
       </dl>
-      <div class="meter"><div id="meter"></div><span class="mark call">call</span><span class="mark out">out</span></div>
-      <p id="position" class="position">No position.</p>
-      <div class="row">
-        <label id="leverage-box">Leverage <select id="leverage"></select></label>
-        <label id="stake-box">Stake <select id="stake"><option value="0.25">25%</option><option value="0.5">50%</option><option value="1" selected>100%</option></select></label>
-      </div>
-      <div class="row big">
-        <button id="buy" class="buy">BUY</button>
-        <button id="sell" class="sell">SELL</button>
-      </div>
-      <div class="row">
-        <button id="close">Close position</button>
-        <button id="stop">Stop at −1%</button>
-        <button id="pray" title="Does nothing. Counted anyway.">🙏 Pray</button>
-      </div>
+      <div class="meter" aria-hidden="true"><div id="meter"></div><span class="mark out">20%</span><span class="mark call">50%</span></div>
+      <p class="meter-key">Margin call at 50%, forced loss cut at 20%</p>
       <button id="borrow" class="borrow" hidden>Borrow ¥300,000 from Dad's savings</button>
+      <button id="pray" class="pray" title="Does nothing. Counted anyway.">Pray to the chart</button>
       <p id="error" class="error" role="status"></p>
     </section>
-
-    <section class="win room-win">
-      <div class="bar"><span class="file">traders.csv</span><span id="count"></span></div>
+    <section class="panel room" aria-label="Traders in this room">
+      <h2>Room <span id="count"></span></h2>
       <ol id="traders"></ol>
     </section>
-
-    <section class="win feed-win">
-      <div class="bar"><span class="file">news_feed.log</span></div>
-      <ul id="feed"></ul>
-    </section>
-
-    <section class="win career-win">
-      <div class="bar"><span class="file">hall_of_fame.db</span><span>all-time profit</span></div>
-      <table><thead><tr><th>Trader</th><th>Rounds</th><th>Profit</th><th>Wins</th><th>Busts</th></tr></thead><tbody id="career"></tbody></table>
-    </section>
+    </div>
   </main>
 
   <div id="bell" class="overlay" hidden>
@@ -102,9 +133,9 @@
       <p class="bell-next">Back to the lobby in <span id="next"></span>s</p>
     </div>
   </div>
-  <div id="losscut" class="losscut" hidden><span>強制ロスカット</span><small id="losscut-sub">FORCED LOSS CUT</small></div>
+  <div id="losscut" class="losscut" hidden><span lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
 
-  <footer>Rates: ECB euro reference rates (crosses derived) and Frankfurter for today's rate. Live rounds are simulated from today's rate. Parody, not affiliated with any comic, studio or broker. Most retail leveraged FX traders lose money. If gambling or debt is hurting you, in Australia call the Gambling Help line on 1800 858 858.</footer>
+  <footer>Rates: ECB euro reference rates (crosses derived), and Frankfurter for today's rate; Live moves are simulated. A parody, not affiliated with any comic, studio or broker. Play money only. Most retail leveraged FX traders lose money. If gambling or debt is hurting you, in Australia call the Gambling Help line on 1800 858 858.</footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

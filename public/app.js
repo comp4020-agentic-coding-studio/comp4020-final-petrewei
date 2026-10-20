@@ -9,8 +9,36 @@ let state = null;
 let cuts = null;
 let fame = "";
 
-const lev = $("leverage");
-const LABELS = { 1: "1× (sensible)", 5: "5×", 10: "10×", 25: "25× (Japan's legal cap)", 100: "100× (offshore)", 400: "400× (brave)", 1000: "1000× (Leverage fixes everything~♪)" };
+// Leverage and stake are chip groups that hold their choice. What each
+// leverage means is said beside it, in the parody's voice.
+const NOTES = { 1: "sensible", 5: "", 10: "", 25: "Japan's legal cap", 100: "offshore", 400: "brave", 1000: "Leverage fixes everything~♪" };
+const STAKES = [0.25, 0.5, 1];
+const choice = { leverage: 25, stake: 1 };
+function chips(id, values, label, key, risky = () => false) {
+  $(id).replaceChildren(
+    ...values.map((v) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "radio");
+      b.textContent = label(v);
+      b.dataset.value = v;
+      if (risky(v)) b.classList.add("risky");
+      b.onclick = () => {
+        choice[key] = v;
+        mark();
+        if (state) ticket(state);
+      };
+      return b;
+    }),
+  );
+}
+function mark() {
+  for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"]]) {
+    for (const b of $(id).children) b.setAttribute("aria-checked", String(Number(b.dataset.value) === choice[key]));
+  }
+  $("lev-note").textContent = NOTES[choice.leverage] ?? "";
+}
+chips("stake", STAKES, (v) => `${v * 100}%`, "stake");
 
 // The market this page is on, from the tab, kept in the address so a
 // shared link or a reload opens the same one.
@@ -22,7 +50,7 @@ async function act(kind, extra = {}) {
   const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
   if (!res.ok) $("error").textContent = (await res.json()).error ?? "Refused.";
 }
-const order = (kind) => () => act(kind, { leverage: Number(lev.value), stake: Number($("stake").value) });
+const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake });
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
@@ -71,6 +99,31 @@ $("stop").onclick = () => {
   act("stop", pos.stop ? {} : { pct: 1 });
 };
 
+// The ticket: the prices a sell and a buy fill at, and what the chosen
+// order would put at stake, worked out from the account the server sent.
+function ticket(s) {
+  $("bid").textContent = s.bid.toFixed(s.digits);
+  $("ask").textContent = s.ask.toFixed(s.digits);
+  $("spread").textContent = `spread ${((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1)} pips`;
+  const free = Math.max(0, s.you.equity - (s.you.pos?.margin ?? 0));
+  const margin = Math.floor(free * choice.stake);
+  const controls = margin * choice.leverage;
+  // At L× leverage, a move of 1/L against you is everything you put in.
+  const wipe = 100 / choice.leverage;
+  // With a position open, a same-side order adds to it and an opposite
+  // one closes it, so the preview says which.
+  const pos = s.you.pos;
+  const move = `A ${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}% move against you loses all of it.`;
+  $("preview").replaceChildren(
+    ...(pos
+      ? [`${pos.side === 1 ? "Buy" : "Sell"} adds `, strong(yen(margin)), ` at ${choice.leverage}×; ${pos.side === 1 ? "Sell" : "Buy"} closes your position.`]
+      : margin > 0
+        ? ["Puts in ", strong(yen(margin)), " to control ", strong(yen(controls)), `. ${move}`]
+        : ["No free money to trade with."]),
+  );
+}
+const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
+
 function draw(s) {
   const canvas = $("chart");
   const ctx = canvas.getContext("2d");
@@ -90,8 +143,10 @@ function draw(s) {
   // Day lines, and the price grid on the right.
   ctx.strokeStyle = css.getPropertyValue("--chart-grid");
   ctx.lineWidth = 1;
-  ctx.fillStyle = "#b9a6cf";
-  ctx.font = "12px ui-monospace, monospace";
+  const up = css.getPropertyValue("--up");
+  const down = css.getPropertyValue("--down");
+  ctx.fillStyle = css.getPropertyValue("--muted");
+  ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
   const k = s.steps;
   for (let d = 0; d * k <= s.total; d += 5) {
     const xd = x(d * k);
@@ -106,7 +161,8 @@ function draw(s) {
     ctx.moveTo(0, y(p));
     ctx.lineTo(w - 70, y(p));
     ctx.stroke();
-    ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - 4, Math.max(12, y(p) + 4)));
+    // Grid labels that would sit under the last-price tag are skipped.
+    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - 4, Math.max(12, y(p) + 4)));
   }
   // The entry and the stop of my own position.
   const pos = s.you.pos;
@@ -121,14 +177,14 @@ function draw(s) {
     ctx.fillStyle = colour;
     ctx.fillText(label, w - 70 - ctx.measureText(label).width - 6, y(p) - 4);
   };
-  if (pos) level(pos.entry, pos.side === 1 ? "#12a37a" : "#e5384f", `${pos.side === 1 ? "long" : "short"} ${pos.leverage}×`);
-  if (pos?.stop) level(pos.stop, "#ff9f1c", "stop");
+  if (pos) level(pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? "long" : "short"} ${pos.leverage}×`);
+  if (pos?.stop) level(pos.stop, css.getPropertyValue("--call"), "stop");
   // One candle a day, then the price line through today's ticks.
   for (let d = 0; d * k < prices.length - 1; d++) {
     const day = prices.slice(d * k, d * k + k + 1);
     const open = day[0];
     const close = day.at(-1);
-    const colour = close >= open ? "#12a37a" : "#e5384f";
+    const colour = close >= open ? up : down;
     const cx = x(d * k + k / 2);
     ctx.strokeStyle = colour;
     ctx.beginPath();
@@ -147,7 +203,7 @@ function draw(s) {
   ctx.stroke();
   ctx.fillStyle = css.getPropertyValue("--chart-line");
   ctx.fillRect(w - 70, y(last) - 9, 70, 18);
-  ctx.fillStyle = "#1f1530";
+  ctx.fillStyle = css.getPropertyValue("--chart");
   ctx.fillText(last.toFixed(s.digits), w - 66, y(last) + 4);
 }
 
@@ -182,9 +238,10 @@ function render(s) {
   for (const m of ["history", "live"]) $(`here-${m}`).textContent = s.here[m] ? `${s.here[m]} here` : "";
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
-  if (!lev.options.length) {
-    const chosen = s.you.pos?.leverage ?? 25;
-    for (const l of s.leverages) lev.add(new Option(LABELS[l] ?? `${l}×`, l, false, l === chosen));
+  if (!$("leverage").children.length) {
+    choice.leverage = s.you.pos?.leverage ?? 25;
+    chips("leverage", s.leverages, (v) => `${v}×`, "leverage", (v) => v >= 100);
+    mark();
   }
   const price = s.prices.at(-1);
   const first = s.prices[0];
@@ -193,13 +250,14 @@ function render(s) {
   const ch = (price / first - 1) * 100;
   $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
   $("change").className = ch >= 0 ? "up" : "down";
-  $("mode").textContent = tutorial ? "TUTORIAL · scripted prices" : s.simulated ? "LIVE start · simulated moves" : "REPLAY · date hidden";
+  $("mode").textContent = tutorial ? "Tutorial: scripted prices" : s.simulated ? "Live: today's rate, then simulated" : "Replay: the date is hidden until the bell";
   $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
   $("clock").textContent = tutorial ? "practice · private" : s.phase === "trade" ? `day ${Math.max(1, Math.ceil(s.tick / s.steps))} / ${s.total / s.steps}` : s.phase === "countdown" ? `opens in ${s.countdown}s` : s.phase === "lobby" ? "waiting for Start" : "market closed";
-  $("who").textContent = s.you.name;
   // Built from text nodes: the name comes from the server, never as HTML.
-  $("whoami").replaceChildren("You are ", Object.assign(document.createElement("strong"), { textContent: s.you.name }), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), " · this browser is your trader");
+  $("whoami").replaceChildren("You are ", strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }));
+  $("whoami").title = "This browser is your trader. Others see you by this name.";
   draw(s);
+  ticket(s);
 
   const y = s.you;
   $("equity").textContent = yen(y.equity - y.debt);
@@ -211,18 +269,33 @@ function render(s) {
   $("meter").style.width = `${fill}%`;
   $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
   $("borrow").hidden = !(y.broke && y.loansLeft > 0 && open);
-  $("position").textContent = y.broke && y.loansLeft > 0
-    ? "Broke. Dad's savings are right there…"
-    : y.out
-      ? "Wiped out, and Dad's savings are gone. Watch the others until next round."
-    : y.pos
-      ? `${y.pos.side === 1 ? "LONG" : "SHORT"} at ${y.pos.entry.toFixed(s.digits)}, ${y.pos.leverage}×, margin ${yen(y.pos.margin)}${y.pos.stop ? `, stop ${y.pos.stop.toFixed(s.digits)}` : ", no stop"}`
-      : "No position.";
-  if (y.debt) $("position").textContent += ` Owed to Dad: ${yen(y.debt)}.`;
+  // Your position: one row with its own close and stop, as on any
+  // platform, or a line saying what to do when there is none.
+  $("pos-row").hidden = !y.pos;
+  $("pos-empty").hidden = !!y.pos;
+  if (y.pos) {
+    const side = Object.assign(document.createElement("span"), { className: `tag ${y.pos.side === 1 ? "long" : "short"}`, textContent: y.pos.side === 1 ? "Long" : "Short" });
+    $("pos-side").replaceChildren(side, ` ${s.pair} ${y.pos.leverage}×`);
+    $("pos-entry").textContent = y.pos.entry.toFixed(s.digits);
+    $("pos-now").textContent = price.toFixed(s.digits);
+    $("pos-margin").textContent = yen(y.pos.margin);
+    $("pos-pnl").textContent = yen(y.pnl);
+    $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
+    $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : "Add 1% stop";
+    $("stop").title = y.pos.stop ? "Remove the stop" : "Close automatically if the price moves 1% against you";
+  } else {
+    $("position").textContent = y.broke && y.loansLeft > 0
+      ? "You're broke. Dad's savings are right there…"
+      : y.out
+        ? "Wiped out, and Dad's savings are gone. Watch the others until the next round."
+        : open
+          ? "No open position. Pick a leverage, then Buy or Sell."
+          : "No open position.";
+  }
+  if (y.debt) $("position").textContent += ` You owe Dad ${yen(y.debt)}.`;
   const closed = !open || y.out;
   for (const id of ["buy", "sell", "pray"]) $(id).disabled = closed;
   for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
-  $("stop").textContent = y.pos?.stop ? "Remove stop" : "Stop at −1%";
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
@@ -244,7 +317,7 @@ function render(s) {
       n.textContent = t.name + (t.you ? " (you)" : "");
       if (t.bot) {
         n.title = t.motto ?? "";
-        n.insertAdjacentHTML("beforeend", ' <span class="botmark">bot</span>');
+        n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: "bot" }));
       }
       const p = document.createElement("span");
       if (t.side) {
@@ -253,7 +326,7 @@ function render(s) {
       }
       const e = document.createElement("span");
       e.textContent = yen(t.equity);
-      e.className = t.equity >= s.start ? "up" : "down";
+      e.className = `eq ${t.equity >= s.start ? "up" : "down"}`;
       li.append(n, p, e);
       return li;
     }),
