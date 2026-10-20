@@ -116,7 +116,9 @@ function ticket(s) {
   const move = `A ${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}% move against you loses all of it.`;
   $("preview").replaceChildren(
     ...(pos
-      ? [`${pos.side === 1 ? "Buy" : "Sell"} adds `, strong(yen(margin)), ` at ${choice.leverage}×; ${pos.side === 1 ? "Sell" : "Buy"} closes your position.`]
+      ? margin > 0
+        ? [`${pos.side === 1 ? "Buy" : "Sell"} adds `, strong(yen(margin)), ` at ${choice.leverage}×; ${pos.side === 1 ? "Sell" : "Buy"} closes your position.`]
+        : [`All your money is in this position. ${pos.side === 1 ? "Sell" : "Buy"} closes it.`]
       : margin > 0
         ? ["Puts in ", strong(yen(margin)), " to control ", strong(yen(controls)), `. ${move}`]
         : ["No free money to trade with."]),
