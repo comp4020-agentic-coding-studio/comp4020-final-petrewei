@@ -47,20 +47,18 @@ it("tells two traders apart by short code and name, never by cookie", async () =
 }, 20_000);
 
 it("keeps the log and the hall of fame through a hard kill", async () => {
-  s = await server(8097, { STATS_KEY: KEY, TICK_MS: "10" });
+  s = await server(8097, { STATS_KEY: KEY, TICK_MS: "10", COUNTDOWN_TICKS: "2" });
   const { visitor, act, open, state } = app();
   const a = await visitor();
-  await open(30);
-  // a wipe-out at 1000x is recorded at once, before the round ends
-  await act(a, { kind: "buy", leverage: 1000 });
+  // a wipe-out at 1000x is recorded at once, before the round ends; a
+  // round that ends first is started again, until one does
   let busted = false;
-  for (let i = 0; i < 200 && !busted; i++) {
+  for (const until = Date.now() + 20_000; !busted && Date.now() < until; ) {
+    if ((await state()).phase !== "trade") await open(30);
+    const st = await state(a);
+    if (!st.you.pos && !st.you.out && !st.you.broke) await act(a, { kind: "buy", leverage: 1000 });
+    await new Promise((r) => setTimeout(r, 25));
     busted = (await log()).recent.some((l) => l.ev === "stopout" || l.ev === "zerocut");
-    if (!busted) {
-      await new Promise((r) => setTimeout(r, 25));
-      const st = await state(a);
-      if (!st.you.pos && !st.you.out && !st.you.broke) await act(a, { kind: "buy", leverage: 1000 });
-    }
   }
   expect(busted).toBe(true);
   const fame = async () => (await state(a)).career;
@@ -132,8 +130,73 @@ it("prints people's actions and rounds to stdout, never the bots'", async () => 
   await act(a, { kind: "buy", leverage: 5 });
   let seen = await state();
   for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state();
-  const lines = s.out.filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Line);
-  expect(lines.some((l) => l.ev === "open" && /^[0-9a-f]{6}$/.test(l.who))).toBe(true);
-  expect(lines.some((l) => l.ev === "end")).toBe(true);
-  expect(lines.filter((l) => l.who.startsWith("bot:"))).toEqual([]);
+  expect(s.out.some((l) => / open who=[0-9a-f]{6} /.test(l))).toBe(true);
+  expect(s.out.some((l) => / end who=server /.test(l))).toBe(true);
+  expect(s.out.filter((l) => / who=bot:/.test(l))).toEqual([]);
+}, 30_000);
+
+// Lecture 10: a request ID ties an event to the request that caused it.
+// stdout, which `flyctl logs` shows, prints one readable line per event,
+// tagged with its request, and one line per request with its status and
+// time; an event the clock caused, such as a stop-out, has no request.
+it("tags each action and its request with one ID, readably, on stdout", async () => {
+  s = await server(8097, { STATS_KEY: KEY, TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  const { visitor, act, open } = app();
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "sell", leverage: 7 });
+  await new Promise((r) => setTimeout(r, 200));
+  const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
+  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name="[A-Z][a-z]+ [A-Z][a-z]+" mode=history .*side=buy leverage=5/);
+  const id = opened!.slice(1, 7);
+  expect(s.out).toContainEqual(expect.stringMatching(new RegExp(`^\\[${id}\\] POST /api/act 200 \\d+ms who=[0-9a-f]{6}$`)));
+  expect(s.out).toContainEqual(expect.stringMatching(/^\[[0-9a-f]{6}\] refused .*why="No such leverage\."/));
+  expect(s.out).toContainEqual(expect.stringMatching(/\] POST \/api\/act 409 \d+ms/));
+  expect(s.out.some((l) => l.includes(a.slice(2)))).toBe(false);
+  // The saved log, read by /log, stays JSON and carries the same ID.
+  const saved = (await log()).recent;
+  expect(saved.find((l) => l.ev === "open")).toMatchObject({ req: id });
+}, 30_000);
+
+// Lecture 10 and ADR 0014: two people pressing Start at the same moment
+// start one round, and the second is told it is already about to start.
+it("starts one round when two people press Start at once", async () => {
+  s = await server(8097, { STATS_KEY: KEY });
+  const { visitor, page, attempt, state } = app();
+  expect((await state(undefined, "live")).phase).toBe("lobby");
+  const a = await visitor();
+  const b = await visitor();
+  const pa = await page(a, "live");
+  const pb = await page(b, "live");
+  try {
+    const [ra, rb] = await Promise.all([attempt({ kind: "start", mode: "live" }, a), attempt({ kind: "start", mode: "live" }, b)]);
+    expect([ra.status, rb.status].sort()).toEqual([200, 409]);
+    expect((await (ra.status === 409 ? ra : rb).json()).error).toMatch(/about to start/);
+    expect((await state(undefined, "live")).phase).toBe("countdown");
+    expect((await log()).recent.filter((l) => l.ev === "ask")).toHaveLength(1);
+  } finally {
+    pa.close();
+    pb.close();
+  }
+}, 20_000);
+
+// Lecture 10: a visitor is the same person after a restart. The name and
+// code come from the cookie, so a hard kill changes neither, and the hall
+// of fame still marks their row as theirs.
+it("keeps a visitor's name, code and career through a hard kill", async () => {
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  const { visitor, act, open, state } = app();
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  let seen = await state(a);
+  for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state(a);
+  const before = seen as unknown as { you: { name: string; code: string } };
+  s.proc.kill("SIGKILL");
+  await new Promise((r) => s.proc.once("exit", r));
+  await s.restart();
+  const after = (await state(a)) as unknown as { you: { name: string; code: string }; career: { you: boolean; rounds: number }[] };
+  expect(after.you).toMatchObject({ name: before.you.name, code: before.you.code });
+  expect(after.career.find((c) => c.you)?.rounds).toBe(1);
 }, 30_000);

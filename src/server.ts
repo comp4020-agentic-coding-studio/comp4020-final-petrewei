@@ -5,7 +5,8 @@
 // 0010). A round is three minutes: History replays real days with the
 // date hidden, Live simulates on from today's rate. The hall of fame,
 // across both, is kept on the volume.
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -84,11 +85,25 @@ const recent: Line[] = readActivity().slice(-300);
 // would bury two classmates' lines in `flyctl logs`, so they are left out;
 // the room's feed shows their trades, and each round's "end" line their
 // results.
+//
+// Each request gets a short random ID, held for as long as the request is
+// handled, so every event it causes carries it and its own request line
+// ties the two together, as in the week 10 lecture. Events the clock
+// causes, such as a stop-out or a round's end, carry none, which tells
+// "they clicked" from "the market moved". stdout gets one readable line
+// per event for narrating from `flyctl logs`; the saved log stays JSON.
+const requests = new AsyncLocalStorage<string>();
+const value = (v: unknown): string => (typeof v === "string" && /[\s"=]/.test(v) ? JSON.stringify(v) : Array.isArray(v) ? JSON.stringify(v) : String(v));
+function readable(line: Line): string {
+  const { t: _t, req, ev, ...rest } = line;
+  return `[${req ?? "------"}] ${ev} ${Object.entries(rest).map(([k, v]) => `${k}=${value(v)}`).join(" ")}`.trimEnd();
+}
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
   if (who !== null && bot(who)) return;
-  const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
+  const req = requests.getStore();
+  const line: Line = { t: new Date().toISOString(), ...(req ? { req } : {}), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
-  console.log(text);
+  console.log(readable(line));
   recent.push(line);
   recent.splice(0, recent.length - 300);
   try {
@@ -394,6 +409,7 @@ class Market {
       breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
       you: {
         name: nameOf(who),
+        code: short(who),
         balance: mine?.balance ?? START,
         equity: Math.round(mine ? desk.equity(who) : START),
         pnl: Math.round(mine ? desk.pnl(who) : 0),
@@ -466,6 +482,7 @@ function tutorialView(who: string) {
     lesson: { n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
     you: {
       name: nameOf(who),
+      code: short(who),
       balance: a.balance,
       equity: Math.round(t.desk.equity("me")),
       pnl: Math.round(t.desk.pnl("me")),
@@ -551,7 +568,7 @@ function operator(url: URL): boolean {
 const ids = (): Set<string> => new Set([...listeners].map((l) => l.who));
 const here = (): number => ids().size;
 
-createServer(async (req, res) => {
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/$/, "") : url.pathname;
   let who = req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
@@ -579,9 +596,12 @@ createServer(async (req, res) => {
     listeners.add(listener);
     log(who, already ? "tab" : "join", { mode: "tutorial", ...(already ? {} : { here: here() }) });
     res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
+    // The page's close runs later, outside this request; it keeps the ID
+    // of the request that opened it, so its join and leave pair up.
+    const opened = requests.getStore();
     req.on("close", () => {
       listeners.delete(listener);
-      if (!ids().has(who)) log(who, "leave", { here: here() });
+      if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
     });
     return;
   }
@@ -598,9 +618,12 @@ createServer(async (req, res) => {
       market.say(`${nameOf(who)} entered the market.`, "info");
     }
     res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
+    // The page's close runs later, outside this request; it keeps the ID
+    // of the request that opened it, so its join and leave pair up.
+    const opened = requests.getStore();
     req.on("close", () => {
       listeners.delete(listener);
-      if (!ids().has(who)) log(who, "leave", { here: here() });
+      if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
     });
     return;
   }
@@ -656,6 +679,21 @@ createServer(async (req, res) => {
     return json(res, 200, { ok: true });
   }
   json(res, 404, { error: "Not found." });
+}
+
+// Every request runs under its own ID. Actions get a request line when
+// they finish, with status, time and who sent them; page loads and the
+// event stream are left out, as noise.
+createServer((req, res) => {
+  const id = randomBytes(3).toString("hex");
+  const began = performance.now();
+  if (req.method === "POST") {
+    res.on("finish", () => {
+      const who = req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1];
+      console.log(`[${id}] ${req.method} ${req.url?.split("?")[0]} ${res.statusCode} ${Math.round(performance.now() - began)}ms${who ? ` who=${short(who)}` : ""}`);
+    });
+  }
+  requests.run(id, () => void handle(req, res));
 }).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));
 
 for (const m of MODES) markets[m].ready();
