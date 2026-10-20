@@ -89,10 +89,12 @@ it.skipIf(live)("lists only people present or trading", async () => {
   await sleep(200);
   const p = await page(await visitor());
   try {
-    const seen = (await p.next(() => true, 2000)) as { traders: Trader[]; you: { name: string } };
-    const names = seen.traders.map((t) => t.name);
-    expect(names).toContain(seen.you.name);
-    expect(names).not.toContain((await state(idle)).you.name);
+    // By short code, not name: names are drawn from a few hundred, so a
+    // trader already in the room can share the idle visitor's.
+    const seen = (await p.next(() => true, 2000)) as { traders: Trader[]; you: { code: string } };
+    const codes = seen.traders.map((t) => t.id);
+    expect(codes).toContain(seen.you.code);
+    expect(codes).not.toContain((await state(idle)).you.code);
   } finally {
     p.close();
   }

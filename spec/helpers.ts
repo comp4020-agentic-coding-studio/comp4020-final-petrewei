@@ -28,7 +28,7 @@ export type State = {
   total: number;
   from: number;
   prices: number[];
-  you: { name: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
+  you: { name: string; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
   traders: Trader[];
   career: { name: string; rounds: number; profit: number; wins: number; busts: number; you: boolean }[];
   feed: { text: string; kind: string }[];
