@@ -80,16 +80,15 @@ trimActivity();
 setInterval(trimActivity, 3_600_000).unref();
 const recent: Line[] = readActivity().slice(-300);
 
-// The bots trade every few seconds; their trades go to stdout only, so the
-// saved record is people and rounds. Their prayers and stop settings are
-// left out altogether, as noise.
+// The log records people and rounds. The bots trade every few seconds and
+// would bury two classmates' lines in `flyctl logs`, so they are left out;
+// the room's feed shows their trades, and each round's "end" line their
+// results.
 function log(who: string | null, ev: string, fields: Record<string, unknown> = {}): void {
-  const isBot = who !== null && !!bot(who);
-  if (isBot && (ev === "pray" || ev === "stop-set")) return;
+  if (who !== null && bot(who)) return;
   const line: Line = { t: new Date().toISOString(), who: who ? short(who) : "server", ...(who ? { name: nameOf(who) } : {}), ev, ...fields };
   const text = JSON.stringify(line);
   console.log(text);
-  if (isBot) return;
   recent.push(line);
   recent.splice(0, recent.length - 300);
   try {

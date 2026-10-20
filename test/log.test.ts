@@ -120,3 +120,20 @@ it("returns to the lobby after the bell, and stays there", async () => {
   await new Promise((r) => setTimeout(r, 500));
   expect((await state()).phase).toBe("lobby");
 }, 30_000);
+
+// Crit 10 is narrated from `flyctl logs`, the server's stdout. The bots
+// trade every few seconds and would bury two classmates' lines, so they
+// print nothing; their results still close each round's "end" line.
+it("prints people's actions and rounds to stdout, never the bots'", async () => {
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  const { visitor, act, open, state } = app();
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  let seen = await state();
+  for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state();
+  const lines = s.out.filter((l) => l.startsWith("{")).map((l) => JSON.parse(l) as Line);
+  expect(lines.some((l) => l.ev === "open" && /^[0-9a-f]{6}$/.test(l.who))).toBe(true);
+  expect(lines.some((l) => l.ev === "end")).toBe(true);
+  expect(lines.filter((l) => l.who.startsWith("bot:"))).toEqual([]);
+}, 30_000);
