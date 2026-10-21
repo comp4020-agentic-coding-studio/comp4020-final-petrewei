@@ -6,7 +6,7 @@
 // date hidden, Live simulates on from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -720,14 +720,80 @@ const PAGES: Record<string, [string, string]> = {
 // never in the repo) may read it, and anyone else gets the 404 of a path
 // that does not exist. With no key set it is shut to everyone.
 const STATS_KEY = process.env.STATS_KEY ?? "";
+// The market pages a debugger is served with the console added.
+const DEBUG_PAGES = new Set(LANGS.map((l) => `${prefix(l)}/`));
+const DEBUG_JS: [string, string] = [read("public/debug.js"), "text/javascript; charset=utf-8"];
+// What the debug console can do. Each acts on the server, where the
+// rules live, and changes only what it names: the hall, a round's phase,
+// or the debugger's own account. It is logged with the debugger's code.
+function debugAction(who: string, kind: string, mode: Mode): { ok?: true; error?: string; status?: unknown } {
+  const market = markets[mode];
+  const desk = market.desk;
+  switch (kind) {
+    case "status":
+      return { ok: true, status: { here: here(), rooms: MODES.map((m) => ({ mode: m, phase: markets[m].phase, round: markets[m].count, pair: markets[m].round.pair, tick: markets[m].tick, of: markets[m].round.prices.length - 1, event: markets[m].round.event?.title ?? null, from: markets[m].round.days[0] })), fame: Object.keys(career).length, names: Object.keys(chosen).length } };
+    case "reset-fame":
+      for (const k of Object.keys(career)) delete career[k];
+      writeCareer();
+      rank();
+      for (const m of MODES) markets[m].broadcast();
+      return { ok: true };
+    case "start":
+      if (market.phase === "trade") return { error: "Already trading." };
+      market.result = null;
+      market.feed = [];
+      if (market.phase === "break") market.ready();
+      market.start();
+      market.broadcast(true);
+      return { ok: true };
+    case "end":
+      if (market.phase !== "trade") return { error: "No round is trading." };
+      market.end();
+      market.broadcast(true);
+      return { ok: true };
+    case "lobby":
+      market.ready();
+      market.broadcast(true);
+      return { ok: true };
+    case "call":
+    case "cut":
+      if (market.phase !== "trade") return { error: "No round is trading." };
+      desk.join(who);
+      if (!desk.rebase(who, kind === "call" ? 0.4 : 0.1)) return { error: "Open a position first." };
+      market.report(desk.enforce(who));
+      market.broadcast();
+      return { ok: true };
+    case "reset-me":
+      desk.reset(who);
+      market.broadcast();
+      return { ok: true };
+    default:
+      return { error: "Unknown debug action." };
+  }
+}
+
 const LOG_PAGES: Record<string, [string, string]> = {
   "/log": [read("public/log.html"), HTML],
   "/log.js": [read("public/log.js"), "text/javascript; charset=utf-8"],
 };
+const equalSecret = (a: string, b: string): boolean => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return y.length > 0 && x.length === y.length && timingSafeEqual(x, y);
+};
 function operator(url: URL): boolean {
-  const given = Buffer.from(url.searchParams.get("key") ?? "");
-  const key = Buffer.from(STATS_KEY);
-  return key.length > 0 && given.length === key.length && timingSafeEqual(given, key);
+  return equalSecret(url.searchParams.get("key") ?? "", STATS_KEY);
+}
+
+// The hidden debug mode (ADR 0019), for the operator alone. Opening any
+// page with ?debug=KEY sets a dbg cookie: this visitor's id signed with
+// the key, so it is never the key, works for nobody else, and dies when
+// the key is rotated. With it the page loads /debug.js, a console for
+// testing; without it that script and every debug action are a 404.
+const debugToken = (who: string): string => createHmac("sha256", STATS_KEY).update(`debug:${who}`).digest("hex").slice(0, 32);
+function debugging(req: IncomingMessage, who: string): boolean {
+  const given = req.headers.cookie?.match(/(?:^|;\s*)dbg=([0-9a-f]{32})/)?.[1] ?? "";
+  return STATS_KEY.length > 0 && equalSecret(given, debugToken(who));
 }
 // Everyone with the page open, however many tabs.
 const ids = (): Set<string> => new Set([...listeners].map((l) => l.who));
@@ -737,16 +803,45 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/$/, "") : url.pathname;
   let who = req.headers.cookie?.match(/(?:^|;\s*)v=([0-9a-f-]{36})/)?.[1] ?? null;
+  const cookies: string[] = [];
   if (!who) {
     who = randomUUID();
-    res.setHeader("set-cookie", `v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
+    cookies.push(`v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
   }
+  // ?debug=KEY turns debug mode on for this visitor; ?debug=off turns it off.
+  let debug = debugging(req, who);
+  if (req.method === "GET" && url.searchParams.has("debug")) {
+    if (url.searchParams.get("debug") === "off") {
+      cookies.push("dbg=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+      debug = false;
+    } else if (equalSecret(url.searchParams.get("debug") ?? "", STATS_KEY)) {
+      cookies.push(`dbg=${debugToken(who)}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict`);
+      debug = true;
+      log(who, "debug", { action: "on" });
+    }
+  }
+  if (cookies.length) res.setHeader("set-cookie", cookies);
 
   // A language's home is its folder: /ja and /zh move to /ja/ and /zh/,
   // so its relative links and the address bar agree.
   if (req.method === "GET" && (url.pathname === "/ja" || url.pathname === "/zh")) {
     res.writeHead(301, { location: `${url.pathname}/` });
     return void res.end();
+  }
+  // A debugger's page loads the console too; nobody else's does.
+  if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [PAGES[url.pathname][0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
+  if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
+  if (path === "/api/debug") {
+    if (!debug || req.method !== "POST") return json(res, 404, { error: "Not found." });
+    let input: Record<string, unknown>;
+    try {
+      input = await body(req);
+    } catch {
+      return json(res, 400, { error: "Send JSON." });
+    }
+    const out = debugAction(who, String(input.kind), modeOf(input.mode));
+    log(who, "debug", { action: String(input.kind), mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
+    return json(res, out.error ? 409 : 200, out);
   }
   if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname]);
   if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path]);

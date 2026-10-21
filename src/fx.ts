@@ -151,30 +151,47 @@ export class Desk {
     return null;
   }
 
+  // For the debug console (ADR 0019): move one account's position so its
+  // margin level is `level` at the current price, without touching the
+  // price everyone shares. The desk's own rules then act on it at the
+  // next mark. Solving balance + pnl = level × margin for the units.
+  rebase(who: string, level: number): boolean {
+    const account = this.account(who);
+    const pos = account.pos;
+    if (!pos) return false;
+    const exit = fill(this.price, -pos.side as Side);
+    pos.units = (pos.side * (level * pos.margin - account.balance) + pos.notional) / exit;
+    pos.entry = pos.notional / pos.units;
+    return true;
+  }
+
+  // Wipe one account back to the start, for the debug console.
+  reset(who: string): void {
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false });
+  }
+
   // Move the price and enforce the rules on every account, in join order.
   mark(price: number): Fill[] {
     this.price = price;
-    const events: Fill[] = [];
-    for (const [who, account] of this.accounts) {
-      const pos = account.pos;
-      if (!pos) continue;
-      // A gap through everything is a wipe-out, whatever stop was set.
-      if (this.equity(who) <= 0) {
-        events.push(this.settleOne(who, "zerocut"));
-        continue;
-      }
-      if (pos.stop !== null && (pos.side === 1 ? price <= pos.stop : price >= pos.stop)) {
-        events.push(this.settleOne(who, "stop"));
-        continue;
-      }
-      const level = this.level(who);
-      if (level <= STOP_OUT) events.push(this.settleOne(who, "stopout"));
-      else if (level <= CALL && !pos.called) {
-        pos.called = true;
-        events.push({ kind: "call", who, price, pnl: this.pnl(who) });
-      } else if (level > CALL) pos.called = false;
+    return [...this.accounts.keys()].flatMap((who) => this.enforce(who));
+  }
+
+  // The broker's rules on one account at the current price.
+  enforce(who: string): Fill[] {
+    const pos = this.account(who).pos;
+    if (!pos) return [];
+    const price = this.price;
+    // A gap through everything is a wipe-out, whatever stop was set.
+    if (this.equity(who) <= 0) return [this.settleOne(who, "zerocut")];
+    if (pos.stop !== null && (pos.side === 1 ? price <= pos.stop : price >= pos.stop)) return [this.settleOne(who, "stop")];
+    const level = this.level(who);
+    if (level <= STOP_OUT) return [this.settleOne(who, "stopout")];
+    if (level <= CALL && !pos.called) {
+      pos.called = true;
+      return [{ kind: "call", who, price, pnl: this.pnl(who) }];
     }
-    return events;
+    if (level > CALL) pos.called = false;
+    return [];
   }
 
   close(who: string): Fill[] | string {

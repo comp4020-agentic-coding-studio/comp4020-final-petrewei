@@ -96,6 +96,10 @@ if (MODES.includes(location.hash.slice(1))) {
   mode = location.hash.slice(1);
   history.replaceState(null, "", location.pathname);
 }
+// ?debug=… has done its work by the time the page runs (the server set
+// or cleared the cookie), so it leaves the address: the operator's key
+// is never left in the bar, a bookmark or the history.
+if (new URLSearchParams(location.search).has("debug")) history.replaceState(null, "", location.pathname + location.hash);
 
 async function act(kind, extra = {}) {
   $("error").textContent = "";

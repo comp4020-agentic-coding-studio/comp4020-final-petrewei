@@ -353,6 +353,25 @@ body.bell-up .ticket { display: none; }
 @keyframes tick-up { 0% { color: var(--up); text-shadow: 0 0 10px var(--up); } }
 @keyframes tick-down { 0% { color: var(--down); text-shadow: 0 0 10px var(--down); } }
 @keyframes fade { 100% { opacity: 0; } }
+/* The debug console, for the operator only (ADR 0019): a tag in the
+   corner and a panel above everything, in a terminal's monospace. */
+.dbg-tag { position: fixed; z-index: 20; left: 0.5rem; bottom: 0.5rem; padding: 0.15rem 0.5rem; font: 700 0.7rem var(--mono); background: var(--call); border-color: var(--call); color: var(--on-fill); }
+.dbg { position: fixed; z-index: 21; left: 0.5rem; bottom: 2.2rem; width: min(24rem, calc(100% - 1rem)); max-height: calc(100vh - 3rem); overflow-y: auto; padding: 0.7rem 0.8rem; border: 2px solid var(--call); border-radius: 10px; background: var(--panel); color: var(--ink); font: 0.8rem var(--mono); box-shadow: 0 6px 24px rgb(0 0 0 / 0.4); }
+.dbg[hidden] { display: none; }
+.dbg header { display: flex; align-items: center; gap: 0.5rem; }
+.dbg header strong { color: var(--call); }
+.dbg-hint { flex: 1; color: var(--muted); }
+.dbg header button { padding: 0 0.4rem; }
+.dbg h3 { margin: 0.7rem 0 0.3rem; font-size: 0.75rem; color: var(--soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.dbg h3 small { text-transform: none; color: var(--muted); }
+.dbg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.dbg-row button { padding: 0.25rem 0.5rem; font: 0.75rem var(--mono); }
+.dbg-row a { color: var(--muted); }
+.dbg .danger { border-color: var(--down); color: var(--down); }
+.dbg pre { margin: 0 0 0.3rem; max-height: 12rem; overflow: auto; padding: 0.4rem; border-radius: 6px; background: var(--screen); font-size: 0.7rem; }
+.dbg-out { margin: 0.6rem 0 0; min-height: 1.1rem; }
+.dbg-out.good { color: var(--up); }
+.dbg-out.bad { color: var(--down); }
 @keyframes shake { 0%, 100% { transform: translate(0); } 25% { transform: translate(-8px, 4px); } 75% { transform: translate(8px, -4px); } }
 
 /* The tutorial: a lesson across the top, the controls it names lit. */
