@@ -6,7 +6,7 @@ import { join } from "node:path";
 // A server of the test's own, on a spare port with a throwaway data directory,
 // for checks that need to set its environment or kill it.
 // `out` collects what the server prints, which is what `flyctl logs` shows.
-export type Server = { base: string; dir: string; proc: ChildProcess; out: string[]; restart: () => Promise<void>; stop: () => void };
+export type Server = { base: string; dir: string; proc: ChildProcess; out: string[]; restart: () => Promise<void>; stop: () => Promise<void> };
 
 export async function server(port: number, env: Record<string, string> = {}, dir = mkdtempSync(join(tmpdir(), "losscut-"))): Promise<Server> {
   const base = `http://localhost:${port}`;
@@ -26,8 +26,12 @@ export async function server(port: number, env: Record<string, string> = {}, dir
     throw new Error("server did not start");
   }
 
-  function stop(): void {
+  // Waits for the process to be gone, so the next test's server on the
+  // same port never answers from this one while it dies.
+  async function stop(): Promise<void> {
+    const gone = s.proc.exitCode !== null ? Promise.resolve() : new Promise<void>((r) => s.proc.once("exit", () => r()));
     s.proc.kill("SIGKILL");
+    await gone;
     rmSync(dir, { recursive: true, force: true });
   }
 

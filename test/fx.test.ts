@@ -299,3 +299,34 @@ describe("a margin call's state", () => {
     expect(desk.account("a").pos?.called).toBe(false);
   });
 });
+
+// The debug console's lever: one account's margin level set at the
+// current price, which the desk's rules then act on. No other account
+// and no price moves.
+describe("rebase, for the debug console", () => {
+  for (const side of [1, -1] as const) {
+    it(`sets a ${side === 1 ? "long" : "short"}'s margin level without moving the price or anyone else`, () => {
+      const desk = new Desk(100);
+      desk.join("a");
+      desk.join("b");
+      desk.order("a", side, 100, 0.5);
+      desk.order("b", side, 100, 0.5);
+      const before = desk.equity("b");
+      expect(desk.rebase("a", 0.4)).toBe(true);
+      expect(desk.level("a")).toBeCloseTo(0.4, 9);
+      expect(desk.price).toBe(100);
+      expect(desk.equity("b")).toBe(before);
+      // the desk's own rule then calls it, at the unchanged price, and
+      // nobody else
+      expect(desk.enforce("a")).toMatchObject([{ kind: "call", who: "a" }]);
+      desk.rebase("a", 0.1);
+      expect(desk.enforce("a")).toMatchObject([{ kind: "stopout", who: "a" }]);
+      expect(desk.account("b").pos).not.toBeNull();
+    });
+  }
+  it("does nothing with no position", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.rebase("a", 0.4)).toBe(false);
+  });
+});
