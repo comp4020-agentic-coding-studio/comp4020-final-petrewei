@@ -1,7 +1,10 @@
 // Pictures for the page (ADR 0025): an emoji for each kind of feed line
+// (a tutorial's "you-" line wears its plain kind's)
 // and pop-up, so a glance tells a win from a cut, and a few pixel-art
 // props drawn by hand on the faces' 16×16 grid (ADR 0021), for the
 // moments that deserve one: the bell, a pause, a losscut, a loan, a win.
+
+import { pixels } from "./avatars.js";
 
 export const ICONS = {
   news: {
@@ -9,7 +12,6 @@ export const ICONS = {
     "live-round": "📡", "replay-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️",
     call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", entered: "👋",
-    "you-bought": "📈", "you-sold": "📉", "you-closed": "💴", "you-stopped": "🛡️", "you-call": "📞", "you-stopout": "💀", "you-zerocut": "🕳️",
   },
   pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷" },
 };
@@ -152,21 +154,5 @@ export const PROPS = {
   },
 };
 
-// A prop as an SVG, one rectangle per run of a colour along a row; an
-// unknown prop draws nothing.
-export function prop(id, size = 32) {
-  const p = PROPS[id];
-  if (!p) return "";
-  const fill = { ...BASE, ...p.colors };
-  const rects = [];
-  p.rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; ) {
-      const ch = row[x];
-      let n = 1;
-      while (row[x + n] === ch) n++;
-      if (ch !== "." && fill[ch]) rects.push(`<rect x="${x}" y="${y}" width="${n}" height="1" fill="${fill[ch]}"/>`);
-      x += n;
-    }
-  });
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="${size}" height="${size}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}</svg>`;
-}
+// A prop as an SVG, drawn like a face; an unknown prop draws nothing.
+export const prop = (id, size = 32) => (PROPS[id] ? pixels(PROPS[id], size, BASE) : "");

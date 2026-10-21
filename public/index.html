@@ -23,7 +23,7 @@
       <button role="tab" data-mode="live" aria-selected="false" data-tip="tabLive"><span class="ico" aria-hidden="true">📡</span><span data-t="live">Live</span> <em id="here-live"></em></button>
       <button role="tab" data-mode="tutorial" aria-selected="false" data-tip="tabTutorial"><span class="ico" aria-hidden="true">🎓</span><span data-t="tutorial">Tutorial</span></button>
     </nav>
-    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog" data-tip="whoamiWait"></button>
+    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog" data-tip-text=""></button>
     <div class="tools">
       <label class="lang" data-tip="lang">
         <span class="sr-only">Language</span>
@@ -144,7 +144,7 @@
     <!-- After the bell, trading is over: the result takes the order
          ticket's place in the right column, and the chart stays in view. -->
     <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
-      <h2><span class="bell-art" id="bell-art" aria-hidden="true"></span><span data-t="bell">The bell</span></h2>
+      <h2><span class="art bell-art" id="bell-art" aria-hidden="true"></span><span data-t="bell">The bell</span></h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
       <div class="bell-foot">

@@ -158,11 +158,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* Face, "You are", the name and a pencil: the name shrinks with an
    ellipsis before the pencil is ever cut off. */
 .whoami { display: inline-flex; align-items: center; min-width: 0; margin: 0; padding: 0.2rem 0.5rem; justify-self: end; max-width: 100%; border: 1px dashed transparent; background: none; border-radius: 8px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
-.whoami strong { min-width: 0; margin-left: 0.3ch; overflow: hidden; text-overflow: ellipsis; }
+.whoami strong { min-width: 0; margin-left: 0.3ch; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .whoami .pencil, .whoami .av { flex: none; }
 .whoami:hover { border-color: var(--line); }
 .whoami .pencil { margin-left: 0.35rem; color: var(--soft); }
-.whoami strong { color: var(--ink); }
 /* Pictures (ADR 0025): emoji beside headings and tabs, pixel props in
    their own line box so they never shift the text. */
 .ico { margin-right: 0.35rem; font-size: 0.95em; }
@@ -173,7 +172,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 :root:lang(ja) .tabs .ico { margin-right: 0.1rem; }
 .art { display: inline-flex; line-height: 0; image-rendering: pixelated; }
 .bell h2 { display: flex; align-items: center; gap: 0.4rem; }
-.bell-art { display: inline-flex; line-height: 0; animation: ring 1.2s ease-in-out 2; transform-origin: 50% 10%; }
+.bell-art { animation: ring 1.2s ease-in-out 2; transform-origin: 50% 10%; }
 @keyframes ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-5deg); } }
 .losscut .art { margin-bottom: 0.4rem; animation: none; }
 /* The tip: one for the page, shown at once, in the page's colours. */
@@ -206,11 +205,10 @@ main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-co
 .col { display: grid; gap: 0.75rem; min-width: 0; }
 .lesson { grid-column: 1 / -1; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
-.panel h2 { margin: 0; padding: 0.6rem 0.9rem; font-size: 0.9rem; font-weight: 700; color: var(--soft); border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 1rem; }
+.panel h2 { margin: 0; padding: 0.6rem 0.9rem; font-size: 0.9rem; font-weight: 700; color: var(--soft); border-bottom: 1px solid var(--line); display: flex; align-items: baseline; }
 /* A heading is its icon and label on the left, and an optional note or
    count, marked .aside, at the right and muted. */
-.panel h2 > .ico { margin-right: -0.55rem; }
-.panel h2 > .aside { margin-left: auto; font-weight: 400; color: var(--muted); }
+.panel h2 > .aside { margin-left: auto; padding-left: 1rem; font-weight: 400; color: var(--muted); }
 .chart-panel { overflow: hidden; }
 .ticket { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
@@ -385,7 +383,6 @@ th:first-child, td:first-child { text-align: left; }
 #traders li.gone { opacity: 0.55; }
 #traders .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #traders .eq { font-family: var(--mono); font-size: 0.85rem; }
-.botmark { color: var(--muted); font-size: 0.7rem; margin-left: 0.25rem; }
 /* A badge in place of a word: a bot, gone, wiped out. */
 .badge { font-size: 0.8rem; margin-left: 0.15rem; }
 .pos { font: 600 0.72rem var(--mono); padding: 0.05rem 0.35rem; border-radius: 4px; color: var(--on-fill); }

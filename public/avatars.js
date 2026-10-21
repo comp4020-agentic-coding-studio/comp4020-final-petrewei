@@ -305,11 +305,14 @@ export function face(id) {
   return n ? PEOPLE[Number(n[1]) % PEOPLE.length] : PEOPLE[0];
 }
 
-// The face as an SVG, one rectangle per run of a colour along a row.
-// crispEdges keeps the pixels square at any size.
-export function svg(id, size = 20) {
-  const { colors, rows } = face(id);
-  const fill = { ...BASE, ...colors };
+// The face as an SVG.
+export const svg = (id, size = 20) => pixels(face(id), size, BASE);
+
+// Any 16×16 drawing as an SVG, one rectangle per run of a colour along a
+// row; crispEdges keeps the pixels square at any size. The props (art.js)
+// are drawn by it too.
+export function pixels({ colors, rows }, size, base) {
+  const fill = { ...base, ...colors };
   const rects = [];
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length; ) {

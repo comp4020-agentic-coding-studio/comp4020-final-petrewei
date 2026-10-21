@@ -17,7 +17,8 @@ import { refresh as retip, useWords } from "/tips.js";
 let lang = LANGS.includes(document.documentElement.dataset.lang) ? document.documentElement.dataset.lang : "en";
 const home = (l) => (l === "en" ? "/" : `/${l}/`);
 // A slot not given here is left as {slot}, for rich() to fill as bold.
-const t = (k, vars = {}) => (T[lang].ui[k] ?? T.en.ui[k]).replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
+const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
+const t = (k, vars = {}) => fill(T[lang].ui[k] ?? T.en.ui[k], vars);
 const yen = (n) => money(lang, n);
 // A trader's name in this language: a character's in the page's script,
 // a drawn name in this language's form, a typed name as typed. People
@@ -25,12 +26,19 @@ const yen = (n) => money(lang, n);
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (draw ? drawn(lang, draw) : name);
 // A tip in this language, by key (ADR 0025).
-const tip = (k, vars = {}) => (T[lang].tips[k] ?? T.en.tips[k] ?? "").replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
+const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", vars);
 useWords((k) => tip(k));
+// A tip that carries values, written only when it changes, since render
+// runs twice a second.
+const setTip = (el, text) => {
+  if (el.dataset.tipText !== text) el.dataset.tipText = text;
+};
 // A trader's pixel face (ADR 0021), by the name the server gives it. The
 // SVG is built from the page's own drawings; the name only picks one.
 const avatar = (face, size = 20) => Object.assign(document.createElement("span"), { className: "av", innerHTML: svg(face, size) });
 let names = new Map();
+// What a room row is, and the badge and word that say so in place of text.
+const ROWS = { bot: { badge: "🤖", label: "bot" }, left: { badge: "🚪", label: "leftTag" }, wiped: { badge: "💀", label: "wipedTag" }, person: {} };
 const nameOf = (code) => names.get(code) ?? botName(code, code);
 
 // Every fixed string on the page carries data-t (its text), data-t-title
@@ -188,8 +196,9 @@ dark.addEventListener("change", () => {
   if (state) draw(state);
 });
 // Ironman is a switch: on, nobody can pause the round it starts.
-$("ironman").onclick = () => $("ironman").setAttribute("aria-checked", String($("ironman").getAttribute("aria-checked") !== "true"));
-$("start").onclick = () => act("start", { ironman: $("ironman").getAttribute("aria-checked") === "true" });
+let ironman = false;
+$("ironman").onclick = () => $("ironman").setAttribute("aria-checked", String((ironman = !ironman)));
+$("start").onclick = () => act("start", { ironman });
 
 // Optional background music (ADR 0020): off until the player turns it on,
 // and only then is the track fetched. The choice is remembered, but a
@@ -714,7 +723,7 @@ function render(s) {
   // The tab shows a head count as a bare number; its tooltip says what.
   for (const m of ["history", "live"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    document.querySelector(`[data-mode="${m}"]`).dataset.tipText = `${tip(m === "live" ? "tabLive" : "tabHistory")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`;
+    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "live" ? "tabLive" : "tabHistory")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -747,7 +756,7 @@ function render(s) {
   // Your code tells you apart from a namesake; it lives in the tip, so
   // the line keeps its room for the name.
   $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
-  $("whoami").dataset.tipText = tip("whoami", { code: s.you.code });
+  setTip($("whoami"), tip("whoami", { code: s.you.code }));
   draw(s);
   ticket(s);
 
@@ -831,12 +840,11 @@ function render(s) {
       n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
       // A small badge says what a word would: a bot, gone, or wiped out;
       // the tip says the rest, so the row keeps its room for the name.
-      const badge = tr.bot ? "🤖" : tr.left ? "🚪" : tr.out ? "💀" : "";
-      if (badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: badge, ariaLabel: t(tr.bot ? "bot" : tr.left ? "leftTag" : "wipedTag") }));
+      const kind = tr.bot ? "bot" : tr.left ? "left" : tr.out ? "wiped" : "person";
+      const row = ROWS[kind];
+      if (row.badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: row.badge, ariaLabel: t(row.label) }));
       const change = pct(tr.equity / s.start - 1);
-      li.dataset.tipText = tr.bot
-        ? tip("botRow", { motto: T[lang].bots[tr.id]?.motto ?? tr.motto ?? "", change })
-        : tip(tr.left ? "leftRow" : tr.out ? "wipedRow" : "personRow", { code: tr.id, change });
+      li.dataset.tipText = tip(`${kind}Row`, { motto: T[lang].bots[tr.id]?.motto ?? tr.motto ?? "", code: tr.id, change });
       const p = document.createElement("span");
       if (tr.side) {
         p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
@@ -856,7 +864,7 @@ function render(s) {
       const li = document.createElement("li");
       li.className = `k-${f.kind}`;
       // Each line wears its kind's icon, so a glance tells a win from a cut.
-      li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
+      li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
       return li;
     }),
   );

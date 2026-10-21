@@ -15,7 +15,8 @@ const tips = [...page.querySelectorAll("[data-tip]")].map((el) => (el as HTMLEle
 it("gives every control on the market a tip, in every language", () => {
   const controls = [...page.querySelectorAll("button, input, select, a.icon, [role=switch]")].filter((el) => !el.closest("dialog, #name-box"));
   for (const el of controls) {
-    const named = el.closest("[data-tip]") as HTMLElement | null;
+    // a key, or text the page script fills in (such as your code)
+    const named = el.closest("[data-tip], [data-tip-text]") as HTMLElement | null;
     expect(named, el.outerHTML.slice(0, 80)).not.toBeNull();
   }
   expect(tips.length).toBeGreaterThanOrEqual(20);
@@ -41,7 +42,8 @@ it("makes ironman a switch, its explanation a tip", () => {
 });
 
 it("gives every feed line and pop-up an icon", () => {
-  for (const k of Object.keys(T.en.news)) expect(ICONS.news[k], `news ${k}`).toEqual(expect.any(String));
+  // a tutorial's "you-" line wears its plain kind's icon
+  for (const k of Object.keys(T.en.news)) expect(ICONS.news[k.replace(/^you-/, "")], `news ${k}`).toEqual(expect.any(String));
   for (const k of Object.keys(T.en.pops)) expect(ICONS.pops[k], `pop ${k}`).toEqual(expect.any(String));
 });
 
