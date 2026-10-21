@@ -121,6 +121,11 @@
 :root:lang(ja) { --round: "M PLUS Rounded 1c", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", ui-monospace, monospace; }
 :root:lang(zh-CN) { --round: "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", ui-monospace, monospace; }
 :root:lang(ko) { --round: "M PLUS Rounded 1c", "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", ui-monospace, monospace; }
+/* Japanese and Chinese break lines at phrase boundaries, not mid-word,
+   and never start a line with 。、ー or a closing bracket. */
+:root:lang(ja), :root:lang(zh-CN) { word-break: auto-phrase; line-break: strict; }
+/* Prose flows as the page allows, and its last line is never one word. */
+footer, body.readme p, .lobby p { text-wrap: pretty; }
 body { margin: 0; background: var(--screen); color: var(--ink); font: 15px/1.45 var(--round); min-height: 100vh; }
 button, select { font: inherit; color: inherit; }
 button { cursor: pointer; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; padding: 0.45rem 0.8rem; }
@@ -230,11 +235,22 @@ body.tutorial .studies { display: none; }
 .lobby.counting .lobby-title { font-size: 1.1rem; }
 .lobby.counting p { font-size: 0.82rem; }
 .lobby .ghost, .round-ctl .ghost, .bell-foot .ghost { height: 2rem; padding: 0 0.7rem; background: none; color: var(--soft); font-size: 0.82rem; }
-.round-ctl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
+.round-ctl { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.5rem; }
+/* Pause has a row of its own: anyone may press it, so it stands out. */
+.pause { height: 2rem; background: none; color: var(--soft); font-size: 0.82rem; }
+.pause[hidden] { display: none; }
+.round-ctl [hidden] { display: none; }
+/* The ironman switch, under Start; hidden once the countdown runs. */
+.ironman { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; color: var(--soft); cursor: pointer; }
+.ironman[hidden] { display: none; }
+.ironman input { accent-color: var(--pink); width: 1rem; height: 1rem; margin: 0; }
+/* A pause veils the chart for everyone, with a Resume anyone may press. */
+.paused { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; background: var(--veil); text-align: center; }
+.paused[hidden] { display: none; }
+.paused-title { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--ink); }
 /* A long label (Japanese is the longest) shrinks to one line, never wraps. */
 .round-ctl .ghost { min-width: 0; padding: 0 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .round-ctl[hidden] { display: none; }
-.round-ctl .ghost:only-child, .round-ctl .ghost:has(+ [hidden]) { grid-column: 1 / -1; }
 .ghost.danger { color: var(--down); border-color: var(--down); }
 .bell-foot { display: flex; align-items: center; gap: 0.4rem; }
 .bell-foot .bell-next { flex: 1; min-width: 0; }
@@ -259,26 +275,51 @@ body.tutorial .studies { display: none; }
 .field { display: grid; gap: 0.35rem; }
 .label { margin: 0; height: 1.25rem; font-size: 0.82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .note { color: var(--muted); }
-.chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.chips button { padding: 0.25rem 0.55rem; font: 0.82rem var(--mono); border-radius: 6px; background: var(--screen); color: var(--soft); }
-.chips button[aria-checked="true"] { background: var(--soft); color: var(--screen); border-color: var(--soft); }
-.chips button.risky[aria-checked="true"] { background: var(--pink); border-color: var(--pink); color: var(--on-pink); }
-/* Room for three lines, the longest any language's preview takes. */
-.preview { margin: 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); height: 4.35em; overflow: hidden; }
-.preview strong { color: var(--soft); font-family: var(--mono); font-weight: 600; }
+/* Sliders (ADR 0024): the value reads large at the label's end; ticks
+   under the track name its ends, and the legal caps, by flag. */
+.slide .label { display: flex; align-items: baseline; gap: 0.35rem; }
+.slide .label .note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.slide output { font: 700 0.95rem var(--mono); color: var(--ink); }
+.slide.risky output { color: var(--pink); }
+input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(--soft); background: none; cursor: pointer; }
+.slide.risky input[type="range"] { accent-color: var(--pink); }
+.ticks { position: relative; height: 0.95rem; margin: -0.3rem 0.45rem 0; font: 0.66rem var(--mono); color: var(--muted); }
+.ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
+/* The two caps sit close on a log scale: Japan's leans left, Australia's right. */
+.ticks .cap { color: var(--soft); }
+/* The preview is two whole phrases, one to a line, so no line ends on a
+   stray word; an amount never breaks. Room for each to wrap once. */
+.preview { display: grid; gap: 0.15rem; margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); height: 4.6em; overflow: hidden; }
+.preview span { text-wrap: balance; }
+.preview strong { color: var(--soft); font-family: var(--mono); font-weight: 600; white-space: nowrap; }
 .acct { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0; padding-top: 0.7rem; border-top: 1px solid var(--line); }
 .acct dt { font-size: 0.72rem; color: var(--muted); }
 /* Lines set to an exact height: Japanese and Chinese glyphs are taller
    than Latin ones and would otherwise grow the row by a pixel. */
 .acct dt { height: 1.1rem; line-height: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acct dd { margin: 0; height: 1.5rem; line-height: 1.5rem; font: 600 0.95rem/1.5rem var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meter { position: relative; height: 8px; margin-bottom: 1rem; border-radius: 4px; background: var(--raise); }
-#meter { height: 100%; border-radius: 4px; background: var(--up); transition: width 0.3s, background 0.3s; }
-.mark { position: absolute; top: 11px; font-size: 0.66rem; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
-.mark::before { content: ""; position: absolute; left: 50%; top: -11px; height: 8px; border-left: 1px dashed var(--muted); }
-.mark.out { left: 10%; }
+/* The percentage under each amount: what a trader reads first. */
+.acct dd.rate { height: 1.2rem; font: 700 0.85rem/1.2rem var(--mono); color: var(--muted); }
+.acct .up { color: var(--up); }
+.acct .down { color: var(--down); }
+/* Net worth against the start: a centre line at ±0, a red bar to the
+   left for a loss and a green one to the right for profit. */
+.meter { position: relative; height: 10px; margin-bottom: 1rem; border-radius: 5px; background: var(--raise); }
+.meter .fill { position: absolute; top: 0; height: 100%; background: var(--muted); transition: left 0.3s, width 0.3s; }
+.meter .fill.up { background: var(--up); border-radius: 0 5px 5px 0; }
+.meter .fill.down { background: var(--down); border-radius: 5px 0 0 5px; }
+.mark { position: absolute; top: 13px; font-size: 0.66rem; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
+.mark::before { content: ""; position: absolute; left: 50%; top: -13px; height: 10px; border-left: 1px dashed var(--muted); }
+.mark[hidden] { display: none; }
+.mark.zero { left: 50%; }
+.mark.zero::before { border-left: 2px solid var(--soft); }
+.mark.call { color: var(--call); }
+.mark.call::before { border-left-color: var(--call); }
+.mark.cut { color: var(--down); }
+.mark.cut::before { border-left-color: var(--down); }
 .meter-key { margin: -0.4rem 0 0; height: 1rem; line-height: 1rem; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mark.call { left: 25%; }
 .borrow { height: 2.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--loan-bg); border-color: var(--call); color: var(--loan-ink); font-weight: 700; }
 .borrow[hidden] { display: none; }
 .pray { height: 2.25rem; background: none; border-style: dashed; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -362,7 +403,9 @@ body.bell-up .ticket { display: none; }
 #ranking li { display: grid; grid-template-columns: 1.6rem auto minmax(0, 1fr) auto; gap: 0.4rem; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--line); counter-increment: rank; }
 #ranking li::before { content: counter(rank) "."; color: var(--muted); font-family: var(--mono); }
 #ranking .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#ranking .res { font-family: var(--mono); }
+#ranking .res { font-family: var(--mono); white-space: nowrap; }
+#ranking .res b { font-weight: 700; }
+#ranking .res small { font-size: 0.72rem; opacity: 0.75; }
 #ranking li.you .who { color: var(--pink); font-weight: 700; }
 #ranking li.sat { counter-increment: none; color: var(--muted); }
 #ranking li.sat::before { content: "–"; }

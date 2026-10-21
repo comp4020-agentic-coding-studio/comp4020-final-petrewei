@@ -9,7 +9,9 @@
 // takes the player out of the market until the next round.
 
 export const START = 1_000_000;
-export const LEVERAGES = [1, 5, 10, 25, 100, 400, 1000];
+// A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
+// 25× and Australia's 30× for major pairs are on it, offshore 1000× tops it.
+export const LEVERAGES = [1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;

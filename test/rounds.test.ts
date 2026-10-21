@@ -186,3 +186,78 @@ it("lets anyone close the bell now, or hold it longer", async () => {
     tab.close();
   }
 }, 20_000);
+
+// ADR 0024: anyone on the tab may pause a trading round, freezing the
+// price and the orders for everyone, and anyone may resume it; it resumes
+// by itself after a minute. A round started in ironman mode cannot pause.
+it("pauses for everyone and resumes, by anyone on the tab", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, until, look, attempt } = app();
+  const me = await visitor();
+  const other = await visitor();
+  const tabs = [await page(me), await page(other)];
+  try {
+    await act(me, { kind: "start", mode: "history" });
+    await until(me, (x) => x.phase === "trade");
+    expect((await act(other, { kind: "pause", mode: "history" })).status).toBe(200);
+    const paused = (await look(me)) as Seen & { paused: number | null; tick: number };
+    expect(paused.paused).toBeGreaterThan(0);
+    await new Promise((r) => setTimeout(r, 400));
+    const later = (await look(me)) as Seen & { tick: number };
+    // the price stands still and orders wait
+    expect(later.tick).toBe(paused.tick);
+    const refused = await act(me, { kind: "buy", leverage: 5, mode: "history" });
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error).toMatch(/paused/);
+    expect((await act(me, { kind: "pause", mode: "history" })).status).toBe(409);
+    // someone not on the tab may not resume it
+    expect((await attempt({ kind: "resume", mode: "history" }, await visitor())).status).toBe(409);
+    expect((await act(me, { kind: "resume", mode: "history" })).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(((await look(me)) as Seen & { tick: number }).tick).toBeGreaterThan(paused.tick);
+    expect((await act(me, { kind: "resume", mode: "history" })).status).toBe(409);
+  } finally {
+    for (const t of tabs) t.close();
+  }
+}, 20_000);
+
+it("resumes a pause by itself after a minute, and says so", async () => {
+  // a test's minute is 40 ticks of 50ms
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", PAUSE_TICKS: "40" });
+  const { visitor, page, act, until } = app();
+  const me = await visitor();
+  const tab = await page(me);
+  try {
+    await act(me, { kind: "start", mode: "history" });
+    await until(me, (x) => x.phase === "trade");
+    await act(me, { kind: "pause", mode: "history" });
+    const resumed = await until(me, (x) => (x as Seen & { paused: number | null }).paused === null, 15_000);
+    expect((resumed as Seen & { paused: number | null }).paused).toBeNull();
+    expect(resumed.feed.some((f) => f.key === "unpaused")).toBe(true);
+  } finally {
+    tab.close();
+  }
+}, 20_000);
+
+it("starts an ironman round, which nobody can pause", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, until, look } = app();
+  const me = await visitor();
+  const tab = await page(me);
+  try {
+    expect((await act(me, { kind: "start", mode: "history", ironman: true })).status).toBe(200);
+    expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(true);
+    await until(me, (x) => x.phase === "trade");
+    const refused = await act(me, { kind: "pause", mode: "history" });
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error).toMatch(/ironman/i);
+    // the next round is an ordinary one unless asked again
+    await act(me, { kind: "finish", mode: "history" });
+    await until(me, (x) => x.phase === "break");
+    await act(me, { kind: "dismiss", mode: "history" });
+    await act(me, { kind: "start", mode: "history" });
+    expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(false);
+  } finally {
+    tab.close();
+  }
+}, 20_000);

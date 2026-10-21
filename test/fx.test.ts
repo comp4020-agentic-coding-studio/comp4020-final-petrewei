@@ -330,3 +330,20 @@ describe("rebase, for the debug console", () => {
     expect(desk.rebase("a", 0.4)).toBe(false);
   });
 });
+
+// ADR 0024: the leverage ladder. A log-scale slider snaps to these, with
+// Japan's retail cap (25×) and Australia's for major pairs (30×) on it,
+// and 500× where 400× was.
+describe("the leverage ladder", () => {
+  it("offers the ladder, both legal caps, and nothing between", async () => {
+    const { LEVERAGES } = await import("../src/fx.ts");
+    expect(LEVERAGES).toEqual([1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000]);
+    const desk = new Desk(100);
+    for (const lev of LEVERAGES) {
+      desk.join(`p${lev}`);
+      expect(desk.order(`p${lev}`, 1, lev, 0.75), String(lev)).toEqual([expect.objectContaining({ kind: "open", leverage: lev })]);
+    }
+    desk.join("x");
+    for (const lev of [3, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
+  });
+});

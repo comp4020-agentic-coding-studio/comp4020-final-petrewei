@@ -91,10 +91,17 @@
           <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-t-title="bbTitle">BB</button>
           <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-t-title="rsiTitle">RSI</button>
         </div>
+        <!-- A paused round, for everyone on the tab: anyone may resume. -->
+        <div id="paused" class="paused" hidden>
+          <p class="paused-title" id="paused-title"></p>
+          <button id="resume" class="start" type="button" data-t="resume">Resume</button>
+        </div>
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
           <button id="start" class="start" data-t="start">Start round</button>
+          <!-- Ironman: nobody may pause this round (ADR 0024). -->
+          <label class="ironman" id="ironman-box" data-t-title="ironmanTitle"><input id="ironman" type="checkbox"> <span data-t="ironman">Ironman: no pausing</span></label>
           <button id="cancel" class="ghost" type="button" data-t="cancelStart" hidden>Cancel</button>
         </div>
       </div>
@@ -125,7 +132,7 @@
 
     <section class="panel fame" aria-label="Hall of fame">
       <h2><span data-t="fame">Hall of fame</span> <span data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-t-title="thAvgTitle">Avg/round</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
     </section>
     </div>
     <div class="col side-col">
@@ -147,26 +154,39 @@
         <button id="buy" class="side buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
       </div>
       <p class="spread" id="spread" data-t-title="spreadTitle"></p>
-      <div class="field" id="leverage-box">
-        <p class="label"><span data-t="leverage">Leverage</span> <span id="lev-note" class="note"></span></p>
-        <div class="chips" id="leverage" role="radiogroup" aria-label="Leverage"></div>
+      <!-- Leverage on a log scale, snapping to the desk's ladder, with the
+           legal caps marked; stake on an even one (ADR 0024). -->
+      <div class="field slide" id="leverage-box">
+        <p class="label"><span data-t="leverage">Leverage</span> <span id="lev-note" class="note"></span><output id="lev-out" for="leverage"></output></p>
+        <input id="leverage" type="range" min="0" max="1000" step="1" data-t-label="leverage">
+        <div class="ticks" id="lev-ticks" aria-hidden="true"></div>
       </div>
-      <div class="field" id="stake-box">
-        <p class="label"><span data-t="stake">Stake</span> <span class="note" data-t="stakeNote">of your free money</span></p>
-        <div class="chips" id="stake" role="radiogroup" aria-label="Stake"></div>
+      <div class="field slide" id="stake-box">
+        <p class="label"><span data-t="stake">Stake</span> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
+        <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake">
+        <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
       </div>
-      <p class="preview" id="preview"></p>
+      <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <dl class="acct">
-        <div><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd></div>
-        <div id="pnl-box"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd></div>
-        <div id="level-box"><dt data-t="level">Margin level</dt><dd id="level">—</dd></div>
+        <div><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
+        <div id="pnl-box"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
+        <div id="level-box"><dt data-t="level">Margin level</dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
       </dl>
-      <div class="meter" aria-hidden="true"><div id="meter"></div><span class="mark out">20%</span><span class="mark call">50%</span></div>
+      <!-- Net worth against the starting money: losses run left in red,
+           profit right in green, on a log scale centred on the start. With a
+           position open, where a margin call and the losscut would land. -->
+      <div class="meter" id="meter-box" aria-hidden="true">
+        <div class="fill" id="meter"></div>
+        <span class="mark zero">±0</span>
+        <span class="mark call" id="mark-call" hidden data-t="markCall">call</span>
+        <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut</span>
+      </div>
       <p class="meter-key" data-t="meterKey">Margin call at 50%, forced loss cut at 20%</p>
       <button id="borrow" class="borrow" hidden></button>
       <button id="pray" class="pray" data-t="pray" data-t-title="prayTitle">Pray to the chart</button>
       <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
            pressed Start, end it for everyone. -->
+      <button id="pause" class="ghost pause" type="button" data-t="pause" data-t-title="pauseTitle" hidden>Pause</button>
       <div class="round-ctl" id="round-ctl" hidden>
         <button id="leave" class="ghost" type="button" data-t="leave" data-t-title="leaveTitle">Leave round</button>
         <button id="finish" class="ghost danger" type="button" data-t="finish" data-t-title="finishTitle" hidden>End round for all</button>

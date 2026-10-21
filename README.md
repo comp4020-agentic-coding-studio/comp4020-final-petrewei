@@ -10,20 +10,20 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 
 ## What good means here
 
-- **Everyone on a tab trades one price, in one room.** The server owns the price and fills each order; everyone sees your side, leverage and net worth.
+- **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
 - **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, such as Lehman Brothers or the franc's unpegging, revealed at the bell. Live simulates from today's real rate.
-- **Leverage is the joke, and the lesson.** From 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level, a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick.
-- **Losing is public.** Margin calls and stop-outs hit the feed. A broke player may borrow from Dad's savings twice, as debt.
+- **Leverage is the joke, and the lesson.** From 1× to offshore 1000×, past Japan's 25× and Australia's 30× caps. A margin call comes at 50% margin level, a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick.
+- **Losing is public.** Stop-outs hit the feed. A broke player may borrow from Dad twice, as debt.
 - **There's always someone to trade against.** Seven of the comic's traders play every round; Kurumi never cuts a loss.
 - **Beginners get a tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): twelve lessons, one move each.
-- **There's a short game and a long game.** Rounds rank net worth; a hall of fame keeps profit and busts.
+- **There's a short game and a long game.** Rounds rank by percentage; a hall of fame keeps results.
 
 ## Enforced and judged
 
 Checked in `spec/` and `test/`:
 
 - an order reaches every page on its tab within a second
-- a round waits for a Start on its tab; only its starter may cancel or end it ([ADR 0022](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0022-a-rounds-controls.md))
+- a round waits for a Start; only its starter may end it, and anyone may pause it unless ironman ([ADR 0022](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0022-a-rounds-controls.md), [0024](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0024-pause-ironman-and-a-trading-ticket.md))
 - the server refuses orders its broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop, or their tutorial
 - a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))

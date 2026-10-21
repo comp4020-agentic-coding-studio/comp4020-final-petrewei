@@ -68,3 +68,35 @@ it("keeps the indicator switches above the lobby", async () => {
   const { doc } = await get("/");
   expect(doc!.querySelectorAll("#studies button")).toHaveLength(3);
 });
+
+// A module the page imports but the server doesn't serve leaves a blank
+// market, and every other check passes: so each import must answer.
+it("serves every module a page script imports", async () => {
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const imports = new Set<string>();
+  for (const f of readdirSync("public").filter((n) => n.endsWith(".js"))) {
+    for (const m of readFileSync(`public/${f}`, "utf8").matchAll(/^import [^;]* from "(\/[^"]+)";/gm)) imports.add(m[1]);
+  }
+  expect(imports.size).toBeGreaterThanOrEqual(5);
+  for (const path of imports) {
+    const res = await fetch(new URL(path, baseUrl));
+    expect(res.status, path).toBe(200);
+    expect(res.headers.get("content-type"), path).toMatch(/javascript/);
+  }
+});
+
+// Prose flows and wraps as the page allows, never mid-word: Japanese and
+// Chinese break at phrases and keep 。、ー off a line's start, and the
+// About page names the game by its full title in each language.
+it("wraps prose by phrase, and names the game in full on the About page", async () => {
+  const css = await (await fetch(new URL("/app.css", baseUrl))).text();
+  const rule = (sel: string) => css.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]+)\\}`))?.[2] ?? "";
+  const cjk = rule(":root:lang(ja), :root:lang(zh-CN)");
+  expect(cjk).toMatch(/word-break: auto-phrase/);
+  expect(cjk).toMatch(/line-break: strict/);
+  expect(rule("footer, body.readme p, .lobby p")).toMatch(/text-wrap: pretty/);
+  for (const [path, title] of [["/about", "Losscut! Kurumi's FX Fantasy"], ["/ja/about", "ロスカット！ くるみのFXファンタジー"], ["/zh/about", "强制平仓！久留美的FX白日梦"]]) {
+    const { doc } = await get(path);
+    expect(doc!.querySelector("h1")?.textContent, path).toContain(title);
+  }
+});

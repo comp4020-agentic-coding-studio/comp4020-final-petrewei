@@ -6,6 +6,7 @@ import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
+import { STAKES, gauge, levAt, levPos, pct } from "/ticket.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -35,6 +36,7 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
   for (const el of document.querySelectorAll("[data-t-title]")) el.title = t(el.dataset.tTitle);
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
+  if ($("lev-ticks")) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = lang;
   $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
@@ -52,35 +54,53 @@ let popped = null;
 let lastPrice = null;
 let fame = "";
 
-// Leverage and stake are chip groups that hold their choice. What each
-// leverage means is said beside it, in the parody's voice.
-const STAKES = [0.25, 0.5, 1];
+// Leverage and stake are sliders that hold their choice (ADR 0024).
+// Leverage runs on a log scale and snaps to the desk's ladder, its ends
+// and the two legal caps marked; stake runs evenly. What a leverage means
+// is said beside it, in the parody's voice.
 const choice = { leverage: 25, stake: 1 };
-function chips(id, values, label, key, risky = () => false) {
+let seated = false;
+let ladder = [1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000];
+const RISKY = 100;
+function ticks(id, marks) {
   $(id).replaceChildren(
-    ...values.map((v) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.setAttribute("role", "radio");
-      b.textContent = label(v);
-      b.dataset.value = v;
-      if (risky(v)) b.classList.add("risky");
-      b.onclick = () => {
-        choice[key] = v;
-        mark();
-        if (state) ticket(state);
-      };
-      return b;
+    ...marks.map(([at, text, cls = ""]) => {
+      const m = Object.assign(document.createElement("span"), { className: cls, textContent: text });
+      m.style.left = `${at * 100}%`;
+      return m;
     }),
   );
 }
+function sliders() {
+  // Japan's and Australia's caps sit a hair apart on a log scale, so one
+  // label names both, between them.
+  ticks("lev-ticks", [[0, "1×"], [(levPos(25) + levPos(30)) / 2, t("capsTick"), "cap"], [1, "1000×"]]);
+  ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
+}
 function mark() {
-  for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"]]) {
-    for (const b of $(id).children) b.setAttribute("aria-checked", String(Number(b.dataset.value) === choice[key]));
-  }
+  $("leverage").value = String(Math.round(levPos(choice.leverage) * 1000));
+  $("stake").value = String(STAKES.indexOf(choice.stake));
+  $("lev-out").textContent = `${choice.leverage}×`;
+  $("stake-out").textContent = `${choice.stake * 100}%`;
+  $("leverage-box").classList.toggle("risky", choice.leverage >= RISKY);
+  $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
+  $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
   $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
 }
-chips("stake", STAKES, (v) => `${v * 100}%`, "stake");
+$("leverage").oninput = () => {
+  choice.leverage = levAt(Number($("leverage").value) / 1000, ladder);
+  mark();
+  if (state) ticket(state);
+};
+// Let go, and the thumb settles on the rung it chose.
+$("leverage").onchange = mark;
+$("stake").oninput = () => {
+  choice.stake = STAKES[Number($("stake").value)];
+  mark();
+  if (state) ticket(state);
+};
+sliders();
+mark();
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
@@ -116,6 +136,8 @@ $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
+$("pause").onclick = () => act("pause");
+$("resume").onclick = () => act("resume");
 $("leave").onclick = () => confirm(t("leaveConfirm")) && act("leave");
 $("finish").onclick = () => confirm(t("finishConfirm")) && act("finish");
 $("hold").onclick = () => act("hold");
@@ -155,7 +177,7 @@ dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
 });
-$("start").onclick = () => act("start");
+$("start").onclick = () => act("start", { ironman: $("ironman").checked });
 
 // Optional background music (ADR 0020): off until the player turns it on,
 // and only then is the track fetched. The choice is remembered, but a
@@ -224,8 +246,8 @@ function warn(s, open) {
     // How far the price can move, against you, to the next line.
     const to = calling ? pos.cut : pos.call;
     // At 1000× the losscut can be under 0.005% off: never round it to 0.
-    const pct = Math.abs(to / s.prices.at(-1) - 1) * 100;
-    const move = `${pct >= 0.1 ? pct.toFixed(2) : pct.toPrecision(2)}%`;
+    const gap = Math.abs(to / s.prices.at(-1) - 1) * 100;
+    const move = `${gap >= 0.1 ? gap.toFixed(2) : gap.toPrecision(2)}%`;
     $("warn-title").textContent = t(calling ? "warnCallTitle" : "warnNearTitle");
     $("warn-text").textContent = t(calling ? "warnCallText" : "warnNearText", { level, move });
   }
@@ -288,6 +310,7 @@ function lobby(s) {
   const counting = s.phase === "countdown";
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
+  $("ironman-box").hidden = counting;
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
   $("start").hidden = counting;
@@ -334,19 +357,19 @@ function ticket(s) {
   const pos = s.you.pos;
   const same = pos?.side === 1 ? t("buy") : t("sell");
   const other = pos?.side === 1 ? t("sell") : t("buy");
-  const pct = wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0);
-  $("preview").replaceChildren(
-    ...rich(
-      pos
-        ? margin > 0
-          ? t("previewAdd", { same, other, lev: choice.leverage })
-          : t("previewFull", { other })
-        : margin > 0
-          ? t("previewOpen", { pct })
-          : t("previewNone"),
-      { margin: yen(margin), controls: yen(controls) },
-    ),
-  );
+  const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
+  // Two short lines, each a whole phrase, so no line ends on a stray word:
+  // what the order puts in, then what it risks or does.
+  const [one, two] = pos
+    ? margin > 0
+      ? [t("previewAdd1", { same, lev: choice.leverage }), t("previewAdd2", { other })]
+      : [t("previewFull1"), t("previewFull2", { other })]
+    : margin > 0
+      ? [t("previewOpen1"), t("previewOpen2")]
+      : [t("previewNone"), ""];
+  const slots = { margin: yen(margin), controls: yen(controls), away };
+  $("preview-1").replaceChildren(...rich(one, slots));
+  $("preview-2").replaceChildren(...rich(two, slots));
 }
 const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
 // Text with {slots} left in it, the slots filled as bold nodes, so a
@@ -668,6 +691,11 @@ function render(s) {
   const running = !tutorial && (s.phase === "trade" || s.phase === "countdown");
   $("round-ctl").hidden = !running || s.you.left;
   $("finish").hidden = !(s.phase === "trade" && s.rules);
+  // Pause: anyone may, in a trading round that isn't ironman; a pause veils
+  // the chart for everyone, with the seconds until it resumes by itself.
+  $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
+  $("paused").hidden = tutorial || !s.paused;
+  if (s.paused) $("paused-title").textContent = t("pausedTitle", { s: s.paused });
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
   lobby(s);
@@ -679,9 +707,10 @@ function render(s) {
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
-  if (!$("leverage").children.length) {
-    choice.leverage = s.you.pos?.leverage ?? 25;
-    chips("leverage", s.leverages, (v) => `${v}×`, "leverage", (v) => v >= 100);
+  if (!seated) {
+    seated = true;
+    ladder = s.leverages;
+    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? 25), ladder);
     mark();
   }
   const price = s.prices.at(-1);
@@ -709,14 +738,36 @@ function render(s) {
   ticket(s);
 
   const y = s.you;
-  $("equity").textContent = yen(y.equity - y.debt);
+  // Each amount with its change as a percentage, which is what a trader
+  // reads: net worth against the starting money, open P&L against the
+  // margin put up for it.
+  const worth = y.equity - y.debt;
+  const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
+  $("equity").textContent = yen(worth);
+  $("equity-pct").textContent = pct(worth / s.start - 1);
+  $("equity-pct").className = `rate ${tone(worth - s.start)}`;
   $("pnl").textContent = yen(y.pnl);
-  $("pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
+  $("pnl").className = tone(y.pnl);
+  $("pnl-pct").textContent = y.pos ? pct(y.pnl / y.pos.margin) : "";
+  $("pnl-pct").className = `rate ${tone(y.pnl)}`;
   $("level").textContent = y.level === null ? "—" : `${y.level}%`;
-  // The meter runs from 0% to 200% margin level.
-  const fill = y.level === null ? 100 : Math.min(100, y.level / 2);
-  $("meter").style.width = `${fill}%`;
-  $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
+  $("level-note").textContent = y.pos ? `${y.pos.leverage}×` : "";
+  // The meter: net worth against the start, losses left, profit right,
+  // on a log scale; with a position open, where its margin call and
+  // losscut would land, at half and a fifth of its margin.
+  const at = gauge(worth / s.start);
+  const mid = 0.5;
+  // Any change shows at least a sliver, so the side is always plain.
+  const span = worth === s.start ? 0 : Math.max(0.015, Math.abs(at - mid));
+  $("meter").style.left = `${(at < mid ? mid - span : mid) * 100}%`;
+  $("meter").style.width = `${span * 100}%`;
+  $("meter").className = `fill ${tone(worth - s.start)}`;
+  for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]]) {
+    const show = !!y.pos && open;
+    $(id).hidden = !show;
+    // Level is equity over margin, so at a level the equity is that share of it.
+    if (show) $(id).style.left = `${gauge((share * y.pos.margin - y.debt) / s.start) * 100}%`;
+  }
   $("borrow").hidden = !(y.broke && y.loansLeft > 0 && s.phase === "trade" && !y.left);
   warn(s, open);
   // Your position: one row with its own close and stop, as on any
@@ -737,7 +788,7 @@ function render(s) {
     $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
-  const closed = !open || y.out || y.left;
+  const closed = !open || y.out || y.left || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   $("pray").disabled = closed || s.phase === "countdown";
   for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
@@ -799,7 +850,9 @@ function render(s) {
       ...s.career.map((c) => {
         const tr = document.createElement("tr");
         if (c.you) tr.className = "you";
-        for (const v of [nameIn(c.name, c.draw), c.rounds, yen(c.profit), c.wins, c.busts]) {
+        // The average round as a percentage of the starting money, so one
+        // lucky round and twenty steady ones compare fairly.
+        for (const v of [nameIn(c.name, c.draw), c.rounds, pct(c.rounds ? c.profit / c.rounds / s.start : 0), yen(c.profit), c.wins, c.busts]) {
           const td = document.createElement("td");
           td.textContent = v;
           tr.append(td);
@@ -829,7 +882,9 @@ function render(s) {
         const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
         const result = r.sat || r.left
           ? Object.assign(document.createElement("span"), { className: "res", textContent: t(r.left ? "leftTag" : "satOut") })
-          : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
+          : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}` });
+        // The percentage first, as a trader reads it; the yen after, smaller.
+        if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` }));
         result.title = yen(r.balance);
         li.append(avatar(r.face, 18), name, result);
         return li;

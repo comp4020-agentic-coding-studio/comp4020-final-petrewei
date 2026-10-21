@@ -19,7 +19,7 @@ The agent proposed the third; Peter accepted it with the game. Every rule below 
 | Who | May see | May change | Checked by |
 | --- | --- | --- | --- |
 | Any visitor | the round's prices so far, never its dates before the bell; every trader's name, side, leverage and net worth; the feed; the hall of fame | their own account only, by orders the broker offers: buy or sell at a listed leverage and a stake between 0 and 1, close, set a stop on the right side of the price, pray, and borrow only when broke | `spec/permissions.test.ts`, `test/fx.test.ts` |
-| Whoever pressed Start, or anyone on the tab once they have gone | the same | cancel the countdown, or end the round early for everyone ([ADR 0022](0022-a-rounds-controls.md)); anyone on a tab may leave its round alone, and close or hold its bell | `test/rounds.test.ts` |
+| Whoever pressed Start, or anyone on the tab once they have gone | the same | cancel the countdown, or end the round early for everyone ([ADR 0022](0022-a-rounds-controls.md)); anyone on a tab may leave its round alone, close or hold its bell, and pause or resume a round not started as ironman ([ADR 0024](0024-pause-ironman-and-a-trading-ticket.md)) | `test/rounds.test.ts` |
 | A trader | their own balance, position, entry, margin level, stop and debt | the same | `spec/permissions.test.ts` |
 | A learner, on the Tutorial tab | their own tutorial: lesson, practice account and scripted prices, and nobody else's ([ADR 0013](0013-a-private-tutorial.md)) | their own tutorial, by the move the lesson teaches, or starting again | `spec/tutorial.test.ts`, `test/tutorial.test.ts` |
 | The operator, with `STATS_KEY` | the activity log in `/data/activity.log`: every person's action by short code and trader name | in debug mode ([ADR 0019](0019-a-hidden-debug-mode.md)), the hall of fame, a round's phase, and their own account | `spec/log.test.ts`, `test/log.test.ts`, `test/debug.test.ts` |
@@ -30,6 +30,6 @@ Prices, fills, margin calls and stop-outs happen on the server's clock at the se
 
 - Two classmates in separate profiles are two short codes and two trader names in the log, and neither can touch the other's account.
 - A trader's name is drawn from their cookie, so two people can share one; the short code tells them apart in the log and the hall of fame. [ADR 0017](0017-chosen-trader-names.md) lets a person choose a name instead, held by them alone.
-- Since 21 October every page on a tab is also told the room's recent moments, to pop a bubble over the trader: a prayer, a bet at 400× or more, doubling down, a closed result, a margin call, a cut or a loan, each by short code. All of these were already in the feed; stops and entries still are not sent (`spec/effects.test.ts`).
+- Since 21 October every page on a tab is also told the room's recent moments, to pop a bubble over the trader: a prayer, a bet at 400× or more (200× or more since [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md)), doubling down, a closed result, a margin call, a cut or a loan, each by short code. All of these were already in the feed; stops and entries still are not sent (`spec/effects.test.ts`).
 - A visitor who copies another's cookie becomes them. Nothing here is worth more than play money, so this is accepted.
 - The crit 10 demo is narrated from `/log?key=…` or `flyctl logs`; the key must not be shown to the room.
