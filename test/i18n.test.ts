@@ -20,7 +20,8 @@ describe("the translations", () => {
     for (const lang of LANGS) {
       for (const part of ["ui", "news", "refusals"] as const) {
         expect(keys(T[lang][part]), `${lang}.${part}`).toEqual(keys(T.en[part]));
-        for (const [k, v] of Object.entries(T[lang][part])) expect(v, `${lang}.${part}.${k}`).not.toBe("");
+        // Chinese joins the title with nothing, after a full-width "！".
+        for (const [k, v] of Object.entries(T[lang][part])) if (k !== "titleJoin") expect(v, `${lang}.${part}.${k}`).not.toBe("");
       }
     }
   });

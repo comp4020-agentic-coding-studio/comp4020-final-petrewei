@@ -681,7 +681,7 @@ const marketIn = (lang: Lang): string => {
   const vars: Record<string, string> = {
     htmllang: HTMLLANG[lang],
     lang,
-    title: escape(`${ui.logo} ${ui.sub}`),
+    title: escape(`${ui.logo}${ui.titleJoin}${ui.sub}`),
     alternates: alternates(""),
     home: `${prefix(lang)}/`,
     logo: escape(ui.logo),

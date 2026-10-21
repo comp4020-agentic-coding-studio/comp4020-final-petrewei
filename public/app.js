@@ -33,7 +33,7 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = lang;
   $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
-  document.title = `${t("logo")} ${t("sub")}`;
+  document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
 // Another language is another address. The market keeps running and the
 // tab is remembered, so the page comes back to the same room.

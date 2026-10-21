@@ -48,6 +48,7 @@ export const T = {
   en: {
     ui: {
       logo: "Losscut!",
+      titleJoin: " ",
       sub: "Kurumi's FX Fantasy",
       history: "History",
       live: "Live",
@@ -223,6 +224,7 @@ export const T = {
   ja: {
     ui: {
       logo: "ロスカット！",
+      titleJoin: " ",
       sub: "くるみのFXファンタジー",
       history: "ヒストリー",
       live: "ライブ",
@@ -396,8 +398,10 @@ export const T = {
 
   zh: {
     ui: {
-      logo: "爆仓！",
-      sub: "久留美的FX幻想",
+      logo: "强制平仓！",
+      sub: "久留美的FX白日梦",
+      // Chinese sets no space after full-width punctuation.
+      titleJoin: "",
       history: "历史",
       live: "实时",
       tutorial: "教程",
