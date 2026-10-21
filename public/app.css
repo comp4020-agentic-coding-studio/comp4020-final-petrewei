@@ -38,8 +38,12 @@
   --flash: rgb(255 77 109 / 0.18);
   --loan-bg: #3b2a12;
   --loan-ink: #ffd99a;
-  --round: "M PLUS Rounded 1c", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Latin and kana in the rounded face; every Chinese character and all
+     Hangul in Noto Sans (web fonts, OFL), so Windows and Linux never fall
+     to a mismatched system face. Each language puts its own Noto first,
+     below, so a shared character takes that language's form. */
+  --round: "M PLUS Rounded 1c", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", ui-monospace, monospace;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -112,8 +116,11 @@
 }
 * { box-sizing: border-box; }
 /* Simplified Chinese reads best in a Simplified face; the rounded face
-   would draw some characters in their Japanese forms. */
-:root:lang(zh-CN) { --round: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+   would draw some characters in their Japanese forms. Korean likewise
+   takes Noto Sans KR before the Japanese and Chinese faces. */
+:root:lang(ja) { --round: "M PLUS Rounded 1c", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", ui-monospace, monospace; }
+:root:lang(zh-CN) { --round: "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans SC", "Noto Sans JP", "Noto Sans KR", ui-monospace, monospace; }
+:root:lang(ko) { --round: "M PLUS Rounded 1c", "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", system-ui, sans-serif; --mono: "JetBrains Mono", "Noto Sans KR", "Noto Sans JP", "Noto Sans SC", ui-monospace, monospace; }
 body { margin: 0; background: var(--screen); color: var(--ink); font: 15px/1.45 var(--round); min-height: 100vh; }
 button, select { font: inherit; color: inherit; }
 button { cursor: pointer; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; padding: 0.45rem 0.8rem; }
@@ -223,7 +230,9 @@ body.tutorial .studies { display: none; }
 .lobby.counting .lobby-title { font-size: 1.1rem; }
 .lobby.counting p { font-size: 0.82rem; }
 .lobby .ghost, .round-ctl .ghost, .bell-foot .ghost { height: 2rem; padding: 0 0.7rem; background: none; color: var(--soft); font-size: 0.82rem; }
-.round-ctl { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.round-ctl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
+/* A long label (Japanese is the longest) shrinks to one line, never wraps. */
+.round-ctl .ghost { min-width: 0; padding: 0 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .round-ctl[hidden] { display: none; }
 .round-ctl .ghost:only-child, .round-ctl .ghost:has(+ [hidden]) { grid-column: 1 / -1; }
 .ghost.danger { color: var(--down); border-color: var(--down); }

@@ -781,6 +781,12 @@ const escape = (text: string): string => text.replace(/&/g, "&amp;").replace(/</
 const alternates = (page: "" | "about"): string =>
   LANGS.map((l) => `  <link rel="alternate" hreflang="${HTMLLANG[l]}" href="${prefix(l)}/${page}">`).join("\n") +
   `\n  <link rel="alternate" hreflang="x-default" href="/${page}">`;
+// The web fonts every page loads: JetBrains Mono for numbers, M PLUS
+// Rounded 1c for Latin and kana, and Noto Sans JP, SC and KR (OFL) for
+// every Chinese character and Hangul, so Windows and Linux never fall to
+// a mismatched system face. Google serves each in small slices by
+// character, so a page fetches only the glyphs it shows.
+const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&family=Noto+Sans+SC:wght@400;700;800&family=Noto+Sans+KR:wght@400;700;800&display=swap">`;
 const market = read("public/index.html");
 const marketIn = (lang: Lang): string => {
   const ui = T[lang].ui;
@@ -789,6 +795,7 @@ const marketIn = (lang: Lang): string => {
     lang,
     title: escape(`${ui.logo}${ui.titleJoin}${ui.sub}`),
     alternates: alternates(""),
+    fonts: FONTS,
     home: `${prefix(lang)}/`,
     logo: escape(ui.logo),
     sub: escape(ui.sub),
@@ -796,7 +803,6 @@ const marketIn = (lang: Lang): string => {
   };
   return market.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k]);
 };
-const FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+SC:wght@400;700&display=swap">`;
 const THEME = `<script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>`;
 const aboutIn = (lang: Lang): string => {
   const a = ABOUT[lang];
