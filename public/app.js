@@ -7,6 +7,8 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { STAKES, gauge, levAt, levPos, pct } from "/ticket.js";
+import { ICONS, prop } from "/art.js";
+import { refresh as retip, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -22,6 +24,9 @@ const yen = (n) => money(lang, n);
 // are found by short code.
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (draw ? drawn(lang, draw) : name);
+// A tip in this language, by key (ADR 0025).
+const tip = (k, vars = {}) => (T[lang].tips[k] ?? T.en.tips[k] ?? "").replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
+useWords((k) => tip(k));
 // A trader's pixel face (ADR 0021), by the name the server gives it. The
 // SVG is built from the page's own drawings; the name only picks one.
 const avatar = (face, size = 20) => Object.assign(document.createElement("span"), { className: "av", innerHTML: svg(face, size) });
@@ -34,12 +39,12 @@ const nameOf = (code) => names.get(code) ?? botName(code, code);
 function translate() {
   document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
-  for (const el of document.querySelectorAll("[data-t-title]")) el.title = t(el.dataset.tTitle);
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
   if ($("lev-ticks")) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = lang;
-  $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
+  $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, 300_000) }));
+  retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
 // Another language is another address. The market keeps running and the
@@ -101,6 +106,11 @@ $("stake").oninput = () => {
 };
 sliders();
 mark();
+// The pixel props (ADR 0025), drawn once: they never change.
+$("bell-art").innerHTML = prop("bell", 26);
+$("paused-art").innerHTML = prop("pause", 64);
+$("losscut-art").innerHTML = prop("skull", 72);
+$("ironman-fist").innerHTML = prop("fist", 20);
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
@@ -159,7 +169,7 @@ const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "d
 function label() {
   document.documentElement.dataset.modeShown = theme();
   const name = theme() === "dark" ? t("toLight") : t("toDark");
-  $("theme").title = name;
+  $("theme").dataset.tip = theme() === "dark" ? "toLight" : "toDark";
   $("theme").setAttribute("aria-label", name);
 }
 $("theme").onclick = () => {
@@ -177,7 +187,9 @@ dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
 });
-$("start").onclick = () => act("start", { ironman: $("ironman").checked });
+// Ironman is a switch: on, nobody can pause the round it starts.
+$("ironman").onclick = () => $("ironman").setAttribute("aria-checked", String($("ironman").getAttribute("aria-checked") !== "true"));
+$("start").onclick = () => act("start", { ironman: $("ironman").getAttribute("aria-checked") === "true" });
 
 // Optional background music (ADR 0020): off until the player turns it on,
 // and only then is the track fetched. The choice is remembered, but a
@@ -188,7 +200,7 @@ bgm.volume = 0.35;
 const musicLabel = () => {
   const on = !bgm.paused;
   $("music").setAttribute("aria-pressed", String(on));
-  $("music").title = t(on ? "musicOff" : "musicOn");
+  $("music").dataset.tip = on ? "musicOff" : "musicOn";
   $("music").setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
 };
 const remember = (on) => {
@@ -310,7 +322,7 @@ function lobby(s) {
   const counting = s.phase === "countdown";
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
-  $("ironman-box").hidden = counting;
+  $("ironman").hidden = counting;
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
   $("start").hidden = counting;
@@ -624,7 +636,7 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 function popText(p) {
   if (p.kind === "pray") return pick(T[lang].prayers);
   if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
-  return (T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""));
+  return `${ICONS.pops[p.kind] ?? ""} ${(T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""))}`.trim();
 }
 // Where a pop shows: over the trader's row in the room, or, for your own,
 // over the control you used, since your row may be off screen.
@@ -702,7 +714,7 @@ function render(s) {
   // The tab shows a head count as a bare number; its tooltip says what.
   for (const m of ["history", "live"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    $(`here-${m}`).title = s.here[m] ? t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] }) : "";
+    document.querySelector(`[data-mode="${m}"]`).dataset.tipText = `${tip(m === "live" ? "tabLive" : "tabHistory")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`;
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -732,8 +744,10 @@ function render(s) {
   // A pencil says it can be changed.
   me = nameIn(s.you.name, s.you.draw);
   myFace = s.you.face;
-  $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
-  $("whoami").title = t("youAreTitle");
+  // Your code tells you apart from a namesake; it lives in the tip, so
+  // the line keeps its room for the name.
+  $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
+  $("whoami").dataset.tipText = tip("whoami", { code: s.you.code });
   draw(s);
   ticket(s);
 
@@ -783,7 +797,7 @@ function render(s) {
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
     $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : t("addStop");
-    $("stop").title = y.pos.stop ? t("removeStopTitle") : t("addStopTitle");
+    $("stop").dataset.tip = y.pos.stop ? "removeStop" : "addStop";
   } else {
     $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
@@ -815,19 +829,22 @@ function render(s) {
       const n = document.createElement("span");
       n.className = "n";
       n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
-      if (tr.bot) {
-        n.title = T[lang].bots[tr.id]?.motto ?? tr.motto ?? "";
-        n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: t("bot") }));
-      }
-      if (tr.left) n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: t("leftTag") }));
+      // A small badge says what a word would: a bot, gone, or wiped out;
+      // the tip says the rest, so the row keeps its room for the name.
+      const badge = tr.bot ? "🤖" : tr.left ? "🚪" : tr.out ? "💀" : "";
+      if (badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: badge, ariaLabel: t(tr.bot ? "bot" : tr.left ? "leftTag" : "wipedTag") }));
+      const change = pct(tr.equity / s.start - 1);
+      li.dataset.tipText = tr.bot
+        ? tip("botRow", { motto: T[lang].bots[tr.id]?.motto ?? tr.motto ?? "", change })
+        : tip(tr.left ? "leftRow" : tr.out ? "wipedRow" : "personRow", { code: tr.id, change });
       const p = document.createElement("span");
       if (tr.side) {
         p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
         p.textContent = `${tr.side === 1 ? "▲" : "▼"} ${tr.leverage}×`;
       }
       const e = document.createElement("span");
-      e.textContent = yen(tr.equity);
-      e.className = `eq ${tr.equity >= s.start ? "up" : "down"}`;
+      e.textContent = change;
+      e.className = `eq ${tr.equity > s.start ? "up" : tr.equity < s.start ? "down" : ""}`;
       li.dataset.id = tr.id;
       li.append(avatar(tr.face, 24), n, p, e);
       return li;
@@ -838,7 +855,8 @@ function render(s) {
     ...s.feed.map((f) => {
       const li = document.createElement("li");
       li.className = `k-${f.kind}`;
-      li.textContent = news(lang, f, nameOf);
+      // Each line wears its kind's icon, so a glance tells a win from a cut.
+      li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
       return li;
     }),
   );
@@ -885,7 +903,7 @@ function render(s) {
           : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}` });
         // The percentage first, as a trader reads it; the yen after, smaller.
         if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` }));
-        result.title = yen(r.balance);
+        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code });
         li.append(avatar(r.face, 18), name, result);
         return li;
       }),

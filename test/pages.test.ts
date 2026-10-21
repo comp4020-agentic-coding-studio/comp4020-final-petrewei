@@ -22,3 +22,15 @@ it("shows no file names or extensions on the page", () => {
   const leaks = [...shown.matchAll(/["'`>]([^"'`<>\s]*\.(?:exe|bat|dll|txt|csv|log|dat|bin|sys))\b/gi)].map((m) => m[1]);
   expect(leaks).toEqual([]);
 });
+
+// The page script finds its elements by id; a renamed or removed element
+// makes $() return null and throws mid-render, which no server check sees.
+// Every id the script asks for must be on the page, or made by a script.
+it("finds every element the page script asks for by id", () => {
+  const html = readFileSync("public/index.html", "utf8");
+  const scripts = ["public/app.js", "public/tips.js"].map((f) => readFileSync(f, "utf8")).join("\n");
+  const asked = new Set([...readFileSync("public/app.js", "utf8").matchAll(/\$\("([\w-]+)"\)/g)].map((m) => m[1]));
+  const made = new Set([...scripts.matchAll(/id: "([\w-]+)"/g)].map((m) => m[1]));
+  expect(asked.size).toBeGreaterThan(40);
+  for (const id of asked) expect(html.includes(`id="${id}"`) || made.has(id), id).toBe(true);
+});

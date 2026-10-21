@@ -19,13 +19,13 @@
       <span class="sub" data-t="sub">{{sub}}</span>
     </a>
     <nav class="tabs" role="tablist" aria-label="Market">
-      <button role="tab" data-mode="history" aria-selected="true"><span data-t="history">History</span> <em id="here-history"></em></button>
-      <button role="tab" data-mode="live" aria-selected="false"><span data-t="live">Live</span> <em id="here-live"></em></button>
-      <button role="tab" data-mode="tutorial" aria-selected="false"><span data-t="tutorial">Tutorial</span></button>
+      <button role="tab" data-mode="history" aria-selected="true" data-tip="tabHistory"><span class="ico" aria-hidden="true">📼</span><span data-t="history">History</span> <em id="here-history"></em></button>
+      <button role="tab" data-mode="live" aria-selected="false" data-tip="tabLive"><span class="ico" aria-hidden="true">📡</span><span data-t="live">Live</span> <em id="here-live"></em></button>
+      <button role="tab" data-mode="tutorial" aria-selected="false" data-tip="tabTutorial"><span class="ico" aria-hidden="true">🎓</span><span data-t="tutorial">Tutorial</span></button>
     </nav>
-    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog"></button>
+    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog" data-tip="whoamiWait"></button>
     <div class="tools">
-      <label class="lang">
+      <label class="lang" data-tip="lang">
         <span class="sr-only">Language</span>
         <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
         <select id="lang" aria-label="Language">
@@ -36,15 +36,15 @@
       </label>
       <!-- Optional music: off until a player turns it on; the track loads
            only then (ADR 0020). -->
-      <button id="music" class="icon" type="button" aria-pressed="false" data-t-title="musicOn" data-t-aria="musicOn">
+      <button id="music" class="icon" type="button" aria-pressed="false" data-tip="musicOn" data-t-aria="musicOn">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M9 17.5V5.5l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="2.5" fill="currentColor"/><circle cx="16.5" cy="15.5" r="2.5" fill="currentColor"/><path class="slash" d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
       <audio id="bgm" src="/audio/bgm.m4a" preload="none" loop></audio>
-      <button id="theme" class="icon" type="button">
+      <button id="theme" class="icon" type="button" data-tip="toLight">
         <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
         <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
       </button>
-      <a class="icon about" href="{{about}}" data-t-title="about" data-t-aria="about">
+      <a class="icon about" href="{{about}}" data-tip="about" data-t-aria="about">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>
       </a>
     </div>
@@ -61,8 +61,8 @@
         <div class="lesson-do">
           <p class="task"><span data-t="yourTurn">Your turn</span> <strong id="lesson-task"></strong></p>
           <div class="row">
-            <button id="lesson-next" class="next" data-t="next">Next</button>
-            <button id="restart" class="ghost" data-t="restart">Start again</button>
+            <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext">Next</button>
+            <button id="restart" class="ghost" data-t="restart" data-tip="restart">Start again</button>
           </div>
         </div>
       </div>
@@ -83,26 +83,31 @@
         <div id="warn" class="warn" role="alert" hidden>
           <strong id="warn-title"></strong>
           <span id="warn-text"></span>
-          <button id="warn-close" type="button" data-t="warnClose">Close now</button>
+          <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
         <div class="studies" id="studies" role="group" data-t-aria="indicators">
-          <button type="button" data-study="ma" aria-pressed="true" style="--c: var(--ma-fast)" data-t-title="maTitle">MA</button>
-          <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-t-title="bbTitle">BB</button>
-          <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-t-title="rsiTitle">RSI</button>
+          <button type="button" data-study="ma" aria-pressed="true" style="--c: var(--ma-fast)" data-tip="ma">MA</button>
+          <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-tip="bb">BB</button>
+          <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-tip="rsi">RSI</button>
         </div>
         <!-- A paused round, for everyone on the tab: anyone may resume. -->
         <div id="paused" class="paused" hidden>
+          <span class="art" id="paused-art" aria-hidden="true"></span>
           <p class="paused-title" id="paused-title"></p>
-          <button id="resume" class="start" type="button" data-t="resume">Resume</button>
+          <button id="resume" class="start" type="button" data-t="resume" data-tip="resume">Resume</button>
         </div>
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
-          <button id="start" class="start" data-t="start">Start round</button>
+          <button id="start" class="start" data-t="start" data-tip="start">Start round</button>
           <!-- Ironman: nobody may pause this round (ADR 0024). -->
-          <label class="ironman" id="ironman-box" data-t-title="ironmanTitle"><input id="ironman" type="checkbox"> <span data-t="ironman">Ironman: no pausing</span></label>
-          <button id="cancel" class="ghost" type="button" data-t="cancelStart" hidden>Cancel</button>
+          <button id="ironman" class="ironman" type="button" role="switch" aria-checked="false" data-tip="ironman">
+            <span class="track" aria-hidden="true"><span class="knob"></span></span>
+            <span class="fist" id="ironman-fist" aria-hidden="true"></span>
+            <span data-t="ironman">Ironman</span>
+          </button>
+          <button id="cancel" class="ghost" type="button" data-t="cancelStart" data-tip="cancelStart" hidden>Cancel</button>
         </div>
       </div>
     </section>
@@ -117,8 +122,8 @@
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
-            <td><button id="stop" class="mini"></button></td>
-            <td><button id="close" class="close" data-t="close">Close</button></td>
+            <td><button id="stop" class="mini" data-tip="addStop"></button></td>
+            <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
           </tr>
           <tr id="pos-empty"><td colspan="7" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
@@ -126,75 +131,75 @@
     </section>
 
     <section class="panel feed" aria-label="Feed">
-      <h2 data-t="feed">Feed</h2>
+      <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
       <ul id="feed"></ul>
     </section>
 
     <section class="panel fame" aria-label="Hall of fame">
-      <h2><span data-t="fame">Hall of fame</span> <span data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-t-title="thAvgTitle">Avg/round</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
+      <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-tip="thAvg">Avg/round</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
     </section>
     </div>
     <div class="col side-col">
     <!-- After the bell, trading is over: the result takes the order
          ticket's place in the right column, and the chart stays in view. -->
     <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
-      <h2 data-t="bell">The bell</h2>
+      <h2><span class="bell-art" id="bell-art" aria-hidden="true"></span><span data-t="bell">The bell</span></h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
       <div class="bell-foot">
         <p class="bell-next" id="bell-next"></p>
-        <button id="hold" class="ghost" type="button" data-t="hold" data-t-title="holdTitle">Hold</button>
-        <button id="dismiss" class="ghost" type="button" data-t="dismiss" data-t-title="dismissTitle">Close</button>
+        <button id="hold" class="ghost" type="button" data-t="hold" data-tip="hold">Hold</button>
+        <button id="dismiss" class="ghost" type="button" data-t="dismiss" data-tip="dismiss">Close</button>
       </div>
     </section>
     <section class="panel ticket" aria-label="Order ticket">
       <div class="quotes">
-        <button id="sell" class="side sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
-        <button id="buy" class="side buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
+        <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
+        <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
       </div>
-      <p class="spread" id="spread" data-t-title="spreadTitle"></p>
+      <p class="spread" id="spread" data-tip="spread"></p>
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
            legal caps marked; stake on an even one (ADR 0024). -->
       <div class="field slide" id="leverage-box">
         <p class="label"><span data-t="leverage">Leverage</span> <span id="lev-note" class="note"></span><output id="lev-out" for="leverage"></output></p>
-        <input id="leverage" type="range" min="0" max="1000" step="1" data-t-label="leverage">
-        <div class="ticks" id="lev-ticks" aria-hidden="true"></div>
+        <input id="leverage" type="range" min="0" max="1000" step="1" data-t-label="leverage" data-tip="leverage">
+        <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
       </div>
       <div class="field slide" id="stake-box">
         <p class="label"><span data-t="stake">Stake</span> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
-        <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake">
+        <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake" data-tip="stake">
         <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <dl class="acct">
-        <div><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
-        <div id="pnl-box"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
-        <div id="level-box"><dt data-t="level">Margin level</dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
+        <div data-tip="netWorth"><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
+        <div id="pnl-box" data-tip="pnl"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
+        <div id="level-box" data-tip="level"><dt data-t="level">Margin level</dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
       </dl>
       <!-- Net worth against the starting money: losses run left in red,
            profit right in green, on a log scale centred on the start. With a
            position open, where a margin call and the losscut would land. -->
-      <div class="meter" id="meter-box" aria-hidden="true">
+      <div class="meter" id="meter-box" data-tip="meter">
         <div class="fill" id="meter"></div>
         <span class="mark zero">±0</span>
         <span class="mark call" id="mark-call" hidden data-t="markCall">call</span>
         <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut</span>
       </div>
       <p class="meter-key" data-t="meterKey">Margin call at 50%, forced loss cut at 20%</p>
-      <button id="borrow" class="borrow" hidden></button>
-      <button id="pray" class="pray" data-t="pray" data-t-title="prayTitle">Pray to the chart</button>
+      <button id="borrow" class="borrow" data-tip="borrow" hidden></button>
+      <button id="pray" class="pray" data-t="pray" data-tip="pray">Pray to the chart</button>
       <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
            pressed Start, end it for everyone. -->
-      <button id="pause" class="ghost pause" type="button" data-t="pause" data-t-title="pauseTitle" hidden>Pause</button>
+      <button id="pause" class="ghost pause" type="button" data-t="pause" data-tip="pause" hidden>Pause</button>
       <div class="round-ctl" id="round-ctl" hidden>
-        <button id="leave" class="ghost" type="button" data-t="leave" data-t-title="leaveTitle">Leave round</button>
-        <button id="finish" class="ghost danger" type="button" data-t="finish" data-t-title="finishTitle" hidden>End round for all</button>
+        <button id="leave" class="ghost" type="button" data-t="leave" data-tip="leave">Leave round</button>
+        <button id="finish" class="ghost danger" type="button" data-t="finish" data-tip="finish" hidden>End round for all</button>
       </div>
       <p id="error" class="error" role="status"></p>
     </section>
     <section class="panel room" aria-label="Traders in this room">
-      <h2><span data-t="room">Room</span> <span id="count"></span></h2>
+      <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
     </section>
     </div>
@@ -208,21 +213,21 @@
       <h2 id="name-title" data-t="nameTitle">Your trader name</h2>
       <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
       <div class="name-row">
-        <button id="face-draw" class="face-draw" type="button" data-t-title="faceDraw" data-t-aria="faceDraw"></button>
+        <button id="face-draw" class="face-draw" type="button" data-tip="faceDraw" data-t-aria="faceDraw"></button>
         <label class="sr-only" for="name-input" data-t="nameTitle">Your trader name</label>
         <input id="name-input" name="name" autocomplete="nickname" spellcheck="false" maxlength="40" required>
-        <button id="name-draw" class="icon" type="button" data-t-title="nameDraw" data-t-aria="nameDraw">
+        <button id="name-draw" class="icon" type="button" data-tip="nameDraw" data-t-aria="nameDraw">
           <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
       <p id="name-error" class="error" role="status"></p>
       <div class="row">
-        <button id="name-cancel" class="ghost" type="button" data-t="nameCancel">Cancel</button>
-        <button id="name-save" class="next" type="submit" data-t="nameSave">Save</button>
+        <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
+        <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
       </div>
     </form>
   </dialog>
-  <div id="losscut" class="losscut" hidden><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
+  <div id="losscut" class="losscut" hidden><span class="art" id="losscut-art" aria-hidden="true"></span><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
 
   <div id="fx" class="fx" aria-hidden="true"></div>
   <footer data-t="footer"></footer>

@@ -3,6 +3,7 @@
 type Table = Record<string, string>;
 type Lang = {
   ui: Record<string, string> & { notes: Record<number, string> };
+  tips: Table;
   news: Table;
   refusals: Table;
   wants: { buy: string; sell: string };
