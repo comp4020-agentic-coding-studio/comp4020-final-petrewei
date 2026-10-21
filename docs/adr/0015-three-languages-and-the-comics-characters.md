@@ -22,5 +22,5 @@ The server keeps speaking English, which the log and the checks read, and sends 
 
 - Fans meet characters they know; the site now names a current KADOKAWA series' characters. It uses no art and copies no passage, says on every page that it is an unaffiliated fan parody, and never uses Kurumi's mother or her death.
 - `test/i18n.test.ts` fails if any page string, server message, refusal, bot, lesson or famous day lacks a language.
-- People's trader names stay English in every language: they are drawn from word lists as identities, not prose.
+- People's drawn trader names stay English in every language: they are drawn from word lists as identities, not prose. A chosen name may be in any script ([ADR 0017](0017-chosen-trader-names.md)).
 - A new server message needs its key in the catalogue, or a page shows its English text; the test catches a missing refusal.

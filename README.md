@@ -22,19 +22,20 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 
 Checked in `spec/` and `test/`:
 
-- an order reaches every page on its tab within a second, never the other tab
+- an order reaches every page on its tab within a second
 - a round waits for a Start from someone on its tab, then the price moves twice a second
 - the server refuses orders the broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop, or their tutorial
+- a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
 - margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
-- replays pass through every real daily close and hide each event mid-window
+- replays pass through every real daily close
 - simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
-- who did what is logged by short code and request, and survives a hard kill
+- who did what is logged by short code, and survives a hard kill
 - every string has English, Japanese and Chinese, each with its own address and About page ([ADR 0016](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0016-the-address-names-the-language.md))
 
 Judged by people, at the crit and showcase:
 
-- whether a room laughs and learns when the bell names the day
+- whether a room laughs and learns when the bell rings
 - whether it makes leverage look as dangerous as it is
 - whether the Japanese and Chinese read as native
 

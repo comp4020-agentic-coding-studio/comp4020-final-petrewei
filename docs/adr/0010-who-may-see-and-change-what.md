@@ -28,6 +28,6 @@ Prices, fills, margin calls and stop-outs happen on the server's clock at the se
 ## 4 Consequences
 
 - Two classmates in separate profiles are two short codes and two trader names in the log, and neither can touch the other's account.
-- A trader's name is drawn from their cookie, so two people can share one; the short code tells them apart in the log and the hall of fame.
+- A trader's name is drawn from their cookie, so two people can share one; the short code tells them apart in the log and the hall of fame. [ADR 0017](0017-chosen-trader-names.md) lets a person choose a name instead, held by them alone.
 - A visitor who copies another's cookie becomes them. Nothing here is worth more than play money, so this is accepted.
 - The crit 10 demo is narrated from `/log?key=…` or `flyctl logs`; the key must not be shown to the room.
