@@ -90,6 +90,41 @@ it("keeps cookies out of the bell's ranking", async () => {
   expect(JSON.stringify(bell)).not.toContain(a.slice(2));
 }, 20_000);
 
+// The bell names everyone in the room when it rings: a person who sat
+// the round out with the tab open is ranked as sitting out, while one who
+// looked and left is not there at all. Neither gets a career.
+it("ranks everyone in the room at the bell, marking who sat out", async () => {
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  const { visitor, act, open, page, state } = app();
+  const trader = await visitor();
+  const watcher = await visitor();
+  const passer = await visitor();
+  const glance = await page(passer);
+  await glance.next(() => true, 2000);
+  glance.close();
+  const watching = await page(watcher);
+  try {
+    await open(30);
+    await act(trader, { kind: "buy", leverage: 5 });
+    let bell = await state(watcher);
+    for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(watcher);
+    type Row = { code: string; you: boolean; sat?: boolean };
+    const ranking = (bell as unknown as { result: { ranking: Row[] } }).result.ranking;
+    const mine = ranking.find((r) => r.you);
+    expect(mine?.code).toBe(bell.you.code);
+    expect(mine?.sat).toBe(true);
+    const traderCode = (await state(trader)).you.code;
+    const passerCode = (await state(passer)).you.code;
+    expect(ranking.find((r) => r.code === traderCode)?.sat).toBeFalsy();
+    expect(ranking.some((r) => r.code === passerCode)).toBe(false);
+    // ranked first, everyone who traded; then, unranked, who sat out
+    expect(ranking.findIndex((r) => r.sat)).toBe(ranking.length - 1);
+    expect(bell.career.some((c) => c.you)).toBe(false);
+  } finally {
+    watching.close();
+  }
+}, 20_000);
+
 // A career starts with a trade: someone who only watched a round gets no
 // row in the hall of fame, so it lists players, not passers-by.
 it("gives a career to traders, not watchers", async () => {

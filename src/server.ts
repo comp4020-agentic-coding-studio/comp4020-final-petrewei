@@ -313,7 +313,7 @@ class Market {
   breakLeft = 0;
   countdown = 0;
   startedBy: string | null = null;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; sat: boolean }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -445,8 +445,13 @@ class Market {
     // The bell's result is final and is shown at once, so it is on disk
     // before any page can see it: a crash after the bell keeps it.
     if (humans.length) writeCareer();
-    const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
+    // The bell ranks the bots and everyone who traded, then lists, unranked,
+    // everyone still on the tab when it rang who sat the round out; a
+    // passer-by who left is not named.
+    const here = new Set(this.listeners().map((l) => l.who));
+    const sat = (who: string): boolean => !bot(who) && !desk.account(who).traded;
+    const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who)).sort((a, b) => Number(sat(a.who)) - Number(sat(b.who)));
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, sat: sat(r.who) })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;

@@ -807,11 +807,14 @@ function render(s) {
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
-        if (r.you) li.className = "you";
+        li.className = `${r.you ? "you" : ""} ${r.sat ? "sat" : ""}`;
         // Rank, name and result on one row, as a column this narrow can hold.
+        // Someone who sat the round out is listed after, without a rank.
         const delta = r.balance - s.start;
         const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
-        const result = Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
+        const result = r.sat
+          ? Object.assign(document.createElement("span"), { className: "res", textContent: t("satOut") })
+          : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
         result.title = yen(r.balance);
         li.append(avatar(r.face, 18), name, result);
         return li;
