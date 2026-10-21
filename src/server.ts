@@ -65,8 +65,9 @@ const NAME_WIDTH = 20;
 const NAMES_MAX = 10_000;
 const same = (name: string): string => name.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
 const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿가-힯]/.test(ch) ? 2 : 1), 0);
-// The house traders in every language, and their given names alone.
-const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).map((b) => b.name)), "くるみ", "久留美", "萌智子", "芽吹", "やす子", "安子"].map(same));
+// The house traders in every language, their given names alone, and
+// Kurumi's Chinese fan nickname (ADR 0015).
+const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).map((b) => b.name)), "くるみ", "久留美", "韭留美", "萌智子", "芽吹", "やす子", "安子"].map(same));
 // Anyone else's name: chosen, in the hall of fame, or on a page now.
 function taken(name: string, who: string): boolean {
   const mine = key(who);

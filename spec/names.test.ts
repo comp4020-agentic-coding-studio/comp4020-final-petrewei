@@ -12,7 +12,7 @@ const suggest = async (cookie: string): Promise<string> => ((await (await fetch(
 it("refuses a name that is empty, too long, not plain text, or a house trader's", async () => {
   const me = await visitor();
   const before = (await state(me)).you.name;
-  for (const name of ["", "   ", "x".repeat(21), "久留美久留美久留美久留美", "<b>Bold</b>", "a‮b", "Kurumi", " kurumi ", "KURUMI", "福賀くるみ", "福贺久留美", "Mochiko", "高根やす子", 42, null]) {
+  for (const name of ["", "   ", "x".repeat(21), "久留美久留美久留美久留美", "<b>Bold</b>", "a‮b", "Kurumi", " kurumi ", "KURUMI", "福賀くるみ", "福贺久留美", "韭留美", "Mochiko", "高根やす子", 42, null]) {
     const res = await post(me, { name });
     expect(res.status, JSON.stringify(name)).toBe(400);
     expect((await res.json()).error, JSON.stringify(name)).toEqual(expect.any(String));
@@ -54,8 +54,9 @@ it.skipIf(live)("keeps a chosen name, shows it to the room, and lets nobody else
   for (const taken of [name, name.toUpperCase(), name.replace(" ", "  ")]) expect((await post(other, { name: taken })).status, taken).toBe(409);
   // and a person may take back their own, or write it in Japanese
   expect((await post(me, { name })).status).toBe(200);
-  expect((await post(me, { name: "ロスカット太郎" })).status).toBe(200);
-  expect((await state(me)).you.name).toBe("ロスカット太郎");
+  const ja = `太郎${name.slice(-4)}`;
+  expect((await post(me, { name: ja })).status).toBe(200);
+  expect((await state(me)).you.name).toBe(ja);
 });
 
 it.skipIf(live)("takes a suggested name when it is chosen", async () => {
