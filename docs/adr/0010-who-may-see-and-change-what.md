@@ -29,5 +29,6 @@ Prices, fills, margin calls and stop-outs happen on the server's clock at the se
 
 - Two classmates in separate profiles are two short codes and two trader names in the log, and neither can touch the other's account.
 - A trader's name is drawn from their cookie, so two people can share one; the short code tells them apart in the log and the hall of fame. [ADR 0017](0017-chosen-trader-names.md) lets a person choose a name instead, held by them alone.
+- Since 21 October every page on a tab is also told the room's recent moments, to pop a bubble over the trader: a prayer, a bet at 400× or more, doubling down, a closed result, a margin call, a cut or a loan, each by short code. All of these were already in the feed; stops and entries still are not sent (`spec/effects.test.ts`).
 - A visitor who copies another's cookie becomes them. Nothing here is worth more than play money, so this is accepted.
 - The crit 10 demo is narrated from `/log?key=…` or `flyctl logs`; the key must not be shown to the room.
