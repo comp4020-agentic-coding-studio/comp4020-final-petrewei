@@ -171,13 +171,15 @@
     </div>
   </main>
 
-  <!-- Choosing a trader name: type one, or draw one at random. The server
-       decides whether it may be used (ADR 0017). -->
+  <!-- Choosing a trader name: type one, or draw one at random; the face
+       beside it draws another face. The server decides whether either may
+       be used (ADRs 0017, 0021). -->
   <dialog id="name-box" class="card name-box" aria-labelledby="name-title">
     <form id="name-form" method="dialog">
       <h2 id="name-title" data-t="nameTitle">Your trader name</h2>
       <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
       <div class="name-row">
+        <button id="face-draw" class="face-draw" type="button" data-t-title="faceDraw" data-t-aria="faceDraw"></button>
         <label class="sr-only" for="name-input" data-t="nameTitle">Your trader name</label>
         <input id="name-input" name="name" autocomplete="nickname" spellcheck="false" maxlength="40" required>
         <button id="name-draw" class="icon" type="button" data-t-title="nameDraw" data-t-aria="nameDraw">

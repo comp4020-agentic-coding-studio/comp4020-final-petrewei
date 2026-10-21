@@ -323,7 +323,11 @@ body.bell-up .ticket { display: none; }
 .name-box form { display: grid; gap: 0.6rem; }
 .name-box h2 { margin: 0; }
 .name-hint { margin: 0; color: var(--muted); font-size: 0.88rem; }
-.name-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+.name-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; }
+/* The face to try on: click for another. A small arrow says it changes. */
+.face-draw { position: relative; width: 34px; height: 34px; padding: 0; border-radius: 8px; background: var(--av-tile); line-height: 0; }
+.face-draw svg { display: block; margin: auto; }
+.face-draw::after { content: "↻"; position: absolute; right: -5px; bottom: -5px; width: 15px; height: 15px; border-radius: 50%; background: var(--pink); color: #fff; font-size: 11px; line-height: 15px; text-align: center; }
 .name-row input { min-width: 0; height: 34px; padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: inherit; }
 .name-row input:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
 .name-box .error { min-height: 1.3rem; margin: 0; }

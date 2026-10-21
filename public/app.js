@@ -4,7 +4,7 @@
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
-import { svg } from "/avatars.js";
+import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
@@ -226,11 +226,22 @@ function warn(s, open) {
   document.title = show && calling ? t("warnTab", { level }) : `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
 
-// Your trader name: type one, or draw one at random until one fits. The
-// server says whether it may be used, and every page sees it next
+// Your trader name: type one, or draw one at random until one fits, and
+// your face: click it for another of the plain set (ADR 0021). The server
+// says whether they may be used, and every page sees them next
 // broadcast; a draw changes nothing until it is saved.
 let me = "";
+let myFace = "p0";
+let tryFace = myFace;
+const showFace = () => ($("face-draw").innerHTML = svg(tryFace, 28));
+$("face-draw").onclick = () => {
+  const others = PEOPLE.map((_, i) => `p${i}`).filter((f) => f !== tryFace);
+  tryFace = others[Math.floor(Math.random() * others.length)];
+  showFace();
+};
 $("whoami").onclick = () => {
+  tryFace = myFace;
+  showFace();
   $("name-input").value = me;
   $("name-error").textContent = "";
   $("name-box").showModal();
@@ -248,6 +259,12 @@ $("name-draw").onclick = async () => {
 };
 $("name-form").onsubmit = async (e) => {
   e.preventDefault();
+  if (tryFace !== myFace) {
+    const res = await fetch("/api/face", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ face: tryFace }) });
+    const out = await res.json();
+    if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
+    myFace = out.face;
+  }
   const res = await fetch("/api/name", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: $("name-input").value }) });
   const out = await res.json();
   if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
@@ -672,6 +689,7 @@ function render(s) {
   // Built from text nodes: the name comes from the server, never as HTML.
   // A pencil says it can be changed.
   me = nameIn(s.you.name, s.you.draw);
+  myFace = s.you.face;
   $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
   $("whoami").title = t("youAreTitle");
   draw(s);

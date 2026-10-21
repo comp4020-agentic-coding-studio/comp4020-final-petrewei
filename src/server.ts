@@ -26,6 +26,7 @@ const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const ROOT = join(import.meta.dirname, "..");
 const CAREER_FILE = join(DATA_DIR, "career.json");
 const NAMES_FILE = join(DATA_DIR, "names.json");
+const FACES_FILE = join(DATA_DIR, "faces.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
 // Half a second a tick: forty days of nine ticks is three minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
@@ -67,10 +68,12 @@ function nameOf(who: string): string {
 }
 // A pixel face (ADR 0021): a house trader's own, or a plain one a person
 // is dealt from their cookie, as their drawn name is.
-// A career's key is the cookie's hash in hex, so its face is read from the
-// same byte, and careers saved before faces have one too.
-const faceOf = (who: string): string => (bot(who) ? who : `p${hash(who)[2] % PEOPLE.length}`);
-const faceAt = (k: string): string => `p${Number.parseInt(k.slice(4, 6), 16) % PEOPLE.length}`;
+// A career's key is the cookie's hash in hex, so a dealt face is read from
+// the same byte, and careers saved before faces have one too. A face the
+// person drew instead is kept under that key.
+const faces: Record<string, string> = existsSync(FACES_FILE) ? JSON.parse(readFileSync(FACES_FILE, "utf8")) : {};
+const faceAt = (k: string): string => faces[k] ?? `p${Number.parseInt(k.slice(4, 6), 16) % PEOPLE.length}`;
+const faceOf = (who: string): string => (bot(who) ? who : faceAt(key(who)));
 // Six hex characters tell people apart in the log at a glance; a career
 // is filed under sixteen, so two people's careers never merge.
 const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
@@ -132,6 +135,25 @@ function rename(who: string, input: unknown): { name: string; draw: Draw | null 
   log(who, "rename", { from: before });
   return { name: nameOf(who), draw };
 }
+// A face is one of the plain set by name, never a house trader's. Two
+// people may share one: their names tell them apart.
+const FACES_MAX = 10_000;
+function reface(who: string, input: unknown): { face: string } | { error: string; status: number } {
+  if (typeof input !== "string" || !/^p(0|[1-9]\d*)$/.test(input) || Number(input.slice(1)) >= PEOPLE.length) return { error: "Choose one of the faces.", status: 400 };
+  const k = key(who);
+  if (!(k in faces) && Object.keys(faces).length >= FACES_MAX) return { error: "Too many faces are chosen. Try again later.", status: 409 };
+  if (faceAt(k) === input) return { face: input };
+  faces[k] = input;
+  try {
+    writeFileSync(`${FACES_FILE}.tmp`, JSON.stringify(faces));
+    renameSync(`${FACES_FILE}.tmp`, FACES_FILE);
+  } catch (error) {
+    console.error("could not save the faces:", error);
+  }
+  log(who, "reface", { face: input });
+  return { face: input };
+}
+
 // A drawn name nobody else holds, to try on; nothing changes until it is chosen.
 function suggestion(who: string): { name: string; draw: Draw } {
   const now = identityOf(who);
@@ -953,6 +975,24 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     for (const m of MODES) markets[m].broadcast();
     sendTutorial(who);
+    return json(res, 200, result);
+  }
+
+  // A person's face: POST chooses one of the plain set; the page draws
+  // one to try on from its own copy of them.
+  if (req.method === "POST" && path === "/api/face") {
+    let input: Record<string, unknown>;
+    try {
+      input = await body(req);
+    } catch {
+      return json(res, 400, { error: "Send JSON." });
+    }
+    const result = reface(who, input.face);
+    if ("error" in result) {
+      log(who, "refused", { action: "reface", why: result.error });
+      return json(res, result.status, { error: result.error });
+    }
+    for (const m of MODES) markets[m].broadcast();
     return json(res, 200, result);
   }
 

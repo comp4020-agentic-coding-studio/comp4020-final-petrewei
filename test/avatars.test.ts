@@ -70,3 +70,30 @@ it("shows a person the same face in the room, at the bell and in the hall", asyn
     await s.stop();
   }
 }, 20_000);
+
+// A chosen face is kept on the volume, so it outlives a hard kill, and
+// the hall of fame shows it too.
+it("keeps a chosen face through a hard kill, in the room and the hall", async () => {
+  const s = await server(8099, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
+  try {
+    const { visitor, act, open, state } = client(s.base);
+    const a = await visitor();
+    type Faced = { face: string; you: boolean };
+    const face = ((await state(a)).you as unknown as Faced).face === "p5" ? "p6" : "p5";
+    const res = await fetch(`${s.base}/api/face`, { method: "POST", headers: { "content-type": "application/json", cookie: a }, body: JSON.stringify({ face }) });
+    expect(res.status).toBe(200);
+    await open(30);
+    await act(a, { kind: "buy", leverage: 5 });
+    let bell = await state(a);
+    for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
+    expect((bell.career as unknown as Faced[]).find((c) => c.you)?.face).toBe(face);
+    s.proc.kill("SIGKILL");
+    await new Promise((r) => s.proc.once("exit", r));
+    await s.restart();
+    const after = await state(a);
+    expect((after.you as unknown as Faced).face).toBe(face);
+    expect((after.career as unknown as Faced[]).find((c) => c.you)?.face).toBe(face);
+  } finally {
+    await s.stop();
+  }
+}, 30_000);
