@@ -15,6 +15,7 @@
 - **The server owns the price, the fills and the broker's rules.** A page sends only what the player chose, never a price or an amount of money.
 - **Keep a replay's dates and event off the page until the bell.**
 - **Start a round only when someone on its tab asks.** Never let a market run by itself.
+- **Gate every debug action on the server, by the operator's key** (ADR 0019). Never print the key, or a URL holding it.
 
 ## 3 Theme and Data
 
