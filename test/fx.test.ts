@@ -283,3 +283,19 @@ describe("margin lines", () => {
     expect(desk.lines("a")).toBeNull();
   });
 });
+
+describe("a margin call's state", () => {
+  it("holds while the level is at or under 50%, and clears when it recovers", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100, 0.5);
+    const { call, cut } = desk.lines("a")!;
+    desk.mark((call + cut) / 2);
+    expect(desk.account("a").pos?.called).toBe(true);
+    // still in the call a tick later, with no new event
+    expect(desk.mark((call + cut) / 2 + 1e-9)).toEqual([]);
+    expect(desk.account("a").pos?.called).toBe(true);
+    desk.mark(100);
+    expect(desk.account("a").pos?.called).toBe(false);
+  });
+});

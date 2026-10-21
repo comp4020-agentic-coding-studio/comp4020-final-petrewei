@@ -129,6 +129,8 @@ it.skipIf(live)("tells a trader their own margin lines, and nobody theirs", asyn
   const s = (await state(me)) as unknown as { you: { pos: { entry: number; call: number; cut: number } }; traders: Record<string, unknown>[] };
   expect(s.you.pos.call).toBeLessThan(s.you.pos.entry);
   expect(s.you.pos.cut).toBeLessThan(s.you.pos.call);
+  // whether the broker is calling now, for the page's warning
+  expect((s.you.pos as unknown as { called: boolean }).called).toBe(false);
   const other = await state(await visitor());
   expect(JSON.stringify(other)).not.toContain(String(s.you.pos.call));
 });
