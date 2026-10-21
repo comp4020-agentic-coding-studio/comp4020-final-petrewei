@@ -114,6 +114,12 @@ const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choi
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
+// A round's controls (ADR 0022). Ending for everyone asks first.
+$("cancel").onclick = () => act("cancel");
+$("leave").onclick = () => confirm(t("leaveConfirm")) && act("leave");
+$("finish").onclick = () => confirm(t("finishConfirm")) && act("finish");
+$("hold").onclick = () => act("hold");
+$("dismiss").onclick = () => act("dismiss");
 $("pray").onclick = () => {
   burst($("pray"), ["🙏", "✨", "🙏", "⛩️", "✨"]);
   act("pray");
@@ -273,14 +279,17 @@ $("name-form").onsubmit = async (e) => {
 };
 
 // The lobby: a market waits for someone on the tab to press Start, then
-// counts down so others can join.
+// counts down so others can join and place an order at the open; whoever
+// pressed Start may cancel it.
 function lobby(s) {
   const waiting = s.phase === "lobby" || s.phase === "countdown";
   $("lobby").hidden = s.mode === "tutorial" || !waiting;
   if (!waiting) return;
   const counting = s.phase === "countdown";
+  $("lobby").classList.toggle("counting", counting);
+  $("cancel").hidden = !(counting && s.rules);
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
-  $("lobby-text").textContent = counting ? t("lobbyStarted", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
+  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
@@ -654,7 +663,11 @@ function render(s) {
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
-  const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade";
+  const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
+  // Leave is for anyone still in a running round; End is the starter's.
+  const running = !tutorial && (s.phase === "trade" || s.phase === "countdown");
+  $("round-ctl").hidden = !running || s.you.left;
+  $("finish").hidden = !(s.phase === "trade" && s.rules);
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
   lobby(s);
@@ -704,7 +717,7 @@ function render(s) {
   const fill = y.level === null ? 100 : Math.min(100, y.level / 2);
   $("meter").style.width = `${fill}%`;
   $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
-  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && open);
+  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && s.phase === "trade" && !y.left);
   warn(s, open);
   // Your position: one row with its own close and stop, as on any
   // platform, or a line saying what to do when there is none.
@@ -721,11 +734,12 @@ function render(s) {
     $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : t("addStop");
     $("stop").title = y.pos.stop ? t("removeStopTitle") : t("addStopTitle");
   } else {
-    $("position").textContent = t(y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+    $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
-  const closed = !open || y.out;
-  for (const id of ["buy", "sell", "pray"]) $(id).disabled = closed;
+  const closed = !open || y.out || y.left;
+  for (const id of ["buy", "sell"]) $(id).disabled = closed;
+  $("pray").disabled = closed || s.phase === "countdown";
   for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
@@ -746,7 +760,7 @@ function render(s) {
   list.replaceChildren(
     ...s.traders.map((tr) => {
       const li = document.createElement("li");
-      li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
+      li.className = `${tr.you ? "you" : ""} ${tr.out && !tr.left ? "out" : ""} ${tr.left ? "gone" : ""}`;
       const n = document.createElement("span");
       n.className = "n";
       n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
@@ -754,6 +768,7 @@ function render(s) {
         n.title = T[lang].bots[tr.id]?.motto ?? tr.motto ?? "";
         n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: t("bot") }));
       }
+      if (tr.left) n.append(" ", Object.assign(document.createElement("span"), { className: "botmark", textContent: t("leftTag") }));
       const p = document.createElement("span");
       if (tr.side) {
         p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
@@ -807,13 +822,13 @@ function render(s) {
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
-        li.className = `${r.you ? "you" : ""} ${r.sat ? "sat" : ""}`;
+        li.className = `${r.you ? "you" : ""} ${r.sat ? "sat" : ""} ${r.left ? "left" : ""}`;
         // Rank, name and result on one row, as a column this narrow can hold.
         // Someone who sat the round out is listed after, without a rank.
         const delta = r.balance - s.start;
         const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
-        const result = r.sat
-          ? Object.assign(document.createElement("span"), { className: "res", textContent: t("satOut") })
+        const result = r.sat || r.left
+          ? Object.assign(document.createElement("span"), { className: "res", textContent: t(r.left ? "leftTag" : "satOut") })
           : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
         result.title = yen(r.balance);
         li.append(avatar(r.face, 18), name, result);

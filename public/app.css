@@ -216,6 +216,21 @@ body.tutorial .studies { display: none; }
 /* The lobby sits over the chart until someone presses Start. */
 .lobby { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.2rem; text-align: center; background: var(--veil); }
 .lobby[hidden] { display: none; }
+/* In the countdown the ticket is open at the opening price, so the lobby
+   shrinks to a band along the foot of the chart, clear of the indicator
+   switches, and leaves the price in view. */
+.lobby.counting { inset: auto 0 0; flex-direction: row; flex-wrap: wrap; gap: 0.3rem 0.8rem; padding: 0.5rem 0.9rem; background: var(--veil); border-top: 1px solid var(--pink); }
+.lobby.counting .lobby-title { font-size: 1.1rem; }
+.lobby.counting p { font-size: 0.82rem; }
+.lobby .ghost, .round-ctl .ghost, .bell-foot .ghost { height: 2rem; padding: 0 0.7rem; background: none; color: var(--soft); font-size: 0.82rem; }
+.round-ctl { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.round-ctl[hidden] { display: none; }
+.round-ctl .ghost:only-child, .round-ctl .ghost:has(+ [hidden]) { grid-column: 1 / -1; }
+.ghost.danger { color: var(--down); border-color: var(--down); }
+.bell-foot { display: flex; align-items: center; gap: 0.4rem; }
+.bell-foot .bell-next { flex: 1; min-width: 0; }
+#ranking li.left { counter-increment: none; color: var(--muted); }
+#ranking li.left::before { content: "–"; }
 .lobby p { margin: 0; max-width: 30rem; color: var(--soft); }
 .lobby .lobby-title { font-size: 1.7rem; font-weight: 800; color: var(--ink); }
 .start { margin-top: 0.5rem; width: 11rem; font-size: 1.1rem; font-weight: 800; padding: 0.65rem 1rem; white-space: nowrap; border: none; border-radius: 999px; background: var(--pink); color: var(--on-pink); box-shadow: 0 4px 0 var(--press); }
@@ -285,6 +300,7 @@ th:first-child, td:first-child { text-align: left; }
 #traders li:last-child { border-bottom: none; }
 #traders li.you .n { color: var(--pink); font-weight: 700; }
 #traders li.out { opacity: 0.45; text-decoration: line-through; }
+#traders li.gone { opacity: 0.55; }
 #traders .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #traders .eq { font-family: var(--mono); font-size: 0.85rem; }
 .botmark { color: var(--muted); font-size: 0.7rem; margin-left: 0.25rem; }

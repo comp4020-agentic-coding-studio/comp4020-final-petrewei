@@ -1,6 +1,6 @@
 # ADR 0012: History and Live as Tabs
 
-Status: accepted, 15 October 2026. Changes the round mix in [ADR 0009](0009-a-parody-fx-trading-floor.md); its rules stand. Amended the same day: rounds wait for a Start (section 5).
+Status: accepted, 15 October 2026. Changes the round mix in [ADR 0009](0009-a-parody-fx-trading-floor.md); its rules stand. Amended the same day: rounds wait for a Start (section 5). The countdown, and controls to cancel, end, leave and hold a round, are in [ADR 0022](0022-a-rounds-controls.md).
 
 ## 1 Context
 

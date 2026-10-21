@@ -19,6 +19,7 @@ The agent proposed the third; Peter accepted it with the game. Every rule below 
 | Who | May see | May change | Checked by |
 | --- | --- | --- | --- |
 | Any visitor | the round's prices so far, never its dates before the bell; every trader's name, side, leverage and net worth; the feed; the hall of fame | their own account only, by orders the broker offers: buy or sell at a listed leverage and a stake between 0 and 1, close, set a stop on the right side of the price, pray, and borrow only when broke | `spec/permissions.test.ts`, `test/fx.test.ts` |
+| Whoever pressed Start, or anyone on the tab once they have gone | the same | cancel the countdown, or end the round early for everyone ([ADR 0022](0022-a-rounds-controls.md)); anyone on a tab may leave its round alone, and close or hold its bell | `test/rounds.test.ts` |
 | A trader | their own balance, position, entry, margin level, stop and debt | the same | `spec/permissions.test.ts` |
 | A learner, on the Tutorial tab | their own tutorial: lesson, practice account and scripted prices, and nobody else's ([ADR 0013](0013-a-private-tutorial.md)) | their own tutorial, by the move the lesson teaches, or starting again | `spec/tutorial.test.ts`, `test/tutorial.test.ts` |
 | The operator, with `STATS_KEY` | the activity log in `/data/activity.log`: every person's action by short code and trader name | in debug mode ([ADR 0019](0019-a-hidden-debug-mode.md)), the hall of fame, a round's phase, and their own account | `spec/log.test.ts`, `test/log.test.ts`, `test/debug.test.ts` |

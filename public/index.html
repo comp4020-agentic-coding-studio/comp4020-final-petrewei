@@ -97,6 +97,7 @@
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
           <button id="start" class="start" data-t="start">Start round</button>
+          <button id="cancel" class="ghost" type="button" data-t="cancelStart" hidden>Cancel</button>
         </div>
       </div>
     </section>
@@ -136,7 +137,11 @@
       <h2 data-t="bell">The bell</h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
-      <p class="bell-next" id="bell-next"></p>
+      <div class="bell-foot">
+        <p class="bell-next" id="bell-next"></p>
+        <button id="hold" class="ghost" type="button" data-t="hold" data-t-title="holdTitle">Hold</button>
+        <button id="dismiss" class="ghost" type="button" data-t="dismiss" data-t-title="dismissTitle">Close</button>
+      </div>
     </section>
     <section class="panel ticket" aria-label="Order ticket">
       <div class="quotes">
@@ -162,6 +167,12 @@
       <p class="meter-key" data-t="meterKey">Margin call at 50%, forced loss cut at 20%</p>
       <button id="borrow" class="borrow" hidden></button>
       <button id="pray" class="pray" data-t="pray" data-t-title="prayTitle">Pray to the chart</button>
+      <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
+           pressed Start, end it for everyone. -->
+      <div class="round-ctl" id="round-ctl" hidden>
+        <button id="leave" class="ghost" type="button" data-t="leave" data-t-title="leaveTitle">Leave round</button>
+        <button id="finish" class="ghost danger" type="button" data-t="finish" data-t-title="finishTitle" hidden>End round for all</button>
+      </div>
       <p id="error" class="error" role="status"></p>
     </section>
     <section class="panel room" aria-label="Traders in this room">

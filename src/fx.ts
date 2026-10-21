@@ -36,8 +36,9 @@ export type Position = {
 };
 // `out` is set when a close leaves nothing and cleared by a loan; `cuts`
 // counts forced closes, so a page can tell when a new one happens;
-// `traded` says whether the player placed an order this round at all.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean };
+// `traded` says whether the player placed an order this round at all;
+// `left` that they walked out of it and only watch until the bell.
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; left: boolean };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -55,7 +56,7 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false });
+    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false });
   }
 
   players(): string[] {
@@ -109,6 +110,7 @@ export class Desk {
   // reversal takes two clicks and the second is a decision.
   order(who: string, side: Side, leverage: number, stake = 1): Fill[] | string {
     const account = this.account(who);
+    if (account.left) return "You left this round. You can watch it to the bell.";
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
@@ -167,7 +169,7 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false });
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false });
   }
 
   // Move the price and enforce the rules on every account, in join order.
@@ -213,8 +215,19 @@ export class Desk {
     return !account.pos && (account.out || account.balance < BROKE);
   }
 
+  // Walk out of the round: anything open is closed at the price, and the
+  // account takes no more orders or loans until the next round.
+  leave(who: string): Fill[] | string {
+    const account = this.account(who);
+    if (account.left) return "You already left this round.";
+    const fills = account.pos ? [this.settleOne(who, "close")] : [];
+    account.left = true;
+    return fills;
+  }
+
   borrow(who: string): string | null {
     const account = this.account(who);
+    if (account.left) return "You left this round. You can watch it to the bell.";
     if (!this.broke(who)) return "You still have money. For now.";
     if (account.debt >= BORROW * LOANS) return "Dad's savings are gone.";
     account.balance += BORROW;

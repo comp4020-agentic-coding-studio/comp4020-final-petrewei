@@ -33,9 +33,14 @@ const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
 const POPS_MAX = 40;
+// The bell shows for twenty seconds; anyone on the tab may close it or
+// hold it thirty more, up to five minutes in all (ADR 0022).
 const BREAK_TICKS = 40;
-// After Start, ten seconds for others on the tab to join before trading.
-const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 20);
+const HOLD_TICKS = Math.round(30_000 / TICK_MS);
+const BREAK_MAX = Math.round(300_000 / TICK_MS);
+// After Start, five seconds for others on the tab to join, and to place
+// an order at the opening price, before the price moves.
+const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
 mkdirSync(DATA_DIR, { recursive: true });
 
 const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
@@ -313,7 +318,7 @@ class Market {
   breakLeft = 0;
   countdown = 0;
   startedBy: string | null = null;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; sat: boolean }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -374,6 +379,60 @@ class Market {
     const secs = Math.max(1, Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000));
     this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info", "started", { who: short(who), secs });
     log(who, "ask", { mode: this.mode });
+    return null;
+  }
+
+  // The starter changes their mind before the price moves. Orders placed
+  // in the countdown are voided: the round never happened.
+  cancel(who: string): string | null {
+    if (this.phase !== "countdown") return "There is no countdown to cancel.";
+    if (!this.mayRule(who)) return "Only the person who pressed Start can cancel it.";
+    log(who, "cancel", { mode: this.mode });
+    const by = nameOf(who);
+    this.ready();
+    this.say(`${by} cancelled the start.`, "info", "cancelled", { who: short(who) });
+    return null;
+  }
+
+  // The starter rules the round: cancel its countdown, or end it early for
+  // everyone. If they have left the tab, anyone still on it may.
+  mayRule(who: string): boolean {
+    const here = this.listeners();
+    if (!here.some((l) => l.who === who)) return false;
+    return who === this.startedBy || !here.some((l) => l.who === this.startedBy);
+  }
+
+  // Ends the round now for everyone: the bell rings at today's price.
+  finish(who: string): string | null {
+    if (this.phase !== "trade") return "No round is trading.";
+    if (!this.mayRule(who)) return "Only the person who pressed Start can end the round.";
+    log(who, "finish", { mode: this.mode, tick: this.tick });
+    this.say(`${nameOf(who)} ended the round early.`, "info", "finished", { who: short(who) });
+    this.end();
+    return null;
+  }
+
+  // One person walks out: their position closes at the price, their
+  // result stands, and they watch the rest. Nobody else is touched.
+  leave(who: string): string | null {
+    if (this.phase !== "trade" && this.phase !== "countdown") return "No round is running.";
+    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to leave its round.";
+    this.desk.join(who);
+    const out = this.desk.leave(who);
+    if (typeof out === "string") return out;
+    this.report(out);
+    this.say(`${nameOf(who)} left the round to watch.`, "info", "left", { who: short(who) });
+    log(who, "leave", { mode: this.mode });
+    return null;
+  }
+
+  // After the bell: close it now, or hold it longer, by anyone on the tab.
+  bell(who: string, hold: boolean): string | null {
+    if (this.phase !== "break") return "The bell isn't showing.";
+    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to change its bell.";
+    if (hold) this.breakLeft = Math.min(BREAK_MAX, this.breakLeft + HOLD_TICKS);
+    else this.ready();
+    log(who, hold ? "hold" : "dismiss", { mode: this.mode });
     return null;
   }
 
@@ -448,10 +507,13 @@ class Market {
     // The bell ranks the bots and everyone who traded, then lists, unranked,
     // everyone still on the tab when it rang who sat the round out; a
     // passer-by who left is not named.
+    // Who left mid-round is listed with them, unranked, as having left.
     const here = new Set(this.listeners().map((l) => l.who));
     const sat = (who: string): boolean => !bot(who) && !desk.account(who).traded;
-    const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who)).sort((a, b) => Number(sat(a.who)) - Number(sat(b.who)));
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, sat: sat(r.who) })), reveal: this.reveal, facts: this.facts };
+    const left = (who: string): boolean => desk.account(who).left;
+    const aside = (who: string): number => Number(sat(who) || left(who));
+    const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who) || left(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -487,8 +549,10 @@ class Market {
 
   apply(who: string, action: Action): string | null {
     if (this.phase === "lobby") return "The market is closed. Press Start to begin a round.";
-    if (this.phase === "countdown") return "Trading opens when the countdown ends.";
-    if (this.phase !== "trade") return "The market is closed. Next round soon.";
+    // In the countdown the price stands at the open: a player may place
+    // and take back an order, but not pray to or borrow against it.
+    if (this.phase === "countdown" && (action.kind === "pray" || action.kind === "borrow")) return "Trading opens when the countdown ends.";
+    if (this.phase !== "trade" && this.phase !== "countdown") return "The market is closed. Next round soon.";
     const desk = this.desk;
     desk.join(who);
     if (action.kind === "pray") {
@@ -527,7 +591,7 @@ class Market {
     const open = new Set(this.listeners().map((l) => l.who));
     const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
       const a = desk.account(p);
-      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
+      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, left: a.left };
     });
     traders.sort((a, b) => b.equity - a.equity);
     return { traders };
@@ -547,6 +611,9 @@ class Market {
       phase: this.phase,
       countdown: Math.ceil((this.countdown * TICK_MS) / 1000),
       startedBy: this.startedBy && nameOf(this.startedBy),
+      startedCode: this.startedBy && short(this.startedBy),
+      // Whether this visitor may cancel or end the round for everyone.
+      rules: this.startedBy !== null && this.mayRule(who),
       startedDraw: this.startedBy && drawOf(this.startedBy),
       round: this.count,
       pair: round.pair,
@@ -569,6 +636,7 @@ class Market {
         pnl: Math.round(mine ? desk.pnl(who) : 0),
         level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
         out: mine?.out ?? false,
+        left: mine?.left ?? false,
         debt: mine?.debt ?? 0,
         loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
         broke: mine ? desk.broke(who) : false,
@@ -1028,6 +1096,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       log(who, error ? "refused" : "lesson", { mode: "tutorial", action: kind, lesson: t.lesson().id, ...(error ? { why: error } : {}) });
       sendTutorial(who);
       return json(res, error ? 409 : 200, error ? { error } : { ok: true });
+    }
+    // A round's controls (ADR 0022): cancel the countdown, end the round,
+    // leave it, and close or hold the bell. The market checks who may.
+    if ((kind === "cancel" || kind === "finish" || kind === "leave" || kind === "hold" || kind === "dismiss") && input.mode !== "tutorial") {
+      const market = markets[modeOf(input.mode)];
+      const error = kind === "cancel" ? market.cancel(who) : kind === "finish" ? market.finish(who) : kind === "leave" ? market.leave(who) : market.bell(who, kind === "hold");
+      if (error) {
+        log(who, "refused", { mode: market.mode, action: kind, why: error });
+        return json(res, 409, { error });
+      }
+      market.broadcast(true);
+      return json(res, 200, { ok: true });
     }
     if (kind === "start" && input.mode !== "tutorial") {
       const market = markets[modeOf(input.mode)];

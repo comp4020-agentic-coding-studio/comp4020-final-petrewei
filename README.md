@@ -23,7 +23,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 Checked in `spec/` and `test/`:
 
 - an order reaches every page on its tab within a second
-- a round waits for a Start from someone on its tab, then the price moves twice a second
+- a round waits for a Start on its tab; only its starter may cancel or end it ([ADR 0022](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0022-a-rounds-controls.md))
 - the server refuses orders its broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop, or their tutorial
 - a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
