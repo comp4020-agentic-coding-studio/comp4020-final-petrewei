@@ -433,8 +433,7 @@ function draw(s) {
     const bw = Math.max(3, x(k) * 0.6);
     ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(1, Math.abs(y(open) - y(close))));
   }
-  // Moving averages over the candles, and their legend top-left under
-  // the filename.
+  // Moving averages over the candles, and their legend top-left.
   const legend = [];
   if (studies.ma && !tutorial) {
     const fast = sma(days, 5);
@@ -450,7 +449,7 @@ function draw(s) {
   let lx = 10;
   for (const [text, colour] of small ? [] : legend) {
     ctx.fillStyle = colour;
-    ctx.fillText(text, lx, 34);
+    ctx.fillText(text, lx, 18);
     lx += ctx.measureText(text).width + 14;
   }
   // The RSI pane: the line, the 70 and 30 bands, and today's value.
@@ -609,7 +608,6 @@ function render(s) {
   $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
   $("change").className = ch >= 0 ? "up" : "down";
   $("mode").textContent = t(tutorial ? "modeTutorial" : s.simulated ? "modeLive" : "modeReplay");
-  $("title").textContent = tutorial ? "chart_practice.exe" : s.simulated ? "chart_live_sim.exe" : "chart_replay_????-??-??.exe";
   $("clock").textContent = tutorial
     ? t("clockTutorial")
     : s.phase === "trade"

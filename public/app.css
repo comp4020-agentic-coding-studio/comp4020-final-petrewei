@@ -31,7 +31,6 @@
   --on-fill: #0d0a1a;
   --logo-shadow: #5a1f45;
   --press: #a8326f;
-  --file: #5e5288;
   --veil: rgb(17 13 34 / 0.86);
   --scrim: rgb(8 6 18 / 0.7);
   --glow: rgb(255 122 182 / 0.15);
@@ -67,7 +66,6 @@
     --on-fill: #ffffff;
     --logo-shadow: #f5c6dc;
     --press: #a42865;
-    --file: #b7aed0;
     --veil: rgb(246 242 251 / 0.9);
     --scrim: rgb(28 21 48 / 0.45);
     --glow: rgb(188 61 120 / 0.15);
@@ -101,7 +99,6 @@
   --on-fill: #ffffff;
   --logo-shadow: #f5c6dc;
   --press: #a42865;
-  --file: #b7aed0;
   --veil: rgb(246 242 251 / 0.9);
   --scrim: rgb(28 21 48 / 0.45);
   --glow: rgb(188 61 120 / 0.15);
@@ -190,8 +187,6 @@ main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-co
 .clock { flex: none; width: 10rem; text-align: center; font: 0.8rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-box { position: relative; }
 canvas { display: block; width: 100%; height: auto; background: var(--chart); }
-/* The parody's one wink: the chart window has a filename. */
-.file { position: absolute; left: 0.7rem; top: 0.5rem; margin: 0; font: 0.72rem var(--mono); color: var(--file); pointer-events: none; }
 
 /* Indicator switches sit in the chart's top-right corner, each in its
    line's colour while on, and above the lobby so they work before a round. */
@@ -443,8 +438,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   /* The warning: title and button on one row, the message under them. */
   .warn { grid-template-columns: minmax(0, 1fr) auto; font-size: 0.8rem; }
   .warn span { grid-column: 1 / -1; grid-row: 2; }
-  /* The filename joke gives way to the indicator switches. */
-  .file { display: none; }
+  /* The indicator switches move to the corner, clear of the price axis's
+     narrower labels. */
   .studies { right: 0.5rem; }
   canvas { height: 270px; }
   .lobby .lobby-title { font-size: 1.3rem; }
