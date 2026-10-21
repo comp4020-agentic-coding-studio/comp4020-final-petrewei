@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bollinger, closes, rsi, sma } from "../public/indicators.js";
+import { bollinger, closes, rsi, sma, stack } from "../public/indicators.js";
 
 // The chart's indicators are the textbook ones, worked out on each day's
 // close. A day with too little history has none, rather than a guess.
@@ -48,5 +48,23 @@ describe("RSI", () => {
   });
   it("is 50 on a flat line", () => {
     expect(rsi([5, 5, 5, 5], 3).at(-1)).toBe(50);
+  });
+});
+
+// The chart's line labels: a 400× position's entry, stop, margin call and
+// losscut can sit within a few pixels of each other.
+describe("label stack", () => {
+  const at = (labels: { at: number; text: string }[]) => labels.map((l) => [l.text, l.at]);
+  it("keeps labels at their own heights when they are apart", () => {
+    expect(at(stack([{ at: 200, text: "b" }, { at: 100, text: "a" }], 44, 380, 15))).toEqual([["a", 100], ["b", 200]]);
+  });
+  it("pushes crowded labels down a row each, in their lines' order", () => {
+    expect(at(stack([{ at: 102, text: "cut" }, { at: 100, text: "call" }, { at: 104, text: "stop" }], 44, 380, 15))).toEqual([["call", 100], ["cut", 115], ["stop", 130]]);
+  });
+  it("never puts a label above the first row", () => {
+    expect(at(stack([{ at: 0, text: "up" }, { at: 10, text: "call" }], 44, 380, 15))).toEqual([["up", 44], ["call", 59]]);
+  });
+  it("lifts a stack that would pass the last row, keeping its order and gaps", () => {
+    expect(at(stack([{ at: 375, text: "a" }, { at: 378, text: "b" }, { at: 380, text: "c" }], 44, 380, 15))).toEqual([["a", 350], ["b", 365], ["c", 380]]);
   });
 });

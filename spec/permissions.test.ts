@@ -121,3 +121,14 @@ it("sends the buy and sell price, the spread apart, around the price", async () 
   expect(s.ask).toBeGreaterThan(mid);
   expect((s.ask - s.bid) / mid).toBeCloseTo(0.0002, 6);
 });
+
+it.skipIf(live)("tells a trader their own margin lines, and nobody theirs", async () => {
+  const me = await visitor();
+  await open();
+  expect((await act(me, { kind: "buy", leverage: 100, stake: 0.5 })).status).toBe(200);
+  const s = (await state(me)) as unknown as { you: { pos: { entry: number; call: number; cut: number } }; traders: Record<string, unknown>[] };
+  expect(s.you.pos.call).toBeLessThan(s.you.pos.entry);
+  expect(s.you.pos.cut).toBeLessThan(s.you.pos.call);
+  const other = await state(await visitor());
+  expect(JSON.stringify(other)).not.toContain(String(s.you.pos.call));
+});

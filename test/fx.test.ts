@@ -245,3 +245,41 @@ describe("the trading desk", () => {
     expect(desk.borrow("a")).toBe("You still have money. For now.");
   });
 });
+
+// The chart draws where a position meets a margin call and the forced
+// losscut. The desk works the prices out, so they are the prices its own
+// rules act at, spread included.
+describe("margin lines", () => {
+  for (const side of [1, -1] as const) {
+    it(`gives the ${side === 1 ? "long" : "short"}'s call and losscut prices, which the desk acts at`, () => {
+      const desk = new Desk(100);
+      desk.join("a");
+      desk.order("a", side, 100, 0.5);
+      const { call, cut } = desk.lines("a")!;
+      // a long's lines are below the price, a short's above, the cut beyond the call
+      expect(side * (100 - call)).toBeGreaterThan(0);
+      expect(side * (call - cut)).toBeGreaterThan(0);
+      // at the line the level is what the rule says
+      for (const [price, level] of [[call, 0.5], [cut, 0.2]] as const) {
+        const d = new Desk(100);
+        d.join("a");
+        d.order("a", side, 100, 0.5);
+        d.price = price;
+        expect(d.level("a")).toBeCloseTo(level, 9);
+      }
+      // just short of the call nothing happens; just past it, the call
+      const near = new Desk(100);
+      near.join("a");
+      near.order("a", side, 100, 0.5);
+      expect(near.mark(call + side * 1e-6)).toEqual([]);
+      expect(near.mark(call - side * 1e-6)).toMatchObject([{ kind: "call" }]);
+      expect(near.mark(cut - side * 1e-6)).toMatchObject([{ kind: "stopout" }]);
+    });
+  }
+
+  it("has none with nothing open", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.lines("a")).toBeNull();
+  });
+});
