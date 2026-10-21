@@ -42,6 +42,9 @@ $("lang").onchange = () => location.assign(home($("lang").value));
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
+// The last pop shown, by number; the first message's pops are old news.
+let popped = null;
+let lastPrice = null;
 let fame = "";
 
 // Leverage and stake are chip groups that hold their choice. What each
@@ -102,7 +105,10 @@ const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choi
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
-$("pray").onclick = () => act("pray");
+$("pray").onclick = () => {
+  burst($("pray"), ["🙏", "✨", "🙏", "⛩️", "✨"]);
+  act("pray");
+};
 $("borrow").onclick = () => act("borrow");
 $("lesson-next").onclick = () => act("next");
 
@@ -325,6 +331,76 @@ function draw(s) {
   ctx.fillText(last.toFixed(s.digits), w - 66, y(last) + 4);
 }
 
+// Effects: speech bubbles over a trader when the room should notice
+// them, a burst of emoji on a prayer, coins on a win, and the price
+// flashing as it moves. They float in a fixed layer above the page and
+// never move its layout; with reduced motion they appear without moving.
+const fx = $("fx");
+// A pop over a control rises above it; one in the room sits on its row,
+// so it never hides the trader above.
+function float(el, target, ms, onRow = false) {
+  const r = target.getBoundingClientRect();
+  if (!r.width || r.bottom < 0 || r.top > innerHeight) return;
+  el.style.left = `${Math.min(Math.max(r.left + r.width / 2, 90), innerWidth - 90)}px`;
+  el.style.top = `${onRow ? r.top + r.height / 2 : r.top}px`;
+  fx.append(el);
+  setTimeout(() => el.remove(), ms);
+}
+function bubble(target, text, kind) {
+  const onRow = !!target.closest("#traders");
+  const b = Object.assign(document.createElement("div"), { className: `bubble b-${kind}${onRow ? " row" : ""}`, textContent: text });
+  float(b, onRow ? target.closest("li") : target, 2600, onRow);
+}
+function burst(target, glyphs) {
+  glyphs.forEach((g, i) => {
+    const p = Object.assign(document.createElement("span"), { className: "spark", textContent: g });
+    p.style.setProperty("--dx", `${(i - (glyphs.length - 1) / 2) * 26}px`);
+    p.style.animationDelay = `${i * 60}ms`;
+    float(p, target, 1400);
+  });
+}
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+function popText(p) {
+  if (p.kind === "pray") return pick(T[lang].prayers);
+  if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
+  return (T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""));
+}
+// Where a pop shows: over the trader's row in the room, or, for your own,
+// over the control you used, since your row may be off screen.
+function popAt(p, s) {
+  if (p.who === s.you.code) {
+    if (p.kind === "pray") return $("pray");
+    if (p.kind === "close") return $("pnl-box");
+    if (p.kind === "call" || p.kind === "stopout" || p.kind === "zerocut") return $("level-box");
+    if (p.kind === "borrow") return $("equity");
+    return $(s.you.pos?.side === -1 ? "sell" : "buy");
+  }
+  return document.querySelector(`#traders li[data-id="${CSS.escape(p.who)}"] .n`);
+}
+function effects(s, price) {
+  const list = s.pops ?? [];
+  if (popped !== null) {
+    for (const p of list) {
+      if (p.n <= popped) continue;
+      const at = popAt(p, s);
+      if (!at) continue;
+      // Your own losscut has the full-screen stamp; a bubble would only cover it.
+      if (p.who === s.you.code && (p.kind === "stopout" || p.kind === "zerocut")) continue;
+      bubble(at, popText(p), p.kind === "close" ? (p.pnl >= 0 ? "win" : "loss") : p.kind);
+      if (p.who === s.you.code && p.kind === "close" && p.pnl > 0) burst(at, ["💴", "💰", "💴", "✨", "💴"]);
+    }
+  }
+  popped = Math.max(popped ?? 0, ...list.map((p) => p.n));
+  // The price ticks green or red as it moves.
+  if (lastPrice !== null && price !== lastPrice) {
+    const el = $("price");
+    el.classList.remove("tick-up", "tick-down");
+    void el.offsetWidth;
+    el.classList.add(price > lastPrice ? "tick-up" : "tick-down");
+  }
+  lastPrice = price;
+}
+
 // The server sends the full history on joining and each phase, and after
 // that only new prices. A gap (a missed message) asks for the whole state.
 let prices = [];
@@ -456,10 +532,12 @@ function render(s) {
       const e = document.createElement("span");
       e.textContent = yen(tr.equity);
       e.className = `eq ${tr.equity >= s.start ? "up" : "down"}`;
+      li.dataset.id = tr.id;
       li.append(n, p, e);
       return li;
     }),
   );
+  effects(s, price);
   $("feed").replaceChildren(
     ...s.feed.map((f) => {
       const li = document.createElement("li");

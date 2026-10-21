@@ -287,6 +287,29 @@ th:first-child, td:first-child { text-align: left; }
 .losscut { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; background: var(--flash); animation: shake 0.5s 3; }
 .losscut span { font-size: clamp(2.6rem, 11vw, 7rem); font-weight: 800; color: #fff; -webkit-text-stroke: 3px var(--down); text-shadow: 6px 6px 0 var(--down); transform: rotate(-6deg); }
 .losscut small { margin-top: 0.6rem; padding: 0.2rem 0.7rem; font-weight: 800; background: #fff; color: var(--down); }
+/* Effects float in a fixed layer and never move the layout. A bubble
+   rises over its trader and fades; a spark flies up and out. */
+.fx { position: fixed; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+.bubble { position: fixed; max-width: 15rem; padding: 0.35rem 0.7rem; border: 2px solid var(--pink); border-radius: 14px; background: var(--panel); color: var(--ink); font-size: 0.85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 3px 0 var(--glow); transform: translate(-50%, calc(-100% - 10px)); animation: bubble 2.6s ease-out forwards; }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; background: inherit; border-right: 2px solid var(--pink); border-bottom: 2px solid var(--pink); transform: translateX(-50%) rotate(45deg); }
+/* On a room row the bubble covers the row itself, centred, with no tail. */
+.bubble.row { transform: translate(-50%, -50%); animation-name: bubble-row; }
+.bubble.row::after { display: none; }
+@keyframes bubble-row { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 20% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -80%); } }
+.b-win { border-color: var(--up); color: var(--up); }
+.b-win::after { border-color: var(--up); }
+.b-loss, .b-call, .b-stopout, .b-zerocut { border-color: var(--down); color: var(--down); }
+.b-loss::after, .b-call::after, .b-stopout::after, .b-zerocut::after { border-color: var(--down); }
+.b-wild, .b-add { border-color: var(--call); }
+.b-wild::after, .b-add::after { border-color: var(--call); }
+@keyframes bubble { 0% { opacity: 0; transform: translate(-50%, calc(-100% + 4px)) scale(0.6); } 12% { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1.05); } 20% { transform: translate(-50%, calc(-100% - 10px)) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, calc(-100% - 26px)); } }
+.spark { position: fixed; font-size: 1.3rem; transform: translate(-50%, -50%); animation: spark 1.2s ease-out both; }
+@keyframes spark { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -70px) scale(1.2) rotate(20deg); } }
+.tick-up { animation: tick-up 0.45s ease-out; }
+.tick-down { animation: tick-down 0.45s ease-out; }
+@keyframes tick-up { 0% { color: var(--up); text-shadow: 0 0 10px var(--up); } }
+@keyframes tick-down { 0% { color: var(--down); text-shadow: 0 0 10px var(--down); } }
+@keyframes fade { 100% { opacity: 0; } }
 @keyframes shake { 0%, 100% { transform: translate(0); } 25% { transform: translate(-8px, 4px); } 75% { transform: translate(8px, -4px); } }
 
 /* The tutorial: a lesson across the top, the controls it names lit. */
@@ -395,6 +418,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   #pos-row td:last-child .close, #pos-row td:nth-last-child(2) .mini { width: 100%; padding: 0.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .losscut, .focus { animation: none; }
+  .losscut, .focus, .tick-up, .tick-down { animation: none; }
+  .bubble { animation: fade 2.6s step-end forwards; }
+  .spark { display: none; }
   #meter { transition: none; }
 }

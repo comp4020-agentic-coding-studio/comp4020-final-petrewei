@@ -28,6 +28,9 @@ const NAMES_FILE = join(DATA_DIR, "names.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
 // Half a second a tick: forty days of nine ticks is three minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
+// A pop lasts about four seconds on the wire; a busy room keeps 40.
+const POP_TICKS = 8;
+const POPS_MAX = 40;
 const BREAK_TICKS = 40;
 // After Start, ten seconds for others on the tab to join before trading.
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 20);
@@ -287,6 +290,16 @@ class Market {
   // translation, plus a key and values a page translates from.
   feed: News[] = [];
   prays = new Map<string, number>();
+  // Moments every page on the tab pops a bubble for: a prayer, a big bet,
+  // a banked result, a margin call, a cut, a loan. Numbered so a page
+  // shows each once; only the last few seconds are kept, and each names
+  // the trader by short code.
+  pops: { n: number; at: number; who: string; kind: string; lev?: number; pnl?: number }[] = [];
+  popCount = 0;
+  pop(who: string, kind: string, extra: { lev?: number; pnl?: number } = {}): void {
+    this.pops.push({ n: ++this.popCount, at: this.tick, who: short(who), kind, ...extra });
+    this.pops = this.pops.filter((p) => this.tick - p.at <= POP_TICKS).slice(-POPS_MAX);
+  }
 
   constructor(mode: Mode) {
     this.mode = mode;
@@ -313,6 +326,7 @@ class Market {
     this.phase = "lobby";
     this.startedBy = null;
     this.prays.clear();
+    this.pops = [];
   }
 
   // Someone on the tab asks to play: the countdown begins.
@@ -372,6 +386,10 @@ class Market {
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
       else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
+      if (e.kind === "open" && e.leverage! >= 400) this.pop(e.who, "wild", { lev: e.leverage });
+      else if (e.kind === "add") this.pop(e.who, "add", { lev: e.leverage });
+      else if (e.kind === "close" || e.kind === "stop") this.pop(e.who, "close", { pnl: Math.round(e.pnl) });
+      else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut") this.pop(e.who, e.kind);
       if (e.kind === "stopout" || e.kind === "zerocut") {
         const c = record(e.who);
         if (c) c.busts++;
@@ -440,6 +458,7 @@ class Market {
       const n = (this.prays.get(who) ?? 0) + 1;
       this.prays.set(who, n);
       log(who, "pray", { mode: this.mode, times: n });
+      this.pop(who, "pray");
       if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray", "prayed", { who: short(who), n });
       return null;
     }
@@ -454,6 +473,7 @@ class Market {
       if (refused) return refused;
       const first = desk.account(who).debt === BORROW;
       this.say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild", first ? "borrowed" : "borrowed-again", { who: short(who), amount: BORROW });
+      this.pop(who, "borrow");
       log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
       return null;
     }
@@ -519,6 +539,7 @@ class Market {
       },
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
       feed: this.feed,
+      pops: this.pops.map(({ at: _at, ...p }) => p),
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
       leverages: LEVERAGES,
@@ -594,6 +615,7 @@ function tutorialView(who: string) {
     },
     traders: [],
     feed: t.feed,
+    pops: [],
     result: null,
     career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
     leverages: LEVERAGES,
