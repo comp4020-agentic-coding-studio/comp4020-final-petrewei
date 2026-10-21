@@ -119,18 +119,19 @@ const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(read
 // Changes are saved once, just after the code that made them, however
 // many careers changed; a failed write is reported and the game goes on.
 let saving = false;
+function writeCareer(): void {
+  saving = false;
+  try {
+    writeFileSync(`${CAREER_FILE}.tmp`, JSON.stringify(career));
+    renameSync(`${CAREER_FILE}.tmp`, CAREER_FILE);
+  } catch (error) {
+    console.error("could not save the hall of fame:", error);
+  }
+}
 function saveCareer(): void {
   if (saving) return;
   saving = true;
-  setImmediate(() => {
-    saving = false;
-    try {
-      writeFileSync(`${CAREER_FILE}.tmp`, JSON.stringify(career));
-      renameSync(`${CAREER_FILE}.tmp`, CAREER_FILE);
-    } catch (error) {
-      console.error("could not save the hall of fame:", error);
-    }
-  });
+  setImmediate(() => saving && writeCareer());
 }
 
 const seed = Date.now() % 2 ** 31;
@@ -313,6 +314,9 @@ class Market {
       c.best = Math.max(c.best, r.net - START);
       if (r === humans[0] && humans.length > 1) c.wins++;
     }
+    // The bell's result is final and is shown at once, so it is on disk
+    // before any page can see it: a crash after the bell keeps it.
+    if (humans.length) writeCareer();
     const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
     this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
