@@ -12,11 +12,18 @@ const get = async (path: string) => {
 };
 
 it("serves the market in each language at its own address", async () => {
-  for (const [path, lang, logo] of [["/", "en", "Losscut!"], ["/ja/", "ja", "ロスカット！"], ["/zh/", "zh-CN", "爆仓！"]]) {
+  for (const [path, lang, logo] of [["/", "en", "Losscut!"], ["/ja/", "ja", "ロスカット！"], ["/zh/", "zh-CN", "强制平仓！"]]) {
     const { res, doc } = await get(path);
     expect(res.status, path).toBe(200);
     expect(doc!.documentElement.lang, path).toBe(lang);
     expect(doc!.querySelector(".logo")?.textContent, path).toBe(logo);
+  }
+});
+
+it("titles each language's page with its logo and subtitle", async () => {
+  for (const [path, title] of [["/", "Losscut! Kurumi's FX Fantasy"], ["/ja/", "ロスカット！ くるみのFXファンタジー"], ["/zh/", "强制平仓！久留美的FX白日梦"]]) {
+    const { doc } = await get(path);
+    expect(doc!.title, path).toBe(title);
   }
 });
 
