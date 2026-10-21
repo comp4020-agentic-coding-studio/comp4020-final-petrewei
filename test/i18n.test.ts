@@ -25,6 +25,15 @@ describe("the translations", () => {
     }
   });
 
+  it("has the same number of prayers in every language", () => {
+    for (const lang of LANGS) {
+      expect(T[lang].prayers.length, lang).toBe(T.en.prayers.length);
+      expect(T[lang].prayers.length, lang).toBeGreaterThanOrEqual(6);
+      for (const p of T[lang].prayers) expect(p, lang).not.toBe("");
+      expect(keys(T[lang].pops), lang).toEqual(keys(T.en.pops));
+    }
+  });
+
   it("names every bot and translates every motto", () => {
     for (const lang of LANGS) for (const b of BOTS) expect(T[lang].bots[b.id], `${lang} ${b.id}`).toMatchObject({ name: expect.any(String), motto: expect.any(String) });
   });
