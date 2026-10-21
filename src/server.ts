@@ -706,6 +706,7 @@ const PAGES: Record<string, [string, string]> = {
   "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
   "/i18n.js": [read("public/i18n.js"), "text/javascript; charset=utf-8"],
   "/names.js": [read("public/names.js"), "text/javascript; charset=utf-8"],
+  "/indicators.js": [read("public/indicators.js"), "text/javascript; charset=utf-8"],
   "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],

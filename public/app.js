@@ -4,6 +4,7 @@
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
+import { bollinger, closes, rsi, sma } from "/indicators.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -248,17 +249,50 @@ function rich(text, slots) {
   });
 }
 
+// Which indicators are on, remembered in this browser. MA and RSI start
+// on, the bands off, so a first chart is not a tangle.
+const studies = (() => {
+  try {
+    return { ma: true, bb: false, rsi: true, ...JSON.parse(localStorage.getItem("studies") ?? "{}") };
+  } catch {
+    return { ma: true, bb: false, rsi: true };
+  }
+})();
+for (const b of document.querySelectorAll("#studies button")) {
+  b.setAttribute("aria-pressed", String(studies[b.dataset.study]));
+  b.onclick = () => {
+    studies[b.dataset.study] = !studies[b.dataset.study];
+    b.setAttribute("aria-pressed", String(studies[b.dataset.study]));
+    try {
+      localStorage.setItem("studies", JSON.stringify(studies));
+    } catch {
+      // a private window: the choice lasts this visit
+    }
+    if (state) draw(state);
+  };
+}
+
 function draw(s) {
   const canvas = $("chart");
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
-  const h = canvas.height;
+  // With the RSI on, the price takes the top three quarters and the RSI
+  // a pane below; the canvas, and so the layout, keeps its size.
+  const pane = studies.rsi && s.mode !== "tutorial" ? 84 : 0;
+  const h = canvas.height - pane;
   const css = getComputedStyle(document.documentElement);
   ctx.fillStyle = css.getPropertyValue("--chart");
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, w, canvas.height);
   const prices = s.prices;
-  const lo = Math.min(...prices);
-  const hi = Math.max(...prices);
+  const k = s.steps;
+  // Indicators on each day's close, drawn at the day's centre; the bands
+  // widen the price range so they stay on the chart.
+  const tutorial = s.mode === "tutorial";
+  const days = closes(prices, k);
+  const bands = studies.bb && !tutorial ? bollinger(days, 20, 2) : [];
+  const shown = bands.filter(Boolean);
+  const lo = Math.min(...prices, ...shown.map((b) => b.lower));
+  const hi = Math.max(...prices, ...shown.map((b) => b.upper));
   const pad = (hi - lo) * 0.15 || hi * 0.002;
   const top = hi + pad;
   const bottom = lo - pad;
@@ -271,14 +305,29 @@ function draw(s) {
   const down = css.getPropertyValue("--down");
   ctx.fillStyle = css.getPropertyValue("--muted");
   ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
-  const k = s.steps;
   for (let d = 0; d * k <= s.total; d += 5) {
     const xd = x(d * k);
     ctx.beginPath();
     ctx.moveTo(xd, 0);
-    ctx.lineTo(xd, h);
+    ctx.lineTo(xd, h + pane);
     ctx.stroke();
   }
+  // A day's indicator sits at its candle's centre; today's at the price.
+  const dayX = (d) => x(Math.min(d * k + k / 2, prices.length - 1));
+  const line = (values, colour, width = 1.5) => {
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    let on = false;
+    values.forEach((v, d) => {
+      if (v === null) return void (on = false);
+      if (on) ctx.lineTo(dayX(d), v);
+      else ctx.moveTo(dayX(d), v);
+      on = true;
+    });
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  };
   for (let k = 0; k <= 4; k++) {
     const p = bottom + ((top - bottom) * k) / 4;
     ctx.beginPath();
@@ -286,7 +335,18 @@ function draw(s) {
     ctx.lineTo(w - 70, y(p));
     ctx.stroke();
     // Grid labels that would sit under the last-price tag are skipped.
-    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - 4, Math.max(12, y(p) + 4)));
+    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - (pane ? 8 : 4), Math.max(14, y(p) + 4)));
+  }
+  // The bands, under everything that follows.
+  if (shown.length) {
+    ctx.fillStyle = css.getPropertyValue("--band-fill");
+    ctx.beginPath();
+    const at = bands.map((b, d) => [b, d]).filter(([b]) => b);
+    at.forEach(([b, d], i) => (i ? ctx.lineTo(dayX(d), y(b.upper)) : ctx.moveTo(dayX(d), y(b.upper))));
+    at.toReversed().forEach(([b, d]) => ctx.lineTo(dayX(d), y(b.lower)));
+    ctx.fill();
+    line(bands.map((b) => b && y(b.upper)), css.getPropertyValue("--band"), 1);
+    line(bands.map((b) => b && y(b.lower)), css.getPropertyValue("--band"), 1);
   }
   // The entry and the stop of my own position.
   const pos = s.you.pos;
@@ -318,6 +378,51 @@ function draw(s) {
     ctx.fillStyle = colour;
     const bw = Math.max(3, x(k) * 0.6);
     ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(1, Math.abs(y(open) - y(close))));
+  }
+  // Moving averages over the candles, and their legend top-left under
+  // the filename.
+  const legend = [];
+  if (studies.ma && !tutorial) {
+    const fast = sma(days, 5);
+    const slow = sma(days, 20);
+    line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
+    line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
+    if (fast.at(-1)) legend.push([`MA5 ${fast.at(-1).toFixed(s.digits)}`, css.getPropertyValue("--ma-fast")]);
+    if (slow.at(-1)) legend.push([`MA20 ${slow.at(-1).toFixed(s.digits)}`, css.getPropertyValue("--ma-slow")]);
+  }
+  if (shown.length) legend.push([`BB(20,2)`, css.getPropertyValue("--band")]);
+  // On a phone the canvas is shrunk to a third, too small for a legend.
+  const small = canvas.clientWidth < 600;
+  let lx = 10;
+  for (const [text, colour] of small ? [] : legend) {
+    ctx.fillStyle = colour;
+    ctx.fillText(text, lx, 34);
+    lx += ctx.measureText(text).width + 14;
+  }
+  // The RSI pane: the line, the 70 and 30 bands, and today's value.
+  if (pane) {
+    const ry = (v) => h + 8 + ((100 - v) / 100) * (pane - 16);
+    ctx.strokeStyle = css.getPropertyValue("--line");
+    ctx.beginPath();
+    ctx.moveTo(0, h + 0.5);
+    ctx.lineTo(w, h + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = css.getPropertyValue("--chart-grid");
+    for (const v of [30, 70]) {
+      ctx.beginPath();
+      ctx.moveTo(0, ry(v));
+      ctx.lineTo(w - 70, ry(v));
+      ctx.stroke();
+      ctx.fillStyle = css.getPropertyValue("--muted");
+      ctx.fillText(String(v), w - 66, ry(v) + 4);
+    }
+    ctx.setLineDash([]);
+    const r = rsi(days, 14);
+    line(r.map((v) => v === null ? null : ry(v)), css.getPropertyValue("--rsi"));
+    const now = r.at(-1);
+    ctx.fillStyle = now === null ? css.getPropertyValue("--muted") : now >= 70 ? down : now <= 30 ? up : css.getPropertyValue("--rsi");
+    if (!small) ctx.fillText(`RSI(14) ${now === null ? "—" : now.toFixed(1)}`, 10, h + 20);
   }
   const last = prices.at(-1);
   ctx.strokeStyle = css.getPropertyValue("--chart-line");
