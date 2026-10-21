@@ -36,3 +36,41 @@ describe("Kurumi", () => {
     expect(hana.act(desk, hana.id, [100, 90], always)).toEqual({ kind: "borrow" });
   });
 });
+
+// The later chapters' three, each the habit the comic gives her.
+const by = (id: string) => BOTS.find((b) => b.id === id)!;
+
+describe("Sakata Inago", () => {
+  it("jumps on a big move, the way it went, at high leverage", () => {
+    const inago = by("bot:inago");
+    const desk = new Desk(100);
+    desk.join(inago.id);
+    const up = [100, 100, 100, 100, 100, 100.2, 100.5, 101];
+    expect(inago.act(desk, inago.id, up, always)).toMatchObject({ kind: "order", side: 1, leverage: expect.any(Number) });
+    expect((inago.act(desk, inago.id, up, always) as { leverage: number }).leverage).toBeGreaterThanOrEqual(100);
+    expect(inago.act(desk, inago.id, [100, 100, 100, 100, 100, 100, 100, 100], always)).toBeNull();
+  });
+});
+
+describe("Zenba Nana", () => {
+  it("only ever buys, at 1×, and holds", () => {
+    const nana = by("bot:nana");
+    const desk = new Desk(100);
+    desk.join(nana.id);
+    expect(nana.act(desk, nana.id, [100, 90], always)).toEqual({ kind: "order", side: 1, leverage: 1, stake: expect.any(Number) });
+    desk.order(nana.id, 1, 1, 0.5);
+    desk.mark(80);
+    expect(nana.act(desk, nana.id, [100, 80], always)).toBeNull();
+  });
+});
+
+describe("Tsukimori Kizuna", () => {
+  it("adds to a winner, chasing a billion", () => {
+    const kizuna = by("bot:kizuna");
+    const desk = new Desk(100);
+    desk.join(kizuna.id);
+    desk.order(kizuna.id, 1, 100, 0.3);
+    desk.mark(100.3);
+    expect(kizuna.act(desk, kizuna.id, [100, 100.3], always)).toMatchObject({ kind: "order", side: 1 });
+  });
+});
