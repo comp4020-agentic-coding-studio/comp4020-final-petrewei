@@ -3,6 +3,7 @@
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
+import { drawn } from "/names.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -14,8 +15,10 @@ const home = (l) => (l === "en" ? "/" : `/${l}/`);
 const t = (k, vars = {}) => (T[lang].ui[k] ?? T.en.ui[k]).replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
 const yen = (n) => money(lang, n);
 // A trader's name in this language: a character's in the page's script,
-// a person's as the server made it, found by short code.
+// a drawn name in this language's form, a typed name as typed. People
+// are found by short code.
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
+const nameIn = (name, draw) => (draw ? drawn(lang, draw) : name);
 let names = new Map();
 const nameOf = (code) => names.get(code) ?? botName(code, code);
 
@@ -146,7 +149,10 @@ $("whoami").onclick = () => {
 $("name-cancel").onclick = () => $("name-box").close();
 $("name-draw").onclick = async () => {
   const res = await fetch("/api/name");
-  if (res.ok) $("name-input").value = (await res.json()).name;
+  if (res.ok) {
+    const d = await res.json();
+    $("name-input").value = nameIn(d.name, d.draw);
+  }
   $("name-error").textContent = "";
   $("name-input").focus();
 };
@@ -155,7 +161,7 @@ $("name-form").onsubmit = async (e) => {
   const res = await fetch("/api/name", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: $("name-input").value }) });
   const out = await res.json();
   if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
-  me = out.name;
+  me = nameIn(out.name, out.draw);
   $("name-box").close();
 };
 
@@ -167,7 +173,7 @@ function lobby(s) {
   if (!waiting) return;
   const counting = s.phase === "countdown";
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
-  $("lobby-text").textContent = counting ? t("lobbyStarted", { who: s.startedBy }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
+  $("lobby-text").textContent = counting ? t("lobbyStarted", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
@@ -352,7 +358,7 @@ function render(s) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
     $(`here-${m}`).title = s.here[m] ? t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] }) : "";
   }
-  names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : tr.name]));
+  names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
   if (!$("leverage").children.length) {
@@ -378,8 +384,8 @@ function render(s) {
         : t(s.phase === "lobby" ? "clockLobby" : "clockClosed");
   // Built from text nodes: the name comes from the server, never as HTML.
   // A pencil says it can be changed.
-  me = s.you.name;
-  $("whoami").replaceChildren(`${t("youAre")} `, strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
+  me = nameIn(s.you.name, s.you.draw);
+  $("whoami").replaceChildren(`${t("youAre")} `, strong(me), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
   $("whoami").title = t("youAreTitle");
   draw(s);
   ticket(s);
@@ -470,7 +476,7 @@ function render(s) {
       ...s.career.map((c) => {
         const tr = document.createElement("tr");
         if (c.you) tr.className = "you";
-        for (const v of [c.name, c.rounds, yen(c.profit), c.wins, c.busts]) {
+        for (const v of [nameIn(c.name, c.draw), c.rounds, yen(c.profit), c.wins, c.busts]) {
           const td = document.createElement("td");
           td.textContent = v;
           tr.append(td);
@@ -490,7 +496,7 @@ function render(s) {
         const li = document.createElement("li");
         if (r.you) li.className = "you";
         const delta = r.balance - s.start;
-        li.textContent = `${botName(r.code, r.name)}${r.you ? ` ${t("youTag")}` : ""}: ${yen(r.balance)} (${delta >= 0 ? "+" : ""}${yen(delta)})`;
+        li.textContent = `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}: ${yen(r.balance)} (${delta >= 0 ? "+" : ""}${yen(delta)})`;
         return li;
       }),
     );

@@ -1,5 +1,5 @@
 // Losscut!'s server: two shared markets, History and Live, each traded
-// live by everyone on that tab, plus four house bots in each. The server
+// live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
 // 0010). A round is three minutes: History replays real days with the
@@ -14,7 +14,8 @@ import { type Action, BOTS } from "./bots.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { yen } from "../public/format.js";
-import { T } from "../public/i18n.js";
+import { LANGS as LANG_LIST, T } from "../public/i18n.js";
+import { drawn, FAMILY, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
@@ -37,18 +38,28 @@ const history = new History(read("data/ecb.csv"));
 
 // A visitor is their cookie; others see them by a trader name drawn from
 // it, or one they chose (ADR 0017), and the log by a short hash, so no
-// page or log line carries a cookie (ADR 0010).
-const ADJ = ["Lucky", "Panic", "Diamond", "Paper", "Moon", "Margin", "Lonely", "Golden", "Sleepy", "Brave", "Greedy", "Humble", "Shaky", "Bold", "Tiny", "Mighty", "Nervous", "Hopeful", "Reckless", "Cosy", "Midnight", "Salty", "Dizzy", "Sunny"];
-const NOUN = ["Yen", "Pip", "Bull", "Bear", "Whale", "Candle", "Franc", "Kiwi", "Aussie", "Loonie", "Swap", "Lot", "Spread", "Chart", "Hedge", "Ticker", "Wick", "Dip", "Peg", "Rally", "Gap", "Fiver", "Penny", "Euro"];
+// page or log line carries a cookie (ADR 0010). A drawn name is a family
+// and a given name from public/names.js (ADR 0018), sent as its draw so
+// each page writes it in its own language; the server speaks English.
+type Draw = [number, number];
 const bot = (who: string) => BOTS.find((b) => b.id === who);
 // Hashed on demand: caching would keep an entry for every cookie ever
 // seen, and a client without cookies gets a new one each request.
 const hash = (who: string): Buffer => createHash("sha256").update(who).digest();
+// A typed name has no draw; a person who never chose has the draw their
+// cookie gives.
+function drawOf(who: string): Draw | null {
+  if (bot(who)) return null;
+  const h = hash(who);
+  const c = chosen[h.toString("hex").slice(0, 16)];
+  if (typeof c === "string") return null;
+  return c ?? [h[0] % FAMILY.length, h[1] % GIVEN.length];
+}
 function nameOf(who: string): string {
   const b = bot(who);
   if (b) return b.name;
-  const h = hash(who);
-  return chosen[h.toString("hex").slice(0, 16)] ?? `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`;
+  const d = drawOf(who);
+  return d ? drawn("en", d) : (chosen[key(who)] as string);
 }
 // Six hex characters tell people apart in the log at a glance; a career
 // is filed under sixteen, so two people's careers never merge.
@@ -60,34 +71,42 @@ const key = (who: string): string => (bot(who) ? who : hash(who).toString("hex")
 // letters, numbers, spaces and a little punctuation, up to 20 wide (a
 // Japanese or Chinese character counts as two), never a house trader's
 // and never one someone else holds, whatever its case or spacing.
-const chosen: Record<string, string> = existsSync(NAMES_FILE) ? JSON.parse(readFileSync(NAMES_FILE, "utf8")) : {};
+// A typed name is kept as text, a drawn one as its draw.
+const chosen: Record<string, string | Draw> = existsSync(NAMES_FILE) ? JSON.parse(readFileSync(NAMES_FILE, "utf8")) : {};
 const NAME_WIDTH = 20;
 const NAMES_MAX = 10_000;
 const same = (name: string): string => name.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
 const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿가-힯]/.test(ch) ? 2 : 1), 0);
 // The house traders in every language, their given names alone, and
-// Kurumi's Chinese fan nickname (ADR 0015).
-const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).map((b) => b.name)), "くるみ", "久留美", "韭留美", "萌智子", "芽吹", "やす子", "安子"].map(same));
+// fan nicknames: 韭留美 for Kurumi, ばなな for Nana (ADRs 0015, 0018).
+const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).flatMap((b) => [b.name, ...b.name.split(" ").slice(1)])), "くるみ", "久留美", "韭留美", "萌智子", "芽吹", "やす子", "安子", "いなご", "稻子", "なな", "奈奈", "ばなな", "きずな", "绊"].map(same));
+// Every language's form of every drawn name, back to its draw.
+const DRAWS = new Map<string, Draw>(FAMILY.flatMap((_, f) => GIVEN.flatMap((_, g) => LANG_LIST.map((l) => [same(drawn(l, [f, g])), [f, g] as Draw]))));
+// What makes two names the same: a drawn name's draw, whatever language
+// it is written in, or a typed name ignoring case and spacing.
+const identity = (name: string, draw: Draw | null = DRAWS.get(same(name)) ?? null): string => (draw ? `d${draw}` : `t${same(name)}`);
+const identityOf = (who: string): string => identity(nameOf(who), drawOf(who));
 // Anyone else's name: chosen, in the hall of fame, or on a page now.
-function taken(name: string, who: string): boolean {
+function taken(id: string, who: string): boolean {
   const mine = key(who);
-  const n = same(name);
-  if (Object.entries(chosen).some(([k, c]) => k !== mine && same(c) === n)) return true;
-  if (Object.entries(career).some(([k, c]) => k !== mine && same(c.name) === n)) return true;
-  return [...listeners].some((l) => l.who !== who && same(nameOf(l.who)) === n);
+  if (Object.entries(chosen).some(([k, c]) => k !== mine && (typeof c === "string" ? identity(c) : identity("", c)) === id)) return true;
+  if (Object.entries(career).some(([k, c]) => k !== mine && identity(c.name, c.draw ?? null) === id)) return true;
+  return [...listeners].some((l) => l.who !== who && identityOf(l.who) === id);
 }
-function rename(who: string, input: unknown): { name: string } | { error: string; status: number } {
+function rename(who: string, input: unknown): { name: string; draw: Draw | null } | { error: string; status: number } {
   if (typeof input !== "string" || !input.trim()) return { error: "Choose a name.", status: 400 };
   const name = input.normalize("NFC").trim().replace(/\s+/g, " ");
   if (width(name) > NAME_WIDTH) return { error: "Names are up to 20 letters, or 10 in Japanese or Chinese.", status: 400 };
   if (!/^[\p{L}\p{N}][\p{L}\p{N} '’.\-_!?&・ー〜~♪]*$/u.test(name)) return { error: "Use letters, numbers, spaces and simple punctuation.", status: 400 };
   if (RESERVED.has(same(name))) return { error: "That name belongs to a house trader.", status: 400 };
-  if (taken(name, who)) return { error: "Someone already has that name.", status: 409 };
+  const draw = DRAWS.get(same(name)) ?? null;
+  const id = identity(name, draw);
+  if (taken(id, who)) return { error: "Someone already has that name.", status: 409 };
   const k = key(who);
   if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
   const before = nameOf(who);
-  if (name === before) return { name };
-  chosen[k] = name;
+  if (id === identityOf(who) && (draw || name === before)) return { name: before, draw };
+  chosen[k] = draw ?? name;
   try {
     writeFileSync(`${NAMES_FILE}.tmp`, JSON.stringify(chosen));
     renameSync(`${NAMES_FILE}.tmp`, NAMES_FILE);
@@ -95,21 +114,20 @@ function rename(who: string, input: unknown): { name: string } | { error: string
     console.error("could not save the names:", error);
   }
   if (career[k]) {
-    career[k].name = name;
+    career[k].name = nameOf(who);
+    career[k].draw = draw;
     saveCareer();
     queueMicrotask(rank);
   }
   log(who, "rename", { from: before });
-  return { name };
+  return { name: nameOf(who), draw };
 }
 // A drawn name nobody else holds, to try on; nothing changes until it is chosen.
-function suggestion(who: string): string {
-  const now = same(nameOf(who));
-  for (let i = 0; i < 50; i++) {
-    const name = `${ADJ[randomInt(ADJ.length)]} ${NOUN[randomInt(NOUN.length)]}`;
-    if (same(name) !== now && !taken(name, who)) return name;
-  }
-  return `${ADJ[randomInt(ADJ.length)]} ${NOUN[randomInt(NOUN.length)]}`;
+function suggestion(who: string): { name: string; draw: Draw } {
+  const now = identityOf(who);
+  let draw: Draw = [randomInt(FAMILY.length), randomInt(GIVEN.length)];
+  for (let i = 0; i < 50 && (identity("", draw) === now || taken(identity("", draw), who)); i++) draw = [randomInt(FAMILY.length), randomInt(GIVEN.length)];
+  return { name: drawn("en", draw), draw };
 }
 
 // One structured line per thing a trader does, with their short code and
@@ -174,7 +192,7 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 }
 
 // Career results across rounds and restarts: the long-term ranking.
-type Career = { name: string; rounds: number; profit: number; wins: number; busts: number; best: number };
+type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number };
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
 // Changes are saved once, just after the code that made them, however
 // many careers changed; a failed write is reported and the game goes on.
@@ -230,7 +248,7 @@ function rank(): void {
 rank();
 function record(who: string): Career | null {
   if (bot(who)) return null;
-  career[key(who)] ??= { name: nameOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
+  career[key(who)] ??= { name: nameOf(who), draw: drawOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
   saveCareer();
   queueMicrotask(rank);
   return career[key(who)];
@@ -260,7 +278,7 @@ class Market {
   breakLeft = 0;
   countdown = 0;
   startedBy: string | null = null;
-  result: { ranking: { key: string; code: string; name: string; balance: number }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; balance: number }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -378,7 +396,7 @@ class Market {
     // before any page can see it: a crash after the bell keeps it.
     if (humans.length) writeCareer();
     const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -452,7 +470,7 @@ class Market {
     const open = new Set(this.listeners().map((l) => l.who));
     const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
       const a = desk.account(p);
-      return { who: p, id: short(p), name: nameOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
+      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
     });
     traders.sort((a, b) => b.equity - a.equity);
     return { traders };
@@ -472,6 +490,7 @@ class Market {
       phase: this.phase,
       countdown: Math.ceil((this.countdown * TICK_MS) / 1000),
       startedBy: this.startedBy && nameOf(this.startedBy),
+      startedDraw: this.startedBy && drawOf(this.startedBy),
       round: this.count,
       pair: round.pair,
       digits: this.digits(),
@@ -485,6 +504,7 @@ class Market {
       breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
       you: {
         name: nameOf(who),
+        draw: drawOf(who),
         code: short(who),
         balance: mine?.balance ?? START,
         equity: Math.round(mine ? desk.equity(who) : START),
@@ -559,6 +579,7 @@ function tutorialView(who: string) {
     lesson: { id: l.id, next: l.allow({ kind: "next" }) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
     you: {
       name: nameOf(who),
+      draw: drawOf(who),
       code: short(who),
       balance: a.balance,
       equity: Math.round(t.desk.equity("me")),
@@ -662,6 +683,7 @@ const PAGES: Record<string, [string, string]> = {
   "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
   "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
   "/i18n.js": [read("public/i18n.js"), "text/javascript; charset=utf-8"],
+  "/names.js": [read("public/names.js"), "text/javascript; charset=utf-8"],
   "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],
@@ -759,7 +781,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   // A person's trader name: GET draws one to try, POST chooses one. Every
   // page sees the new name with the next broadcast.
-  if (req.method === "GET" && path === "/api/name") return json(res, 200, { name: suggestion(who) });
+  if (req.method === "GET" && path === "/api/name") return json(res, 200, suggestion(who));
   if (req.method === "POST" && path === "/api/name") {
     let input: Record<string, unknown>;
     try {

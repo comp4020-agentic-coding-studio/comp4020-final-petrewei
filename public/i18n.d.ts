@@ -10,7 +10,7 @@ type Lang = {
   lessons: Record<string, { title: string; text: string; task: string }>;
   events: Record<string, { title: string; note: string }>;
 };
-export declare const LANGS: string[];
+export declare const LANGS: ("en" | "ja" | "zh")[];
 export declare const T: Record<"en" | "ja" | "zh", Lang> & Record<string, Lang>;
 export declare function money(lang: string, n: number): string;
 export declare function news(lang: string, line: { key: string; args: Record<string, string | number>; text?: string }, nameOf: (code: string) => string): string;
