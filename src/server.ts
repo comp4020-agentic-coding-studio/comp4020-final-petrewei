@@ -245,8 +245,11 @@ function todayRate(pair: Pair): { rate: number; date: string; source: string } {
 // A change is saved at once (the file is small), so a bust survives a
 // crash mid-round, and the top ten are worked out again only then.
 let fame: (Career & { key: string })[] = [];
+// The hall is for people: a house trader's row, from an older version or
+// put in by hand, is dropped when the server starts, and never ranked.
+for (const k of Object.keys(career)) if (bot(k)) delete career[k];
 function rank(): void {
-  fame = Object.entries(career).map(([k, c]) => ({ key: k, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
+  fame = Object.entries(career).filter(([k]) => !bot(k)).map(([k, c]) => ({ key: k, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
 }
 rank();
 function record(who: string): Career | null {
