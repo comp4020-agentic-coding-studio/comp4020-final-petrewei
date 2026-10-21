@@ -13,9 +13,9 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills each order; everyone sees your side, leverage and net worth.
 - **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, such as Lehman Brothers or the franc's unpegging, revealed at the bell. Live simulates from today's real rate.
 - **Leverage is the joke, and the lesson.** From 1× to 1000×, as offshore brokers offer. A margin call comes at 50% margin level, a forced stop-out (強制ロスカット) at 20%. A gap can wipe you out in one tick.
-- **Losing is public.** Margin calls and stop-outs reach the feed. A broke player may borrow from Dad's savings twice, as debt.
+- **Losing is public.** Margin calls and stop-outs hit the feed. A broke player may borrow from Dad's savings twice, as debt.
 - **There's always someone to trade against.** Seven of the comic's traders play every round; Kurumi never cuts a loss.
-- **Beginners get a private tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): twelve lessons, one idea and one move each.
+- **Beginners get a tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): twelve lessons, one move each.
 - **There's a short game and a long game.** Rounds rank net worth; a hall of fame keeps profit and busts.
 
 ## Enforced and judged
@@ -45,8 +45,8 @@ Judged by people, at the crit and showcase:
 - The ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
 - ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money; major pairs capped at 30:1.
 - After the franc unpegged, FXCM's clients owed it [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
-- Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): software for one group, not scale.
+- Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): software for one group.
 
 ## Left out
 
-Real money, broker links, deposit rewards. The comic's family tragedy is the premise, not a joke. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.
+Real money, broker links, deposit rewards, the series' music or art ([ADR 0020](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0020-optional-background-music.md)). The comic's family tragedy is the premise, not a joke. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.
