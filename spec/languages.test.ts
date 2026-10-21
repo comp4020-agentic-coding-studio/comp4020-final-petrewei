@@ -58,3 +58,13 @@ it("links each page to the same page in the other languages", async () => {
   const hrefs = [...doc!.querySelectorAll('link[rel="alternate"]')].map((l) => `${l.getAttribute("hreflang")} ${l.getAttribute("href")}`);
   expect(hrefs).toEqual(expect.arrayContaining(["en /about", "ja /ja/about", "zh-CN /zh/about"]));
 });
+
+// The lobby veils the chart until a round starts; the indicator switches
+// must sit above it, or nobody can use them before pressing Start.
+it("keeps the indicator switches above the lobby", async () => {
+  const css = await (await fetch(new URL("/app.css", baseUrl))).text();
+  const z = (sel: string) => Number(css.match(new RegExp(`\\n${sel.replace(".", "\\.")} \\{[^}]*z-index: (\\d+)`))?.[1] ?? 0);
+  expect(z(".studies")).toBeGreaterThan(z(".lobby"));
+  const { doc } = await get("/");
+  expect(doc!.querySelectorAll("#studies button")).toHaveLength(3);
+});
