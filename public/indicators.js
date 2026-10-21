@@ -50,3 +50,16 @@ export function rsi(values, n) {
   }
   return out;
 }
+
+// Lays labels out down a column in the order of the heights they want,
+// each at its own height or one row below the label above, never above
+// `first`; a stack that would pass `last` is lifted to end there. So
+// labels for lines close together never overlap or swap places.
+export function stack(labels, first, last, gap) {
+  const out = labels.map((l) => ({ ...l })).sort((a, b) => a.at - b.at);
+  let next = first;
+  for (const l of out) next = (l.at = Math.max(l.at, next)) + gap;
+  const lift = Math.max(0, (out.at(-1)?.at ?? 0) - last);
+  for (const l of out) l.at -= lift;
+  return out;
+}

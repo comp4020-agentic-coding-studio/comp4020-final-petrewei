@@ -4,7 +4,7 @@
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
-import { bollinger, closes, rsi, sma } from "/indicators.js";
+import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -291,8 +291,13 @@ function draw(s) {
   const days = closes(prices, k);
   const bands = studies.bb && !tutorial ? bollinger(days, 20, 2) : [];
   const shown = bands.filter(Boolean);
-  const lo = Math.min(...prices, ...shown.map((b) => b.lower));
-  const hi = Math.max(...prices, ...shown.map((b) => b.upper));
+  // The stop and the margin lines join the scale when they are near
+  // (within 3%, as at 100× and up), so high leverage shows how close the
+  // losscut is.
+  const pos = s.you.pos;
+  const near = pos ? [pos.stop, pos.call, pos.cut].filter((p) => p && Math.abs(p / prices.at(-1) - 1) < 0.03) : [];
+  const lo = Math.min(...prices, ...shown.map((b) => b.lower), ...near);
+  const hi = Math.max(...prices, ...shown.map((b) => b.upper), ...near);
   const pad = (hi - lo) * 0.15 || hi * 0.002;
   const top = hi + pad;
   const bottom = lo - pad;
@@ -349,20 +354,40 @@ function draw(s) {
     line(bands.map((b) => b && y(b.lower)), css.getPropertyValue("--band"), 1);
   }
   // The entry and the stop of my own position.
-  const pos = s.you.pos;
-  const level = (p, colour, label) => {
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = colour;
-    ctx.beginPath();
-    ctx.moveTo(0, y(p));
-    ctx.lineTo(w - 70, y(p));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = colour;
-    ctx.fillText(label, w - 70 - ctx.measureText(label).width - 6, y(p) - 4);
-  };
-  if (pos) level(pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`);
-  if (pos?.stop) level(pos.stop, css.getPropertyValue("--call"), t("thStop"));
+  // My position's lines: the entry, the stop, and where the broker steps
+  // in, the margin call and the forced losscut, worked out by the
+  // server's desk. A line off the scale is listed at that edge with an
+  // arrow. Labels are laid out top to bottom in their lines' order, each
+  // at its line or just below the label above, so lines close together
+  // (a 400× position's) never print over each other or swap places.
+  const marks = [];
+  if (pos) {
+    marks.push([pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`]);
+    if (pos.stop) marks.push([pos.stop, css.getPropertyValue("--call"), t("thStop")]);
+    if (pos.call) marks.push([pos.call, css.getPropertyValue("--call"), t("lineCall")], [pos.cut, down, t("lineCut")]);
+  }
+  const labels = [];
+  for (const [p, colour, text] of marks) {
+    if (p > bottom && p < top) {
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = colour;
+      ctx.beginPath();
+      ctx.moveTo(0, y(p));
+      ctx.lineTo(w - 70, y(p));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      labels.push({ at: y(p) - 4, colour, text });
+    } else labels.push({ at: p >= top ? 0 : h, colour, text: `${p >= top ? "▲" : "▼"} ${text} ${p.toFixed(s.digits)}` });
+  }
+  // Each label on a patch of the chart's colour, so a line that runs
+  // under a pushed-down label never strikes through it.
+  for (const l of stack(labels, 44, h - 4, 15)) {
+    const lw = ctx.measureText(l.text).width;
+    ctx.fillStyle = css.getPropertyValue("--chart");
+    ctx.fillRect(w - 70 - lw - 9, l.at - 11, lw + 6, 14);
+    ctx.fillStyle = l.colour;
+    ctx.fillText(l.text, w - 70 - lw - 6, l.at);
+  }
   // One candle a day, then the price line through today's ticks.
   for (let d = 0; d * k < prices.length - 1; d++) {
     const day = prices.slice(d * k, d * k + k + 1);

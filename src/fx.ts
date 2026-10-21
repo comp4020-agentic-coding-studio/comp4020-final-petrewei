@@ -87,6 +87,17 @@ export class Desk {
     return this.equity(who) - this.used(who);
   }
 
+  // The prices at which an open position meets a margin call and the
+  // forced loss cut: where equity falls to CALL or STOP_OUT of the margin.
+  // Solving balance + pnl(mid) = level × margin for mid, spread included,
+  // so they are the prices mark() acts at.
+  lines(who: string): { call: number; cut: number } | null {
+    const { balance, pos } = this.account(who);
+    if (!pos) return null;
+    const at = (level: number) => (pos.side * (level * pos.margin - balance) + pos.notional) / (pos.units * (1 - pos.side * half));
+    return { call: at(CALL), cut: at(STOP_OUT) };
+  }
+
   // Equity over margin in use; Infinity with nothing open.
   level(who: string): number {
     const used = this.used(who);
