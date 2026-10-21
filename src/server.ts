@@ -772,6 +772,32 @@ function debugAction(who: string, kind: string, mode: Mode): { ok?: true; error?
   }
 }
 
+// The optional background music (ADR 0020), served as exact bytes, not
+// text, and in ranges, so a browser starts playing before the whole file
+// arrives and can seek. One fixed file: nothing else in the folder, and
+// no path a request names, is ever read.
+const BGM = readFileSync(join(ROOT, "public/audio/bgm.m4a"));
+function sendAudio(req: IncomingMessage, res: ServerResponse): void {
+  const total = BGM.length;
+  const head = { "content-type": "audio/mp4", "accept-ranges": "bytes", "cache-control": "public, max-age=86400" };
+  const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+  if (!range) {
+    res.writeHead(200, { ...head, "content-length": total });
+    return void res.end(req.method === "HEAD" ? undefined : BGM);
+  }
+  // bytes=a-b, bytes=a- (to the end), or bytes=-n (the last n)
+  let start = range[1] === "" ? total - Number(range[2]) : Number(range[1]);
+  let end = range[1] === "" || range[2] === "" ? total - 1 : Number(range[2]);
+  start = Math.max(0, start);
+  end = Math.min(end, total - 1);
+  if (start > end || start >= total) {
+    res.writeHead(416, { ...head, "content-range": `bytes */${total}` });
+    return void res.end();
+  }
+  res.writeHead(206, { ...head, "content-range": `bytes ${start}-${end}/${total}`, "content-length": end - start + 1 });
+  res.end(req.method === "HEAD" ? undefined : BGM.subarray(start, end + 1));
+}
+
 const LOG_PAGES: Record<string, [string, string]> = {
   "/log": [read("public/log.html"), HTML],
   "/log.js": [read("public/log.js"), "text/javascript; charset=utf-8"],
@@ -843,6 +869,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     log(who, "debug", { action: String(input.kind), mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
     return json(res, out.error ? 409 : 200, out);
   }
+  if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);
   if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname]);
   if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path]);
   if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {

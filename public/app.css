@@ -352,6 +352,10 @@ body.bell-up .ticket { display: none; }
 .tick-down { animation: tick-down 0.45s ease-out; }
 @keyframes tick-up { 0% { color: var(--up); text-shadow: 0 0 10px var(--up); } }
 @keyframes tick-down { 0% { color: var(--down); text-shadow: 0 0 10px var(--down); } }
+/* The music switch: a note, struck through while off, pink while on. */
+#music[aria-pressed="false"] .slash { display: inline; }
+#music[aria-pressed="true"] .slash { display: none; }
+#music[aria-pressed="true"] { color: var(--pink); border-color: var(--pink); }
 @keyframes fade { 100% { opacity: 0; } }
 /* The debug console, for the operator only (ADR 0019): a tag in the
    corner and a panel above everything, in a terminal's monospace. */
@@ -456,6 +460,11 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .sub { display: none; }
   .top .logo { font-size: 1.05rem; }
   .lang select { width: 7rem; }
+  /* Four tools beside the logo: a little tighter, so ロスカット！ still
+     clears them at 360px. */
+  .tools { gap: 0.25rem; }
+  .tools .icon { width: 32px; }
+  .tools .lang select { width: 6.4rem; }
   /* Pair and price, then the clock, then the mode, each its own row. */
   .quote { grid-template-columns: auto 1fr; height: 6.6rem; }
   .quote .price { grid-column: 2; }

@@ -146,6 +146,52 @@ dark.addEventListener("change", () => {
   if (state) draw(state);
 });
 $("start").onclick = () => act("start");
+
+// Optional background music (ADR 0020): off until the player turns it on,
+// and only then is the track fetched. The choice is remembered, but a
+// browser lets sound start only from a click, so a returning player who
+// left it on hears it from their first click anywhere on the page.
+const bgm = $("bgm");
+bgm.volume = 0.35;
+const musicLabel = () => {
+  const on = !bgm.paused;
+  $("music").setAttribute("aria-pressed", String(on));
+  $("music").title = t(on ? "musicOff" : "musicOn");
+  $("music").setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
+};
+const remember = (on) => {
+  try {
+    localStorage.setItem("music", on ? "on" : "off");
+  } catch {
+    // a private window: the choice lasts this visit
+  }
+};
+$("music").onclick = async () => {
+  if (bgm.paused) {
+    try {
+      await bgm.play();
+      remember(true);
+    } catch {
+      // the browser refused; the button stays off
+    }
+  } else {
+    bgm.pause();
+    remember(false);
+  }
+  musicLabel();
+};
+bgm.addEventListener("play", musicLabel);
+bgm.addEventListener("pause", musicLabel);
+try {
+  if (localStorage.getItem("music") === "on") {
+    addEventListener("pointerdown", function resume(e) {
+      removeEventListener("pointerdown", resume, true);
+      if (bgm.paused && !e.target.closest?.("#music")) bgm.play().catch(() => {});
+    }, true);
+  }
+} catch {
+  // no storage: music stays off
+}
 $("warn-close").onclick = () => act("close");
 
 // The broker's warning. In a margin call (the desk's own flag) a red
