@@ -47,6 +47,7 @@ export function refusal(lang, english) {
 export const T = {
   en: {
     ui: {
+      logo: "Losscut!",
       sub: "Kurumi's FX Fantasy",
       history: "History",
       live: "Live",
@@ -204,6 +205,7 @@ export const T = {
 
   ja: {
     ui: {
+      logo: "ロスカット！",
       sub: "くるみのFXファンタジー",
       history: "ヒストリー",
       live: "ライブ",
@@ -361,6 +363,7 @@ export const T = {
 
   zh: {
     ui: {
+      logo: "爆仓！",
       sub: "久留美的FX幻想",
       history: "历史",
       live: "实时",

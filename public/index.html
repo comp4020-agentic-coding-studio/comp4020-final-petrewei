@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="en-AU">
+<html lang="{{htmllang}}" data-lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Losscut! Kurumi's FX Fantasy</title>
+  <title>{{title}}</title>
+{{alternates}}
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,9 +16,9 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="/" aria-label="Losscut! home">
-      <span class="logo">Losscut!</span>
-      <span class="sub"><span data-t="sub">Kurumi's FX Fantasy</span> <span lang="ja">ロスカット</span></span>
+    <a class="brand" href="{{home}}" aria-label="{{logo}}">
+      <span class="logo" data-t="logo">{{logo}}</span>
+      <span class="sub" data-t="sub">{{sub}}</span>
     </a>
     <nav class="tabs" role="tablist" aria-label="Market">
       <button role="tab" data-mode="history" aria-selected="true"><span data-t="history">History</span> <em id="here-history"></em></button>
@@ -39,7 +40,7 @@
         <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
         <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
       </button>
-      <a class="icon about" href="/readme/" data-t-title="about" data-t-aria="about">
+      <a class="icon about" href="{{about}}" data-t-title="about" data-t-aria="about">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>
       </a>
     </div>

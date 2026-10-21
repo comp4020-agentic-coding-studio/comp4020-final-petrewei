@@ -4,21 +4,12 @@
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
 
-// The page's language: chosen in the top bar and kept in this browser,
-// else the browser's own if it is Japanese or Chinese, else English.
-const guess = () => {
-  const l = (navigator.language || "en").slice(0, 2);
-  return LANGS.includes(l) ? l : "en";
-};
-let lang = (() => {
-  try {
-    const saved = localStorage.getItem("lang");
-    if (LANGS.includes(saved)) return saved;
-  } catch {
-    // no storage: use the browser's language
-  }
-  return guess();
-})();
+// The page's language is its address: / English, /ja/ Japanese, /zh/
+// Chinese. The server has already written the page in it; the menu moves
+// to the same page in another language. The market is not in the address,
+// so people reading different languages share the same rooms.
+let lang = LANGS.includes(document.documentElement.dataset.lang) ? document.documentElement.dataset.lang : "en";
+const home = (l) => (l === "en" ? "/" : `/${l}/`);
 // A slot not given here is left as {slot}, for rich() to fill as bold.
 const t = (k, vars = {}) => (T[lang].ui[k] ?? T.en.ui[k]).replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
 const yen = (n) => money(lang, n);
@@ -39,23 +30,11 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = lang;
   $("borrow").textContent = t("borrow", { amount: money(lang, 300_000) });
-  document.title = lang === "en" ? "Losscut! Kurumi's FX Fantasy" : `Losscut! ${t("sub")}`;
+  document.title = `${t("logo")} ${t("sub")}`;
 }
-$("lang").onchange = () => {
-  lang = $("lang").value;
-  try {
-    localStorage.setItem("lang", lang);
-  } catch {
-    // a private window: the choice lasts this visit
-  }
-  translate();
-  label();
-  fame = "";
-  if (state) {
-    mark();
-    render(state);
-  }
-};
+// Another language is another address. The market keeps running and the
+// tab is remembered, so the page comes back to the same room.
+$("lang").onchange = () => location.assign(home($("lang").value));
 
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
@@ -92,10 +71,24 @@ function mark() {
 }
 chips("stake", STAKES, (v) => `${v * 100}%`, "stake");
 
-// The market this page is on, from the tab, kept in the address so a
-// shared link or a reload opens the same one.
+// The market this page is on, from the tab: kept in this browser, so a
+// reload, or a switch of language, returns to it.
 const MODES = ["history", "live", "tutorial"];
-let mode = MODES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "history";
+let mode = (() => {
+  try {
+    const saved = localStorage.getItem("tab");
+    if (MODES.includes(saved)) return saved;
+  } catch {
+    // no storage: start on History
+  }
+  return "history";
+})();
+// Older links named the tab in the address (/#live); honour one once,
+// then drop it, so the address names only the language.
+if (MODES.includes(location.hash.slice(1))) {
+  mode = location.hash.slice(1);
+  history.replaceState(null, "", location.pathname);
+}
 
 async function act(kind, extra = {}) {
   $("error").textContent = "";
@@ -481,7 +474,11 @@ function render(s) {
 let events = null;
 function watch(next) {
   mode = next;
-  history.replaceState(null, "", `#${mode}`);
+  try {
+    localStorage.setItem("tab", mode);
+  } catch {
+    // a private window: the tab lasts this visit
+  }
   for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   events?.close();
   shown = null;

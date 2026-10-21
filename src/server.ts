@@ -12,7 +12,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
+import { ABOUT } from "../public/about.js";
 import { yen } from "../public/format.js";
+import { T } from "../public/i18n.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
@@ -558,9 +560,46 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 }
 
 const HTML = "text/html; charset=utf-8";
-const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap"><link rel="stylesheet" href="/app.css"><script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script></head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
+
+// Each page in each language at its own address: English at /, Japanese
+// under /ja/, Chinese under /zh/ (ADR 0016). The market is the same page,
+// and the same rooms, in every language; only its words change, and the
+// server writes them in from the start, so the title, the html lang and a
+// link's preview are right before any script runs.
+const LANGS = ["en", "ja", "zh"] as const;
+type Lang = (typeof LANGS)[number];
+const HTMLLANG: Record<Lang, string> = { en: "en", ja: "ja", zh: "zh-CN" };
+const prefix = (lang: Lang): string => (lang === "en" ? "" : `/${lang}`);
+const escape = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const alternates = (page: "" | "about"): string =>
+  LANGS.map((l) => `  <link rel="alternate" hreflang="${HTMLLANG[l]}" href="${prefix(l)}/${page}">`).join("\n") +
+  `\n  <link rel="alternate" hreflang="x-default" href="/${page}">`;
+const market = read("public/index.html");
+const marketIn = (lang: Lang): string => {
+  const ui = T[lang].ui;
+  const vars: Record<string, string> = {
+    htmllang: HTMLLANG[lang],
+    lang,
+    title: escape(`${ui.logo} ${ui.sub}`),
+    alternates: alternates(""),
+    home: `${prefix(lang)}/`,
+    logo: escape(ui.logo),
+    sub: escape(ui.sub),
+    about: `${prefix(lang)}/about`,
+  };
+  return market.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k]);
+};
+const FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+SC:wght@400;700&display=swap">`;
+const THEME = `<script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>`;
+const aboutIn = (lang: Lang): string => {
+  const a = ABOUT[lang];
+  const body = a.sections.map(([h, ps]) => `<h2>${escape(h)}</h2>${ps.map((p) => `<p>${escape(p)}</p>`).join("")}`).join("");
+  const others = LANGS.filter((l) => l !== lang).map((l) => `<a href="${prefix(l)}/about" hreflang="${HTMLLANG[l]}" lang="${HTMLLANG[l]}">${{ en: "English", ja: "日本語", zh: "简体中文" }[l]}</a>`).join(" · ");
+  return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main></body></html>`;
+};
+const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
 const PAGES: Record<string, [string, string]> = {
-  "/": [read("public/index.html"), HTML],
+  ...Object.fromEntries(LANGS.flatMap((l) => [[`${prefix(l)}/`, [marketIn(l), HTML]], [`${prefix(l)}/about`, [aboutIn(l), HTML]]])),
   "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
   "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
   "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
@@ -597,6 +636,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     res.setHeader("set-cookie", `v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
   }
 
+  // A language's home is its folder: /ja and /zh move to /ja/ and /zh/,
+  // so its relative links and the address bar agree.
+  if (req.method === "GET" && (url.pathname === "/ja" || url.pathname === "/zh")) {
+    res.writeHead(301, { location: `${url.pathname}/` });
+    return void res.end();
+  }
+  if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname]);
   if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path]);
   if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {
     return json(res, 404, { error: "Not found." });

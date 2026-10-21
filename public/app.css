@@ -116,7 +116,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .top { display: grid; grid-template-columns: 344px 390px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
 .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.logo { font-weight: 800; font-size: 1.45rem; letter-spacing: -0.01em; color: var(--pink); transform: rotate(-3deg); display: inline-block; text-shadow: 2px 2px 0 var(--logo-shadow); }
+/* Each language has its own logo; it never wraps, so the bar keeps its height. */
+.logo { font-weight: 800; font-size: 1.45rem; letter-spacing: -0.01em; color: var(--pink); transform: rotate(-3deg); display: inline-block; white-space: nowrap; text-shadow: 2px 2px 0 var(--logo-shadow); }
 .sub { color: var(--soft); font-size: 0.85rem; }
 .sub span { color: var(--muted); margin-left: 0.25rem; }
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
@@ -307,6 +308,12 @@ footer { padding: 0.6rem 1rem 1.6rem; max-width: 64rem; color: var(--muted); fon
 body.readme main { display: block; max-width: 44rem; margin: 0 auto; padding: 1.5rem 1rem; line-height: 1.6; color: var(--soft); }
 body.readme a { color: var(--pink); }
 body.readme h1, body.readme h2 { color: var(--ink); }
+/* The About page: the logo in its language, a lead, then sections. */
+body.readme .logo { margin: 0 0 0.6rem; font-size: 1.6rem; }
+body.readme .lead { font-size: 1.05rem; color: var(--ink); }
+body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
+.about-links { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.about-langs { color: var(--muted); font-size: 0.9rem; }
 
 /* Middle widths: who you are takes a row of its own beneath, so brand,
    tabs and tools keep their slots. */
@@ -346,8 +353,11 @@ body.readme h1, body.readme h2 { color: var(--ink); }
   .lesson { height: 472px; }
   /* The empty-position line wraps in a box sized for two lines. */
   #pos-empty td { height: 3.6rem; vertical-align: top; }
-  /* The brand is the logo alone; the subtitle is in the page title. */
+  /* The brand is the logo alone, small enough that ロスカット！ fits
+     its slot; the subtitle is in the page title. */
   .sub { display: none; }
+  .top .logo { font-size: 1.05rem; }
+  .lang select { width: 7rem; }
   /* Pair and price, then the clock, then the mode, each its own row. */
   .quote { grid-template-columns: auto 1fr; height: 6.6rem; }
   .quote .price { grid-column: 2; }
