@@ -1,6 +1,6 @@
 # Losscut! Kurumi's FX Fantasy
 
-Two shared currency markets, chosen by tab, traded by everyone at once for play money. A round is three minutes of forty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On History the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
+Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On History the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 Good, defined.
 
@@ -16,7 +16,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 - **Losing is public.** Margin calls and stop-outs reach the feed. A broke player may borrow from Dad's savings twice, as debt.
 - **There's always someone to trade against.** Seven of the comic's traders play every round; Kurumi never cuts a loss.
 - **Beginners get a private tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): twelve lessons, one idea and one move each.
-- **There's a short game and a long game.** Each round ranks net worth; a hall of fame keeps profit and busts.
+- **There's a short game and a long game.** Rounds rank net worth; a hall of fame keeps profit and busts.
 
 ## Enforced and judged
 
@@ -28,7 +28,7 @@ Checked in `spec/` and `test/`:
 - nobody is shown another person's cookie or stop, or their tutorial
 - a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
 - margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
-- replays pass through every real daily close
+- replays pass every real close; indicators match their formulas
 - simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
 - who did what is logged by short code, and survives a hard kill
 - every string has English, Japanese and Chinese, each with its own address and About page ([ADR 0016](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0016-the-address-names-the-language.md))
@@ -36,7 +36,7 @@ Checked in `spec/` and `test/`:
 Judged by people, at the crit and showcase:
 
 - whether a room laughs and learns when the bell rings
-- whether it makes leverage look as dangerous as it is
+- whether leverage looks as dangerous as it is
 - whether the Japanese and Chinese read as native
 
 ## What I looked at
