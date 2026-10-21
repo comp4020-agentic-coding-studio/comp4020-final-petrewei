@@ -20,3 +20,6 @@ mise.local.toml
 # your course API key, and this repo goes public when you ship. Your tracked
 # harness is CLAUDE.md (and any AGENTS.md), not this directory.
 .claude/
+
+# copyrighted reference scans for drawing, never published (ADR 0021)
+reference/

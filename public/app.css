@@ -10,6 +10,7 @@
   --panel: #1d1735;
   --raise: #261e45;
   --line: #2f2650;
+  --av-tile: #3a3158;
   --ink: #f3eefe;
   --soft: #cfc4ec;
   --muted: #8e82b3;
@@ -47,6 +48,7 @@
     --panel: #ffffff;
     --raise: #f0eaf8;
     --line: #ddd3ec;
+    --av-tile: #f3ecf6;
     --ink: #1c1530;
     --soft: #4a3f66;
     --muted: #72688d;
@@ -80,6 +82,7 @@
   --panel: #ffffff;
   --raise: #f0eaf8;
   --line: #ddd3ec;
+  --av-tile: #f3ecf6;
   --ink: #1c1530;
   --soft: #4a3f66;
   --muted: #72688d;
@@ -272,7 +275,13 @@ th:first-child, td:first-child { text-align: left; }
 
 /* The room: everyone on this tab, best first. */
 #traders { list-style: none; margin: 0; padding: 0.3rem 0.9rem 0.6rem; }
-#traders li { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6rem; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+#traders li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+/* Pixel faces (ADR 0021): square pixels at any size, on a soft tile so a
+   dark face shows on the dark theme. */
+.av { display: inline-flex; flex: none; line-height: 0; border-radius: 4px; background: var(--av-tile); image-rendering: pixelated; }
+.av svg { display: block; }
+.whoami .av { vertical-align: middle; margin-right: 0.35rem; }
+#career td:first-child .av { vertical-align: middle; margin-right: 0.35rem; }
 #traders li:last-child { border-bottom: none; }
 #traders li.you .n { color: var(--pink); font-weight: 700; }
 #traders li.out { opacity: 0.45; text-decoration: line-through; }
@@ -321,7 +330,7 @@ body.bell-up .ticket { display: none; }
 .name-box .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
 #reveal { line-height: 1.5; color: var(--soft); }
 #ranking { list-style: none; padding: 0; counter-reset: rank; font-size: 0.88rem; }
-#ranking li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.4rem; align-items: baseline; padding: 0.3rem 0; border-bottom: 1px solid var(--line); counter-increment: rank; }
+#ranking li { display: grid; grid-template-columns: 1.6rem auto minmax(0, 1fr) auto; gap: 0.4rem; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--line); counter-increment: rank; }
 #ranking li::before { content: counter(rank) "."; color: var(--muted); font-family: var(--mono); }
 #ranking .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ranking .res { font-family: var(--mono); }

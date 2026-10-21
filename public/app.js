@@ -4,6 +4,7 @@
 const $ = (id) => document.getElementById(id);
 import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
+import { svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
@@ -20,6 +21,9 @@ const yen = (n) => money(lang, n);
 // are found by short code.
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (draw ? drawn(lang, draw) : name);
+// A trader's pixel face (ADR 0021), by the name the server gives it. The
+// SVG is built from the page's own drawings; the name only picks one.
+const avatar = (face, size = 20) => Object.assign(document.createElement("span"), { className: "av", innerHTML: svg(face, size) });
 let names = new Map();
 const nameOf = (code) => names.get(code) ?? botName(code, code);
 
@@ -668,7 +672,7 @@ function render(s) {
   // Built from text nodes: the name comes from the server, never as HTML.
   // A pencil says it can be changed.
   me = nameIn(s.you.name, s.you.draw);
-  $("whoami").replaceChildren(`${t("youAre")} `, strong(me), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
+  $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
   $("whoami").title = t("youAreTitle");
   draw(s);
   ticket(s);
@@ -741,7 +745,7 @@ function render(s) {
       e.textContent = yen(tr.equity);
       e.className = `eq ${tr.equity >= s.start ? "up" : "down"}`;
       li.dataset.id = tr.id;
-      li.append(n, p, e);
+      li.append(avatar(tr.face, 24), n, p, e);
       return li;
     }),
   );
@@ -767,6 +771,7 @@ function render(s) {
           td.textContent = v;
           tr.append(td);
         }
+        tr.firstChild.prepend(avatar(c.face, 18));
         return tr;
       }),
     );
@@ -790,7 +795,7 @@ function render(s) {
         const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
         const result = Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
         result.title = yen(r.balance);
-        li.append(name, result);
+        li.append(avatar(r.face, 18), name, result);
         return li;
       }),
     );

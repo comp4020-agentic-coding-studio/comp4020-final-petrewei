@@ -28,9 +28,9 @@ Checked in `spec/` and `test/`:
 - nobody is shown another person's cookie or stop, or their tutorial
 - a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
 - margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
-- replays pass every real close; indicators match their formulas
+- replays pass every real close; indicators match formulas
 - simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
-- who did what is logged by short code, and survives a hard kill
+- who did what is logged by short code, surviving hard kills
 - every string has English, Japanese and Chinese, each with its own address and About page ([ADR 0016](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0016-the-address-names-the-language.md))
 
 Judged by people, at the crit and showcase:
@@ -41,7 +41,7 @@ Judged by people, at the crit and showcase:
 
 ## What I looked at
 
-- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan), its [anime site](https://fxkurumi-info.com/) and Japanese and Chinese wikis, for names and terms ([ADR 0015](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0015-three-languages-and-the-comics-characters.md), [0018](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0018-anime-names-and-seven-characters.md)); no art is used.
+- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan), its [anime site](https://fxkurumi-info.com/) and Japanese and Chinese wikis, for names, terms, colours ([ADR 0015](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0015-three-languages-and-the-comics-characters.md), [0018](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0018-anime-names-and-seven-characters.md)); the pixel faces are hand-drawn ([0021](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0021-pixel-faces.md)).
 - The ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
 - ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money; major pairs capped at 30:1.
 - After the franc unpegged, FXCM's clients owed it [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
@@ -49,4 +49,4 @@ Judged by people, at the crit and showcase:
 
 ## Left out
 
-Real money, broker links, deposit rewards, the series' music or art ([ADR 0020](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0020-optional-background-music.md)). The comic's family tragedy is the premise, not a joke. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.
+Real money, broker links, deposit offers, the series' music or art ([ADR 0020](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0020-optional-background-music.md)). The comic's family tragedy is the premise, not a joke. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.

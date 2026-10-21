@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
+import { PEOPLE } from "../public/avatars.js";
 import { yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T } from "../public/i18n.js";
 import { drawn, FAMILY, GIVEN } from "../public/names.js";
@@ -64,6 +65,12 @@ function nameOf(who: string): string {
   const d = drawOf(who);
   return d ? drawn("en", d) : (chosen[key(who)] as string);
 }
+// A pixel face (ADR 0021): a house trader's own, or a plain one a person
+// is dealt from their cookie, as their drawn name is.
+// A career's key is the cookie's hash in hex, so its face is read from the
+// same byte, and careers saved before faces have one too.
+const faceOf = (who: string): string => (bot(who) ? who : `p${hash(who)[2] % PEOPLE.length}`);
+const faceAt = (k: string): string => `p${Number.parseInt(k.slice(4, 6), 16) % PEOPLE.length}`;
 // Six hex characters tell people apart in the log at a glance; a career
 // is filed under sixteen, so two people's careers never merge.
 const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
@@ -284,7 +291,7 @@ class Market {
   breakLeft = 0;
   countdown = 0;
   startedBy: string | null = null;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; balance: number }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -417,7 +424,7 @@ class Market {
     // before any page can see it: a crash after the bell keeps it.
     if (humans.length) writeCareer();
     const shown = ranking.filter((r) => bot(r.who) || desk.account(r.who).traded);
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -493,7 +500,7 @@ class Market {
     const open = new Set(this.listeners().map((l) => l.who));
     const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
       const a = desk.account(p);
-      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
+      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
     });
     traders.sort((a, b) => b.equity - a.equity);
     return { traders };
@@ -528,6 +535,7 @@ class Market {
       you: {
         name: nameOf(who),
         draw: drawOf(who),
+        face: faceOf(who),
         code: short(who),
         balance: mine?.balance ?? START,
         equity: Math.round(mine ? desk.equity(who) : START),
@@ -544,7 +552,7 @@ class Market {
       feed: this.feed,
       pops: this.pops.map(({ at: _at, ...p }) => p),
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
-      career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === me })),
+      career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
       ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
@@ -710,6 +718,7 @@ const PAGES: Record<string, [string, string]> = {
   "/i18n.js": [read("public/i18n.js"), "text/javascript; charset=utf-8"],
   "/names.js": [read("public/names.js"), "text/javascript; charset=utf-8"],
   "/indicators.js": [read("public/indicators.js"), "text/javascript; charset=utf-8"],
+  "/avatars.js": [read("public/avatars.js"), "text/javascript; charset=utf-8"],
   "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],
