@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { client } from "../spec/helpers.ts";
 import { type Server, server } from "./server.ts";
@@ -103,6 +106,29 @@ it("gives a career to traders, not watchers", async () => {
   expect(bell.career.filter((c) => c.rounds > 0)).toHaveLength(1);
   expect(bell.career[0].you).toBe(true);
   expect((await state(watcher)).career.some((c) => c.you)).toBe(false);
+}, 20_000);
+
+// The hall of fame is for people. A bot never gets a row, after any number
+// of rounds, and a saved hall holding one (from an older version, or by
+// hand) is cleaned when the server starts.
+it("keeps the house traders out of the hall of fame", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "losscut-"));
+  writeFileSync(join(dir, "career.json"), JSON.stringify({
+    "bot:kurumi": { name: "Fukuga Kurumi", rounds: 9, profit: 9e9, wins: 9, busts: 0, best: 9e9 },
+    "0123456789abcdef": { name: "Dojima Hikari", rounds: 1, profit: 5, wins: 0, busts: 0, best: 5 },
+  }));
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
+  const { visitor, act, open, state } = app();
+  const bots = ["Fukuga Kurumi", "Kogane Mochiko", "Takane Yasuko", "Yamashi Mebuki", "Sakata Inago", "Zenba Nana", "Tsukimori Kizuna"];
+  const names = async () => (await state()).career.map((c) => c.name);
+  expect(await names()).toEqual(["Dojima Hikari"]);
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  let bell = await state(a);
+  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
+  expect(bell.phase).toBe("break");
+  for (const name of await names()) expect(bots, name).not.toContain(name);
 }, 20_000);
 
 // After the bell a market goes back to the lobby and waits, rather than
