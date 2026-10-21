@@ -127,7 +127,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .tabs em { font-style: normal; font-weight: 700; font-size: 0.7rem; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 999px; background: var(--raise); color: var(--soft); }
 .tabs em:empty { display: none; }
 .tabs button[aria-selected="true"] em { background: rgb(255 255 255 / 0.25); color: inherit; }
-.whoami { margin: 0; justify-self: end; max-width: 100%; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whoami { margin: 0; padding: 0.2rem 0.5rem; justify-self: end; max-width: 100%; border: 1px dashed transparent; background: none; border-radius: 8px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whoami:hover { border-color: var(--line); }
+.whoami .pencil { margin-left: 0.35rem; color: var(--soft); }
 .whoami strong { color: var(--ink); }
 .whoami code { font: 0.8rem var(--mono); color: var(--pink); }
 /* The tools: a language menu, the theme as a sun or moon, About as an
@@ -267,6 +269,17 @@ th:first-child, td:first-child { text-align: left; }
 .overlay[hidden], .losscut[hidden] { display: none; }
 .card { width: 100%; max-width: 34rem; padding: 1.2rem 1.4rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--pink); box-shadow: 0 0 0 4px var(--glow); }
 .card h2 { margin: 0 0 0.5rem; font-size: 1.4rem; color: var(--pink); }
+/* The name box: a field and a dice button on one row, Cancel and Save below. */
+.name-box { width: min(26rem, calc(100% - 2rem)); color: var(--ink); }
+.name-box::backdrop { background: var(--scrim); }
+.name-box form { display: grid; gap: 0.6rem; }
+.name-box h2 { margin: 0; }
+.name-hint { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.name-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+.name-row input { min-width: 0; height: 34px; padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: inherit; }
+.name-row input:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
+.name-box .error { min-height: 1.3rem; margin: 0; }
+.name-box .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
 #reveal { line-height: 1.5; color: var(--soft); }
 #ranking { padding-left: 1.4rem; font-family: var(--mono); font-size: 0.9rem; }
 #ranking li.you { color: var(--pink); }

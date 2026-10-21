@@ -25,7 +25,7 @@
       <button role="tab" data-mode="live" aria-selected="false"><span data-t="live">Live</span> <em id="here-live"></em></button>
       <button role="tab" data-mode="tutorial" aria-selected="false"><span data-t="tutorial">Tutorial</span></button>
     </nav>
-    <p id="whoami" class="whoami"></p>
+    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog"></button>
     <div class="tools">
       <label class="lang">
         <span class="sr-only">Language</span>
@@ -154,6 +154,26 @@
       <p class="bell-next" id="bell-next"></p>
     </div>
   </div>
+  <!-- Choosing a trader name: type one, or draw one at random. The server
+       decides whether it may be used (ADR 0017). -->
+  <dialog id="name-box" class="card name-box" aria-labelledby="name-title">
+    <form id="name-form" method="dialog">
+      <h2 id="name-title" data-t="nameTitle">Your trader name</h2>
+      <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
+      <div class="name-row">
+        <label class="sr-only" for="name-input" data-t="nameTitle">Your trader name</label>
+        <input id="name-input" name="name" autocomplete="nickname" spellcheck="false" maxlength="40" required>
+        <button id="name-draw" class="icon" type="button" data-t-title="nameDraw" data-t-aria="nameDraw">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <p id="name-error" class="error" role="status"></p>
+      <div class="row">
+        <button id="name-cancel" class="ghost" type="button" data-t="nameCancel">Cancel</button>
+        <button id="name-save" class="next" type="submit" data-t="nameSave">Save</button>
+      </div>
+    </form>
+  </dialog>
   <div id="losscut" class="losscut" hidden><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
 
   <footer data-t="footer"></footer>

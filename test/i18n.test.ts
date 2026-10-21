@@ -42,7 +42,9 @@ describe("the translations", () => {
     const { readFileSync } = await import("node:fs");
     const src = ["src/fx.ts", "src/server.ts", "src/tutorial.ts"].map((f) => readFileSync(f, "utf8")).join("\n");
     const sent = [...src.matchAll(/(?:return|only\([^,]+,|\?\s*null\s*:)\s*"([A-Z][^"]+[.!?])"/g)].map((m) => m[1]);
-    expect(sent.length).toBeGreaterThan(15);
+    // a name's refusals carry their status alongside
+    sent.push(...[...src.matchAll(/error: "([A-Z][^"]+[.!?])", status:/g)].map((m) => m[1]));
+    expect(sent.length).toBeGreaterThan(20);
     for (const text of sent) expect(Object.keys(T.en.refusals), text).toContain(text);
   });
 

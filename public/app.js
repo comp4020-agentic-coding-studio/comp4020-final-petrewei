@@ -133,6 +133,32 @@ dark.addEventListener("change", () => {
 });
 $("start").onclick = () => act("start");
 
+// Your trader name: type one, or draw one at random until one fits. The
+// server says whether it may be used, and every page sees it next
+// broadcast; a draw changes nothing until it is saved.
+let me = "";
+$("whoami").onclick = () => {
+  $("name-input").value = me;
+  $("name-error").textContent = "";
+  $("name-box").showModal();
+  $("name-input").select();
+};
+$("name-cancel").onclick = () => $("name-box").close();
+$("name-draw").onclick = async () => {
+  const res = await fetch("/api/name");
+  if (res.ok) $("name-input").value = (await res.json()).name;
+  $("name-error").textContent = "";
+  $("name-input").focus();
+};
+$("name-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const res = await fetch("/api/name", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: $("name-input").value }) });
+  const out = await res.json();
+  if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
+  me = out.name;
+  $("name-box").close();
+};
+
 // The lobby: a market waits for someone on the tab to press Start, then
 // counts down so others can join.
 function lobby(s) {
@@ -351,7 +377,9 @@ function render(s) {
         ? t("clockOpens", { s: s.countdown })
         : t(s.phase === "lobby" ? "clockLobby" : "clockClosed");
   // Built from text nodes: the name comes from the server, never as HTML.
-  $("whoami").replaceChildren(`${t("youAre")} `, strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }));
+  // A pencil says it can be changed.
+  me = s.you.name;
+  $("whoami").replaceChildren(`${t("youAre")} `, strong(s.you.name), " ", Object.assign(document.createElement("code"), { textContent: s.you.code }), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
   $("whoami").title = t("youAreTitle");
   draw(s);
   ticket(s);

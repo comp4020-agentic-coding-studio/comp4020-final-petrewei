@@ -6,7 +6,7 @@
 // date hidden, Live simulates on from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -23,6 +23,7 @@ const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
 const ROOT = join(import.meta.dirname, "..");
 const CAREER_FILE = join(DATA_DIR, "career.json");
+const NAMES_FILE = join(DATA_DIR, "names.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
 // Half a second a tick: forty days of nine ticks is three minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
@@ -35,8 +36,8 @@ const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
 const history = new History(read("data/ecb.csv"));
 
 // A visitor is their cookie; others see them by a trader name drawn from
-// it, and the log by a short hash, so nobody types a name, nothing needs
-// moderating, and no page or log line carries a cookie (ADR 0010).
+// it, or one they chose (ADR 0017), and the log by a short hash, so no
+// page or log line carries a cookie (ADR 0010).
 const ADJ = ["Lucky", "Panic", "Diamond", "Paper", "Moon", "Margin", "Lonely", "Golden", "Sleepy", "Brave", "Greedy", "Humble", "Shaky", "Bold", "Tiny", "Mighty", "Nervous", "Hopeful", "Reckless", "Cosy", "Midnight", "Salty", "Dizzy", "Sunny"];
 const NOUN = ["Yen", "Pip", "Bull", "Bear", "Whale", "Candle", "Franc", "Kiwi", "Aussie", "Loonie", "Swap", "Lot", "Spread", "Chart", "Hedge", "Ticker", "Wick", "Dip", "Peg", "Rally", "Gap", "Fiver", "Penny", "Euro"];
 const bot = (who: string) => BOTS.find((b) => b.id === who);
@@ -47,12 +48,68 @@ function nameOf(who: string): string {
   const b = bot(who);
   if (b) return b.name;
   const h = hash(who);
-  return `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`;
+  return chosen[h.toString("hex").slice(0, 16)] ?? `${ADJ[h[0] % ADJ.length]} ${NOUN[h[1] % NOUN.length]}`;
 }
 // Six hex characters tell people apart in the log at a glance; a career
 // is filed under sixteen, so two people's careers never merge.
 const short = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 6));
 const key = (who: string): string => (bot(who) ? who : hash(who).toString("hex").slice(0, 16));
+
+// Names people chose, by career key, kept on the volume so a name
+// outlives a restart. Only the server decides what a name may be: plain
+// letters, numbers, spaces and a little punctuation, up to 20 wide (a
+// Japanese or Chinese character counts as two), never a house trader's
+// and never one someone else holds, whatever its case or spacing.
+const chosen: Record<string, string> = existsSync(NAMES_FILE) ? JSON.parse(readFileSync(NAMES_FILE, "utf8")) : {};
+const NAME_WIDTH = 20;
+const NAMES_MAX = 10_000;
+const same = (name: string): string => name.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿가-힯]/.test(ch) ? 2 : 1), 0);
+// The house traders in every language, and their given names alone.
+const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).map((b) => b.name)), "くるみ", "久留美", "萌智子", "芽吹", "やす子", "安子"].map(same));
+// Anyone else's name: chosen, in the hall of fame, or on a page now.
+function taken(name: string, who: string): boolean {
+  const mine = key(who);
+  const n = same(name);
+  if (Object.entries(chosen).some(([k, c]) => k !== mine && same(c) === n)) return true;
+  if (Object.entries(career).some(([k, c]) => k !== mine && same(c.name) === n)) return true;
+  return [...listeners].some((l) => l.who !== who && same(nameOf(l.who)) === n);
+}
+function rename(who: string, input: unknown): { name: string } | { error: string; status: number } {
+  if (typeof input !== "string" || !input.trim()) return { error: "Choose a name.", status: 400 };
+  const name = input.normalize("NFC").trim().replace(/\s+/g, " ");
+  if (width(name) > NAME_WIDTH) return { error: "Names are up to 20 letters, or 10 in Japanese or Chinese.", status: 400 };
+  if (!/^[\p{L}\p{N}][\p{L}\p{N} '’.\-_!?&・ー〜~♪]*$/u.test(name)) return { error: "Use letters, numbers, spaces and simple punctuation.", status: 400 };
+  if (RESERVED.has(same(name))) return { error: "That name belongs to a house trader.", status: 400 };
+  if (taken(name, who)) return { error: "Someone already has that name.", status: 409 };
+  const k = key(who);
+  if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
+  const before = nameOf(who);
+  if (name === before) return { name };
+  chosen[k] = name;
+  try {
+    writeFileSync(`${NAMES_FILE}.tmp`, JSON.stringify(chosen));
+    renameSync(`${NAMES_FILE}.tmp`, NAMES_FILE);
+  } catch (error) {
+    console.error("could not save the names:", error);
+  }
+  if (career[k]) {
+    career[k].name = name;
+    saveCareer();
+    queueMicrotask(rank);
+  }
+  log(who, "rename", { from: before });
+  return { name };
+}
+// A drawn name nobody else holds, to try on; nothing changes until it is chosen.
+function suggestion(who: string): string {
+  const now = same(nameOf(who));
+  for (let i = 0; i < 50; i++) {
+    const name = `${ADJ[randomInt(ADJ.length)]} ${NOUN[randomInt(NOUN.length)]}`;
+    if (same(name) !== now && !taken(name, who)) return name;
+  }
+  return `${ADJ[randomInt(ADJ.length)]} ${NOUN[randomInt(NOUN.length)]}`;
+}
 
 // One structured line per thing a trader does, with their short code and
 // trader name. It goes to stdout, so `flyctl logs` tails it, and is
@@ -697,6 +754,26 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (req.method === "GET" && path === "/api/state") {
     if (url.searchParams.get("mode") === "tutorial") return json(res, 200, tutorialView(who));
     return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
+  }
+
+  // A person's trader name: GET draws one to try, POST chooses one. Every
+  // page sees the new name with the next broadcast.
+  if (req.method === "GET" && path === "/api/name") return json(res, 200, { name: suggestion(who) });
+  if (req.method === "POST" && path === "/api/name") {
+    let input: Record<string, unknown>;
+    try {
+      input = await body(req);
+    } catch {
+      return json(res, 400, { error: "Send JSON." });
+    }
+    const result = rename(who, input.name);
+    if ("error" in result) {
+      log(who, "refused", { action: "rename", why: result.error });
+      return json(res, result.status, { error: result.error });
+    }
+    for (const m of MODES) markets[m].broadcast();
+    sendTutorial(who);
+    return json(res, 200, result);
   }
 
   if (req.method === "POST" && path === "/api/act") {
