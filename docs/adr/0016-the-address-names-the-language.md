@@ -14,7 +14,7 @@ The address carried the market (`/#live`), and the language followed the browser
 
 ## 3 Decision
 
-Peter chose all three: the path, a player's About page, and 爆仓！. English stays at `/`, with no tag; Japanese is `/ja/`, Chinese `/zh/`, and `/ja` and `/zh` redirect to them. About is `/about`, `/ja/about` and `/zh/about`. The logos are Losscut!, ロスカット！ and 爆仓！, and the subtitle after each is the language's own.
+Peter chose all three: the path, a player's About page, and 爆仓！. English stays at `/`, with no tag; Japanese is `/ja/`, Chinese `/zh/`, and `/ja` and `/zh` redirect to them. About is `/about`, `/ja/about` and `/zh/about`. The logos are Losscut!, ロスカット！ and 爆仓！, and the subtitle after each is the language's own. Later the same day Peter retitled the Chinese site 强制平仓！久留美的FX白日梦: the broker's formal term, which the losscut stamp already used, and 白日梦, a daydream, for the subtitle; Chinese sets no space after the full-width ！.
 
 The server fills `public/index.html` for each language before it is sent, so the page arrives with its `lang`, title, logo and links in place and no flash of English. Each page lists the others with `hreflang`. The language menu loads the other address. The chosen market tab moves to the browser's storage, and an old `/#live` link still opens Live once, then the address loses its hash. Rooms are by market only, so the language never reaches the server's rooms, orders or feed.
 
