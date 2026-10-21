@@ -200,6 +200,21 @@ canvas { display: block; width: 100%; height: auto; background: var(--chart); }
 .studies button[aria-pressed="true"] { color: var(--c); border-color: var(--c); }
 body.tutorial .studies { display: none; }
 
+/* The broker's warning across the top of the chart: amber on the way to
+   a margin call, red and pulsing in one, with a button to close. It sits
+   below the switches' row, over the chart, so nothing else moves. */
+.warn { position: absolute; z-index: 2; left: 0.6rem; right: 0.6rem; top: 2.1rem; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 0.7rem; padding: 0.45rem 0.6rem 0.45rem 0.8rem; border-radius: 10px; border: 2px solid var(--call); background: var(--panel); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.85rem; }
+.warn[hidden] { display: none; }
+.warn strong { color: var(--call); white-space: nowrap; }
+.warn span { color: var(--ink); min-width: 0; }
+.warn button { white-space: nowrap; font-weight: 800; background: var(--call); border-color: var(--call); color: var(--on-fill); }
+.warn.calling { border-color: var(--down); animation: alarm 1s ease-in-out infinite; }
+.warn.calling strong { color: var(--down); }
+.warn.calling button { background: var(--down); border-color: var(--down); }
+@keyframes alarm { 50% { box-shadow: 0 0 0 4px var(--flash), 0 4px 14px rgb(0 0 0 / 0.25); } }
+#level-box.alarm dd { color: var(--down); animation: blink 0.8s step-end infinite; }
+@keyframes blink { 50% { opacity: 0.3; } }
+
 /* The lobby sits over the chart until someone presses Start. */
 .lobby { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1.2rem; text-align: center; background: var(--veil); }
 .lobby[hidden] { display: none; }
@@ -425,6 +440,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .quote .mode { grid-row: 3; white-space: normal; }
   .tabs em { display: none; }
   .chart-box { min-height: 270px; }
+  /* The warning: title and button on one row, the message under them. */
+  .warn { grid-template-columns: minmax(0, 1fr) auto; font-size: 0.8rem; }
+  .warn span { grid-column: 1 / -1; grid-row: 2; }
   /* The filename joke gives way to the indicator switches. */
   .file { display: none; }
   .studies { right: 0.5rem; }
@@ -444,7 +462,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   #pos-row td:last-child .close, #pos-row td:nth-last-child(2) .mini { width: 100%; padding: 0.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .losscut, .focus, .tick-up, .tick-down { animation: none; }
+  .losscut, .focus, .tick-up, .tick-down, .warn.calling, #level-box.alarm dd { animation: none; }
   .bubble { animation: fade 2.6s step-end forwards; }
   .spark { display: none; }
   #meter { transition: none; }

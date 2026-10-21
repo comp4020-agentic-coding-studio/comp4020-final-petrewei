@@ -142,6 +142,35 @@ dark.addEventListener("change", () => {
   if (state) draw(state);
 });
 $("start").onclick = () => act("start");
+$("warn-close").onclick = () => act("close");
+
+// The broker's warning. In a margin call (the desk's own flag) a red
+// banner says so, with how far the price can move before the forced
+// losscut and a button to close; from 70% down, an amber one says a call
+// is coming. The margin level pulses, and the tab's title says it too,
+// so a trader in another tab sees it. The tutorial's lessons teach the
+// call themselves, so it shows no banner.
+const NEAR = 70;
+function warn(s, open) {
+  const pos = s.you.pos;
+  const level = s.you.level;
+  const calling = !!pos?.called;
+  const near = !calling && level !== null && level <= NEAR;
+  const show = open && pos && (calling || near) && s.mode !== "tutorial";
+  $("warn").hidden = !show;
+  $("warn").className = `warn ${calling ? "calling" : "near"}`;
+  $("level-box").classList.toggle("alarm", !!(open && calling));
+  if (show) {
+    // How far the price can move, against you, to the next line.
+    const to = calling ? pos.cut : pos.call;
+    // At 1000× the losscut can be under 0.005% off: never round it to 0.
+    const pct = Math.abs(to / s.prices.at(-1) - 1) * 100;
+    const move = `${pct >= 0.1 ? pct.toFixed(2) : pct.toPrecision(2)}%`;
+    $("warn-title").textContent = t(calling ? "warnCallTitle" : "warnNearTitle");
+    $("warn-text").textContent = t(calling ? "warnCallText" : "warnNearText", { level, move });
+  }
+  document.title = show && calling ? t("warnTab", { level }) : `${t("logo")}${t("titleJoin")}${t("sub")}`;
+}
 
 // Your trader name: type one, or draw one at random until one fits. The
 // server says whether it may be used, and every page sees it next
@@ -606,6 +635,7 @@ function render(s) {
   $("meter").style.width = `${fill}%`;
   $("meter").style.background = y.level === null || y.level > 100 ? "var(--up)" : y.level > 50 ? "var(--call)" : "var(--down)";
   $("borrow").hidden = !(y.broke && y.loansLeft > 0 && open);
+  warn(s, open);
   // Your position: one row with its own close and stop, as on any
   // platform, or a line saying what to do when there is none.
   $("pos-row").hidden = !y.pos;

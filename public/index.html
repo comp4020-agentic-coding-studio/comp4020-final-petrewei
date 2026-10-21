@@ -74,6 +74,13 @@
         <span class="clock" id="clock"></span>
       </div>
       <div class="chart-box">
+        <!-- The broker's warning, while your margin level is low: red in a
+             margin call, amber on the way there. -->
+        <div id="warn" class="warn" role="alert" hidden>
+          <strong id="warn-title"></strong>
+          <span id="warn-text"></span>
+          <button id="warn-close" type="button" data-t="warnClose">Close now</button>
+        </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
         <p class="file" id="title">chart.exe</p>
         <div class="studies" id="studies" role="group" data-t-aria="indicators">
