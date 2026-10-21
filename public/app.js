@@ -723,7 +723,11 @@ function render(s) {
   }
 
 
-  $("bell").hidden = s.phase !== "break" || !s.result;
+  // After the bell the result stands in for the ticket, at its height.
+  const bell = s.phase === "break" && !!s.result;
+  if (bell && $("bell").hidden) $("bell").style.height = `${document.querySelector(".ticket").offsetHeight}px`;
+  $("bell").hidden = !bell;
+  document.body.classList.toggle("bell-up", bell);
   if (s.result) {
     $("reveal").textContent = reveal(s.result);
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
@@ -731,8 +735,12 @@ function render(s) {
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
         if (r.you) li.className = "you";
+        // Rank, name and result on one row, as a column this narrow can hold.
         const delta = r.balance - s.start;
-        li.textContent = `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}: ${yen(r.balance)} (${delta >= 0 ? "+" : ""}${yen(delta)})`;
+        const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
+        const result = Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}`, textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
+        result.title = yen(r.balance);
+        li.append(name, result);
         return li;
       }),
     );

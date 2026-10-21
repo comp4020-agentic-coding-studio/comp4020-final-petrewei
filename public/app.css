@@ -297,9 +297,15 @@ th:first-child, td:first-child { text-align: left; }
 .fame td:first-child { font-family: var(--round); }
 .fame tr.you td { color: var(--pink); }
 
-/* The bell, and the forced loss cut stamp. */
-.overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 1rem; background: var(--scrim); }
-.overlay[hidden], .losscut[hidden] { display: none; }
+/* The bell takes the ticket's place in the right column, at the ticket's
+   height, so nothing below it moves; a long ranking scrolls inside. */
+.bell { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.9rem; border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
+.bell[hidden], .losscut[hidden] { display: none; }
+.bell h2 { margin: 0; font-size: 1.3rem; color: var(--pink); }
+.bell #reveal { margin: 0; font-size: 0.88rem; }
+.bell #ranking { flex: 1; min-height: 0; margin: 0; overflow-y: auto; }
+.bell .bell-next { margin: 0; }
+body.bell-up .ticket { display: none; }
 .card { width: 100%; max-width: 34rem; padding: 1.2rem 1.4rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--pink); box-shadow: 0 0 0 4px var(--glow); }
 .card h2 { margin: 0 0 0.5rem; font-size: 1.4rem; color: var(--pink); }
 /* The name box: a field and a dice button on one row, Cancel and Save below. */
@@ -314,8 +320,12 @@ th:first-child, td:first-child { text-align: left; }
 .name-box .error { min-height: 1.3rem; margin: 0; }
 .name-box .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
 #reveal { line-height: 1.5; color: var(--soft); }
-#ranking { padding-left: 1.4rem; font-family: var(--mono); font-size: 0.9rem; }
-#ranking li.you { color: var(--pink); }
+#ranking { list-style: none; padding: 0; counter-reset: rank; font-size: 0.88rem; }
+#ranking li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.4rem; align-items: baseline; padding: 0.3rem 0; border-bottom: 1px solid var(--line); counter-increment: rank; }
+#ranking li::before { content: counter(rank) "."; color: var(--muted); font-family: var(--mono); }
+#ranking .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ranking .res { font-family: var(--mono); }
+#ranking li.you .who { color: var(--pink); font-weight: 700; }
 .bell-next { margin-bottom: 0; color: var(--muted); font-size: 0.85rem; }
 .losscut { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; background: var(--flash); animation: shake 0.5s 3; }
 .losscut span { font-size: clamp(2.6rem, 11vw, 7rem); font-weight: 800; color: #fff; -webkit-text-stroke: 3px var(--down); text-shadow: 6px 6px 0 var(--down); transform: rotate(-6deg); }
@@ -398,7 +408,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   main { grid-template-columns: minmax(0, 1fr); }
   .col { display: contents; }
   .chart-panel { order: 1; }
-  .ticket { order: 2; }
+  .ticket, .bell { order: 2; }
   .positions { order: 3; }
   .room { order: 4; }
   .feed { order: 5; }

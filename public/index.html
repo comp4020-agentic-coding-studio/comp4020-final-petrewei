@@ -124,6 +124,14 @@
     </section>
     </div>
     <div class="col side-col">
+    <!-- After the bell, trading is over: the result takes the order
+         ticket's place in the right column, and the chart stays in view. -->
+    <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
+      <h2 data-t="bell">The bell</h2>
+      <p id="reveal"></p>
+      <ol id="ranking"></ol>
+      <p class="bell-next" id="bell-next"></p>
+    </section>
     <section class="panel ticket" aria-label="Order ticket">
       <div class="quotes">
         <button id="sell" class="side sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
@@ -157,14 +165,6 @@
     </div>
   </main>
 
-  <div id="bell" class="overlay" hidden>
-    <div class="card">
-      <h2 data-t="bell">The bell</h2>
-      <p id="reveal"></p>
-      <ol id="ranking"></ol>
-      <p class="bell-next" id="bell-next"></p>
-    </div>
-  </div>
   <!-- Choosing a trader name: type one, or draw one at random. The server
        decides whether it may be used (ADR 0017). -->
   <dialog id="name-box" class="card name-box" aria-labelledby="name-title">
