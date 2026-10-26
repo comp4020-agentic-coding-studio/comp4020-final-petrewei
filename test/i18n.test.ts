@@ -95,3 +95,29 @@ it("keeps every fixed-width label inside its slot in every language", () => {
     }
   }
 });
+
+// ADR 0031: the house traders speak in character. A bot's bubble, at each
+// moment a pop marks, is one of its own lines, in every language; a bot
+// with nothing to say for a moment falls back to the plain pop.
+describe("the bots' lines", () => {
+  const MOMENTS = ["wild", "add", "win", "loss", "call", "stopout", "zerocut", "borrow", "pray"];
+  it("give every bot lines for every moment, in every language", async () => {
+    const { BOTS } = await import("../src/bots.ts");
+    for (const lang of LANGS) {
+      for (const b of BOTS) {
+        const lines = T[lang].lines?.[b.id];
+        expect(lines, `${lang} ${b.id}`).toBeDefined();
+        for (const m of MOMENTS) {
+          expect(lines[m], `${lang} ${b.id} ${m}`).toEqual(expect.any(Array));
+          expect(lines[m].length, `${lang} ${b.id} ${m}`).toBeGreaterThanOrEqual(1);
+          for (const l of lines[m]) expect(l.length, `${lang} ${b.id} ${m}`).toBeGreaterThan(1);
+        }
+      }
+    }
+  });
+
+  it("keep the same bots and moments in every language", () => {
+    const shape = (lang: string) => Object.fromEntries(Object.entries(T[lang].lines).map(([b, m]) => [b, Object.keys(m as object).sort()]));
+    for (const lang of LANGS) expect(shape(lang), lang).toEqual(shape("en"));
+  });
+});

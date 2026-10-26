@@ -644,18 +644,28 @@ function draw(s) {
 const fx = $("fx");
 // A pop over a control rises above it; one in the room sits on its row,
 // so it never hides the trader above.
+// Floats an element over its target for `ms`; a target off screen gets
+// nothing, and the caller is told, so it can say it another way.
 function float(el, target, ms, onRow = false) {
   const r = target.getBoundingClientRect();
-  if (!r.width || r.bottom < 0 || r.top > innerHeight) return;
+  if (!r.width || r.bottom < 0 || r.top > innerHeight) return false;
   el.style.left = `${Math.min(Math.max(r.left + r.width / 2, 90), innerWidth - 90)}px`;
   el.style.top = `${onRow ? r.top + r.height / 2 : r.top}px`;
   fx.append(el);
   setTimeout(() => el.remove(), ms);
+  return true;
 }
 function bubble(target, text, kind) {
   const onRow = !!target.closest("#traders");
   const b = Object.assign(document.createElement("div"), { className: `bubble b-${kind}${onRow ? " row" : ""}`, textContent: text });
-  float(b, onRow ? target.closest("li") : target, 2600, onRow);
+  return float(b, onRow ? target.closest("li") : target, 2600, onRow);
+}
+// A house trader whose row is off screen still speaks (ADR 0031): its line
+// goes into the feed, which is always in view, with its face.
+const said = [];
+function sayInFeed(p, text) {
+  said.unshift({ who: p.who, text, at: Date.now() });
+  said.splice(6);
 }
 function burst(target, glyphs) {
   glyphs.forEach((g, i) => {
@@ -666,7 +676,23 @@ function burst(target, glyphs) {
   });
 }
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
+// A house trader says its own line, in character (ADR 0031): a win or a
+// loss as such, and otherwise the moment the pop marks.
+function botLine(p) {
+  const lines = T[lang].lines[p.who];
+  if (!lines) return null;
+  const moment = p.kind === "close" ? (p.pnl >= 0 ? "win" : "loss") : p.kind;
+  if (!lines[moment]) return null;
+  // Not the same line twice running, when the bot has another.
+  const fresh = lines[moment].filter((l) => l !== lastLine.get(p.who));
+  const line = pick(fresh.length ? fresh : lines[moment]);
+  lastLine.set(p.who, line);
+  return line;
+}
+const lastLine = new Map();
 function popText(p) {
+  const said = botLine(p);
+  if (said) return p.kind === "close" ? `${said} ${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}` : said;
   if (p.kind === "pray") return pick(T[lang].prayers);
   if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
   return `${ICONS.pops[p.kind] ?? ""} ${(T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""))}`.trim();
@@ -683,6 +709,8 @@ function popAt(p, s) {
   }
   return document.querySelector(`#traders li[data-id="${CSS.escape(p.who)}"] .n`);
 }
+// When each house trader last said something, to space out their prayers.
+const spoke = new Map();
 function effects(s, price) {
   const list = s.pops ?? [];
   if (popped !== null) {
@@ -692,7 +720,13 @@ function effects(s, price) {
       if (!at) continue;
       // Your own losscut has the full-screen stamp; a bubble would only cover it.
       if (p.who === s.you.code && (p.kind === "stopout" || p.kind === "zerocut")) continue;
-      bubble(at, popText(p), p.kind === "close" ? (p.pnl >= 0 ? "win" : "loss") : p.kind);
+      // A bot speaks at most every few seconds, or a losing one praying
+      // every tick would drown the room; a cut or a loan always gets said.
+      if (p.who.startsWith("bot:") && p.kind === "pray" && Date.now() - (spoke.get(p.who) ?? 0) < 6000) continue;
+      if (p.who.startsWith("bot:")) spoke.set(p.who, Date.now());
+      const text = popText(p);
+      const shown = bubble(at, text, p.kind === "close" ? (p.pnl >= 0 ? "win" : "loss") : p.kind);
+      if (!shown && p.who.startsWith("bot:")) sayInFeed(p, text);
       if (p.who === s.you.code && p.kind === "close" && p.pnl > 0) burst(at, ["💴", "💰", "💴", "✨", "💴"]);
     }
   }
@@ -897,7 +931,16 @@ function render(s) {
     }),
   );
   effects(s, price);
+  // What house traders off screen just said leads the feed, with their
+  // face and name, for twenty seconds (ADR 0031).
+  const talk = said.filter((x) => Date.now() - x.at < 20_000).map((x) => {
+    const li = document.createElement("li");
+    li.className = "k-said";
+    li.append(avatar(x.who, 16), Object.assign(document.createElement("b"), { textContent: nameOf(x.who) }), t("quote", { text: x.text }));
+    return li;
+  });
   $("feed").replaceChildren(
+    ...talk,
     ...s.feed.map((f) => {
       const li = document.createElement("li");
       li.className = `k-${f.kind}`;

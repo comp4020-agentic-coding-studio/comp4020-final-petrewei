@@ -5,7 +5,7 @@
 // Japanese and mainland Chinese retail traders and brokers actually say.
 // Shared by the market page and test/i18n.test.ts.
 
-import { CLUES, EVENTS, LESSONS, SCENARIOS } from "./i18n-long.js";
+import { CLUES, EVENTS, LESSONS, LINES, SCENARIOS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
 
@@ -182,6 +182,7 @@ export const T = {
       thRounds: "Rounds",
       thAvg: "Avg score",
       points: "{n} pts",
+      quote: ": “{text}”",
       guessLabel: "Name that year",
       guessGo: "Guess",
       guessed: "🎯 {year}",
@@ -482,6 +483,7 @@ export const T = {
       thRounds: "回数",
       thAvg: "平均スコア",
       points: "{n}点",
+      quote: "「{text}」",
       guessLabel: "何年の相場？",
       guessGo: "予想",
       guessed: "🎯 {year}年",
@@ -782,6 +784,7 @@ export const T = {
       thRounds: "局数",
       thAvg: "场均得分",
       points: "{n}分",
+      quote: "：“{text}”",
       guessLabel: "猜猜是哪一年",
       guessGo: "竞猜",
       guessed: "🎯 {year}年",
@@ -959,6 +962,8 @@ for (const lang of LANGS) {
   T[lang].scenarios = SCENARIOS[lang];
   // A replay's clues before its famous day (ADR 0030).
   T[lang].clues = CLUES[lang];
+  // What each house trader says, in character (ADR 0031).
+  T[lang].lines = LINES[lang];
 }
 // For the checks: English lessons and days exist wherever the others do.
 export function english(lessons, events) {

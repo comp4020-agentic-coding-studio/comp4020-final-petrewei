@@ -411,6 +411,10 @@ th:first-child, td:first-child { text-align: left; }
 #feed .k-pray, #feed .k-info { color: var(--muted); }
 /* A Scenario's headline: the clue, so it reads as news, not chatter. */
 #feed .k-news { color: var(--ink); font-style: italic; }
+/* A house trader's line, said off screen: face, name, the quote. */
+#feed .k-said { color: var(--soft); }
+#feed .k-said .av { vertical-align: middle; margin: 0 0.4rem 0 0.1rem; }
+#feed .k-said b { color: var(--ink); font-weight: 700; }
 .fame td:first-child { font-family: var(--round); }
 .fame tr.you td { color: var(--pink); }
 
