@@ -191,6 +191,13 @@
       <button id="pray" class="pray" data-t="pray" data-tip="pray">Pray to the chart</button>
       <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
            pressed Start, end it for everyone. -->
+      <!-- Name that year (ADR 0030): in a replay's second half, a private
+           guess at the year it is from, scored at the bell. -->
+      <form class="guess" id="guess" hidden>
+        <label for="guess-year" data-t="guessLabel">Name that year</label>
+        <input id="guess-year" type="number" inputmode="numeric" min="1999" step="1" data-tip="guessYear">
+        <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
+      </form>
       <button id="pause" class="ghost pause" type="button" data-t="pause" data-tip="pause" hidden>Pause</button>
       <div class="round-ctl" id="round-ctl" hidden>
         <button id="leave" class="ghost" type="button" data-t="leave" data-tip="leave">Leave round</button>

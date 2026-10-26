@@ -185,3 +185,44 @@ export const SCENARIOS = {
     intervention: { name: "汇市干预", note: "一种货币连日下跌，直到政府出手买回。2022年9月22日的日本就是这样。", headlines: ["财务大臣表示正“以紧迫感关注市场”。", "官员不排除采取“果断行动”。"] },
   },
 };
+
+// Two clues before a replay's famous day (ADR 0030), in every language:
+// the mood the market was in, never the event or its year.
+export const CLUES = {
+  en: {
+    "2015-01-15": ["The central bank calls its currency floor 'the cornerstone' of policy.", "Rumours of negative interest rates in a safe-haven country."],
+    "2011-09-06": ["A safe-haven currency hits record highs as Europe's debt crisis deepens.", "Exporters warn the strong currency is 'unbearable'."],
+    "2008-10-24": ["Banks stop lending to each other, and hedge funds face margin calls.", "Commodity prices are falling fast."],
+    "2008-09-15": ["A large investment bank's shares have halved this week.", "Officials say there will be no more bailouts."],
+    "2016-06-24": ["Polls say a national referendum is too close to call.", "Bookmakers still favour the status quo."],
+    "2015-08-11": ["A major economy's exports slump, and its stock market wobbles.", "Its central bank says it wants a more 'market-based' exchange rate."],
+    "2020-03-19": ["A new virus spreads beyond its first country.", "Cities begin to close their borders and shops."],
+    "2022-09-22": ["The currency slides to its weakest in decades.", "Officials say they are 'watching with a sense of urgency'."],
+    "2024-08-05": ["Funds borrow in a near-zero-rate currency to buy higher-yielding ones.", "That central bank hints its rates may finally rise."],
+    "2022-09-26": ["A new government promises large tax cuts.", "Bond traders question how they will be paid for."],
+  },
+  ja: {
+    "2015-01-15": ["中銀総裁、通貨の下限は政策の「要」と強調。", "安全通貨の国で、マイナス金利の噂。"],
+    "2011-09-06": ["欧州の債務危機が深まり、安全通貨が史上最高値。", "輸出企業「この通貨高は耐えられない」。"],
+    "2008-10-24": ["銀行どうしがお金を貸さなくなり、ヘッジファンドに追証の嵐。", "資源価格が急落中。"],
+    "2008-09-15": ["大手投資銀行の株価が今週だけで半分に。", "当局者「これ以上の救済はしない」。"],
+    "2016-06-24": ["国民投票、世論調査は大接戦。", "ブックメーカーはまだ現状維持が優勢と予想。"],
+    "2015-08-11": ["大国の輸出が落ち込み、株式市場も不安定に。", "中銀「より市場に沿った為替レートを目指す」。"],
+    "2020-03-19": ["新型ウイルス、最初の国の外へ広がる。", "各地で国境や店が閉まり始める。"],
+    "2022-09-22": ["通貨が数十年ぶりの安値に。", "当局者「緊張感を持って注視している」。"],
+    "2024-08-05": ["ほぼゼロ金利の通貨で借り、高金利の通貨を買うファンドが急増。", "その中銀、ついに利上げを示唆。"],
+    "2022-09-26": ["新政権、大型減税を約束。", "債券トレーダー「財源はどこに？」。"],
+  },
+  zh: {
+    "2015-01-15": ["央行行长称汇率底线是政策的“基石”。", "避险国家传出负利率的风声。"],
+    "2011-09-06": ["欧洲债务危机加深，避险货币创历史新高。", "出口商抱怨：本币这么强“受不了”。"],
+    "2008-10-24": ["银行之间不再互相借钱，对冲基金被追保。", "大宗商品价格急跌。"],
+    "2008-09-15": ["一家大型投行的股价本周腰斩。", "官员表示不会再出手救助。"],
+    "2016-06-24": ["一场全民公投，民调难分高下。", "博彩公司仍看好维持现状。"],
+    "2015-08-11": ["一个大经济体出口下滑，股市动荡。", "其央行表示希望汇率“更加市场化”。"],
+    "2020-03-19": ["一种新病毒蔓延出最初的国家。", "各地开始关闭边境和商店。"],
+    "2022-09-22": ["本币跌至几十年来最弱。", "官员称正“以紧迫感关注市场”。"],
+    "2024-08-05": ["基金纷纷借入近零利率的货币，买入高息货币。", "那家央行暗示终于要加息。"],
+    "2022-09-26": ["新政府承诺大规模减税。", "债券交易员质疑钱从哪里来。"],
+  },
+};

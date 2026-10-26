@@ -13,6 +13,7 @@ type Lang = {
   lessons: Record<string, { title: string; text: string; task: string }>;
   events: Record<string, { title: string; note: string }>;
   scenarios: Record<string, { name: string; note: string; headlines: string[] }>;
+  clues: Record<string, string[]>;
 };
 export declare const LANGS: ("en" | "ja" | "zh")[];
 export declare const T: Record<"en" | "ja" | "zh", Lang> & Record<string, Lang>;

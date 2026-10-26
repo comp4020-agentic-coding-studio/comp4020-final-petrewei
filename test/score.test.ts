@@ -47,3 +47,16 @@ describe("the hall of fame", () => {
     expect(MIN_ROUNDS).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ADR 0030: naming the year of a replay before the bell earns a bonus.
+describe("naming the year", () => {
+  it("pays for the right year, a little for one off, nothing otherwise", async () => {
+    const { YEAR_BONUS, NEAR_BONUS, guessBonus } = await import("../src/score.ts");
+    expect(guessBonus(2015, 2015)).toBe(YEAR_BONUS);
+    expect(guessBonus(2014, 2015)).toBe(NEAR_BONUS);
+    expect(guessBonus(2016, 2015)).toBe(NEAR_BONUS);
+    expect(guessBonus(2010, 2015)).toBe(0);
+    expect(guessBonus(null, 2015)).toBe(0);
+    expect(YEAR_BONUS).toBeGreaterThan(NEAR_BONUS);
+  });
+});

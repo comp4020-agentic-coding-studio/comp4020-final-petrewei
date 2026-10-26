@@ -5,7 +5,7 @@
 // Japanese and mainland Chinese retail traders and brokers actually say.
 // Shared by the market page and test/i18n.test.ts.
 
-import { EVENTS, LESSONS, SCENARIOS } from "./i18n-long.js";
+import { CLUES, EVENTS, LESSONS, SCENARIOS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
 
@@ -33,6 +33,7 @@ function fill(lang, text, args, nameOf) {
 export function news(lang, line, nameOf) {
   // A Scenario's headline is the script's own words (ADR 0027).
   if (line.key === "headline") return T[lang].scenarios[line.args.scenario]?.headlines[line.args.n] ?? line.text;
+  if (line.key === "clue") return T[lang].clues[line.args.date]?.[line.args.n] ?? line.text;
   const text = T[lang].news[line.key];
   return text ? fill(lang, text, line.args, nameOf) : line.text;
 }
@@ -97,6 +98,8 @@ export const T = {
       "nameDraw": "Draw a random name",
       "nameCancel": "Keep the name and face you have",
       "nameSave": "Use this name and face. Everyone sees them next tick.",
+      "guessYear": "The year this replay is from. Right earns 5 points at the bell, one year off earns 2.",
+      "guessGo": "Lock in your guess. You can change it until the bell; nobody else sees it.",
       "thAvg": "Average score per round: the % result, less 10 points for each forced losscut and 5 for each loan from Dad",
       "unrankedRow": "Not ranked yet: {n} of {min} rounds",
       "botRow": "🤖 \"{motto}\" · {change}",
@@ -179,6 +182,10 @@ export const T = {
       thRounds: "Rounds",
       thAvg: "Avg score",
       points: "{n} pts",
+      guessLabel: "Name that year",
+      guessGo: "Guess",
+      guessed: "🎯 {year}",
+      bonus: "+{n} for the year",
       thProfit: "Profit",
       thWins: "Wins",
       thBusts: "Busts",
@@ -305,6 +312,10 @@ export const T = {
       "Only the person who pressed Start can end the round.": "Only the person who pressed Start can end the round.",
       "No round is running.": "No round is running.",
       "No round is trading.": "No round is trading.",
+      "Only a replay has a year to guess.": "Only a replay has a year to guess.",
+      "Open this tab to guess its year.": "Open this tab to guess its year.",
+      "Guesses open halfway through the round.": "Guesses open halfway through the round.",
+      "Name a year from 1999 to now.": "Name a year from 1999 to now.",
       "Open this tab to pause its round.": "Open this tab to pause its round.",
       "This is an ironman round: it cannot be paused.": "This is an ironman round: it cannot be paused.",
       "The round is already paused.": "The round is already paused.",
@@ -387,6 +398,8 @@ export const T = {
       "nameDraw": "ランダムな名前を引く",
       "nameCancel": "今の名前と顔のままにする",
       "nameSave": "この名前と顔にする。次の瞬間から全員に表示されます",
+      "guessYear": "このリプレイが何年の相場か。ぴたり当てればベルで5点、1年ずれなら2点。",
+      "guessGo": "予想を確定。ベルまで変更でき、ほかの人には見えません。",
       "thAvg": "1ラウンドあたりの平均スコア：損益率から、強制ロスカット1回につき10点、パパからの借金1回につき5点を引いたもの",
       "unrankedRow": "まだランク外：{min}ラウンド中{n}ラウンド",
       "botRow": "🤖「{motto}」・{change}",
@@ -469,6 +482,10 @@ export const T = {
       thRounds: "回数",
       thAvg: "平均スコア",
       points: "{n}点",
+      guessLabel: "何年の相場？",
+      guessGo: "予想",
+      guessed: "🎯 {year}年",
+      bonus: "年当て +{n}",
       thProfit: "損益",
       thWins: "勝ち",
       thBusts: "退場",
@@ -595,6 +612,10 @@ export const T = {
       "Only the person who pressed Start can end the round.": "ラウンドを終了できるのはスタートを押した人だけです。",
       "No round is running.": "進行中のラウンドはありません。",
       "No round is trading.": "取引中のラウンドはありません。",
+      "Only a replay has a year to guess.": "年を当てられるのはリプレイだけです。",
+      "Open this tab to guess its year.": "年を予想するには、このタブを開いてください。",
+      "Guesses open halfway through the round.": "予想はラウンドの折り返しから受け付けます。",
+      "Name a year from 1999 to now.": "1999年から今年までの年を入れてください。",
       "Open this tab to pause its round.": "一時停止するには、このタブを開いてください。",
       "This is an ironman round: it cannot be paused.": "アイアンマン戦です。一時停止はできません。",
       "The round is already paused.": "もう一時停止しています。",
@@ -676,6 +697,8 @@ export const T = {
       "nameDraw": "随机抽一个名字",
       "nameCancel": "保留现在的名字和头像",
       "nameSave": "就用这个名字和头像，马上对所有人生效",
+      "guessYear": "这段回放是哪一年的行情。猜中收盘时加5分，差一年加2分。",
+      "guessGo": "锁定你的竞猜。收盘前可以改，别人看不到。",
       "thAvg": "每局平均得分：盈亏百分比，每次强制平仓扣10分，每次向老爹借钱扣5分",
       "unrankedRow": "尚未上榜：已打{n}局，需{min}局",
       "botRow": "🤖「{motto}」· {change}",
@@ -759,6 +782,10 @@ export const T = {
       thRounds: "局数",
       thAvg: "场均得分",
       points: "{n}分",
+      guessLabel: "猜猜是哪一年",
+      guessGo: "竞猜",
+      guessed: "🎯 {year}年",
+      bonus: "猜年份 +{n}",
       thProfit: "盈亏",
       thWins: "胜场",
       thBusts: "爆仓",
@@ -885,6 +912,10 @@ export const T = {
       "Only the person who pressed Start can end the round.": "只有按下开始的人才能结束本局。",
       "No round is running.": "现在没有进行中的对局。",
       "No round is trading.": "现在没有正在交易的对局。",
+      "Only a replay has a year to guess.": "只有回放才能猜年份。",
+      "Open this tab to guess its year.": "请先打开这个标签页再猜年份。",
+      "Guesses open halfway through the round.": "回合过半后才能竞猜。",
+      "Name a year from 1999 to now.": "请填1999年到今年之间的年份。",
       "Open this tab to pause its round.": "请先打开这个标签页，才能暂停。",
       "This is an ironman round: it cannot be paused.": "这是铁人局，不能暂停。",
       "The round is already paused.": "已经暂停了。",
@@ -924,7 +955,11 @@ for (const lang of ["ja", "zh"]) {
   T[lang].events = EVENTS[lang];
 }
 // The Scenario tab's scripts, in every language (ADR 0027).
-for (const lang of LANGS) T[lang].scenarios = SCENARIOS[lang];
+for (const lang of LANGS) {
+  T[lang].scenarios = SCENARIOS[lang];
+  // A replay's clues before its famous day (ADR 0030).
+  T[lang].clues = CLUES[lang];
+}
 // For the checks: English lessons and days exist wherever the others do.
 export function english(lessons, events) {
   for (const l of lessons) T.en.lessons[l.id] = { title: l.title, text: l.text, task: l.task };

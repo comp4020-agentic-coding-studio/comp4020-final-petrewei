@@ -169,6 +169,12 @@ $("close").onclick = () => act("close");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
+// Name that year: one private guess, which may be changed until the bell.
+$("guess-year").max = String(new Date().getFullYear());
+$("guess").onsubmit = (e) => {
+  e.preventDefault();
+  act("guess", { year: Number($("guess-year").value) });
+};
 $("resume").onclick = () => act("resume");
 $("leave").onclick = () => confirm(t("leaveConfirm")) && act("leave");
 $("finish").onclick = () => confirm(t("finishConfirm")) && act("finish");
@@ -733,6 +739,13 @@ function render(s) {
   // Pause: anyone may, in a trading round that isn't ironman; a pause veils
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
+  // Name that year opens halfway through a replay; your guess is shown
+  // back to you, and to nobody else, until the bell.
+  const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2 && !s.you.left;
+  $("guess").hidden = !guessing;
+  $("guess").classList.toggle("made", s.you.guess !== null);
+  if (guessing && s.you.guess !== null && document.activeElement !== $("guess-year")) $("guess-year").value = String(s.you.guess);
+  if (!guessing && s.phase !== "trade") $("guess-year").value = "";
   $("paused").hidden = tutorial || !s.paused;
   if (s.paused) $("paused-title").textContent = t("pausedTitle", { s: s.paused });
   document.body.classList.toggle("tutorial", tutorial);
@@ -761,7 +774,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n];
+  const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : T[lang].clues[s.headline.date]?.[s.headline.n]);
   $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeScenario" : "modeReplay");
   $("mode").classList.toggle("headline", !!head);
   setTip($("mode"), head ?? "");
@@ -939,7 +952,9 @@ function render(s) {
         // the bell (ADR 0029), after it: lower than the percentage by the
         // cost of each forced cut and loan. The yen is in the tip.
         if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
-        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
+        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${yen(delta)}` }) + (r.bonus ? ` · ${t("bonus", { n: r.bonus })}` : "");
+        // A replay guess, shown at the bell, a hit marked by its bonus.
+        if (r.guess) name.append(" ", Object.assign(document.createElement("span"), { className: `guessed ${r.bonus ? "hit" : ""}`, textContent: t("guessed", { year: r.guess }) }));
         li.append(avatar(r.face, 18), name, result);
         return li;
       }),

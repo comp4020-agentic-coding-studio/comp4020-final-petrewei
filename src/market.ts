@@ -131,8 +131,14 @@ export function replay(history: History, rnd: () => number, eventChance: number)
   return window(series.slice(start, start + DAYS + 1), pair, rnd, null);
 }
 
+// A replay that hides a famous day drips two clues before it (ADR 0030),
+// a third and two thirds of the way there; their words, in every
+// language, are in public/i18n-long.js under the day's date.
 function window(days: Day[], pair: Pair, rnd: () => number, event: Episode | null): Round {
-  return { pair, days: days.map((d) => d.date), prices: path(days.map((d) => d.rate), rnd), event, simulated: false };
+  const dates = days.map((d) => d.date);
+  const at = event ? dates.indexOf(event.date) : -1;
+  const headlines = at > 0 ? [{ day: Math.floor(at / 3) }, { day: Math.floor((2 * at) / 3) }] : [];
+  return { pair, days: dates, prices: path(days.map((d) => d.rate), rnd), event, simulated: false, headlines };
 }
 
 // The simulated tab, Scenario (ADR 0027): a round from today's real rate

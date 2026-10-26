@@ -184,3 +184,33 @@ it("tells every scenario, and each of its headlines, in every language", async (
     expect(Object.keys(T[lang].scenarios).sort(), lang).toEqual(SCENARIOS.map((x) => x.id).sort());
   }
 });
+
+// ADR 0030: a Replay round that hides a famous day drips two clues before
+// it, as Scenario's headlines do, never naming it; a plain round has none.
+describe("a replay's clues", () => {
+  it("drops two clues before the hidden day, and none in a plain round", () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const round = replay(history, random(seed), 1);
+      const day = round.days.indexOf(round.event!.date);
+      expect(round.headlines, `seed ${seed}`).toHaveLength(2);
+      for (const h of round.headlines!) expect(h.day, `seed ${seed}`).toBeLessThan(day);
+      expect(round.headlines![0].day).toBeLessThan(round.headlines![1].day);
+      expect(replay(history, random(seed), 0).headlines ?? []).toEqual([]);
+    }
+  });
+
+  it("has two clues for every famous day, in every language, that don't give it away", async () => {
+    const { LANGS, T } = await import("../public/i18n.js");
+    for (const lang of LANGS) {
+      for (const e of EVENTS) {
+        const clues = T[lang].clues?.[e.date];
+        expect(clues, `${lang} ${e.date}`).toHaveLength(2);
+        for (const c of clues) {
+          // no year, and not the event's own title
+          expect(c, `${lang} ${e.date}`).not.toMatch(/(19|20)\d\d/);
+          expect(c, `${lang} ${e.date}`).not.toContain(T[lang].events?.[e.date]?.title ?? e.title);
+        }
+      }
+    }
+  });
+});

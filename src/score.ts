@@ -8,6 +8,15 @@
 export const CUT_COST = 10;
 export const LOAN_COST = 5;
 export const MIN_ROUNDS = 3;
+// Naming a replay's year before the bell (ADR 0030): the right year, or
+// one off.
+export const YEAR_BONUS = 5;
+export const NEAR_BONUS = 2;
+
+export function guessBonus(guess: number | null, year: number): number {
+  if (guess === null) return 0;
+  return guess === year ? YEAR_BONUS : Math.abs(guess - year) === 1 ? NEAR_BONUS : 0;
+}
 
 export function score(r: { start: number; net: number; cuts: number; loans: number }): number {
   return ((r.net - r.start) / r.start) * 100 - r.cuts * CUT_COST - r.loans * LOAN_COST;

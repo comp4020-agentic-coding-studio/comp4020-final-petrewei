@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSy
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
-import { MIN_ROUNDS, hall, score } from "./score.ts";
+import { MIN_ROUNDS, guessBonus, hall, score } from "./score.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
@@ -307,6 +307,21 @@ function record(who: string): Career | null {
   return career[key(who)];
 }
 
+// A round's controls (ADRs 0022, 0024, 0030), by the kind a page sends:
+// each asks the market, which checks the phase and who may.
+const CONTROLS: Record<string, (m: Market, who: string, input: Record<string, unknown>) => string | null> = {
+  cancel: (m, who) => m.cancel(who),
+  finish: (m, who) => m.finish(who),
+  leave: (m, who) => m.leave(who),
+  pause: (m, who) => m.pause(who, true),
+  resume: (m, who) => m.pause(who, false),
+  hold: (m, who) => m.bell(who, true),
+  dismiss: (m, who) => m.bell(who, false),
+  guess: (m, who, input) => m.guess(who, input.year as number),
+};
+// The first year of the ECB's rates, so the first a replay can be from.
+const FIRST_YEAR = 1999;
+
 // The two markets a visitor can pick between by tab. Each is a room of
 // its own, with its own round, desk, bots, feed and bell, and both run
 // all the time: Replay plays real days with the date hidden, Scenario
@@ -333,10 +348,12 @@ class Market {
   startedBy: string | null = null;
   ironman = false;
   // The latest Scenario headline, pinned under the price until the next.
-  headline: { scenario: string; n: number } | null = null;
+  headline: { scenario: string; n: number } | { date: string; n: number } | null = null;
+  // Each trader's guess at a replay's year, private until the bell.
+  guesses = new Map<string, number>();
   // Ticks left in a pause, or 0 when the market runs.
   paused = 0;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -384,6 +401,7 @@ class Market {
     this.ironman = false;
     this.paused = 0;
     this.headline = null;
+    this.guesses.clear();
     this.prays.clear();
     this.pops = [];
   }
@@ -447,6 +465,18 @@ class Market {
     this.report(out);
     this.say(`${nameOf(who)} left the round to watch.`, "info", "left", { who: short(who) });
     log(who, "leave", { mode: this.mode });
+    return null;
+  }
+
+  // Name a replay's year (ADR 0030): in the second half of a trading
+  // replay, by anyone on the tab; a later guess replaces an earlier one.
+  guess(who: string, year: number): string | null {
+    if (this.mode !== "replay") return "Only a replay has a year to guess.";
+    if (this.phase !== "trade") return "No round is trading.";
+    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to guess its year.";
+    if (this.tick < (this.round.prices.length - 1) / 2) return "Guesses open halfway through the round.";
+    this.guesses.set(who, year);
+    log(who, "guess", { mode: this.mode, year });
     return null;
   }
 
@@ -532,9 +562,14 @@ class Market {
     // Watchers are on the desk but never ordered, so they get no career.
     // Each trader's score: the % result less the cost of each forced cut
     // and each loan from Dad (ADR 0029); the bell ranks by it.
+    // A replay's year, named right before the bell, adds its bonus.
+    // The year a replay is "from": its famous day's, or its middle day's.
+    const when = this.round.event?.date ?? this.round.days[Math.floor(this.round.days.length / 2)];
+    const year = this.mode === "replay" ? Number(when.slice(0, 4)) : 0;
+    const bonus = (who: string): number => (year ? guessBonus(this.guesses.get(who) ?? null, year) : 0);
     const points = (who: string): number => {
       const a = desk.account(who);
-      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW });
+      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW }) + bonus(who);
     };
     ranking.sort((a, b) => points(b.who) - points(a.who));
     const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
@@ -558,7 +593,7 @@ class Market {
     const left = (who: string): boolean => desk.account(who).left;
     const aside = (who: string): number => Number(sat(who) || left(who));
     const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who) || left(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, guess: this.guesses.get(r.who) ?? null, bonus: bonus(r.who), sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -591,15 +626,18 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
-    // A Scenario's headlines, each on its day: enough, read with care, to
-    // see the script coming (ADR 0027).
+    // Headlines, each on its day: a Scenario's script (ADR 0027), or a
+    // replay's clues before its famous day (ADR 0030); enough, read with
+    // care, to see it coming.
     if (this.tick % STEPS === 1) {
       const day = (this.tick - 1) / STEPS;
-      const words = this.round.scenario ? T.en.scenarios[this.round.scenario].headlines : [];
+      const { scenario, event } = this.round;
+      const words = scenario ? T.en.scenarios[scenario].headlines : event ? T.en.clues[event.date] : [];
       this.round.headlines?.forEach((h, i) => {
         if (h.day !== day) return;
-        this.say(words[i], "news", "headline", { scenario: this.round.scenario!, n: i });
-        this.headline = { scenario: this.round.scenario!, n: i };
+        const at: Record<string, string | number> = scenario ? { scenario, n: i } : { date: event!.date, n: i };
+        this.say(words[i], "news", scenario ? "headline" : "clue", at);
+        this.headline = scenario ? { scenario, n: i } : { date: event!.date, n: i };
       });
     }
     const seen = this.round.prices.slice(0, this.tick + 1);
@@ -709,6 +747,7 @@ class Market {
         level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
         out: mine?.out ?? false,
         left: mine?.left ?? false,
+        guess: this.guesses.get(who) ?? null,
         debt: mine?.debt ?? 0,
         loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
         broke: mine ? desk.broke(who) : false,
@@ -1184,9 +1223,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     // A round's controls (ADR 0022): cancel the countdown, end the round,
     // leave it, and close or hold the bell. The market checks who may.
-    if ((kind === "cancel" || kind === "finish" || kind === "leave" || kind === "hold" || kind === "dismiss" || kind === "pause" || kind === "resume") && input.mode !== "tutorial") {
+    const control = CONTROLS[kind as string];
+    if (control) {
+      // a year must be a whole number the data could hold
+      if (kind === "guess" && !(Number.isInteger(input.year) && (input.year as number) >= FIRST_YEAR && (input.year as number) <= new Date().getFullYear())) return json(res, 400, { error: "Name a year from 1999 to now." });
       const market = markets[modeOf(input.mode)];
-      const error = kind === "cancel" ? market.cancel(who) : kind === "finish" ? market.finish(who) : kind === "leave" ? market.leave(who) : kind === "pause" || kind === "resume" ? market.pause(who, kind === "pause") : market.bell(who, kind === "hold");
+      const error = control(market, who, input);
       if (error) {
         log(who, "refused", { mode: market.mode, action: kind, why: error });
         return json(res, 409, { error });

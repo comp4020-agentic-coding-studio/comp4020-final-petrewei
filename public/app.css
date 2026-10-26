@@ -260,6 +260,13 @@ body.tutorial .studies { display: none; }
 .lobby.counting p { font-size: 0.82rem; }
 .lobby .ghost, .round-ctl .ghost, .bell-foot .ghost { height: 2rem; padding: 0 0.7rem; background: none; color: var(--soft); font-size: 0.82rem; }
 .round-ctl { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.5rem; }
+/* Name that year: a label, a year and a button on one row. */
+.guess { display: grid; grid-template-columns: minmax(0, 1fr) 5.2rem auto; gap: 0.4rem; align-items: center; }
+.guess[hidden] { display: none; }
+.guess label { font-size: 0.82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guess input { height: 2rem; min-width: 0; padding: 0 0.4rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: 0.9rem var(--mono); }
+.guess .ghost { height: 2rem; padding: 0 0.7rem; background: none; color: var(--soft); font-size: 0.82rem; }
+.guess.made input { border-color: var(--pink); }
 /* Pause has a row of its own: anyone may press it, so it stands out. */
 .pause { height: 2rem; background: none; color: var(--soft); font-size: 0.82rem; }
 .pause[hidden] { display: none; }
@@ -447,6 +454,8 @@ body.bell-up .ticket { display: none; }
 /* Not yet enough rounds to rank: listed, dimmed, without a medal. */
 #career tr.unranked td { color: var(--muted); }
 #ranking .res small.pts { opacity: 0.85; }
+#ranking .guessed { font-size: 0.72rem; font-family: var(--mono); color: var(--muted); }
+#ranking .guessed.hit { color: var(--up); font-weight: 700; }
 #ranking .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ranking .res { font-family: var(--mono); white-space: nowrap; }
 #ranking .res b { font-weight: 700; }
