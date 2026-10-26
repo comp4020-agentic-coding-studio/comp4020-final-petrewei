@@ -190,3 +190,15 @@ it("translates the lobby's line, note and the ticket's title in every language, 
     for (const k of ["lobbyReplayText", "lobbyScenarioText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
   }
 });
+
+// ADR 0040: on a narrow screen the subtitle goes and who you are shares the
+// first row with the logo and the tools, rather than falling to a row of its
+// own.
+it("keeps who you are on the first header row on a narrow screen, with the subtitle hidden", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  const narrow = css.slice(css.indexOf("@media (max-width: 900px)"), css.indexOf("@media (max-width: 560px)"));
+  expect(narrow).toMatch(/\.sub \{ display: none; \}/);
+  expect(narrow).toMatch(/\.whoami \{ grid-column: 2; grid-row: 1;/);
+  expect(narrow).toMatch(/\.tools \{ grid-column: 3; grid-row: 1; \}/);
+  expect(narrow).not.toMatch(/\.whoami \{[^}]*grid-row: 3/);
+});
