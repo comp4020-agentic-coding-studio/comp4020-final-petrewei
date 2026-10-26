@@ -68,3 +68,37 @@ it("loads the tip script with the page", () => {
   expect(readFileSync("public/app.js", "utf8")).toMatch(/from "\/tips\.js"/);
   expect(readFileSync("src/server.ts", "utf8")).toMatch(/"\/tips\.js": \[read\("public\/tips\.js"\)/);
 });
+
+// ADR 0033: the ticket's stop loss and take profit are one control: a
+// single switch and a single two-thumb track, always shown (grey when
+// off), with the stop loss on the left and the take profit on the right,
+// and no abbreviation of either name on the page.
+it("shows one switch and one track for both exits, always, labelled in full", () => {
+  const exits = page.querySelector("#exits")!;
+  expect(exits).not.toBeNull();
+  expect(exits.querySelectorAll("[role=switch]")).toHaveLength(1);
+  const thumbs = [...exits.querySelectorAll("input[type=range]")] as HTMLInputElement[];
+  expect(thumbs.map((t) => t.id)).toEqual(["sl-dist", "tp-dist"]);
+  // always in the page, never hidden by the switch
+  for (const t of thumbs) expect(t.hasAttribute("hidden"), t.id).toBe(false);
+  expect(exits.querySelectorAll(".exit-out")).toHaveLength(2);
+});
+
+it("never abbreviates stop loss or take profit in any language", () => {
+  const abbrev = /\b(SL|TP)\b|S\/L|T\/P/;
+  for (const lang of LANGS) {
+    for (const part of ["ui", "tips"] as const) {
+      for (const [k, v] of Object.entries(T[lang][part] as Record<string, unknown>)) {
+        if (typeof v === "string") expect(v, `${lang}.${part}.${k}`).not.toMatch(abbrev);
+      }
+    }
+  }
+  const html = page.body.textContent ?? "";
+  expect(html).not.toMatch(abbrev);
+  expect(readFileSync("src/tutorial.ts", "utf8")).not.toMatch(abbrev);
+  // the tutorial's lessons and its refusals, in every language
+  for (const lang of LANGS) {
+    for (const [id, l] of Object.entries(T[lang].lessons ?? {})) expect(JSON.stringify(l), `${lang} lesson ${id}`).not.toMatch(abbrev);
+    for (const [k, v] of Object.entries(T[lang].refusals)) expect(v, `${lang} refusal ${k}`).not.toMatch(abbrev);
+  }
+});

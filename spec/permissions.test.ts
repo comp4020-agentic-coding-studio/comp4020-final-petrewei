@@ -7,7 +7,7 @@ import { act, attempt, baseUrl, live, open, page, sleep, state, type Trader, vis
 
 it("refuses an order the broker does not offer, changing nothing", async () => {
   const me = await visitor();
-  for (const body of [{ kind: "buy", leverage: 7 }, { kind: "buy", leverage: 25, stake: 2 }, { kind: "sell", leverage: 25, stake: -1 }, { kind: "hack" }, { kind: "borrow" }, { kind: "stop", pct: 1 }, { kind: "stop", at: 1 }]) {
+  for (const body of [{ kind: "buy", leverage: 7 }, { kind: "buy", leverage: 25 }, { kind: "buy", leverage: 30, stake: 2 }, { kind: "sell", leverage: 30, stake: -1 }, { kind: "hack" }, { kind: "borrow" }, { kind: "stop", pct: 1 }, { kind: "stop", at: 1 }]) {
     const res = await attempt(body, me);
     expect(res.status, JSON.stringify(body)).toBeGreaterThanOrEqual(400);
     expect((await res.json()).error).toEqual(expect.any(String));

@@ -6,7 +6,7 @@ import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
-import { DISTANCES, STAKES, distAt, distPos, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
+import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { refresh as retip, useWords } from "/tips.js";
 
@@ -87,9 +87,8 @@ function ticks(id, marks) {
   );
 }
 function sliders() {
-  // Japan's and Australia's caps sit a hair apart on a log scale, so one
-  // label names both, between them.
-  ticks("lev-ticks", [[0, "1×"], [(levPos(25) + levPos(30)) / 2, t("capsTick"), "cap"], [1, "1000×"]]);
+  // Australia's cap, 30×, is marked on the track (ADR 0033).
+  ticks("lev-ticks", [[0, "1×"], [levPos(30), t("capsTick"), "cap"], [1, "1000×"]]);
   ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
 }
 function mark() {
@@ -162,9 +161,10 @@ async function act(kind, extra = {}) {
   const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
   if (!res.ok) $("error").textContent = refusal(lang, (await res.json()).error ?? "Refused.");
 }
-// A stop loss and take profit ride on the order when switched on (ADR 0032).
-const exits = { sl: { on: false, dist: 1 }, tp: { on: false, dist: 2 } };
-const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
+// A stop loss and take profit ride on the order when the one switch is on
+// (ADR 0032, 0033); with it off both are shown, grey, and neither is sent.
+const exits = { on: false, sl: 5, tp: 10 };
+const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake, sl: exits.on ? exits.sl : null, tp: exits.on ? exits.tp : null });
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
@@ -378,20 +378,31 @@ function lesson(s) {
   $("lesson-next").hidden = l.finished || moving || !l.next;
   if (!l.finished && !moving) for (const f of l.focus) $(FOCUS[f])?.classList.add("focus");
 }
-// The ticket's switches and sliders for a stop loss and take profit.
+// The ticket's one switch and one track for both exits (ADR 0033): two
+// thumbs, each held to its own half, the stop loss left and the take
+// profit right. Both are always shown; the switch greys them and decides
+// whether the order carries them.
+$("exits-on").onclick = () => {
+  exits.on = !exits.on;
+  $("exits-on").setAttribute("aria-checked", String(exits.on));
+  $("exits").dataset.on = String(exits.on);
+  if (state) ticket(state);
+};
+// The track is 0 to 1000; a thumb stays inside its half, so the two never
+// cross, and a drag past the middle stops at the gap.
+const HALF = { sl: [0, 480], tp: [520, 1000] };
+function seatExits() {
+  for (const k of ["sl", "tp"]) $(`${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: exits[k] }) * 1000));
+}
 for (const k of ["sl", "tp"]) {
-  $(`${k}-on`).onclick = () => {
-    exits[k].on = !exits[k].on;
-    $(`${k}-on`).setAttribute("aria-checked", String(exits[k].on));
-    $(`${k}-dist`).hidden = !exits[k].on;
-    if (state) ticket(state);
-  };
-  $(`${k}-dist`).value = String(Math.round(distPos(exits[k].dist) * 1000));
+  $(`${k}-dist`).min = String(HALF[k][0]);
+  $(`${k}-dist`).max = String(HALF[k][1]);
   $(`${k}-dist`).oninput = () => {
-    exits[k].dist = distAt(Number($(`${k}-dist`).value) / 1000);
+    exits[k] = exitAt(Number($(`${k}-dist`).value) / 1000).dist;
     if (state) ticket(state);
   };
 }
+seatExits();
 // A position's stop loss or take profit, edited in a small dialog: a
 // distance, what it would make or lose, Set or Remove (ADR 0032).
 let editing = null;
@@ -408,7 +419,7 @@ function editExit(kind) {
   if (!pos) return;
   editing = kind;
   const at = kind === "tp" ? pos.take : pos.stop;
-  editDist = at ? distAt(distPos(Math.max(0.1, Math.abs(at / state.prices.at(-1) - 1) * 100))) : kind === "tp" ? 2 : 1;
+  editDist = at ? distAt(distPos(Math.max(1, Math.abs(at / state.prices.at(-1) - 1) * 100))) : kind === "tp" ? 10 : 5;
   $("exit-dist").value = String(Math.round(distPos(editDist) * 1000));
   $("exit-title").textContent = t(kind === "tp" ? "exitTpTitle" : "exitSlTitle");
   $("exit-box").className = `card exit-box ${kind}`;
@@ -452,9 +463,11 @@ function ticket(s) {
   const same = pos?.side === 1 ? t("buy") : t("sell");
   const other = pos?.side === 1 ? t("sell") : t("buy");
   const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
-  // What the ticket's stop loss and take profit would lose or make.
+  // What the ticket's stop loss and take profit would lose or make: always
+  // shown, grey when the switch is off.
   for (const k of ["sl", "tp"]) {
-    $(`${k}-out`).textContent = exits[k].on ? `${exits[k].dist}% · ${k === "sl" ? "−" : "+"}${yen(moveYen(margin, choice.leverage, exits[k].dist)).replace(/^[-−]/, "")}` : "";
+    const sign = k === "sl" ? "−" : "+";
+    $(`${k}-out`).textContent = t(k === "sl" ? "exitSlLine" : "exitTpLine", { dist: `${exits[k]}%`, yen: `${sign}${yen(moveYen(margin, choice.leverage, exits[k])).replace(/^[-−]/, "")}` });
   }
   // Two short lines, each a whole phrase, so no line ends on a stray word:
   // what the order puts in, then what it risks or does.
@@ -935,7 +948,7 @@ function render(s) {
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
     // Each exit shows its price and how far it is; empty, a plus to add one.
     for (const [id, at, add] of [["stop", y.pos.stop, "addStop"], ["take", y.pos.take, "addTake"]]) {
-      $(id).textContent = at ? `${at.toFixed(s.digits)} · ${Math.abs((at / price - 1) * 100).toFixed(2)}%` : `+ ${t(id === "stop" ? "slShort" : "tpShort")}`;
+      $(id).textContent = at ? `${at.toFixed(s.digits)} · ${Math.abs((at / price - 1) * 100).toFixed(2)}%` : `+ ${t(id === "stop" ? "slFull" : "tpFull")}`;
       $(id).classList.toggle("set", !!at);
       $(id).dataset.tip = at ? (id === "stop" ? "editStop" : "editTake") : add;
     }

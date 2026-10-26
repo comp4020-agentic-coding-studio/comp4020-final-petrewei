@@ -35,10 +35,10 @@ it("tells two traders apart by short code and name, never by cookie", async () =
   const a = await visitor();
   const b = await visitor();
   await open(30);
-  await act(a, { kind: "buy", leverage: 25 });
+  await act(a, { kind: "buy", leverage: 30 });
   await act(b, { kind: "sell", leverage: 5 });
   const trades = (await log()).recent.filter((l) => l.ev === "open" && l.side);
-  const buy = trades.find((l) => l.side === "buy" && l.leverage === 25)!;
+  const buy = trades.find((l) => l.side === "buy" && l.leverage === 30)!;
   const sell = trades.find((l) => l.side === "sell" && l.leverage === 5)!;
   expect(buy.who).toMatch(/^[0-9a-f]{6}$/);
   expect(sell.who).toMatch(/^[0-9a-f]{6}$/);

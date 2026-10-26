@@ -39,12 +39,13 @@ export const BOTS: Bot[] = [
       const t = trend(prices, 18);
       if (!pos) {
         if (Math.abs(t) < 0.002 || rnd() > 0.2) return null;
-        // Never without both exits (ADR 0032): a tight stop, and a take
-        // profit at 3%, about 30% of her margin at 10×.
-        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6, sl: 0.4, tp: 3 };
+        // Never without both exits (ADR 0032, 0033): the tightest stop the
+        // broker allows, 1%, and a take profit at 3%, at 10× a tenth of her
+        // margin lost or three tenths made.
+        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6, sl: 1, tp: 3 };
       }
       // A position from before both rode on the order still gets its stop.
-      if (pos.stop === null) return { kind: "stop", pct: 0.4 };
+      if (pos.stop === null) return { kind: "stop", pct: 1 };
       return null;
     },
   },
@@ -54,7 +55,7 @@ export const BOTS: Bot[] = [
     name: "Takane Yasuko",
     motto: "I've seen how this ends. It goes down.",
     act(desk, me, _prices, rnd) {
-      if (!desk.account(me).pos && rnd() < 0.05) return { kind: "order", side: -1, leverage: 25, stake: 0.7 };
+      if (!desk.account(me).pos && rnd() < 0.05) return { kind: "order", side: -1, leverage: 30, stake: 0.7 };
       return null;
     },
   },
@@ -66,8 +67,8 @@ export const BOTS: Bot[] = [
     motto: "I just don't want to work. The interest can do it.",
     act(desk, me, _prices, rnd) {
       const pos = desk.account(me).pos;
-      if (!pos && rnd() < 0.1) return { kind: "order", side: 1, leverage: 25, stake: 0.5 };
-      if (pos && desk.pnl(me) < -pos.margin * 0.3 && rnd() < 0.05) return { kind: "order", side: 1, leverage: 25, stake: 1 };
+      if (!pos && rnd() < 0.1) return { kind: "order", side: 1, leverage: 30, stake: 0.5 };
+      if (pos && desk.pnl(me) < -pos.margin * 0.3 && rnd() < 0.05) return { kind: "order", side: 1, leverage: 30, stake: 1 };
       return null;
     },
   },

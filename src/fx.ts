@@ -10,8 +10,8 @@
 
 export const START = 1_000_000;
 // A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
-// 25× and Australia's 30× for major pairs are on it, offshore 1000× tops it.
-export const LEVERAGES = [1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000];
+// Australia's 30× for major pairs is on it, offshore 1000× tops it.
+export const LEVERAGES = [1, 2, 5, 10, 30, 50, 100, 200, 500, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
@@ -21,8 +21,8 @@ export const STOP_OUT = 0.2;
 // but the debt comes off their result.
 export const BORROW = 300_000;
 export const LOANS = 2;
-// A stop loss or take profit is set between just over 0% and 50% away.
-const inRange = (pct: number): boolean => pct > 0 && pct <= 50;
+// A stop loss or take profit is set between 1% and 50% away (ADR 0033).
+const inRange = (pct: number): boolean => pct >= 1 && pct <= 50;
 export const BROKE = 100_000;
 
 export type Side = 1 | -1;
@@ -123,8 +123,8 @@ export class Desk {
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
-    if (with_.sl != null && !inRange(with_.sl)) return "A stop must be between 0% and 50% away.";
-    if (with_.tp != null && !inRange(with_.tp)) return "A take profit must be between 0% and 50% away.";
+    if (with_.sl != null && !inRange(with_.sl)) return "A stop must be between 1% and 50% away.";
+    if (with_.tp != null && !inRange(with_.tp)) return "A take profit must be between 1% and 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
     const margin = Math.floor(this.free(who) * stake);
     if (margin <= 0) return "No free margin left.";
@@ -149,7 +149,7 @@ export class Desk {
   // A stop `pct` percent from the current price on the losing side, or no
   // stop with null: what a player asks for, set from the desk's own price.
   stopAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A stop must be between 0% and 50% away.";
+    if (pct !== null && !inRange(pct)) return "A stop must be between 1% and 50% away.";
     const pos = this.account(who).pos;
     return this.stop(who, pos && pct !== null ? this.price * (1 - (pos.side * pct) / 100) : null);
   }
@@ -168,7 +168,7 @@ export class Desk {
   // A take profit `pct` percent from the price on the winning side, or none
   // with null (ADR 0032).
   takeAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A take profit must be between 0% and 50% away.";
+    if (pct !== null && !inRange(pct)) return "A take profit must be between 1% and 50% away.";
     const pos = this.account(who).pos;
     return this.take(who, pos && pct !== null ? this.price * (1 + (pos.side * pct) / 100) : null);
   }

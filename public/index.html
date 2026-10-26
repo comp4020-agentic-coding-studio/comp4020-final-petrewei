@@ -114,7 +114,7 @@
 
     <section class="panel positions" aria-label="Your position">
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thSl">SL</th><th data-t="thTp">TP</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thSl">Stop loss</th><th data-t="thTp">Take profit</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
@@ -172,18 +172,20 @@
         <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake" data-tip="stake">
         <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
       </div>
-      <!-- A stop loss and a take profit that ride on the order, each a
-           distance from the price on a log slider (ADR 0032). -->
-      <div class="exits" id="exits">
-        <div class="exit sl" id="sl-row">
-          <button id="sl-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slShort">SL</span></button>
-          <input id="sl-dist" type="range" min="0" max="1000" step="1" data-t-label="slShort" data-tip="slDist" hidden>
-          <output id="sl-out" class="exit-out"></output>
+      <!-- A stop loss and a take profit that ride on the order (ADR 0032,
+           0033): one switch and one track, always shown and grey when off.
+           The stop loss thumb moves in the left half, the take profit
+           thumb in the right, each a distance from 1% to 50%. -->
+      <div class="exits" id="exits" data-on="false">
+        <p class="label"><button id="exits-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="exitsOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="exitsLabel">Stop loss and take profit</span></button></p>
+        <div class="exit-track">
+          <input id="sl-dist" class="sl" type="range" min="0" max="1000" step="1" data-t-label="slFull" data-tip="slDist">
+          <input id="tp-dist" class="tp" type="range" min="0" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
+          <div class="exit-line" aria-hidden="true"></div>
         </div>
-        <div class="exit tp" id="tp-row">
-          <button id="tp-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="tpShort">TP</span></button>
-          <input id="tp-dist" type="range" min="0" max="1000" step="1" data-t-label="tpShort" data-tip="tpDist" hidden>
-          <output id="tp-out" class="exit-out"></output>
+        <div class="exit-reads">
+          <output id="sl-out" class="exit-out sl" for="sl-dist" data-tip="slDist"></output>
+          <output id="tp-out" class="exit-out tp" for="tp-dist" data-tip="tpDist"></output>
         </div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>

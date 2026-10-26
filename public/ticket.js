@@ -35,9 +35,9 @@ export function gauge(worth) {
   return Math.min(1, Math.max(0, 0.5 + Math.log10(worth) / 2));
 }
 
-// A stop loss or take profit's distance from the price (ADR 0032): a
-// log-scale slider over this ladder, from a tenth of a percent to twenty.
-export const DISTANCES = [0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7.5, 10, 15, 20];
+// A stop loss or take profit's distance from the price (ADR 0032, 0033):
+// a log-scale ladder from 1% to 50%.
+export const DISTANCES = [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 30, 50];
 const LO = Math.log(DISTANCES[0]);
 const SPAN = Math.log(DISTANCES.at(-1)) - LO;
 export const distPos = (d) => (Math.log(d) - LO) / SPAN;
@@ -47,3 +47,19 @@ export function distAt(pos) {
 }
 // What a move of `pct` percent makes or loses on a margin at a leverage.
 export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage * pct) / 100);
+
+// One track for both exits (ADR 0033): the stop loss on the left half,
+// its distance growing leftwards from 1% beside the middle to 50% at the
+// left end, and the take profit on the right half, growing rightwards the
+// same way. A thin gap at the middle keeps the two apart: the nearest a
+// stop loss may be, 1%, sits just left of it, and a take profit's just
+// right, so a position's exits never read as each other.
+const GAP = 0.02;
+const HALF = 0.5 - GAP;
+export const exitPos = ({ kind, dist }) => (kind === "sl" ? HALF - distPos(dist) * HALF : 0.5 + GAP + distPos(dist) * HALF);
+export function exitAt(pos) {
+  const p = Math.min(1, Math.max(0, pos));
+  const kind = p < 0.5 ? "sl" : "tp";
+  const from = kind === "sl" ? HALF - Math.min(p, HALF) : Math.max(p - (0.5 + GAP), 0);
+  return { kind, dist: distAt(from / HALF) };
+}

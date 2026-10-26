@@ -7,4 +7,6 @@ export declare function gauge(worth: number): number;
 export declare const DISTANCES: number[];
 export declare function distPos(d: number): number;
 export declare function distAt(pos: number): number;
+export declare function exitPos(e: { kind: "sl" | "tp"; dist: number }): number;
+export declare function exitAt(pos: number): { kind: "sl" | "tp"; dist: number };
 export declare function moveYen(margin: number, leverage: number, pct: number): number;

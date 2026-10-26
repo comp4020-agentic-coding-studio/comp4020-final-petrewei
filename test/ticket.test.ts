@@ -17,11 +17,13 @@ describe("the leverage slider", () => {
   it("snaps any position to the nearest rung, and every rung to itself", () => {
     for (const lev of LEVERAGES) expect(levAt(levPos(lev), LEVERAGES), String(lev)).toBe(lev);
     expect(levAt(0.5, LEVERAGES)).toBe(30);
+    // 25× is gone: Japan's cap is no longer a rung
+    expect(LEVERAGES).not.toContain(25);
     expect(levAt(-1, LEVERAGES)).toBe(1);
     expect(levAt(2, LEVERAGES)).toBe(1000);
-    // the two legal caps are distinct stops even though they sit close
-    expect(levAt(levPos(25) + 0.005, LEVERAGES)).toBe(25);
+    // Australia's cap is a stop of its own
     expect(levAt(levPos(30) - 0.005, LEVERAGES)).toBe(30);
+    expect(levAt(levPos(30) + 0.005, LEVERAGES)).toBe(30);
   });
 });
 
@@ -74,15 +76,34 @@ describe("the meter", () => {
 // snaps to a ladder of distances, and the ticket says what each would
 // make or lose: at L× on a margin M, a move of d% is M × L × d / 100.
 describe("the stop and take profit distances", () => {
-  it("snap a log-scale slider to the ladder, both ends included", async () => {
+  // ADR 0033: one slider for both exits, from the stop loss at the left
+  // to the take profit at the right; each is 1% to 50% away.
+  it("run from 1% to 50%, the same ladder both ways", async () => {
     const { DISTANCES, distAt, distPos } = await import("../public/ticket.js");
-    expect(DISTANCES[0]).toBe(0.1);
-    expect(DISTANCES.at(-1)).toBe(20);
-    expect(distPos(0.1)).toBe(0);
-    expect(distPos(20)).toBe(1);
+    expect(DISTANCES[0]).toBe(1);
+    expect(DISTANCES.at(-1)).toBe(50);
+    expect(distPos(1)).toBe(0);
+    expect(distPos(50)).toBe(1);
     for (const d of DISTANCES) expect(distAt(distPos(d)), String(d)).toBe(d);
-    expect(distAt(-1)).toBe(0.1);
-    expect(distAt(2)).toBe(20);
+    expect(distAt(-1)).toBe(1);
+    expect(distAt(2)).toBe(50);
+  });
+
+  it("place the stop loss left of the middle and the take profit right of it, as one track", async () => {
+    const { DISTANCES, exitAt, exitPos } = await import("../public/ticket.js");
+    // the track runs stop loss 50% ... 1% | 1% ... 50% take profit
+    expect(exitPos({ kind: "sl", dist: 50 })).toBeCloseTo(0, 9);
+    expect(exitPos({ kind: "tp", dist: 50 })).toBeCloseTo(1, 9);
+    // the nearest of each sits either side of the middle, never on it
+    expect(exitPos({ kind: "sl", dist: 1 })).toBeLessThan(0.5);
+    expect(exitPos({ kind: "tp", dist: 1 })).toBeGreaterThan(0.5);
+    for (const d of DISTANCES) {
+      expect(exitAt(exitPos({ kind: "sl", dist: d })), `sl ${d}`).toEqual({ kind: "sl", dist: d });
+      expect(exitAt(exitPos({ kind: "tp", dist: d })), `tp ${d}`).toEqual({ kind: "tp", dist: d });
+    }
+    // left of the middle is always a stop loss, right of it a take profit
+    expect(exitAt(0.1).kind).toBe("sl");
+    expect(exitAt(0.9).kind).toBe("tp");
   });
 
   it("say what a move of that distance makes or loses", async () => {
@@ -91,5 +112,39 @@ describe("the stop and take profit distances", () => {
     expect(moveYen(500_000, 10, 1)).toBe(50_000);
     expect(moveYen(1_000_000, 25, 4)).toBe(1_000_000);
     expect(moveYen(0, 25, 4)).toBe(0);
+  });
+});
+
+// ADR 0033: what the ticket shows is what the order carries. Every thumb
+// position reads as one distance, the same distance the desk then places
+// the exit at, measured from the price when the order opens.
+describe("the ticket's exits match the desk", async () => {
+  const { Desk } = await import("../src/fx.ts");
+  const { exitAt } = await import("../public/ticket.js");
+
+  it("places each exit exactly as far as the thumb reads, at every position", () => {
+    for (let pos = 0; pos <= 1000; pos += 20) {
+      const { kind, dist } = exitAt(pos / 1000);
+      const desk = new Desk(100);
+      desk.join("a");
+      const exit = kind === "sl" ? { sl: dist } : { tp: dist };
+      desk.order("a", 1, 10, 1, exit);
+      const p = desk.account("a").pos!;
+      if (kind === "sl") expect((1 - p.stop! / 100) * 100, `thumb ${pos}`).toBeCloseTo(dist, 6);
+      else expect((p.take! / 100 - 1) * 100, `thumb ${pos}`).toBeCloseTo(dist, 6);
+      expect(dist).toBeGreaterThanOrEqual(1);
+      expect(dist).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("agrees between buying and selling: the stop loss is always on the losing side", () => {
+    for (const side of [1, -1] as const) {
+      const desk = new Desk(100);
+      desk.join("a");
+      desk.order("a", side, 10, 1, { sl: 5, tp: 5 });
+      const p = desk.account("a").pos!;
+      expect(side * (p.stop! - 100)).toBeLessThan(0);
+      expect(side * (p.take! - 100)).toBeGreaterThan(0);
+    }
   });
 });

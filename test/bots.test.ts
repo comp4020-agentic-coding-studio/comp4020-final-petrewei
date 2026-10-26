@@ -11,7 +11,7 @@ describe("Kurumi", () => {
   it("averages down on a losing position while she still has margin", () => {
     const desk = new Desk(100);
     desk.join(hana.id);
-    desk.order(hana.id, 1, 25, 0.5);
+    desk.order(hana.id, 1, 30, 0.5);
     desk.mark(99);
     const action = hana.act(desk, hana.id, [100, 99], always);
     expect(action).toMatchObject({ kind: "order", side: 1 });
@@ -92,5 +92,33 @@ describe("Mochiko", () => {
     const pos = desk.account(mochiko.id).pos!;
     expect(pos.stop).not.toBeNull();
     expect(pos.take).not.toBeNull();
+  });
+});
+
+// A bot's refused order is only a bot doing nothing, so a leverage that
+// leaves the ladder would silence her without a sound (ADR 0033). Run each
+// bot through many situations and require every order it makes to stand.
+describe("every bot's orders", () => {
+  it("use a leverage the broker offers, and an exit it accepts", async () => {
+    const { LEVERAGES } = await import("../src/fx.ts");
+    for (const bot of BOTS) {
+      for (let seed = 1; seed <= 200; seed++) {
+        let x = seed;
+        const rnd = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+        const desk = new Desk(100);
+        desk.join(bot.id);
+        const prices = Array.from({ length: 40 }, (_, i) => 100 + Math.sin(i / 3 + seed) * 3 + (seed % 2 ? i : -i) * 0.05);
+        for (let i = 20; i < prices.length; i++) {
+          desk.mark(prices[i]);
+          const a = bot.act(desk, bot.id, prices.slice(0, i + 1), rnd);
+          if (a?.kind !== "order") continue;
+          expect(LEVERAGES, `${bot.id} seed ${seed}`).toContain(a.leverage);
+          const out = desk.order(bot.id, a.side, a.leverage, a.stake, { sl: a.sl, tp: a.tp });
+          // Being out of the market, or short of margin, is the round's doing;
+          // a refusal about the order itself is the bot's.
+          if (typeof out === "string") expect(out, `${bot.id} seed ${seed}`).toMatch(/out of the market|No free margin|left this round/);
+        }
+      }
+    }
   });
 });

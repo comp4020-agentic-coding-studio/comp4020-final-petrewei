@@ -7,9 +7,9 @@ describe("the trading desk", () => {
   it("opens a position worth its margin times the leverage, at the ask or the bid", () => {
     const desk = new Desk(100);
     desk.join("a");
-    desk.order("a", 1, 25);
+    desk.order("a", 1, 30);
     const pos = desk.account("a").pos!;
-    expect(pos.notional).toBe(START * 25);
+    expect(pos.notional).toBe(START * 30);
     expect(pos.entry).toBeCloseTo(100 * (1 + half));
     expect(desk.used("a")).toBe(START);
   });
@@ -119,13 +119,13 @@ describe("the trading desk", () => {
   it("zero-cuts a gap through the stop-out and sends the player out of the market", () => {
     const desk = new Desk(1.2);
     desk.join("a");
-    desk.order("a", 1, 25);
+    desk.order("a", 1, 30);
     const events = desk.mark(1.03);
     expect(events.map((e) => e.kind)).toEqual(["zerocut"]);
     expect(events[0].pnl).toBeLessThan(-START * 2);
     expect(desk.account("a").balance).toBe(0);
     expect(desk.account("a").out).toBe(true);
-    expect(desk.order("a", 1, 25)).toBe("You are out of the market until next round.");
+    expect(desk.order("a", 1, 30)).toBe("You are out of the market until next round.");
   });
 
   it("fills a stop at the price that reached it, not at the stop's level", () => {
@@ -200,7 +200,7 @@ describe("the trading desk", () => {
     desk.order("a", -1, 5);
     expect(desk.stopAway("a", 2)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeCloseTo(102);
-    expect(desk.stopAway("a", 80)).toBe("A stop must be between 0% and 50% away.");
+    expect(desk.stopAway("a", 80)).toBe("A stop must be between 1% and 50% away.");
     expect(desk.stopAway("a", null)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeNull();
   });
@@ -373,20 +373,20 @@ describe("rebase, for the debug console", () => {
   });
 });
 
-// ADR 0024: the leverage ladder. A log-scale slider snaps to these, with
-// Japan's retail cap (25×) and Australia's for major pairs (30×) on it,
-// and 500× where 400× was.
+// ADR 0024, 0033: the leverage ladder. A log-scale slider snaps to these,
+// with Australia's retail cap for major pairs (30×) on it, and 500× where
+// 400× was. Japan's 25× was dropped.
 describe("the leverage ladder", () => {
   it("offers the ladder, both legal caps, and nothing between", async () => {
     const { LEVERAGES } = await import("../src/fx.ts");
-    expect(LEVERAGES).toEqual([1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000]);
+    expect(LEVERAGES).toEqual([1, 2, 5, 10, 30, 50, 100, 200, 500, 1000]);
     const desk = new Desk(100);
     for (const lev of LEVERAGES) {
       desk.join(`p${lev}`);
       expect(desk.order(`p${lev}`, 1, lev, 0.75), String(lev)).toEqual([expect.objectContaining({ kind: "open", leverage: lev })]);
     }
     desk.join("x");
-    for (const lev of [3, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
+    for (const lev of [3, 25, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
   });
 });
 
@@ -428,7 +428,9 @@ describe("stop loss and take profit", () => {
     expect(desk.takeAway("a", 1)).toBe("Open a position first.");
     desk.order("a", 1, 10);
     expect(desk.take("a", 99)).toBe("A long's take profit must be above the price.");
-    for (const bad of [0, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A take profit must be between 0% and 50% away.");
+    for (const bad of [0, 0.5, 0.99, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A take profit must be between 1% and 50% away.");
+    expect(desk.takeAway("a", 1)).toBeNull();
+    expect(desk.takeAway("a", 50)).toBeNull();
     expect(desk.takeAway("a", null)).toBeNull();
     expect(desk.account("a").pos?.take).toBeNull();
   });
@@ -450,8 +452,9 @@ describe("stop loss and take profit", () => {
   it("refuses an order whose attached distances are out of range, opening nothing", () => {
     const desk = new Desk(100);
     desk.join("a");
-    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A stop must be between 0% and 50% away.");
-    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A take profit must be between 0% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A stop must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 0.5 })).toBe("A stop must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A take profit must be between 1% and 50% away.");
     expect(desk.account("a").pos).toBeNull();
   });
 
