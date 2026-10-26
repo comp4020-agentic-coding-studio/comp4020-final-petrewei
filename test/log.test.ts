@@ -261,3 +261,31 @@ it("keeps a visitor's name, code and career through a hard kill", async () => {
   expect(after.you).toMatchObject({ name: before.you.name, code: before.you.code });
   expect(after.career.find((c) => c.you)?.rounds).toBe(1);
 }, 30_000);
+
+// ADR 0029: the bell gives each trader a score, and the hall ranks only
+// players with enough rounds, by average score; a career saved before
+// scores is given one from its profit.
+it("scores the bell, and ranks the hall by average score over enough rounds", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "losscut-"));
+  writeFileSync(join(dir, "career.json"), JSON.stringify({
+    "aaaaaaaaaaaaaaaa": { name: "Old Hand", rounds: 4, profit: 200_000, wins: 1, busts: 0, best: 90_000 },
+    "bbbbbbbbbbbbbbbb": { name: "One Hit", rounds: 1, profit: 900_000, wins: 1, busts: 0, best: 900_000 },
+  }));
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
+  const { visitor, act, open, state } = app();
+  type Row = { name: string; ranked: boolean; average: number; points: number };
+  const hall = (await state()).career as unknown as Row[];
+  // the old career's 20% over 4 rounds is 5 points a round; one big round is not ranked
+  expect(hall.find((c) => c.name === "Old Hand")).toMatchObject({ ranked: true, average: 5 });
+  expect(hall.find((c) => c.name === "One Hit")?.ranked).toBe(false);
+  expect(hall.findIndex((c) => c.name === "Old Hand")).toBeLessThan(hall.findIndex((c) => c.name === "One Hit"));
+  const a = await visitor();
+  await open(30);
+  await act(a, { kind: "buy", leverage: 5 });
+  let bell = await state(a);
+  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
+  const ranking = (bell as unknown as { result: { ranking: { score: number; sat: boolean; left: boolean }[] } }).result.ranking.filter((r) => !r.sat && !r.left);
+  for (const r of ranking) expect(r.score).toEqual(expect.any(Number));
+  // ranked by score, best first
+  for (let i = 1; i < ranking.length; i++) expect(ranking[i - 1].score).toBeGreaterThanOrEqual(ranking[i].score);
+}, 20_000);

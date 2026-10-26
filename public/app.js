@@ -20,6 +20,8 @@ const home = (l) => (l === "en" ? "/" : `/${l}/`);
 const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
 const t = (k, vars = {}) => fill(T[lang].ui[k] ?? T.en.ui[k], vars);
 const yen = (n) => money(lang, n);
+// A score, signed as a percentage is: a true minus, so the two line up.
+const pts = (n) => t("points", { n: `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(1)}` });
 // A trader's name in this language: a character's in the page's script,
 // a drawn name in this language's form, a typed name as typed. People
 // are found by short code.
@@ -898,10 +900,11 @@ function render(s) {
     $("career").replaceChildren(
       ...s.career.map((c) => {
         const tr = document.createElement("tr");
-        if (c.you) tr.className = "you";
-        // The average round as a percentage of the starting money, so one
-        // lucky round and twenty steady ones compare fairly.
-        for (const v of [nameIn(c.name, c.draw), c.rounds, pct(c.rounds ? c.profit / c.rounds / s.start : 0), yen(c.profit), c.wins, c.busts]) {
+        // Ranked by average score once a trader has played enough rounds;
+        // newer traders are listed after, unranked (ADR 0029).
+        tr.className = `${c.you ? "you" : ""} ${c.ranked ? "" : "unranked"}`;
+        if (!c.ranked) tr.dataset.tipText = tip("unrankedRow", { n: c.rounds, min: s.minRounds });
+        for (const v of [nameIn(c.name, c.draw), c.rounds, pts(c.average), yen(c.profit), c.wins, c.busts]) {
           const td = document.createElement("td");
           td.textContent = v;
           tr.append(td);
@@ -932,9 +935,11 @@ function render(s) {
         const result = r.sat || r.left
           ? Object.assign(document.createElement("span"), { className: "res", textContent: t(r.left ? "leftTag" : "satOut") })
           : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}` });
-        // The percentage first, as a trader reads it; the yen after, smaller.
-        if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { textContent: `${delta >= 0 ? "+" : ""}${yen(delta)}` }));
-        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code });
+        // The percentage first, as a trader reads it; the score, which ranks
+        // the bell (ADR 0029), after it: lower than the percentage by the
+        // cost of each forced cut and loan. The yen is in the tip.
+        if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
+        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${yen(delta)}` });
         li.append(avatar(r.face, 18), name, result);
         return li;
       }),

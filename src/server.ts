@@ -11,6 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSy
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
+import { MIN_ROUNDS, hall, score } from "./score.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
@@ -235,8 +236,11 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 }
 
 // Career results across rounds and restarts: the long-term ranking.
-type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number };
+// `points` is the sum of a career's round scores (ADR 0029); careers saved
+// before scores have it worked out from their profit when they load.
+type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number };
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
+for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
 // Changes are saved once, just after the code that made them, however
 // many careers changed; a failed write is reported and the game goes on.
 let saving = false;
@@ -284,17 +288,20 @@ function todayRate(pair: Pair): { rate: number; date: string; source: string } {
 // Only people who trade have careers, one per person across both modes.
 // A change is saved at once (the file is small), so a bust survives a
 // crash mid-round, and the top ten are worked out again only then.
-let fame: (Career & { key: string })[] = [];
+let fame: (Career & { key: string; average: number; ranked: boolean })[] = [];
 // The hall is for people: a house trader's row, from an older version or
 // put in by hand, is dropped when the server starts, and never ranked.
 for (const k of Object.keys(career)) if (bot(k)) delete career[k];
 function rank(): void {
-  fame = Object.entries(career).filter(([k]) => !bot(k)).map(([k, c]) => ({ key: k, ...c })).sort((a, b) => b.profit - a.profit).slice(0, 10);
+  // Ranked by average score over enough rounds, then the newer players,
+  // unranked, so the hall still shows who has begun (ADR 0029).
+  const { ranked, unranked } = hall(Object.entries(career).filter(([k]) => !bot(k)).map(([k, c]) => ({ key: k, ...c })));
+  fame = [...ranked.map((r) => ({ ...r, ranked: true })), ...unranked.map((r) => ({ ...r, ranked: false }))].slice(0, 10);
 }
 rank();
 function record(who: string): Career | null {
   if (bot(who)) return null;
-  career[key(who)] ??= { name: nameOf(who), draw: drawOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0 };
+  career[key(who)] ??= { name: nameOf(who), draw: drawOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0, points: 0 };
   saveCareer();
   queueMicrotask(rank);
   return career[key(who)];
@@ -329,7 +336,7 @@ class Market {
   headline: { scenario: string; n: number } | null = null;
   // Ticks left in a pause, or 0 when the market runs.
   paused = 0;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -523,11 +530,19 @@ class Market {
     const desk = this.desk;
     const ranking = desk.settle();
     // Watchers are on the desk but never ordered, so they get no career.
+    // Each trader's score: the % result less the cost of each forced cut
+    // and each loan from Dad (ADR 0029); the bell ranks by it.
+    const points = (who: string): number => {
+      const a = desk.account(who);
+      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW });
+    };
+    ranking.sort((a, b) => points(b.who) - points(a.who));
     const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
     for (const r of humans) {
       const c = record(r.who)!;
       c.rounds++;
       c.profit += r.net - START;
+      c.points += points(r.who);
       c.best = Math.max(c.best, r.net - START);
       if (r === humans[0] && humans.length > 1) c.wins++;
     }
@@ -543,7 +558,7 @@ class Market {
     const left = (who: string): boolean => desk.account(who).left;
     const aside = (who: string): number => Number(sat(who) || left(who));
     const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who) || left(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -706,6 +721,7 @@ class Market {
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
+      minRounds: MIN_ROUNDS,
       ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
       here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),

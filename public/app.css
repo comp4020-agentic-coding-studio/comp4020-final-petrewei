@@ -441,9 +441,12 @@ body.bell-up .ticket { display: none; }
 #ranking li:nth-child(1):not(.sat, .left)::before { content: "🥇"; }
 #ranking li:nth-child(2):not(.sat, .left)::before { content: "🥈"; }
 #ranking li:nth-child(3):not(.sat, .left)::before { content: "🥉"; }
-#career tr:nth-child(1) td:first-child::before { content: "🥇 "; }
-#career tr:nth-child(2) td:first-child::before { content: "🥈 "; }
-#career tr:nth-child(3) td:first-child::before { content: "🥉 "; }
+#career tr:nth-child(1):not(.unranked) td:first-child::before { content: "🥇 "; }
+#career tr:nth-child(2):not(.unranked) td:first-child::before { content: "🥈 "; }
+#career tr:nth-child(3):not(.unranked) td:first-child::before { content: "🥉 "; }
+/* Not yet enough rounds to rank: listed, dimmed, without a medal. */
+#career tr.unranked td { color: var(--muted); }
+#ranking .res small.pts { opacity: 0.85; }
 #ranking .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ranking .res { font-family: var(--mono); white-space: nowrap; }
 #ranking .res b { font-weight: 700; }
