@@ -365,6 +365,25 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .toggle.sl[aria-checked="true"] .pct { color: var(--down); }
 .toggle.tp[aria-checked="true"] .pct { color: var(--up); }
 .toggle[aria-checked="false"] { color: var(--muted); }
+/* The position's stop loss and take profit: a dashed "+ Stop Loss" to add, the
+   price and distance once set. */
+.exit-btn { font: 0.78rem var(--mono); border-style: dashed; color: var(--muted); }
+.exit-btn.set { border-style: solid; }
+.exit-btn.sl.set { color: var(--down); border-color: var(--down); }
+.exit-btn.tp.set { color: var(--up); border-color: var(--up); }
+.exit-box { width: min(24rem, calc(100% - 2rem)); color: var(--ink); }
+.exit-box::backdrop { background: var(--scrim); }
+.exit-box form { display: grid; gap: 0.7rem; }
+.exit-box h2 { margin: 0; }
+.exit-box input[type="range"] { width: 100%; }
+.exit-box.sl input[type="range"] { accent-color: var(--down); }
+.exit-box.tp input[type="range"] { accent-color: var(--up); }
+.exit-read { margin: 0; color: var(--soft); font-size: 0.88rem; }
+.exit-read strong { font-family: var(--mono); color: var(--ink); }
+.exit-box .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.exit-box .row [hidden] { display: none; }
+.pos-exits { display: flex; gap: 0.5rem; padding: 0 0.9rem 0.7rem; }
+.pos-exits .exit-btn { flex: 1 1 0; padding: 0.3rem 0.5rem; }
 /* The preview is two whole phrases, one to a line, so no line ends on a
    stray word; an amount never breaks. Room for each to wrap once. */
 .preview { display: grid; gap: 0.15rem; margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); height: 4.6em; overflow: hidden; }

@@ -111,11 +111,13 @@ it("never abbreviates stop loss or take profit in any language", () => {
   }
 });
 
-// ADR 0035: a position's exits are dragged on the chart, not set from
-// cells on the position, and English names them in capitals.
-it("has no stop or take cell on the position, and no editor dialog", () => {
-  const html = readFileSync("public/index.html", "utf8");
-  expect(html).not.toMatch(/id="(stop|take|exit-box|exit-form)"|exit-btn/);
+// ADR 0036: a position's exits are two compact chips under the position
+// row, each opening a small editor, and English names them in capitals.
+it("keeps the stop and take chips out of the position table, so Close has its row", () => {
+  const rows = page.querySelector(".positions table")!;
+  expect(rows.querySelector("#stop, #take")).toBeNull();
+  expect(page.querySelectorAll(".pos-exits #stop, .pos-exits #take")).toHaveLength(2);
+  expect(page.querySelector("#exit-box")).not.toBeNull();
 });
 it("writes Stop Loss and Take Profit in capitals wherever English reads them", () => {
   const src = readFileSync("public/i18n.js", "utf8");

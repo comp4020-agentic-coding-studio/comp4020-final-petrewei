@@ -127,6 +127,10 @@
           <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
       </table>
+      <div class="pos-exits" id="pos-exits" hidden>
+        <button id="stop" class="mini exit-btn sl" data-tip="addStop"></button>
+        <button id="take" class="mini exit-btn tp" data-tip="addTake"></button>
+      </div>
     </section>
 
     <section class="panel feed" aria-label="Feed">
@@ -247,6 +251,20 @@
       <div class="row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <!-- Edit a position's stop loss or take profit: a distance slider, what
+       it locks in or risks, Set and Remove (ADR 0032). -->
+  <dialog id="exit-box" class="card exit-box" aria-labelledby="exit-title">
+    <form id="exit-form" method="dialog">
+      <h2 id="exit-title"></h2>
+      <input id="exit-dist" type="range" min="0" max="1000" step="1" data-tip="exitDist">
+      <p class="exit-read" id="exit-read"></p>
+      <div class="row">
+        <button id="exit-remove" class="ghost" type="button" data-t="exitRemove" data-tip="exitRemove">Remove</button>
+        <button id="exit-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
+        <button id="exit-set" class="next" type="submit" data-t="exitSet" data-tip="exitSet">Set</button>
       </div>
     </form>
   </dialog>

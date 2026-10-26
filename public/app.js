@@ -6,7 +6,7 @@ import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
-import { DISTANCES, STAKES, distAt, distPos, dragDistance, exitAt, exitPos, fillSpan, gauge, levAt, levPos, lineY, moveYen, pct, priceAt } from "/ticket.js";
+import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { refresh as retip, useWords } from "/tips.js";
 
@@ -414,68 +414,48 @@ for (const k of ["sl", "tp"]) {
   };
 }
 seatExits();
-// A position's stop loss and take profit are dragged on the chart (ADR
-// 0035): a line that exists is grabbed and moved, and one that does not
-// shows as a faint handle at the nearest distance, to drag out. A drag
-// previews its distance; letting go sends it. Dragged to the price's
-// own side it stops at 1%, and a click on a line's ✕ removes it.
-let chartScale = null;
-let dragging = null;
-const GRAB = 9;
-const HANDLE = 3;
-// The exits of the open position as {kind, y, set}: real lines where there
-// is one, handles at 1% where there is not.
-function exitHandles() {
+// A position's stop loss or take profit, edited in a small dialog: a
+// distance, what it would make or lose, Set or Remove (ADR 0032).
+let editing = null;
+let editDist = 1;
+function exitRead() {
   const pos = state?.you.pos;
-  if (!pos || !chartScale || state.phase !== "trade" && state.phase !== "countdown") return [];
-  const price = state.prices.at(-1);
-  return ["sl", "tp"].map((kind) => {
-    const at = kind === "sl" ? pos.stop : pos.take;
-    const way = kind === "tp" ? pos.side : -pos.side;
-    const target = at ?? price * (1 + (way * HANDLE) / 100);
-    const y = lineY(target, chartScale);
-    return { kind, set: !!at, price: target, y: at ? y : Math.min(chartScale.h - 24, Math.max(24, y)) };
-  });
+  if (!pos || !editing) return;
+  const yenAt = moveYen(pos.margin, pos.leverage, editDist);
+  const price = state.prices.at(-1) * (1 + ((editing === "tp" ? 1 : -1) * pos.side * editDist) / 100);
+  $("exit-read").replaceChildren(...rich(t(editing === "tp" ? "exitTpRead" : "exitSlRead"), { dist: `${editDist}%`, price: price.toFixed(state.digits), yen: yen(yenAt) }));
 }
-// A pointer's height in the canvas's own pixels, since it is drawn at one
-// size and shown at another.
-const canvasY = (e) => {
-  const r = $("chart").getBoundingClientRect();
-  return ((e.clientY - r.top) / r.height) * $("chart").height;
+function editExit(kind) {
+  const pos = state?.you.pos;
+  if (!pos) return;
+  editing = kind;
+  const at = kind === "tp" ? pos.take : pos.stop;
+  editDist = at ? distAt(distPos(Math.max(1, Math.abs(at / state.prices.at(-1) - 1) * 100))) : kind === "tp" ? 10 : 5;
+  $("exit-dist").value = String(Math.round(distPos(editDist) * 1000));
+  $("exit-title").textContent = t(kind === "tp" ? "exitTpTitle" : "exitSlTitle");
+  $("exit-box").className = `card exit-box ${kind}`;
+  $("exit-remove").hidden = !at;
+  // Removing a stop gets its own warning; a take profit's is plain.
+  $("exit-remove").dataset.tip = kind === "sl" ? "removeStop" : "exitRemove";
+  exitRead();
+  $("exit-box").showModal();
+}
+$("exit-dist").oninput = () => {
+  editDist = distAt(Number($("exit-dist").value) / 1000);
+  exitRead();
 };
-$("chart").addEventListener("pointermove", (e) => {
-  if (dragging) {
-    const pos = state.you.pos;
-    const price = state.prices.at(-1);
-    dragging.dist = dragDistance(dragging.kind, pos.side, price, priceAt(canvasY(e), chartScale));
-    drawNow();
-    return;
-  }
-  const near = exitHandles().find((h) => Math.abs(canvasY(e) - h.y) < GRAB);
-  $("chart").style.cursor = near ? "ns-resize" : "";
-});
-$("chart").addEventListener("pointerdown", (e) => {
-  const h = exitHandles().find((x) => Math.abs(canvasY(e) - x.y) < GRAB);
-  const r = $("chart").getBoundingClientRect();
-  const cx = ((e.clientX - r.left) / r.width) * $("chart").width;
-  if (h?.set && cx < 22 && !state.you.out && !state.you.left && !state.paused) return act(h.kind === "tp" ? "take" : "stop", {});
-  if (!h || state.you.out || state.you.left || state.paused) return;
-  dragging = { kind: h.kind, dist: null };
-  $("chart").setPointerCapture(e.pointerId);
+$("exit-form").onsubmit = (e) => {
   e.preventDefault();
-});
-const endDrag = (e) => {
-  if (!dragging) return;
-  const { kind, dist } = dragging;
-  dragging = null;
-  if (dist !== null) act(kind === "tp" ? "take" : "stop", { pct: Math.round(dist * 100) / 100 });
-  drawNow();
+  act(editing === "tp" ? "take" : "stop", { pct: editDist });
+  $("exit-box").close();
 };
-$("chart").addEventListener("pointerup", endDrag);
-$("chart").addEventListener("pointercancel", () => ((dragging = null), drawNow()));
-function drawNow() {
-  if (state) draw(state);
-}
+$("exit-remove").onclick = () => {
+  act(editing === "tp" ? "take" : "stop", {});
+  $("exit-box").close();
+};
+$("exit-cancel").onclick = () => $("exit-box").close();
+$("stop").onclick = () => editExit("sl");
+$("take").onclick = () => editExit("tp");
 
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
@@ -575,9 +555,6 @@ function draw(s) {
   const bottom = lo - pad;
   const x = (i) => (i / s.total) * (w - 70);
   const y = (p) => h - ((p - bottom) / (top - bottom)) * h;
-  // What a drag needs to turn a pointer back into a price (ADR 0035): the
-  // scale this frame was drawn with, and where each exit line is.
-  chartScale = { top, bottom, h, height: canvas.height, exits: pos ? { sl: pos.stop, tp: pos.take } : {} };
   // Day lines, and the price grid on the right.
   ctx.strokeStyle = css.getPropertyValue("--chart-grid");
   ctx.lineWidth = 1;
@@ -638,31 +615,8 @@ function draw(s) {
   const marks = [];
   if (pos) {
     marks.push([pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`]);
-    // A dragged exit shows where it would land; an absent one waits as a
-    // faint handle at the edge of a drag's reach.
-    const shown = (kind, now) => (dragging?.kind === kind && dragging.dist !== null ? prices.at(-1) * (1 + ((kind === "tp" ? pos.side : -pos.side) * dragging.dist) / 100) : now);
-    const sl = shown("sl", pos.stop);
-    const tp = shown("tp", pos.take);
-    if (sl) marks.push([sl, down, t("slFull")]);
-    if (tp) marks.push([tp, up, t("tpFull")]);
-    for (const [kind, at, colour] of [["sl", sl, down], ["tp", tp, up]]) {
-      if (at) {
-        if (!dragging) { ctx.fillStyle = colour; ctx.fillText("✕", 6, Math.min(h - 4, Math.max(14, y(at) - 4))); }
-        continue;
-      }
-      const hy = exitHandles().find((x) => x.kind === kind).y;
-      ctx.setLineDash([2, 5]);
-      ctx.strokeStyle = colour;
-      ctx.globalAlpha = 0.45;
-      ctx.beginPath();
-      ctx.moveTo(0, hy);
-      ctx.lineTo(w - 70, hy);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = colour;
-      ctx.fillText(`+ ${t(kind === "sl" ? "slFull" : "tpFull")}`, w - 70 - ctx.measureText(`+ ${t(kind === "sl" ? "slFull" : "tpFull")}`).width - 6, hy - 4);
-      ctx.globalAlpha = 1;
-    }
+    if (pos.stop) marks.push([pos.stop, down, t("slFull")]);
+    if (pos.take) marks.push([pos.take, up, t("tpFull")]);
     if (pos.call) marks.push([pos.call, css.getPropertyValue("--call"), t("lineCall")], [pos.cut, down, t("lineCut")]);
   }
   const labels = [];
@@ -989,6 +943,7 @@ function render(s) {
   // platform, or a line saying what to do when there is none.
   $("pos-row").hidden = !y.pos;
   $("pos-empty").hidden = !!y.pos;
+  $("pos-exits").hidden = !y.pos;
   if (y.pos) {
     const side = Object.assign(document.createElement("span"), { className: `tag ${y.pos.side === 1 ? "long" : "short"}`, textContent: y.pos.side === 1 ? t("long") : t("short") });
     $("pos-side").replaceChildren(side, ` ${s.pair} ${y.pos.leverage}×`);
@@ -997,6 +952,13 @@ function render(s) {
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
+    // Each exit is a chip: its distance once set, a plus to add one.
+    for (const [id, at, add] of [["stop", y.pos.stop, "addStop"], ["take", y.pos.take, "addTake"]]) {
+      const name = t(id === "stop" ? "slFull" : "tpFull");
+      $(id).textContent = at ? `${name} ${Math.abs((at / price - 1) * 100).toFixed(2)}%` : `+ ${name}`;
+      $(id).classList.toggle("set", !!at);
+      $(id).dataset.tip = at ? (id === "stop" ? "editStop" : "editTake") : add;
+    }
   } else {
     $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
@@ -1004,7 +966,7 @@ function render(s) {
   const closed = !open || y.out || y.left || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   $("pray").disabled = closed || s.phase === "countdown";
-  for (const id of ["close"]) $(id).disabled = closed || !y.pos;
+  for (const id of ["close", "stop", "take"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
