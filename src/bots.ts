@@ -6,7 +6,7 @@
 // its own account and the recent prices and returns at most one action.
 import type { Desk, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "pray" } | { kind: "borrow" };
+export type Action = { kind: "order"; side: Side; leverage: number; stake?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray" } | { kind: "borrow" };
 export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);
@@ -30,7 +30,7 @@ export const BOTS: Bot[] = [
   },
   {
     // Mochiko: cold and rational. Follows the trend at modest leverage,
-    // always with a tight stop.
+    // always with a tight stop and a take profit.
     id: "bot:mochiko",
     name: "Kogane Mochiko",
     motto: "A stable market is a trader's enemy.",
@@ -39,10 +39,12 @@ export const BOTS: Bot[] = [
       const t = trend(prices, 18);
       if (!pos) {
         if (Math.abs(t) < 0.002 || rnd() > 0.2) return null;
-        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6 };
+        // Never without both exits (ADR 0032): a tight stop, and a take
+        // profit at 3%, about 30% of her margin at 10×.
+        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6, sl: 0.4, tp: 3 };
       }
+      // A position from before both rode on the order still gets its stop.
       if (pos.stop === null) return { kind: "stop", pct: 0.4 };
-      if (desk.pnl(me) > pos.margin * 0.3) return { kind: "close" };
       return null;
     },
   },

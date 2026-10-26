@@ -34,3 +34,16 @@ export function gauge(worth) {
   if (!(worth > 0)) return 0;
   return Math.min(1, Math.max(0, 0.5 + Math.log10(worth) / 2));
 }
+
+// A stop loss or take profit's distance from the price (ADR 0032): a
+// log-scale slider over this ladder, from a tenth of a percent to twenty.
+export const DISTANCES = [0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7.5, 10, 15, 20];
+const LO = Math.log(DISTANCES[0]);
+const SPAN = Math.log(DISTANCES.at(-1)) - LO;
+export const distPos = (d) => (Math.log(d) - LO) / SPAN;
+export function distAt(pos) {
+  const p = Math.min(1, Math.max(0, pos));
+  return DISTANCES.reduce((best, d) => (Math.abs(distPos(d) - p) < Math.abs(distPos(best) - p) ? d : best));
+}
+// What a move of `pct` percent makes or loses on a margin at a leverage.
+export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage * pct) / 100);

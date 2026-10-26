@@ -541,12 +541,13 @@ class Market {
       else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild", "added", a);
       else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "closed", a);
       else if (e.kind === "stop") this.say(`${name}'s stop filled at ${this.fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
+      else if (e.kind === "take") this.say(`${name} took profit at ${this.fmt(e.price)}: ${yen(e.pnl)}`, "win", "took", a);
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
       else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}. Out of the round.`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
       if (e.kind === "open" && e.leverage! >= WILD) this.pop(e.who, "wild", { lev: e.leverage });
       else if (e.kind === "add") this.pop(e.who, "add", { lev: e.leverage });
-      else if (e.kind === "close" || e.kind === "stop") this.pop(e.who, "close", { pnl: Math.round(e.pnl) });
+      else if (e.kind === "close" || e.kind === "stop" || e.kind === "take") this.pop(e.who, "close", { pnl: Math.round(e.pnl) });
       else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut") this.pop(e.who, e.kind);
       if (e.kind === "stopout" || e.kind === "zerocut") {
         const c = record(e.who);
@@ -669,10 +670,11 @@ class Market {
       if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray", "prayed", { who: short(who), n });
       return null;
     }
-    if (action.kind === "stop") {
-      const refused = desk.stopAway(who, action.pct);
-      const at = desk.account(who).pos?.stop ?? null;
-      if (!refused) log(who, "stop-set", { mode: this.mode, at: at === null ? null : Number(this.fmt(at)) });
+    if (action.kind === "stop" || action.kind === "take") {
+      const refused = action.kind === "stop" ? desk.stopAway(who, action.pct) : desk.takeAway(who, action.pct);
+      const pos = desk.account(who).pos;
+      const at = (action.kind === "stop" ? pos?.stop : pos?.take) ?? null;
+      if (!refused) log(who, `${action.kind}-set`, { mode: this.mode, at: at === null ? null : Number(this.fmt(at)) });
       return refused;
     }
     if (action.kind === "borrow") {
@@ -684,7 +686,7 @@ class Market {
       log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
       return null;
     }
-    const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake);
+    const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake, { sl: action.sl, tp: action.tp });
     if (typeof out === "string") return out;
     this.report(out);
     return null;
@@ -752,7 +754,7 @@ class Market {
         loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
         broke: mine ? desk.broke(who) : false,
         cuts: mine?.cuts ?? 0,
-        pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, called: mine.pos.called, ...desk.lines(who) } : null,
+        pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
       },
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
       feed: this.feed,
@@ -832,7 +834,7 @@ function tutorialView(who: string) {
       loansLeft: LOANS - a.debt / BORROW,
       broke: t.desk.broke("me"),
       cuts: a.cuts,
-      pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, called: a.pos.called, ...t.desk.lines("me") } : null,
+      pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...t.desk.lines("me") } : null,
     },
     traders: [],
     feed: t.feed,
@@ -1204,11 +1206,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     let action: Action | null = null;
     if (kind === "buy" || kind === "sell") {
       const stake = typeof input.stake === "number" ? input.stake : 1;
-      action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake };
+      // A stop loss and take profit may ride on the order, as distances
+      // (ADR 0032); anything but a number means none.
+      const dist = (v: unknown) => (typeof v === "number" ? v : null);
+      action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake, sl: dist(input.sl), tp: dist(input.tp) };
     } else if (kind === "close" || kind === "pray" || kind === "borrow") action = { kind };
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.
     else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
+    else if (kind === "take") action = { kind: "take", pct: typeof input.pct === "number" ? input.pct : null };
     if (input.mode === "tutorial") {
       const t = tutorialOf(who);
       let error: string | null = null;

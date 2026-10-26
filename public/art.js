@@ -10,7 +10,7 @@ export const ICONS = {
   news: {
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁", left: "🚪",
     "scenario-round": "📡", "replay-round": "📼",
-    bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️",
+    bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
     call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", entered: "👋",
   },
   pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷" },

@@ -6,7 +6,7 @@ import { LANGS, T, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
-import { STAKES, gauge, levAt, levPos, pct } from "/ticket.js";
+import { DISTANCES, STAKES, distAt, distPos, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { refresh as retip, useWords } from "/tips.js";
 
@@ -162,7 +162,9 @@ async function act(kind, extra = {}) {
   const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
   if (!res.ok) $("error").textContent = refusal(lang, (await res.json()).error ?? "Refused.");
 }
-const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake });
+// A stop loss and take profit ride on the order when switched on (ADR 0032).
+const exits = { sl: { on: false, dist: 1 }, tp: { on: false, dist: 2 } };
+const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
@@ -376,11 +378,62 @@ function lesson(s) {
   $("lesson-next").hidden = l.finished || moving || !l.next;
   if (!l.finished && !moving) for (const f of l.focus) $(FOCUS[f])?.classList.add("focus");
 }
-$("stop").onclick = () => {
+// The ticket's switches and sliders for a stop loss and take profit.
+for (const k of ["sl", "tp"]) {
+  $(`${k}-on`).onclick = () => {
+    exits[k].on = !exits[k].on;
+    $(`${k}-on`).setAttribute("aria-checked", String(exits[k].on));
+    $(`${k}-dist`).hidden = !exits[k].on;
+    if (state) ticket(state);
+  };
+  $(`${k}-dist`).value = String(Math.round(distPos(exits[k].dist) * 1000));
+  $(`${k}-dist`).oninput = () => {
+    exits[k].dist = distAt(Number($(`${k}-dist`).value) / 1000);
+    if (state) ticket(state);
+  };
+}
+// A position's stop loss or take profit, edited in a small dialog: a
+// distance, what it would make or lose, Set or Remove (ADR 0032).
+let editing = null;
+let editDist = 1;
+function exitRead() {
+  const pos = state?.you.pos;
+  if (!pos || !editing) return;
+  const yenAt = moveYen(pos.margin, pos.leverage, editDist);
+  const price = state.prices.at(-1) * (1 + ((editing === "tp" ? 1 : -1) * pos.side * editDist) / 100);
+  $("exit-read").replaceChildren(...rich(t(editing === "tp" ? "exitTpRead" : "exitSlRead"), { dist: `${editDist}%`, price: price.toFixed(state.digits), yen: yen(yenAt) }));
+}
+function editExit(kind) {
   const pos = state?.you.pos;
   if (!pos) return;
-  act("stop", pos.stop ? {} : { pct: 1 });
+  editing = kind;
+  const at = kind === "tp" ? pos.take : pos.stop;
+  editDist = at ? distAt(distPos(Math.max(0.1, Math.abs(at / state.prices.at(-1) - 1) * 100))) : kind === "tp" ? 2 : 1;
+  $("exit-dist").value = String(Math.round(distPos(editDist) * 1000));
+  $("exit-title").textContent = t(kind === "tp" ? "exitTpTitle" : "exitSlTitle");
+  $("exit-box").className = `card exit-box ${kind}`;
+  $("exit-remove").hidden = !at;
+  // Removing a stop gets its own warning; a take profit's is plain.
+  $("exit-remove").dataset.tip = kind === "sl" ? "removeStop" : "exitRemove";
+  exitRead();
+  $("exit-box").showModal();
+}
+$("exit-dist").oninput = () => {
+  editDist = distAt(Number($("exit-dist").value) / 1000);
+  exitRead();
 };
+$("exit-form").onsubmit = (e) => {
+  e.preventDefault();
+  act(editing === "tp" ? "take" : "stop", { pct: editDist });
+  $("exit-box").close();
+};
+$("exit-remove").onclick = () => {
+  act(editing === "tp" ? "take" : "stop", {});
+  $("exit-box").close();
+};
+$("exit-cancel").onclick = () => $("exit-box").close();
+$("stop").onclick = () => editExit("sl");
+$("take").onclick = () => editExit("tp");
 
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
@@ -399,6 +452,10 @@ function ticket(s) {
   const same = pos?.side === 1 ? t("buy") : t("sell");
   const other = pos?.side === 1 ? t("sell") : t("buy");
   const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
+  // What the ticket's stop loss and take profit would lose or make.
+  for (const k of ["sl", "tp"]) {
+    $(`${k}-out`).textContent = exits[k].on ? `${exits[k].dist}% · ${k === "sl" ? "−" : "+"}${yen(moveYen(margin, choice.leverage, exits[k].dist)).replace(/^[-−]/, "")}` : "";
+  }
   // Two short lines, each a whole phrase, so no line ends on a stray word:
   // what the order puts in, then what it risks or does.
   // Out of the round after a cut (ADR 0026): no order to preview, only
@@ -472,7 +529,7 @@ function draw(s) {
   // (within 3%, as at 100× and up), so high leverage shows how close the
   // losscut is.
   const pos = s.you.pos;
-  const near = pos ? [pos.stop, pos.call, pos.cut].filter((p) => p && Math.abs(p / prices.at(-1) - 1) < 0.03) : [];
+  const near = pos ? [pos.stop, pos.take, pos.call, pos.cut].filter((p) => p && Math.abs(p / prices.at(-1) - 1) < 0.03) : [];
   const lo = Math.min(...prices, ...shown.map((b) => b.lower), ...near);
   const hi = Math.max(...prices, ...shown.map((b) => b.upper), ...near);
   const pad = (hi - lo) * 0.15 || hi * 0.002;
@@ -540,7 +597,8 @@ function draw(s) {
   const marks = [];
   if (pos) {
     marks.push([pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`]);
-    if (pos.stop) marks.push([pos.stop, css.getPropertyValue("--call"), t("thStop")]);
+    if (pos.stop) marks.push([pos.stop, down, t("thSl")]);
+    if (pos.take) marks.push([pos.take, up, t("thTp")]);
     if (pos.call) marks.push([pos.call, css.getPropertyValue("--call"), t("lineCall")], [pos.cut, down, t("lineCut")]);
   }
   const labels = [];
@@ -875,8 +933,12 @@ function render(s) {
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
-    $("stop").textContent = y.pos.stop ? `${y.pos.stop.toFixed(s.digits)} ✕` : t("addStop");
-    $("stop").dataset.tip = y.pos.stop ? "removeStop" : "addStop";
+    // Each exit shows its price and how far it is; empty, a plus to add one.
+    for (const [id, at, add] of [["stop", y.pos.stop, "addStop"], ["take", y.pos.take, "addTake"]]) {
+      $(id).textContent = at ? `${at.toFixed(s.digits)} · ${Math.abs((at / price - 1) * 100).toFixed(2)}%` : `+ ${t(id === "stop" ? "slShort" : "tpShort")}`;
+      $(id).classList.toggle("set", !!at);
+      $(id).dataset.tip = at ? (id === "stop" ? "editStop" : "editTake") : add;
+    }
   } else {
     $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
@@ -884,7 +946,7 @@ function render(s) {
   const closed = !open || y.out || y.left || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   $("pray").disabled = closed || s.phase === "countdown";
-  for (const id of ["close", "stop"]) $(id).disabled = closed || !y.pos;
+  for (const id of ["close", "stop", "take"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {

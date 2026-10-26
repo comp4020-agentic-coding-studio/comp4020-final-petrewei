@@ -389,3 +389,77 @@ describe("the leverage ladder", () => {
     for (const lev of [3, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
   });
 });
+
+// ADR 0032: stop loss and take profit. A take profit closes a winning
+// position at its level, or better if the price gaps past it; a stop loss
+// closes a losing one at its level, or worse on a gap. Each is set as a
+// distance from the desk's price, on the right side, and both may be
+// attached as an order opens a position.
+describe("stop loss and take profit", () => {
+  it("takes profit when a long rises to it, and a short falls to it", () => {
+    const long = new Desk(100);
+    long.join("a");
+    long.order("a", 1, 10);
+    expect(long.takeAway("a", 1)).toBeNull();
+    expect(long.mark(100.5)).toEqual([]);
+    const done = long.mark(101.1);
+    expect(done.map((e) => e.kind)).toEqual(["take"]);
+    expect(done[0].pnl).toBeGreaterThan(0);
+    expect(long.account("a").pos).toBeNull();
+    const short = new Desk(100);
+    short.join("a");
+    short.order("a", -1, 10);
+    short.takeAway("a", 1);
+    expect(short.mark(98.9).map((e) => e.kind)).toEqual(["take"]);
+  });
+
+  it("fills a take profit at the better price when the price gaps past it", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10);
+    desk.takeAway("a", 1);
+    const [fill] = desk.mark(105);
+    expect(fill).toMatchObject({ kind: "take", price: 105 });
+  });
+
+  it("refuses a take profit on the losing side, or out of range", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.takeAway("a", 1)).toBe("Open a position first.");
+    desk.order("a", 1, 10);
+    expect(desk.take("a", 99)).toBe("A long's take profit must be above the price.");
+    for (const bad of [0, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A take profit must be between 0% and 50% away.");
+    expect(desk.takeAway("a", null)).toBeNull();
+    expect(desk.account("a").pos?.take).toBeNull();
+  });
+
+  it("attaches a stop loss and a take profit as an order opens, not as it adds", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10, 0.5, { sl: 1, tp: 2 });
+    const pos = desk.account("a").pos!;
+    expect(pos.stop).toBeCloseTo(99, 6);
+    expect(pos.take).toBeCloseTo(102, 6);
+    // an add keeps the orders as they were
+    desk.mark(100.5);
+    desk.order("a", 1, 10, 0.5, { sl: 5, tp: 9 });
+    expect(desk.account("a").pos!.stop).toBeCloseTo(99, 6);
+    expect(desk.account("a").pos!.take).toBeCloseTo(102, 6);
+  });
+
+  it("refuses an order whose attached distances are out of range, opening nothing", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A stop must be between 0% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A take profit must be between 0% and 50% away.");
+    expect(desk.account("a").pos).toBeNull();
+  });
+
+  it("closes at the stop when one move crosses both, the cautious reading", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10, 1, { sl: 1, tp: 1 });
+    // a gap down through the stop: the take profit above can't fill
+    expect(desk.mark(98.5).map((e) => e.kind)).toEqual(["stop"]);
+  });
+});

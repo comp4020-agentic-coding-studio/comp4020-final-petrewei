@@ -52,18 +52,39 @@ it.skipIf(live)("refuses an order the broker does not offer, even one that would
   expect((await state(a)).you.pos).toMatchObject({ side: 1 });
 });
 
-it.skipIf(live)("never shows a person's cookie or stop to anyone else", async () => {
+it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone else", async () => {
   const a = await visitor();
   const b = await visitor();
   await open();
   await act(a, { kind: "sell", leverage: 5, stake: 0.5 });
-  // the page asks for a stop a percentage away; the server sets the level
+  // the page asks for each a percentage away; the server sets the level
   expect((await act(a, { kind: "stop", pct: 5 })).status).toBe(200);
-  const stop = (await state(a)).you.pos?.stop;
-  expect(stop).toBeGreaterThan((await state(a)).prices.at(-1)!);
+  expect((await act(a, { kind: "take", pct: 3 })).status).toBe(200);
+  const pos = (await state(a)).you.pos as unknown as { stop: number; take: number };
+  const price = (await state(a)).prices.at(-1)!;
+  expect(pos.stop).toBeGreaterThan(price);
+  expect(pos.take).toBeLessThan(price);
   const seen = JSON.stringify(await state(b));
   expect(seen).not.toContain(a.slice(2));
-  expect(seen).not.toContain(String(stop));
+  expect(seen).not.toContain(String(pos.stop));
+  expect(seen).not.toContain(String(pos.take));
+});
+
+// ADR 0032: a stop loss and take profit may ride on an order, as
+// distances; the server sets them at its own price when it opens.
+it.skipIf(live)("attaches a stop loss and take profit sent with an order", async () => {
+  const a = await visitor();
+  await open();
+  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5, sl: 2, tp: 4 })).status).toBe(200);
+  const s = await state(a);
+  const pos = s.you.pos as unknown as { stop: number; take: number; entry: number };
+  expect(pos.stop).toBeLessThan(pos.entry);
+  expect(pos.take).toBeGreaterThan(pos.entry);
+  // out of range opens nothing
+  const b = await visitor();
+  const res = await act(b, { kind: "buy", leverage: 10, sl: 70 });
+  expect(res.status).toBe(409);
+  expect((await state(b)).you.pos).toBeNull();
 });
 
 // A replay's dates are the round's secret until the bell, so the page is

@@ -74,3 +74,23 @@ describe("Tsukimori Kizuna", () => {
     expect(kizuna.act(desk, kizuna.id, [100, 100.3], always)).toMatchObject({ kind: "order", side: 1 });
   });
 });
+
+// ADR 0032: Mochiko, the disciplined one, opens with a stop loss and a take
+// profit attached, so she never holds a trade without both exits.
+describe("Mochiko", () => {
+  it("opens with a stop loss and a take profit attached", () => {
+    const mochiko = BOTS.find((b) => b.id === "bot:mochiko")!;
+    const desk = new Desk(100);
+    desk.join(mochiko.id);
+    const rising = Array.from({ length: 30 }, (_, i) => 100 + i * 0.05);
+    const action = mochiko.act(desk, mochiko.id, rising, () => 0) as { kind: string; sl?: number; tp?: number };
+    expect(action).toMatchObject({ kind: "order", side: 1 });
+    expect(action.sl).toBeGreaterThan(0);
+    expect(action.tp).toBeGreaterThan(action.sl!);
+    const result = desk.order(mochiko.id, 1, 10, 0.6, { sl: action.sl, tp: action.tp });
+    expect(result).toMatchObject([{ kind: "open" }]);
+    const pos = desk.account(mochiko.id).pos!;
+    expect(pos.stop).not.toBeNull();
+    expect(pos.take).not.toBeNull();
+  });
+});

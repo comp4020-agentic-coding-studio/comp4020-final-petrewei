@@ -69,3 +69,27 @@ describe("the meter", () => {
     for (let i = 1; i < xs.length; i++) expect(gauge(xs[i])).toBeGreaterThan(gauge(xs[i - 1]));
   });
 });
+
+// ADR 0032: the stop loss and take profit distances. A log-scale slider
+// snaps to a ladder of distances, and the ticket says what each would
+// make or lose: at L× on a margin M, a move of d% is M × L × d / 100.
+describe("the stop and take profit distances", () => {
+  it("snap a log-scale slider to the ladder, both ends included", async () => {
+    const { DISTANCES, distAt, distPos } = await import("../public/ticket.js");
+    expect(DISTANCES[0]).toBe(0.1);
+    expect(DISTANCES.at(-1)).toBe(20);
+    expect(distPos(0.1)).toBe(0);
+    expect(distPos(20)).toBe(1);
+    for (const d of DISTANCES) expect(distAt(distPos(d)), String(d)).toBe(d);
+    expect(distAt(-1)).toBe(0.1);
+    expect(distAt(2)).toBe(20);
+  });
+
+  it("say what a move of that distance makes or loses", async () => {
+    const { moveYen } = await import("../public/ticket.js");
+    // ¥500,000 at 10×: a 1% move is ¥50,000
+    expect(moveYen(500_000, 10, 1)).toBe(50_000);
+    expect(moveYen(1_000_000, 25, 4)).toBe(1_000_000);
+    expect(moveYen(0, 25, 4)).toBe(0);
+  });
+});

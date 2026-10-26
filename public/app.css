@@ -327,6 +327,39 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .ticks span:last-child { transform: translateX(-100%); }
 /* The two caps sit close on a log scale: Japan's leans left, Australia's right. */
 .ticks .cap { color: var(--soft); }
+/* Stop loss and take profit on the ticket (ADR 0032): a switch, then,
+   when on, a slider and what it would lose or make. */
+.exits { display: grid; gap: 0.35rem; }
+.exit { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; align-items: center; min-height: 1.6rem; }
+.exit input[type="range"][hidden] { display: block; visibility: hidden; }
+.exit.sl input[type="range"] { accent-color: var(--down); }
+.exit.tp input[type="range"] { accent-color: var(--up); }
+.exit-out { font: 600 0.78rem var(--mono); white-space: nowrap; }
+.exit.sl .exit-out { color: var(--down); }
+.exit.tp .exit-out { color: var(--up); }
+.toggle { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0; border: none; background: none; color: var(--soft); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+.toggle .track { position: relative; width: 1.9rem; height: 1.05rem; border-radius: 999px; background: var(--raise); border: 1px solid var(--line); transition: background 0.15s; }
+.toggle .knob { position: absolute; top: 1px; left: 1px; width: calc(1.05rem - 4px); height: calc(1.05rem - 4px); border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+.toggle[aria-checked="true"] .knob { transform: translateX(0.85rem); background: #fff; }
+.exit.sl .toggle[aria-checked="true"] .track { background: var(--down); border-color: var(--down); }
+.exit.tp .toggle[aria-checked="true"] .track { background: var(--up); border-color: var(--up); }
+/* The position's stop loss and take profit: a dashed "+ SL" to add, the
+   price and distance once set. */
+.exit-btn { font: 0.78rem var(--mono); border-style: dashed; color: var(--muted); }
+.exit-btn.set { border-style: solid; }
+.exit-btn.sl.set { color: var(--down); border-color: var(--down); }
+.exit-btn.tp.set { color: var(--up); border-color: var(--up); }
+.exit-box { width: min(24rem, calc(100% - 2rem)); color: var(--ink); }
+.exit-box::backdrop { background: var(--scrim); }
+.exit-box form { display: grid; gap: 0.7rem; }
+.exit-box h2 { margin: 0; }
+.exit-box input[type="range"] { width: 100%; }
+.exit-box.sl input[type="range"] { accent-color: var(--down); }
+.exit-box.tp input[type="range"] { accent-color: var(--up); }
+.exit-read { margin: 0; color: var(--soft); font-size: 0.88rem; }
+.exit-read strong { font-family: var(--mono); color: var(--ink); }
+.exit-box .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.exit-box .row [hidden] { display: none; }
 /* The preview is two whole phrases, one to a line, so no line ends on a
    stray word; an amount never breaks. Room for each to wrap once. */
 .preview { display: grid; gap: 0.15rem; margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); height: 4.6em; overflow: hidden; }
@@ -636,9 +669,10 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   #pos-row td { padding: 0; text-align: left; }
   #pos-row td:first-child { grid-column: 1 / -1; margin-bottom: 0.3rem; }
   #pos-row td[data-label]::before { content: attr(data-label) " "; font: 0.72rem var(--round); color: var(--muted); }
-  #pos-row td:nth-last-child(2) { grid-column: 1; margin-top: 0.4rem; }
-  #pos-row td:last-child { grid-column: 2; margin-top: 0.4rem; }
-  #pos-row td:last-child .close, #pos-row td:nth-last-child(2) .mini { width: 100%; padding: 0.5rem; }
+  /* The stop loss and take profit side by side, then Close across. */
+  #pos-row td:has(.exit-btn) { margin-top: 0.4rem; }
+  #pos-row td:last-child { grid-column: 1 / -1; margin-top: 0.4rem; }
+  #pos-row td:last-child .close, #pos-row .exit-btn { width: 100%; padding: 0.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .losscut, .focus, .tick-up, .tick-down, .warn.calling, #level-box.alarm dd, .bell-art, .tip { animation: none; }

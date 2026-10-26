@@ -114,7 +114,7 @@
 
     <section class="panel positions" aria-label="Your position">
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thStop">Stop</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thSl">SL</th><th data-t="thTp">TP</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
@@ -122,10 +122,11 @@
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
-            <td><button id="stop" class="mini" data-tip="addStop"></button></td>
+            <td><button id="stop" class="mini exit-btn sl" data-tip="addStop"></button></td>
+            <td><button id="take" class="mini exit-btn tp" data-tip="addTake"></button></td>
             <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
           </tr>
-          <tr id="pos-empty"><td colspan="7" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
+          <tr id="pos-empty"><td colspan="8" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
       </table>
     </section>
@@ -170,6 +171,20 @@
         <p class="label"><span data-t="stake">Stake</span> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
         <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake" data-tip="stake">
         <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
+      </div>
+      <!-- A stop loss and a take profit that ride on the order, each a
+           distance from the price on a log slider (ADR 0032). -->
+      <div class="exits" id="exits">
+        <div class="exit sl" id="sl-row">
+          <button id="sl-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slShort">SL</span></button>
+          <input id="sl-dist" type="range" min="0" max="1000" step="1" data-t-label="slShort" data-tip="slDist" hidden>
+          <output id="sl-out" class="exit-out"></output>
+        </div>
+        <div class="exit tp" id="tp-row">
+          <button id="tp-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="tpShort">TP</span></button>
+          <input id="tp-dist" type="range" min="0" max="1000" step="1" data-t-label="tpShort" data-tip="tpDist" hidden>
+          <output id="tp-out" class="exit-out"></output>
+        </div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <dl class="acct">
@@ -231,6 +246,20 @@
       <div class="row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <!-- Edit a position's stop loss or take profit: a distance slider, what
+       it locks in or risks, Set and Remove (ADR 0032). -->
+  <dialog id="exit-box" class="card exit-box" aria-labelledby="exit-title">
+    <form id="exit-form" method="dialog">
+      <h2 id="exit-title"></h2>
+      <input id="exit-dist" type="range" min="0" max="1000" step="1" data-tip="exitDist">
+      <p class="exit-read" id="exit-read"></p>
+      <div class="row">
+        <button id="exit-remove" class="ghost" type="button" data-t="exitRemove" data-tip="exitRemove">Remove</button>
+        <button id="exit-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
+        <button id="exit-set" class="next" type="submit" data-t="exitSet" data-tip="exitSet">Set</button>
       </div>
     </form>
   </dialog>
