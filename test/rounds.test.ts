@@ -32,7 +32,7 @@ it("counts down five seconds by default", async () => {
   const me = await visitor();
   const tab = await page(me);
   try {
-    expect((await act(me, { kind: "start", mode: "history" })).status).toBe(200);
+    expect((await act(me, { kind: "start", mode: "replay" })).status).toBe(200);
     const x = await look(me);
     expect(x.phase).toBe("countdown");
     expect(x.countdown).toBe(5);
@@ -48,13 +48,13 @@ it("takes orders during the countdown, at the opening price", async () => {
   const me = await visitor();
   const tab = await page(me);
   try {
-    await act(me, { kind: "start", mode: "history" });
-    expect((await act(me, { kind: "buy", leverage: 5, mode: "history" })).status).toBe(200);
+    await act(me, { kind: "start", mode: "replay" });
+    expect((await act(me, { kind: "buy", leverage: 5, mode: "replay" })).status).toBe(200);
     const x = await look(me);
     expect(x.phase).toBe("countdown");
     expect(x.you.pos).toMatchObject({ side: 1, leverage: 5 });
     // and may close it again before trading opens
-    expect((await act(me, { kind: "close", mode: "history" })).status).toBe(200);
+    expect((await act(me, { kind: "close", mode: "replay" })).status).toBe(200);
   } finally {
     tab.close();
   }
@@ -67,19 +67,19 @@ it("lets only the starter cancel the countdown, back to the lobby, with no recor
   const other = await visitor();
   const tabs = [await page(me), await page(other)];
   try {
-    await act(me, { kind: "start", mode: "history" });
-    await act(other, { kind: "buy", leverage: 5, mode: "history" });
-    const refused = await act(other, { kind: "cancel", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
+    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
+    const refused = await act(other, { kind: "cancel", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/Only .* who pressed Start/);
-    expect((await act(me, { kind: "cancel", mode: "history" })).status).toBe(200);
+    expect((await act(me, { kind: "cancel", mode: "replay" })).status).toBe(200);
     const x = await look(other);
     expect(x.phase).toBe("lobby");
     expect(x.you.pos).toBeNull();
     expect(x.you.equity).toBe(1_000_000);
     expect(x.career).toEqual([]);
     // nothing to cancel now
-    expect((await act(me, { kind: "cancel", mode: "history" })).status).toBe(409);
+    expect((await act(me, { kind: "cancel", mode: "replay" })).status).toBe(409);
   } finally {
     for (const t of tabs) t.close();
   }
@@ -92,13 +92,13 @@ it("lets the starter end the round early for everyone, ringing the bell", async 
   const other = await visitor();
   const tabs = [await page(me), await page(other)];
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(other, { kind: "buy", leverage: 5, mode: "history" });
-    const refused = await act(other, { kind: "finish", mode: "history" });
+    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
+    const refused = await act(other, { kind: "finish", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/Only .* who pressed Start/);
-    expect((await act(me, { kind: "finish", mode: "history" })).status).toBe(200);
+    expect((await act(me, { kind: "finish", mode: "replay" })).status).toBe(200);
     const x = await until(other, (y) => y.phase === "break");
     expect(x.phase).toBe("break");
     expect(x.result?.ranking.find((r) => r.you)).toMatchObject({ sat: false });
@@ -116,11 +116,11 @@ it("lets a starter who has left be replaced: anyone on the tab may end it", asyn
   const mine = await page(me);
   const theirs = await page(other);
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
     mine.close();
     await new Promise((r) => setTimeout(r, 200));
-    expect((await act(other, { kind: "finish", mode: "history" })).status).toBe(200);
+    expect((await act(other, { kind: "finish", mode: "replay" })).status).toBe(200);
     expect((await until(other, (y) => y.phase === "break")).phase).toBe("break");
   } finally {
     theirs.close();
@@ -134,20 +134,20 @@ it("lets a person leave the round alone: closed out, then watching, listed as le
   const other = await visitor();
   const tabs = [await page(me), await page(other)];
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "buy", leverage: 5, mode: "history" });
-    await act(other, { kind: "buy", leverage: 5, mode: "history" });
-    expect((await act(me, { kind: "leave", mode: "history" })).status).toBe(200);
+    await act(me, { kind: "buy", leverage: 5, mode: "replay" });
+    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
+    expect((await act(me, { kind: "leave", mode: "replay" })).status).toBe(200);
     const x = await look(me);
     expect(x.phase).toBe("trade");
     expect(x.you.left).toBe(true);
     expect(x.you.pos).toBeNull();
     // no more orders this round, and nobody else is touched
-    expect((await act(me, { kind: "buy", leverage: 5, mode: "history" })).status).toBe(409);
+    expect((await act(me, { kind: "buy", leverage: 5, mode: "replay" })).status).toBe(409);
     expect((await look(other)).you.pos).not.toBeNull();
-    expect((await act(me, { kind: "leave", mode: "history" })).status).toBe(409);
-    await act(me, { kind: "finish", mode: "history" });
+    expect((await act(me, { kind: "leave", mode: "replay" })).status).toBe(409);
+    await act(me, { kind: "finish", mode: "replay" });
     const bell = await until(me, (y) => y.phase === "break");
     const row = bell.result!.ranking.find((r) => r.you)!;
     expect(row.left).toBe(true);
@@ -166,22 +166,22 @@ it("lets anyone close the bell now, or hold it longer", async () => {
   const me = await visitor();
   const tab = await page(me);
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "finish", mode: "history" });
+    await act(me, { kind: "finish", mode: "replay" });
     const bell = await until(me, (x) => x.phase === "break");
-    expect((await act(me, { kind: "hold", mode: "history" })).status).toBe(200);
+    expect((await act(me, { kind: "hold", mode: "replay" })).status).toBe(200);
     expect((await look(me)).breakLeft).toBeGreaterThan(bell.breakLeft + 20);
     // held, but capped: a bell can't be held for ever
-    for (let i = 0; i < 20; i++) await act(me, { kind: "hold", mode: "history" });
+    for (let i = 0; i < 20; i++) await act(me, { kind: "hold", mode: "replay" });
     expect((await look(me)).breakLeft).toBeLessThanOrEqual(300);
     // someone who is not on the tab can't touch it
-    expect((await attempt({ kind: "dismiss", mode: "history" }, await visitor())).status).toBe(409);
-    expect((await act(me, { kind: "dismiss", mode: "history" })).status).toBe(200);
+    expect((await attempt({ kind: "dismiss", mode: "replay" }, await visitor())).status).toBe(409);
+    expect((await act(me, { kind: "dismiss", mode: "replay" })).status).toBe(200);
     expect((await look(me)).phase).toBe("lobby");
     // and neither works outside the bell
-    expect((await act(me, { kind: "hold", mode: "history" })).status).toBe(409);
-    expect((await act(me, { kind: "dismiss", mode: "history" })).status).toBe(409);
+    expect((await act(me, { kind: "hold", mode: "replay" })).status).toBe(409);
+    expect((await act(me, { kind: "dismiss", mode: "replay" })).status).toBe(409);
   } finally {
     tab.close();
   }
@@ -197,25 +197,25 @@ it("pauses for everyone and resumes, by anyone on the tab", async () => {
   const other = await visitor();
   const tabs = [await page(me), await page(other)];
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    expect((await act(other, { kind: "pause", mode: "history" })).status).toBe(200);
+    expect((await act(other, { kind: "pause", mode: "replay" })).status).toBe(200);
     const paused = (await look(me)) as Seen & { paused: number | null; tick: number };
     expect(paused.paused).toBeGreaterThan(0);
     await new Promise((r) => setTimeout(r, 400));
     const later = (await look(me)) as Seen & { tick: number };
     // the price stands still and orders wait
     expect(later.tick).toBe(paused.tick);
-    const refused = await act(me, { kind: "buy", leverage: 5, mode: "history" });
+    const refused = await act(me, { kind: "buy", leverage: 5, mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/paused/);
-    expect((await act(me, { kind: "pause", mode: "history" })).status).toBe(409);
+    expect((await act(me, { kind: "pause", mode: "replay" })).status).toBe(409);
     // someone not on the tab may not resume it
-    expect((await attempt({ kind: "resume", mode: "history" }, await visitor())).status).toBe(409);
-    expect((await act(me, { kind: "resume", mode: "history" })).status).toBe(200);
+    expect((await attempt({ kind: "resume", mode: "replay" }, await visitor())).status).toBe(409);
+    expect((await act(me, { kind: "resume", mode: "replay" })).status).toBe(200);
     await new Promise((r) => setTimeout(r, 300));
     expect(((await look(me)) as Seen & { tick: number }).tick).toBeGreaterThan(paused.tick);
-    expect((await act(me, { kind: "resume", mode: "history" })).status).toBe(409);
+    expect((await act(me, { kind: "resume", mode: "replay" })).status).toBe(409);
   } finally {
     for (const t of tabs) t.close();
   }
@@ -228,9 +228,9 @@ it("resumes a pause by itself after a minute, and says so", async () => {
   const me = await visitor();
   const tab = await page(me);
   try {
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "pause", mode: "history" });
+    await act(me, { kind: "pause", mode: "replay" });
     const resumed = await until(me, (x) => (x as Seen & { paused: number | null }).paused === null, 15_000);
     expect((resumed as Seen & { paused: number | null }).paused).toBeNull();
     expect(resumed.feed.some((f) => f.key === "unpaused")).toBe(true);
@@ -245,17 +245,17 @@ it("starts an ironman round, which nobody can pause", async () => {
   const me = await visitor();
   const tab = await page(me);
   try {
-    expect((await act(me, { kind: "start", mode: "history", ironman: true })).status).toBe(200);
+    expect((await act(me, { kind: "start", mode: "replay", ironman: true })).status).toBe(200);
     expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(true);
     await until(me, (x) => x.phase === "trade");
-    const refused = await act(me, { kind: "pause", mode: "history" });
+    const refused = await act(me, { kind: "pause", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/ironman/i);
     // the next round is an ordinary one unless asked again
-    await act(me, { kind: "finish", mode: "history" });
+    await act(me, { kind: "finish", mode: "replay" });
     await until(me, (x) => x.phase === "break");
-    await act(me, { kind: "dismiss", mode: "history" });
-    await act(me, { kind: "start", mode: "history" });
+    await act(me, { kind: "dismiss", mode: "replay" });
+    await act(me, { kind: "start", mode: "replay" });
     expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(false);
   } finally {
     tab.close();

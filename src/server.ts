@@ -1,8 +1,8 @@
-// Losscut!'s server: two shared markets, History and Scenario, each traded
+// Losscut!'s server: two shared markets, Replay and Scenario, each traded
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
-// 0010). A round is three minutes: History replays real days with the
+// 0010). A round is three minutes: Replay plays real days with the
 // date hidden, Scenario plays a hidden script from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -302,9 +302,9 @@ function record(who: string): Career | null {
 
 // The two markets a visitor can pick between by tab. Each is a room of
 // its own, with its own round, desk, bots, feed and bell, and both run
-// all the time: History replays real days with the date hidden, Scenario
+// all the time: Replay plays real days with the date hidden, Scenario
 // starts from today's real rate and plays a hidden script (ADR 0027).
-const MODES = ["history", "scenario"] as const;
+const MODES = ["replay", "scenario"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
@@ -723,9 +723,10 @@ class Market {
 }
 
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
-// The Scenario tab was called Live; an old page or link asking for it gets
-// Scenario (ADR 0027).
-const modeOf = (value: unknown): Mode => (value === "live" ? "scenario" : MODES.includes(value as Mode) ? (value as Mode) : "history");
+// The tabs were called History and Live; an old page or link asking for
+// either gets Replay or Scenario (ADRs 0027, 0028).
+const OLD: Record<string, Mode> = { history: "replay", live: "scenario" };
+const modeOf = (value: unknown): Mode => OLD[value as string] ?? (MODES.includes(value as Mode) ? (value as Mode) : "replay");
 
 // The Tutorial tab: each visitor's own private market (src/tutorial.ts),
 // kept in memory, seen by nobody else and never in the hall of fame. One

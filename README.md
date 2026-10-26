@@ -1,6 +1,6 @@
 # Losscut! Kurumi's FX Fantasy
 
-Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On History the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
+Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Replay the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 Good, defined.
 
@@ -11,7 +11,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 ## What good means here
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, like Lehman Brothers, revealed at the bell. Scenario plays a hidden script, like a peg break.
+- **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, like Lehman Brothers, revealed at the bell. Scenario plays a hidden script, like a peg break.
 - **Leverage is the joke, and the lesson.** From 1× to offshore 1000×, past Japan's 25× and Australia's 30× caps. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you borrow. A gap can wipe you out in one tick.
 - **Losing is public.** Stop-outs hit the feed; Dad lends twice, as debt.
 - **There's always someone to trade against.** Seven of the comic's traders play every round; Kurumi never cuts a loss.

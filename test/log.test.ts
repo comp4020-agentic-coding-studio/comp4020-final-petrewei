@@ -209,7 +209,7 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
   await act(a, { kind: "sell", leverage: 7 });
   await new Promise((r) => setTimeout(r, 200));
   const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
-  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name="[A-Z][a-z]+ [A-Z][a-z]+" mode=history .*side=buy leverage=5/);
+  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name="[A-Z][a-z]+ [A-Z][a-z]+" mode=replay .*side=buy leverage=5/);
   const id = opened!.slice(1, 7);
   expect(s.out).toContainEqual(expect.stringMatching(new RegExp(`^\\[${id}\\] POST /api/act 200 \\d+ms who=[0-9a-f]{6}$`)));
   expect(s.out).toContainEqual(expect.stringMatching(/^\[[0-9a-f]{6}\] refused .*why="No such leverage\."/));

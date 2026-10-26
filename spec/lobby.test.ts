@@ -13,9 +13,9 @@ it("refuses a Start from someone without the tab open", async () => {
 });
 
 it("refuses a trade while the market waits in the lobby", async () => {
-  const s = await state(undefined, "history");
+  const s = await state(undefined, "replay");
   if (s.phase !== "lobby") return;
-  const res = await attempt({ kind: "buy", leverage: 5, mode: "history" }, await visitor());
+  const res = await attempt({ kind: "buy", leverage: 5, mode: "replay" }, await visitor());
   expect(res.status).toBe(409);
   expect((await res.json()).error).toMatch(/Press Start/);
 });
@@ -37,11 +37,11 @@ it.skipIf(live)("counts down after a Start, then opens trading", async () => {
 
 it.skipIf(live)("tells the tab who pressed Start", async () => {
   const me = await visitor();
-  const tab = await page(me, "history");
+  const tab = await page(me, "replay");
   try {
     const first = (await tab.next(() => true, 2000)) as { phase: string; you: { name: string } };
     if (first.phase !== "lobby") return;
-    expect((await attempt({ kind: "start", mode: "history" }, me)).status).toBe(200);
+    expect((await attempt({ kind: "start", mode: "replay" }, me)).status).toBe(200);
     const counting = (await tab.next((e) => e.phase === "countdown", 2000)) as { startedBy: string; countdown: number } | null;
     expect(counting?.startedBy).toBe(first.you.name);
     expect(counting?.countdown).toBeGreaterThan(0);

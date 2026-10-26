@@ -8,7 +8,7 @@ const time = new Intl.DateTimeFormat("en-AU", { timeStyle: "medium" });
 // One log line in words, so the page can be read aloud without the JSON.
 function say(l) {
   switch (l.ev) {
-    case "join": return `opened the ${l.mode ?? "history"} tab (${l.here} here)`;
+    case "join": return `opened the ${l.mode ?? "replay"} tab (${l.here} here)`;
     case "tab": return `switched to the ${l.mode} tab`;
     case "leave": return `closed the page (${l.here} here)`;
     // Lines saved before page visits were renamed join/leave carry no price.

@@ -3,7 +3,7 @@
 // button asks the server, which checks the debug cookie and does the
 // work where the rules live; this page only shows the answers. It is in
 // English only: it is for the operator, not for players.
-const tab = () => document.querySelector("[role=tab][aria-selected=true]")?.dataset.mode ?? "history";
+const tab = () => document.querySelector("[role=tab][aria-selected=true]")?.dataset.mode ?? "replay";
 
 const tag = Object.assign(document.createElement("button"), { className: "dbg-tag", type: "button", textContent: "DEBUG", title: "Debug console (`)" });
 const box = Object.assign(document.createElement("aside"), { className: "dbg", hidden: true });
