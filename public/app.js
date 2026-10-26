@@ -136,13 +136,20 @@ let mode = (() => {
   }
   return "replay";
 })();
-// Older links named the tab in the address (/#live); honour one once,
-// then drop it, so the address names only the language.
-const hashed = renamed(location.hash.slice(1));
-if (MODES.includes(hashed)) {
-  mode = hashed;
-  history.replaceState(null, "", location.pathname);
+// An address may name a tab (/#scenario, or an old /#history); honour it,
+// then drop it, so the address names only the language. Called on load,
+// before the page connects, and on every hash change after.
+let connected = false;
+function fromAddress() {
+  // A tab named in the address: open it, whether on load or typed in later.
+  const named = renamed(location.hash.slice(1));
+  if (!MODES.includes(named)) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  if (!connected) mode = named;
+  else if (named !== mode) watch(named);
 }
+fromAddress();
+addEventListener("hashchange", fromAddress);
 // ?debug=… has done its work by the time the page runs (the server set
 // or cleared the cookie), so it leaves the address: the operator's key
 // is never left in the bar, a bookmark or the history.
@@ -957,6 +964,7 @@ for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => t
 translate();
 label();
 watch(mode);
+connected = true;
 
 // The bell's reveal in this language: the pair and dates, then the
 // famous day hidden in it, if any. English is the server's own sentence.

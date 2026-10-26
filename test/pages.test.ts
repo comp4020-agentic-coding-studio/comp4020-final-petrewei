@@ -34,3 +34,15 @@ it("finds every element the page script asks for by id", () => {
   expect(asked.size).toBeGreaterThan(40);
   for (const id of asked) expect(html.includes(`id="${id}"`) || made.has(id), id).toBe(true);
 });
+
+// A tab named in the address (/#replay, or an old /#history) opens that
+// tab on load. Typed into the address bar of an open page it is a hash
+// change, not a load, so the page must listen for that too, with the same
+// handling, or the tab never switches.
+it("opens the tab an address names, on load and on a hash change", () => {
+  const app = readFileSync("public/app.js", "utf8");
+  const fn = app.match(/function (\w+)\(\) \{\s*\/\/ A tab named in the address/)?.[1];
+  expect(fn, "a named function handles the address's tab").toBeDefined();
+  expect(app).toMatch(new RegExp(`addEventListener\\("hashchange", ${fn}\\)`));
+  expect(app).toMatch(new RegExp(`\\n${fn}\\(\\);`));
+});
