@@ -139,8 +139,8 @@ it("has language, music and theme tools in the name box, above its title, and tw
   const kids = [...form.children];
   expect(kids.findIndex((e) => e.classList.contains("name-tools"))).toBeLessThan(kids.findIndex((e) => e.id === "name-title"));
   const first = box.querySelector("#name-first")!;
-  expect(first.querySelector("#name-learn")?.getAttribute("value")).toBe("tutorial");
-  expect(first.querySelector("#name-free")?.getAttribute("value")).toBe("replay");
+  // the tutorial on the left, free play on the right
+  expect([...first.querySelectorAll("button")].map((b) => b.getAttribute("value"))).toEqual(["tutorial", "replay"]);
   expect(kids.indexOf(first)).toBeGreaterThan(kids.findIndex((e) => e.classList.contains("name-row") || e.id === "name-error"));
 });
 it("says the name alone, never 'You are', in any language", () => {

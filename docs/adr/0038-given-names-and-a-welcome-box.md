@@ -12,7 +12,7 @@ Peter asked that a trader go by a given name alone, such as Kurumi and not Fukug
 
 **A clean hall.** Names changed shape, so the hall began again, once. The server empties the saved hall the first time it starts without a marker file beside it, then writes the marker; careers saved after that are kept. Peter chose to wipe it, rather than keep the records under shorter names.
 
-**A box for a newcomer.** The server tells a page whether its visitor is named, which is true once they have a chosen name, a chosen face or a career, or are a house trader. A page that is told no opens the name box on its own, with a welcome title, a name and face already drawn, and no Cancel, and Escape does not close it. Two buttons below take the player on: the tutorial, or free play on the market they were on; either saves the name and face first. Reopening the box from the name later is the old rename, with Save and Cancel.
+**A box for a newcomer.** The server tells a page whether its visitor is named, which is true once they have a chosen name, a chosen face or a career, or are a house trader. A page that is told no opens the name box on its own, with a welcome title, a name and face already drawn, and no Cancel, and Escape does not close it. Two buttons below take the player on, the tutorial at the left and free play at the right, on the market they were on; either saves the name and face first. Reopening the box from the name later is the old rename, with Save and Cancel.
 
 **Tools in the box.** The same language, music and theme controls as the header sit at the box's top right, each wired to the same state, so a newcomer who reads Japanese can say so before choosing a name.
 
