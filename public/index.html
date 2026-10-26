@@ -114,7 +114,7 @@
 
     <section class="panel positions" aria-label="Your position">
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th data-t="thSl">Stop loss</th><th data-t="thTp">Take profit</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
@@ -122,11 +122,9 @@
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
-            <td><button id="stop" class="mini exit-btn sl" data-tip="addStop"></button></td>
-            <td><button id="take" class="mini exit-btn tp" data-tip="addTake"></button></td>
             <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
           </tr>
-          <tr id="pos-empty"><td colspan="8" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
+          <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
       </table>
     </section>
@@ -178,8 +176,8 @@
            grey when its toggle is off. Each shows only its percentage. -->
       <div class="exits" id="exits">
         <div class="exit-heads">
-          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop loss</span> <b id="sl-pct" class="pct"></b></button>
-          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take profit</span> <b id="tp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop Loss</span> <b id="sl-pct" class="pct"></b></button>
+          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take Profit</span> <b id="tp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
         </div>
         <div class="exit-track" data-sl="false" data-tp="false">
           <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
@@ -249,20 +247,6 @@
       <div class="row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
-      </div>
-    </form>
-  </dialog>
-  <!-- Edit a position's stop loss or take profit: a distance slider, what
-       it locks in or risks, Set and Remove (ADR 0032). -->
-  <dialog id="exit-box" class="card exit-box" aria-labelledby="exit-title">
-    <form id="exit-form" method="dialog">
-      <h2 id="exit-title"></h2>
-      <input id="exit-dist" type="range" min="0" max="1000" step="1" data-tip="exitDist">
-      <p class="exit-read" id="exit-read"></p>
-      <div class="row">
-        <button id="exit-remove" class="ghost" type="button" data-t="exitRemove" data-tip="exitRemove">Remove</button>
-        <button id="exit-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
-        <button id="exit-set" class="next" type="submit" data-t="exitSet" data-tip="exitSet">Set</button>
       </div>
     </form>
   </dialog>

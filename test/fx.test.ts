@@ -200,7 +200,7 @@ describe("the trading desk", () => {
     desk.order("a", -1, 5);
     expect(desk.stopAway("a", 2)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeCloseTo(102);
-    expect(desk.stopAway("a", 80)).toBe("A stop must be between 1% and 50% away.");
+    expect(desk.stopAway("a", 80)).toBe("A Stop Loss must be between 1% and 50% away.");
     expect(desk.stopAway("a", null)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeNull();
   });
@@ -210,7 +210,7 @@ describe("the trading desk", () => {
     desk.join("a");
     expect(desk.stop("a", 99)).toBe("Open a position first.");
     desk.order("a", 1, 5);
-    expect(desk.stop("a", 101)).toBe("A long's stop must be below the price.");
+    expect(desk.stop("a", 101)).toBe("A long's Stop Loss must be below the price.");
   });
 
   it("refuses orders with no free margin and leverage it does not offer", () => {
@@ -427,8 +427,8 @@ describe("stop loss and take profit", () => {
     desk.join("a");
     expect(desk.takeAway("a", 1)).toBe("Open a position first.");
     desk.order("a", 1, 10);
-    expect(desk.take("a", 99)).toBe("A long's take profit must be above the price.");
-    for (const bad of [0, 0.5, 0.99, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A take profit must be between 1% and 50% away.");
+    expect(desk.take("a", 99)).toBe("A long's Take Profit must be above the price.");
+    for (const bad of [0, 0.5, 0.99, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A Take Profit must be between 1% and 50% away.");
     expect(desk.takeAway("a", 1)).toBeNull();
     expect(desk.takeAway("a", 50)).toBeNull();
     expect(desk.takeAway("a", null)).toBeNull();
@@ -452,9 +452,9 @@ describe("stop loss and take profit", () => {
   it("refuses an order whose attached distances are out of range, opening nothing", () => {
     const desk = new Desk(100);
     desk.join("a");
-    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A stop must be between 1% and 50% away.");
-    expect(desk.order("a", 1, 10, 1, { sl: 0.5 })).toBe("A stop must be between 1% and 50% away.");
-    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A take profit must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A Stop Loss must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 0.5 })).toBe("A Stop Loss must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A Take Profit must be between 1% and 50% away.");
     expect(desk.account("a").pos).toBeNull();
   });
 

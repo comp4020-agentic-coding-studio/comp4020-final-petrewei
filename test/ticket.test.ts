@@ -186,3 +186,40 @@ describe("the joined track's fill", () => {
     }
   });
 });
+
+// ADR 0035: the stop loss and take profit on an open position are dragged on
+// the chart, not set in the position panel. A pointer's height on the canvas
+// is turned back into a price, then into the distance the desk is asked for,
+// held to the same 1% to 50% and to the right side of the price.
+describe("dragging an exit on the chart", () => {
+  it("turns a pointer height back into the price the line was drawn at", async () => {
+    const { priceAt, lineY } = await import("../public/ticket.js");
+    // the chart maps price p to y = h - (p - bottom) / (top - bottom) * h
+    const scale = { top: 120, bottom: 80, h: 380 };
+    for (const p of [80, 91.25, 100, 119.99]) expect(priceAt(lineY(p, scale), scale), String(p)).toBeCloseTo(p, 9);
+    // a CSS pixel on a scaled canvas: 900 wide drawn at 450 shows each pixel twice
+    expect(priceAt(190, scale)).toBeCloseTo(100, 9);
+  });
+
+  it("reads a price as a distance from the current price, on the exit's own side", async () => {
+    const { dragDistance } = await import("../public/ticket.js");
+    // a long at 100: the stop loss is below the price, the take profit above
+    expect(dragDistance("sl", 1, 100, 95)).toBeCloseTo(5, 9);
+    expect(dragDistance("tp", 1, 100, 110)).toBeCloseTo(10, 9);
+    // a short at 100: the other way round
+    expect(dragDistance("sl", -1, 100, 105)).toBeCloseTo(5, 9);
+    expect(dragDistance("tp", -1, 100, 90)).toBeCloseTo(10, 9);
+  });
+
+  it("holds the distance to 1%..50%, and never lets a line cross to the wrong side", async () => {
+    const { dragDistance } = await import("../public/ticket.js");
+    // dragged onto or past the price: the nearest allowed, 1%
+    expect(dragDistance("sl", 1, 100, 100)).toBe(1);
+    expect(dragDistance("sl", 1, 100, 120)).toBe(1);
+    expect(dragDistance("tp", 1, 100, 80)).toBe(1);
+    expect(dragDistance("sl", -1, 100, 90)).toBe(1);
+    // dragged too far: the farthest allowed, 50%
+    expect(dragDistance("sl", 1, 100, 10)).toBe(50);
+    expect(dragDistance("tp", 1, 100, 300)).toBe(50);
+  });
+});

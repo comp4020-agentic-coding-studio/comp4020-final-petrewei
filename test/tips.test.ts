@@ -110,3 +110,17 @@ it("never abbreviates stop loss or take profit in any language", () => {
     for (const [k, v] of Object.entries(T[lang].refusals)) expect(v, `${lang} refusal ${k}`).not.toMatch(abbrev);
   }
 });
+
+// ADR 0035: a position's exits are dragged on the chart, not set from
+// cells on the position, and English names them in capitals.
+it("has no stop or take cell on the position, and no editor dialog", () => {
+  const html = readFileSync("public/index.html", "utf8");
+  expect(html).not.toMatch(/id="(stop|take|exit-box|exit-form)"|exit-btn/);
+});
+it("writes Stop Loss and Take Profit in capitals wherever English reads them", () => {
+  const src = readFileSync("public/i18n.js", "utf8");
+  const en = src.slice(src.indexOf("\n  en: {"), src.indexOf("\n  ja: {"));
+  expect(en).not.toMatch(/\b[Ss]top loss|\b[Tt]ake profit/);
+  expect(en).toContain("Stop Loss");
+  expect(en).toContain("Take Profit");
+});

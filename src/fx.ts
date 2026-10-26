@@ -123,8 +123,8 @@ export class Desk {
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
-    if (with_.sl != null && !inRange(with_.sl)) return "A stop must be between 1% and 50% away.";
-    if (with_.tp != null && !inRange(with_.tp)) return "A take profit must be between 1% and 50% away.";
+    if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be between 1% and 50% away.";
+    if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be between 1% and 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
     const margin = Math.floor(this.free(who) * stake);
     if (margin <= 0) return "No free margin left.";
@@ -149,7 +149,7 @@ export class Desk {
   // A stop `pct` percent from the current price on the losing side, or no
   // stop with null: what a player asks for, set from the desk's own price.
   stopAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A stop must be between 1% and 50% away.";
+    if (pct !== null && !inRange(pct)) return "A Stop Loss must be between 1% and 50% away.";
     const pos = this.account(who).pos;
     return this.stop(who, pos && pct !== null ? this.price * (1 - (pos.side * pct) / 100) : null);
   }
@@ -159,8 +159,8 @@ export class Desk {
   stop(who: string, at: number | null): string | null {
     const pos = this.account(who).pos;
     if (!pos) return "Open a position first.";
-    if (at !== null && pos.side === 1 && at >= this.price) return "A long's stop must be below the price.";
-    if (at !== null && pos.side === -1 && at <= this.price) return "A short's stop must be above the price.";
+    if (at !== null && pos.side === 1 && at >= this.price) return "A long's Stop Loss must be below the price.";
+    if (at !== null && pos.side === -1 && at <= this.price) return "A short's Stop Loss must be above the price.";
     pos.stop = at;
     return null;
   }
@@ -168,7 +168,7 @@ export class Desk {
   // A take profit `pct` percent from the price on the winning side, or none
   // with null (ADR 0032).
   takeAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A take profit must be between 1% and 50% away.";
+    if (pct !== null && !inRange(pct)) return "A Take Profit must be between 1% and 50% away.";
     const pos = this.account(who).pos;
     return this.take(who, pos && pct !== null ? this.price * (1 + (pos.side * pct) / 100) : null);
   }
@@ -178,8 +178,8 @@ export class Desk {
   take(who: string, at: number | null): string | null {
     const pos = this.account(who).pos;
     if (!pos) return "Open a position first.";
-    if (at !== null && pos.side === 1 && at <= this.price) return "A long's take profit must be above the price.";
-    if (at !== null && pos.side === -1 && at >= this.price) return "A short's take profit must be below the price.";
+    if (at !== null && pos.side === 1 && at <= this.price) return "A long's Take Profit must be above the price.";
+    if (at !== null && pos.side === -1 && at >= this.price) return "A short's Take Profit must be below the price.";
     pos.take = at;
     return null;
   }

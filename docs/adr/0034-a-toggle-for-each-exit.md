@@ -1,6 +1,6 @@
 # ADR 0034: A Toggle for Each Exit
 
-Status: accepted, 26 October 2026. Replaces the ticket control of [ADR 0033](0033-one-track-for-both-exits.md); the 1% to 50% range, the full names and Australia's cap of that ADR stand.
+Status: accepted, 26 October 2026; the position's editor replaced by [ADR 0035](0035-drag-exits-on-the-chart.md). Replaces the ticket control of [ADR 0033](0033-one-track-for-both-exits.md); the 1% to 50% range, the full names and Australia's cap of that ADR stand.
 
 ## 1 Context
 

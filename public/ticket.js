@@ -75,3 +75,16 @@ export function fillSpan(kind, value, min, max) {
   const at = (value - min) / (max - min);
   return kind === "sl" ? { from: at, to: 1 } : { from: 0, to: at };
 }
+
+// Dragging a stop loss or take profit on the chart (ADR 0035). The chart
+// draws price p at y = h - (p - bottom) / (top - bottom) * h; these turn a
+// height back into a price, and a price into the distance the desk is asked
+// for: from the current price, on the exit's own side, held to 1%..50%.
+export const lineY = (price, { top, bottom, h }) => h - ((price - bottom) / (top - bottom)) * h;
+export const priceAt = (y, { top, bottom, h }) => bottom + ((h - y) / h) * (top - bottom);
+export function dragDistance(kind, side, price, at) {
+  // on the winning side for a take profit, the losing side for a stop loss
+  const way = kind === "tp" ? side : -side;
+  const raw = (way * (at - price) * 100) / price;
+  return Math.min(DISTANCES.at(-1), Math.max(DISTANCES[0], raw));
+}

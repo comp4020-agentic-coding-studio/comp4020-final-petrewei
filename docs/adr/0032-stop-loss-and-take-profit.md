@@ -1,6 +1,6 @@
 # ADR 0032: Stop Loss and Take Profit
 
-Status: accepted, 26 October 2026; its ticket changed by [ADR 0033](0033-one-track-for-both-exits.md). Extends the broker's orders in `src/fx.ts`, set out in [ADR 0009](0009-a-parody-fx-trading-floor.md).
+Status: accepted, 26 October 2026; its ticket changed by [ADR 0033](0033-one-track-for-both-exits.md), its position cells by [ADR 0035](0035-drag-exits-on-the-chart.md). Extends the broker's orders in `src/fx.ts`, set out in [ADR 0009](0009-a-parody-fx-trading-floor.md).
 
 ## 1 Context
 
