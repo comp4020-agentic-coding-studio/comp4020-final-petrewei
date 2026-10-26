@@ -74,6 +74,20 @@
         <span class="pair" id="pair">—</span>
         <strong class="price" id="price">—</strong>
         <span id="change"></span>
+        <!-- A round's controls, between the price and the clock (ADRs 0022,
+             0024, 0039): pause, leave it yourself, and, for whoever pressed
+             Start, end it for everyone. Icons, each named by its tip. -->
+        <div class="round-ctl" id="round-ctl">
+          <button id="pause" class="ctl" type="button" data-tip="pause" data-t-aria="pause" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+          </button>
+          <button id="leave" class="ctl" type="button" data-tip="leave" data-t-aria="leave" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="finish" class="ctl danger" type="button" data-tip="finish" data-t-aria="finish" hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+          </button>
+        </div>
         <span class="mode" id="mode"></span>
         <span class="clock" id="clock"></span>
       </div>
@@ -100,14 +114,17 @@
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
-          <button id="start" class="start" data-t="start" data-tip="start">Start round</button>
-          <!-- Ironman: nobody may pause this round (ADR 0024). -->
-          <button id="ironman" class="ironman" type="button" role="switch" aria-checked="false" data-tip="ironman">
-            <span class="track" aria-hidden="true"><span class="knob"></span></span>
-            <span class="fist" id="ironman-fist" aria-hidden="true"></span>
-            <span data-t="ironman">Ironman</span>
-          </button>
+          <div class="lobby-go">
+            <button id="start" class="start" data-t="start" data-tip="start">Start round</button>
+            <!-- Ironman: nobody may pause this round (ADR 0024). -->
+            <button id="ironman" class="ironman" type="button" role="switch" aria-checked="false" data-tip="ironman">
+              <span class="track" aria-hidden="true"><span class="knob"></span></span>
+              <span class="fist" id="ironman-fist" aria-hidden="true"></span>
+              <span data-t="ironman">Ironman</span>
+            </button>
+          </div>
           <button id="cancel" class="ghost" type="button" data-t="cancelStart" data-tip="cancelStart" hidden>Cancel</button>
+          <p class="lobby-note" data-t="lobbyNote">Play money only. Real FX trading can lose everything.</p>
         </div>
       </div>
     </section>
@@ -147,12 +164,12 @@
       </div>
     </section>
 
-    <section class="panel feed" aria-label="Feed">
+    <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
       <ul id="feed"></ul>
     </section>
 
-    <section class="panel fame" aria-label="Hall of fame">
+    <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
       <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-tip="thAvg">Avg/round</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
     </section>
@@ -170,7 +187,9 @@
         <button id="dismiss" class="ghost" type="button" data-t="dismiss" data-tip="dismiss">Close</button>
       </div>
     </section>
-    <section class="panel ticket" aria-label="Order ticket">
+    <section class="panel ticket" data-fold="ticket" aria-label="Order ticket">
+      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order ticket</span></h2>
+      <div class="ticket-body">
       <div class="quotes">
         <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
         <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
@@ -232,14 +251,10 @@
         <input id="guess-year" type="number" inputmode="numeric" min="1999" step="1" data-tip="guessYear">
         <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
       </form>
-      <button id="pause" class="ghost pause" type="button" data-t="pause" data-tip="pause" hidden>Pause</button>
-      <div class="round-ctl" id="round-ctl" hidden>
-        <button id="leave" class="ghost" type="button" data-t="leave" data-tip="leave">Leave round</button>
-        <button id="finish" class="ghost danger" type="button" data-t="finish" data-tip="finish" hidden>End round for all</button>
-      </div>
       <p id="error" class="error" role="status"></p>
+      </div>
     </section>
-    <section class="panel room" aria-label="Traders in this room">
+    <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
     </section>

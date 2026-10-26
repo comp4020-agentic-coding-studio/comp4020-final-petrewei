@@ -153,3 +153,40 @@ it("shows a tip in the top layer, over any dialog", () => {
   expect(src).toMatch(/popover\s*=\s*"manual"/);
   expect(src).toMatch(/showPopover/);
 });
+
+// ADR 0039: a round's controls sit in the quote line between the price and
+// the clock, Ironman to the right of Start, the ticket has a header, panels
+// with a heading fold, the language is a globe alone, and the footer spans
+// the page.
+it("puts pause, leave and end in the quote line, between the price and the clock", () => {
+  const quote = page.querySelector(".quote")!;
+  const order = [...quote.children].map((e) => e.id || e.className);
+  expect(order.indexOf("round-ctl")).toBeGreaterThan(order.indexOf("price"));
+  expect(order.indexOf("round-ctl")).toBeLessThan(order.indexOf("clock"));
+  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "leave", "finish"]);
+  expect(page.querySelectorAll("#pause, #leave, #finish")).toHaveLength(3);
+  expect(page.querySelector(".ticket #pause, .ticket #leave, .ticket #finish")).toBeNull();
+});
+it("puts Ironman to the right of Start, and only one line of text and a note in the lobby", () => {
+  const go = page.querySelector(".lobby-go")!;
+  expect([...go.children].map((e) => e.id)).toEqual(["start", "ironman"]);
+  const lobby = page.querySelector("#lobby")!;
+  expect(lobby.querySelectorAll("p")).toHaveLength(3);
+  expect(lobby.querySelector(".lobby-note")).not.toBeNull();
+});
+it("gives the ticket a heading, and lets headed panels fold", () => {
+  expect(page.querySelector(".ticket > h2")?.textContent).toMatch(/\S/);
+  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["fame", "feed", "room", "ticket"]);
+  for (const p of page.querySelectorAll(".panel[data-fold]")) expect(p.querySelector(":scope > h2"), (p as HTMLElement).dataset.fold).not.toBeNull();
+});
+it("shows the language as a globe alone, and lets the footer take the page's width", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  expect(css).toMatch(/\.lang select \{[^}]*opacity: 0/);
+  expect(css.match(/\nfooter \{([^}]*)\}/)?.[1]).not.toMatch(/max-width/);
+});
+it("translates the lobby's line, note and the ticket's title in every language, each text on one line", () => {
+  for (const lang of LANGS) {
+    for (const k of ["lobbyReplayText", "lobbyScenarioText", "lobbyNote", "ticketTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).toBeTruthy();
+    for (const k of ["lobbyReplayText", "lobbyScenarioText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
+  }
+});

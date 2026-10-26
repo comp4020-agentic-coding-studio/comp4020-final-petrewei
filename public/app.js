@@ -171,6 +171,35 @@ $("close").onclick = () => act("close");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
+// A panel with a heading folds to it: click or press Enter on the heading.
+// The folded panels are remembered in this browser (ADR 0039).
+const folded = (() => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem("folded") ?? "[]"));
+  } catch {
+    return new Set();
+  }
+})();
+for (const panel of document.querySelectorAll(".panel[data-fold]")) {
+  const head = panel.querySelector(":scope > h2");
+  const fold = (on) => {
+    panel.classList.toggle("folded", on);
+    head.setAttribute("aria-expanded", String(!on));
+    on ? folded.add(panel.dataset.fold) : folded.delete(panel.dataset.fold);
+    try {
+      localStorage.setItem("folded", JSON.stringify([...folded]));
+    } catch {
+      // a private window: the fold lasts this visit
+    }
+  };
+  head.setAttribute("role", "button");
+  head.tabIndex = 0;
+  head.setAttribute("aria-expanded", "true");
+  panel.classList.toggle("folded", folded.has(panel.dataset.fold));
+  head.setAttribute("aria-expanded", String(!folded.has(panel.dataset.fold)));
+  head.onclick = () => fold(!panel.classList.contains("folded"));
+  head.onkeydown = (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), head.click());
+}
 // Name that year: one private guess, which may be changed until the bell.
 $("guess-year").max = String(new Date().getFullYear());
 $("guess").onsubmit = (e) => {
@@ -856,11 +885,12 @@ function render(s) {
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
   // Leave is for anyone still in a running round; End is the starter's.
   const running = !tutorial && (s.phase === "trade" || s.phase === "countdown");
-  $("round-ctl").hidden = !running || s.you.left;
-  $("finish").hidden = !(s.phase === "trade" && s.rules);
+  $("leave").hidden = !running || s.you.left;
+  $("finish").hidden = s.you.left || !(s.phase === "trade" && s.rules);
   // Pause: anyone may, in a trading round that isn't ironman; a pause veils
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
+  $("round-ctl").hidden = ["pause", "leave", "finish"].every((id) => $(id).hidden);
   // Name that year opens halfway through a replay; your guess is shown
   // back to you, and to nobody else, until the bell.
   const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2 && !s.you.left;

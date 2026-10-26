@@ -1,6 +1,6 @@
 # ADR 0024: Pause, Ironman, and a Trader's Ticket
 
-Status: accepted, 22 October 2026; Japan's 25× rung dropped by [ADR 0033](0033-one-track-for-both-exits.md). Adds to a round's controls in [ADR 0022](0022-a-rounds-controls.md); changes the leverage menu behind [ADR 0009](0009-a-parody-fx-trading-floor.md) and the wording of [ADR 0015](0015-three-languages-and-the-comics-characters.md).
+Status: accepted, 22 October 2026; its controls moved by [ADR 0039](0039-a-tidier-page.md); Japan's 25× rung dropped by [ADR 0033](0033-one-track-for-both-exits.md). Adds to a round's controls in [ADR 0022](0022-a-rounds-controls.md); changes the leverage menu behind [ADR 0009](0009-a-parody-fx-trading-floor.md) and the wording of [ADR 0015](0015-three-languages-and-the-comics-characters.md).
 
 ## 1 Context
 
