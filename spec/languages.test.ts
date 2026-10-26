@@ -21,7 +21,7 @@ it("serves the market in each language at its own address", async () => {
 });
 
 it("titles each language's page with its logo and subtitle", async () => {
-  for (const [path, title] of [["/", "Losscut! Kurumi's FX Fantasy"], ["/ja/", "ロスカット！ くるみのFXファンタジー"], ["/zh/", "强制平仓！久留美的FX白日梦"]]) {
+  for (const [path, title] of [["/", "Losscut! Kurumi's FX Fantasy"], ["/ja/", "ロスカット！ くるみちゃんの FXファンタジー"], ["/zh/", "强制平仓！久留美的FX白日梦"]]) {
     const { doc } = await get(path);
     expect(doc!.title, path).toBe(title);
   }
@@ -95,7 +95,7 @@ it("wraps prose by phrase, and names the game in full on the About page", async 
   expect(cjk).toMatch(/word-break: auto-phrase/);
   expect(cjk).toMatch(/line-break: strict/);
   expect(rule("footer, body.readme p, .lobby p")).toMatch(/text-wrap: pretty/);
-  for (const [path, title] of [["/about", "Losscut! Kurumi's FX Fantasy"], ["/ja/about", "ロスカット！ くるみのFXファンタジー"], ["/zh/about", "强制平仓！久留美的FX白日梦"]]) {
+  for (const [path, title] of [["/about", "Losscut! Kurumi's FX Fantasy"], ["/ja/about", "ロスカット！ くるみちゃんの FXファンタジー"], ["/zh/about", "强制平仓！久留美的FX白日梦"]]) {
     const { doc } = await get(path);
     expect(doc!.querySelector("h1")?.textContent, path).toContain(title);
   }

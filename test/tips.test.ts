@@ -191,14 +191,21 @@ it("translates the lobby's line, note and the ticket's title in every language, 
   }
 });
 
-// ADR 0040: on a narrow screen the subtitle goes and who you are shares the
-// first row with the logo and the tools, rather than falling to a row of its
-// own.
-it("keeps who you are on the first header row on a narrow screen, with the subtitle hidden", () => {
+// ADR 0040, 0041: on a narrow screen who you are shares the first row with
+// the logo and the tools, and the subtitle stays, small and broken onto two
+// lines under the logo, rather than costing the name its room.
+it("keeps who you are on the first header row on a narrow screen, under a stacked subtitle", () => {
   const css = readFileSync("public/app.css", "utf8");
   const narrow = css.slice(css.indexOf("@media (max-width: 900px)"), css.indexOf("@media (max-width: 560px)"));
-  expect(narrow).toMatch(/\.sub \{ display: none; \}/);
+  expect(narrow).not.toMatch(/\.sub \{ display: none; \}/);
+  expect(narrow).toMatch(/\.brand \{ flex-direction: column;/);
+  expect(narrow).toMatch(/\.sub \{[^}]*max-width: 4\.6rem/);
   expect(narrow).toMatch(/\.whoami \{ grid-column: 2; grid-row: 1;/);
   expect(narrow).toMatch(/\.tools \{ grid-column: 3; grid-row: 1; \}/);
   expect(narrow).not.toMatch(/\.whoami \{[^}]*grid-row: 3/);
+});
+it("breaks the Japanese subtitle after くるみちゃんの, and names Kurumi with ちゃん there", () => {
+  expect(T.ja.ui.sub).toBe("くるみちゃんの FXファンタジー");
+  expect(T.en.ui.sub).toBe("Kurumi's FX Fantasy");
+  for (const lang of LANGS) expect(T[lang].ui.sub, lang).toMatch(/\S\s\S|白日梦/);
 });

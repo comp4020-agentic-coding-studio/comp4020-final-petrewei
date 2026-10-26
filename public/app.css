@@ -647,9 +647,16 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
      fixed row at the bottom. */
   .lesson-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .lesson { height: 360px; }
-  /* The logo alone (the subtitle is in the page title) leaves the first
-     row room for who you are, between it and the tools (ADR 0040). */
-  .sub { display: none; }
+  /* The subtitle goes under the logo, small, so the first row has room for
+     who you are, between the brand and the tools (ADR 0040, 0041). */
+  .brand { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.05; }
+  /* The subtitle wraps at its space, "Kurumi's / FX Fantasy", to be no wider
+     than the logo above it; a Japanese or Chinese one wraps where it can. */
+  .sub { font-size: 0.66rem; line-height: 1.1; white-space: normal; max-width: 4.6rem; overflow: visible; }
+  /* Chinese is short enough for one line under its logo. Japanese breaks
+     at its phrase, くるみの / FXファンタジー, never inside ファンタジー. */
+  :root:lang(zh-CN) .sub { max-width: none; white-space: nowrap; }
+  :root:lang(ja) .sub { max-width: 5.6rem; word-break: keep-all; }
   .top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; }
   .brand { grid-column: 1; grid-row: 1; }
   .whoami { grid-column: 2; grid-row: 1; justify-self: end; }
@@ -668,10 +675,11 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .lesson { height: 472px; }
   /* The empty-position line wraps in a box sized for two lines. */
   #pos-empty td { height: 3.6rem; vertical-align: top; }
-  /* The brand is the logo alone, small enough that ロスカット！ fits
-     its slot; the subtitle is in the page title. */
-  .sub { display: none; }
-  .top .logo { font-size: 0.95rem; }
+  /* The logo stays a good size over its small subtitle. */
+  .top .logo { font-size: 1.25rem; }
+  /* ロスカット！ and 强制平仓！ are wider than Losscut! at one size. */
+  :root:lang(ja) .top .logo { font-size: 0.95rem; }
+  :root:lang(zh-CN) .top .logo { font-size: 1.05rem; }
   /* Four tools beside the logo: a little tighter, so ロスカット！ still
      clears them at 360px. */
   .tools .icon, .lang { width: 30px; height: 30px; }

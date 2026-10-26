@@ -430,7 +430,7 @@ export const T = {
       lobbyNote: "遊びのお金だけで遊べます。本物のFXは、元手をすべて失うこともあります。",
       logo: "ロスカット！",
       titleJoin: " ",
-      sub: "くるみのFXファンタジー",
+      sub: "くるみちゃんの FXファンタジー",
       replay: "リプレイ",
       scenario: "シナリオ",
       tutorial: "チュートリアル",

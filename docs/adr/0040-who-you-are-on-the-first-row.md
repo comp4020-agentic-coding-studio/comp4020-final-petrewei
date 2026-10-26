@@ -1,6 +1,6 @@
 # ADR 0040: Who You Are on the First Row
 
-Status: accepted, 27 October 2026. Refines the header of [ADR 0039](0039-a-tidier-page.md).
+Status: accepted, 27 October 2026; its hidden subtitle replaced by [ADR 0041](0041-a-stacked-subtitle.md). Refines the header of [ADR 0039](0039-a-tidier-page.md).
 
 ## 1 Context
 
