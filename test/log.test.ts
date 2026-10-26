@@ -149,14 +149,15 @@ it("gives a career to traders, not watchers", async () => {
 it("keeps the house traders out of the hall of fame", async () => {
   const dir = mkdtempSync(join(tmpdir(), "losscut-"));
   writeFileSync(join(dir, "career.json"), JSON.stringify({
-    "bot:kurumi": { name: "Fukuga Kurumi", rounds: 9, profit: 9e9, wins: 9, busts: 0, best: 9e9 },
-    "0123456789abcdef": { name: "Dojima Hikari", rounds: 1, profit: 5, wins: 0, busts: 0, best: 5 },
+    "bot:kurumi": { name: "Kurumi", rounds: 9, profit: 9e9, wins: 9, busts: 0, best: 9e9 },
+    "0123456789abcdef": { name: "Hikari", rounds: 1, profit: 5, wins: 0, busts: 0, best: 5 },
   }));
+  writeFileSync(join(dir, "hall-given-names"), "1");
   s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
   const { visitor, act, open, state } = app();
-  const bots = ["Fukuga Kurumi", "Kogane Mochiko", "Takane Yasuko", "Yamashi Mebuki", "Sakata Inago", "Zenba Nana", "Tsukimori Kizuna"];
+  const bots = ["Kurumi", "Mochiko", "Yasuko", "Mebuki", "Inago", "Nana", "Kizuna"];
   const names = async () => (await state()).career.map((c) => c.name);
-  expect(await names()).toEqual(["Dojima Hikari"]);
+  expect(await names()).toEqual(["Hikari"]);
   const a = await visitor();
   await open(30);
   await act(a, { kind: "buy", leverage: 5 });
@@ -209,7 +210,7 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
   await act(a, { kind: "sell", leverage: 7 });
   await new Promise((r) => setTimeout(r, 200));
   const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
-  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name="[A-Z][a-z]+ [A-Z][a-z]+" mode=replay .*side=buy leverage=5/);
+  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=replay .*side=buy leverage=5/);
   const id = opened!.slice(1, 7);
   expect(s.out).toContainEqual(expect.stringMatching(new RegExp(`^\\[${id}\\] POST /api/act 200 \\d+ms who=[0-9a-f]{6}$`)));
   expect(s.out).toContainEqual(expect.stringMatching(/^\[[0-9a-f]{6}\] refused .*why="No such leverage\."/));
@@ -271,6 +272,7 @@ it("scores the bell, and ranks the hall by average score over enough rounds", as
     "aaaaaaaaaaaaaaaa": { name: "Old Hand", rounds: 4, profit: 200_000, wins: 1, busts: 0, best: 90_000 },
     "bbbbbbbbbbbbbbbb": { name: "One Hit", rounds: 1, profit: 900_000, wins: 1, busts: 0, best: 900_000 },
   }));
+  writeFileSync(join(dir, "hall-given-names"), "1");
   s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
   const { visitor, act, open, state } = app();
   type Row = { name: string; ranked: boolean; average: number; points: number };
@@ -288,4 +290,19 @@ it("scores the bell, and ranks the hall by average score over enough rounds", as
   for (const r of ranking) expect(r.score).toEqual(expect.any(Number));
   // ranked by score, best first
   for (let i = 1; i < ranking.length; i++) expect(ranking[i - 1].score).toBeGreaterThanOrEqual(ranking[i].score);
+}, 20_000);
+
+// ADR 0038: names became given names alone, and the hall began again once.
+// A hall saved before that is emptied when the server first starts, a
+// marker beside it says so, and one saved after is kept.
+it("empties an older hall once, then keeps the new one", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "losscut-"));
+  writeFileSync(join(dir, "career.json"), JSON.stringify({ "0123456789abcdef": { name: "Dojima Hikari", rounds: 4, profit: 5, wins: 1, busts: 0, best: 5 } }));
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
+  expect((await app().state()).career).toEqual([]);
+  s.proc.kill("SIGKILL");
+  await new Promise((r) => s.proc.once("exit", r));
+  writeFileSync(join(dir, "career.json"), JSON.stringify({ "0123456789abcdef": { name: "Hikari", rounds: 4, profit: 5, wins: 1, busts: 0, best: 5 } }));
+  await s.restart();
+  expect((await app().state()).career.map((c) => c.name)).toEqual(["Hikari"]);
 }, 20_000);

@@ -7,7 +7,7 @@ import { baseUrl, live, page, state, type Trader, visitor } from "./helpers.ts";
 // take a house trader's name or someone else's, or slip HTML into a room.
 const post = (cookie: string, body: unknown): Promise<Response> =>
   fetch(new URL("/api/name", baseUrl), { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) });
-type Draw = { name: string; draw: [number, number] };
+type Draw = { name: string; draw: number };
 const draw = async (cookie: string): Promise<Draw> => (await (await fetch(new URL("/api/name", baseUrl), { headers: { cookie } })).json()) as Draw;
 const suggest = async (cookie: string): Promise<string> => (await draw(cookie)).name;
 
@@ -28,7 +28,7 @@ it("suggests a drawn name nobody holds, without changing anything", async () => 
   const before = (await state(me)).you.name;
   const names = new Set<string>();
   for (let i = 0; i < 8; i++) names.add(await suggest(me));
-  for (const n of names) expect(n).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+  for (const n of names) expect(n).toMatch(/^[A-Z][a-z]+$/);
   expect(names.size).toBeGreaterThan(1);
   expect((await state(me)).you.name).toBe(before);
 });
@@ -75,8 +75,8 @@ it("sends a drawn name with its draw, so each page can write it in its language"
   expect(drawn("en", d)).toBe(name);
   // a person who never chose has a drawn name too
   const s = await state(me);
-  expect(s.you.draw).toEqual([expect.any(Number), expect.any(Number)]);
-  expect(drawn("en", s.you.draw!)).toBe(s.you.name);
+  expect(s.you.draw).toEqual(expect.any(Number));
+  expect(drawn("en", s.you.draw as number)).toBe(s.you.name);
 });
 
 it.skipIf(live)("takes a drawn name in any language as the draw, and holds all its forms", async () => {
@@ -91,4 +91,21 @@ it.skipIf(live)("takes a drawn name in any language as the draw, and holds all i
   // a typed name has no draw: it is the same in every language
   expect((await post(me, { name: `Typed ${Math.random().toString(36).slice(2, 7)}` })).status).toBe(200);
   expect((await state(me)).you.draw).toBeNull();
+});
+
+// ADR 0038: a visitor with no record has not chosen a name or a face, so
+// their page opens the name box; once they save a name they are named.
+it.skipIf(live)("says a newcomer is not yet named, until they choose a name", async () => {
+  const me = await visitor();
+  expect((await state(me)).you.named).toBe(false);
+  expect((await post(me, { name: `Newbie ${Math.random().toString(36).slice(2, 7)}` })).status).toBe(200);
+  expect((await state(me)).you.named).toBe(true);
+});
+it("saves the name a newcomer keeps from the box, even their dealt one", async () => {
+  const me = await visitor();
+  const dealt = (await state(me)).you.name;
+  if (live) return;
+  expect((await post(me, { name: dealt })).status).toBe(200);
+  expect((await state(me)).you.named).toBe(true);
+  expect((await state(me)).you.name).toBe(dealt);
 });

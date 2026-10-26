@@ -4,7 +4,9 @@
 // in the page's language) or carries its text (data-tip-text, for tips
 // that change, such as your code). A screen reader hears it too.
 let words = () => "";
+// A popover, so it sits in the top layer: over a dialog, not under it.
 const tip = Object.assign(document.createElement("div"), { id: "tip", className: "tip", role: "tooltip", hidden: true });
+tip.popover = "manual";
 document.body.append(tip);
 let over = null;
 let timer = 0;
@@ -18,6 +20,7 @@ function show(el) {
   over = el;
   tip.textContent = text;
   tip.hidden = false;
+  if (!tip.matches(":popover-open")) tip.showPopover?.();
   el.setAttribute("aria-describedby", "tip");
   // Above the element if it fits, else below; never off either side.
   const r = el.getBoundingClientRect();
@@ -26,14 +29,15 @@ function show(el) {
   const above = r.top - t.height - gap;
   const top = above >= 4 ? above : r.bottom + gap;
   const left = Math.min(innerWidth - t.width - 4, Math.max(4, r.left + r.width / 2 - t.width / 2));
-  tip.style.top = `${top + scrollY}px`;
-  tip.style.left = `${left + scrollX}px`;
+  tip.style.top = `${top}px`;
+  tip.style.left = `${left}px`;
   tip.classList.toggle("below", above < 4);
 }
 function hide() {
   clearTimeout(timer);
   if (over) over.removeAttribute("aria-describedby");
   over = null;
+  if (tip.matches(":popover-open")) tip.hidePopover?.();
   tip.hidden = true;
 }
 

@@ -17,7 +17,7 @@ import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T } from "../public/i18n.js";
-import { drawn, FAMILY, GIVEN } from "../public/names.js";
+import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, random, replay, scenario, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
@@ -55,10 +55,10 @@ const history = new History(read("data/ecb.csv"));
 
 // A visitor is their cookie; others see them by a trader name drawn from
 // it, or one they chose (ADR 0017), and the log by a short hash, so no
-// page or log line carries a cookie (ADR 0010). A drawn name is a family
-// and a given name from public/names.js (ADR 0018), sent as its draw so
-// each page writes it in its own language; the server speaks English.
-type Draw = [number, number];
+// page or log line carries a cookie (ADR 0010). A drawn name is a given
+// name from public/names.js (ADR 0038), sent as its index so each page
+// writes it in its own language; the server speaks English.
+type Draw = number;
 const bot = (who: string) => BOTS.find((b) => b.id === who);
 // Hashed on demand: caching would keep an entry for every cookie ever
 // seen, and a client without cookies gets a new one each request.
@@ -70,13 +70,13 @@ function drawOf(who: string): Draw | null {
   const h = hash(who);
   const c = chosen[h.toString("hex").slice(0, 16)];
   if (typeof c === "string") return null;
-  return c ?? [h[0] % FAMILY.length, h[1] % GIVEN.length];
+  return c ?? h[1] % GIVEN.length;
 }
 function nameOf(who: string): string {
   const b = bot(who);
   if (b) return b.name;
   const d = drawOf(who);
-  return d ? drawn("en", d) : (chosen[key(who)] as string);
+  return d !== null ? drawn("en", d) : (chosen[key(who)] as string);
 }
 // A pixel face (ADR 0021): a house trader's own, or a plain one a person
 // is dealt from their cookie, as their drawn name is.
@@ -98,19 +98,24 @@ const key = (who: string): string => (bot(who) ? who : hash(who).toString("hex")
 // and never one someone else holds, whatever its case or spacing.
 // A typed name is kept as text, a drawn one as its draw.
 const chosen: Record<string, string | Draw> = existsSync(NAMES_FILE) ? JSON.parse(readFileSync(NAMES_FILE, "utf8")) : {};
+// A name drawn before ADR 0038 was a family and a given name; it keeps the given.
+for (const [k, c] of Object.entries(chosen)) if (Array.isArray(c)) chosen[k] = c[1];
 const NAME_WIDTH = 20;
 const NAMES_MAX = 10_000;
 const same = (name: string): string => name.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
 const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿가-힯]/.test(ch) ? 2 : 1), 0);
 // The house traders in every language, their given names alone, and
 // fan nicknames: 韭留美 for Kurumi, ばなな for Nana (ADRs 0015, 0018).
-const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).flatMap((b) => [b.name, ...b.name.split(" ").slice(1)])), "くるみ", "久留美", "韭留美", "萌智子", "芽吹", "やす子", "安子", "いなご", "稻子", "なな", "奈奈", "ばなな", "きずな", "绊"].map(same));
+const RESERVED = new Set([...Object.values(T).flatMap((l) => Object.values(l.bots).flatMap((b) => [b.name, ...b.name.split(" ").slice(1)])), "Fukuga Kurumi", "Kogane Mochiko", "Takane Yasuko", "Yamashi Mebuki", "Sakata Inago", "Zenba Nana", "Tsukimori Kizuna", "福賀くるみ", "福贺久留美", "小金萌智子", "高根やす子", "高根安子", "山師芽吹", "山师芽吹", "酒田いなご", "酒田稻子", "善波なな", "善波奈奈", "月森きずな", "月森绊", "くるみ", "久留美", "韭留美", "萌智子", "芽吹", "やす子", "安子", "いなご", "稻子", "なな", "奈奈", "ばなな", "きずな", "绊"].map(same));
 // Every language's form of every drawn name, back to its draw.
-const DRAWS = new Map<string, Draw>(FAMILY.flatMap((_, f) => GIVEN.flatMap((_, g) => LANG_LIST.map((l) => [same(drawn(l, [f, g])), [f, g] as Draw]))));
+const DRAWS = new Map<string, Draw>(GIVEN.flatMap((_, g) => LANG_LIST.map((l) => [same(drawn(l, g)), g] as [string, Draw])));
 // What makes two names the same: a drawn name's draw, whatever language
 // it is written in, or a typed name ignoring case and spacing.
-const identity = (name: string, draw: Draw | null = DRAWS.get(same(name)) ?? null): string => (draw ? `d${draw}` : `t${same(name)}`);
+const identity = (name: string, draw: Draw | null = DRAWS.get(same(name)) ?? null): string => (draw !== null ? `d${draw}` : `t${same(name)}`);
 const identityOf = (who: string): string => identity(nameOf(who), drawOf(who));
+// A visitor with no record has not yet chosen a name or a face, nor played;
+// their page opens the name box for them (ADR 0038).
+const named = (who: string): boolean => bot(who) !== undefined || [chosen, faces, career].some((r) => key(who) in r);
 // Anyone else's name: chosen, in the hall of fame, or on a page now.
 function taken(id: string, who: string): boolean {
   const mine = key(who);
@@ -130,7 +135,7 @@ function rename(who: string, input: unknown): { name: string; draw: Draw | null 
   const k = key(who);
   if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
   const before = nameOf(who);
-  if (id === identityOf(who) && (draw || name === before)) return { name: before, draw };
+  if (k in chosen && id === identityOf(who) && (draw !== null || name === before)) return { name: before, draw };
   chosen[k] = draw ?? name;
   try {
     writeFileSync(`${NAMES_FILE}.tmp`, JSON.stringify(chosen));
@@ -169,8 +174,8 @@ function reface(who: string, input: unknown): { face: string } | { error: string
 // A drawn name nobody else holds, to try on; nothing changes until it is chosen.
 function suggestion(who: string): { name: string; draw: Draw } {
   const now = identityOf(who);
-  let draw: Draw = [randomInt(FAMILY.length), randomInt(GIVEN.length)];
-  for (let i = 0; i < 50 && (identity("", draw) === now || taken(identity("", draw), who)); i++) draw = [randomInt(FAMILY.length), randomInt(GIVEN.length)];
+  let draw: Draw = randomInt(GIVEN.length);
+  for (let i = 0; i < 50 && (identity("", draw) === now || taken(identity("", draw), who)); i++) draw = randomInt(GIVEN.length);
   return { name: drawn("en", draw), draw };
 }
 
@@ -241,6 +246,14 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number };
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
 for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
+// ADR 0038: names became given names alone, and the hall began again, once:
+// a marker beside it says it has. Careers saved after that are kept.
+const HALL_MARK = join(DATA_DIR, "hall-given-names");
+if (!existsSync(HALL_MARK)) {
+  for (const k of Object.keys(career)) delete career[k];
+  writeFileSync(CAREER_FILE, "{}");
+  writeFileSync(HALL_MARK, "1");
+}
 // Changes are saved once, just after the code that made them, however
 // many careers changed; a failed write is reported and the game goes on.
 let saving = false;
@@ -741,6 +754,7 @@ class Market {
       you: {
         name: nameOf(who),
         draw: drawOf(who),
+        named: named(who),
         face: faceOf(who),
         code: short(who),
         balance: mine?.balance ?? START,
@@ -824,6 +838,7 @@ function tutorialView(who: string) {
     you: {
       name: nameOf(who),
       draw: drawOf(who),
+      named: named(who),
       code: short(who),
       balance: a.balance,
       equity: Math.round(t.desk.equity("me")),

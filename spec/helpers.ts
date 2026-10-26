@@ -12,7 +12,7 @@ export const baseUrl = inject("baseUrl");
 // local runs use a throwaway copy, where every test runs.
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
-export type Trader = { id: string; name: string; draw: [number, number] | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
+export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
 export type Mode = "replay" | "scenario" | "tutorial";
 export type State = {
   mode: Mode;
@@ -28,7 +28,7 @@ export type State = {
   total: number;
   from: number;
   prices: number[];
-  you: { name: string; draw: [number, number] | null; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
+  you: { name: string; draw: number | null; named: boolean; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
   traders: Trader[];
   career: { name: string; rounds: number; profit: number; wins: number; busts: number; you: boolean }[];
   feed: { text: string; kind: string }[];

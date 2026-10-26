@@ -1,6 +1,6 @@
 # ADR 0018: Anime Names, and Seven of the Comic's Characters
 
-Status: accepted, 21 October 2026. Changes the drawn names of [ADR 0017](0017-chosen-trader-names.md) and the house traders of [ADR 0015](0015-three-languages-and-the-comics-characters.md); the rest of both stands.
+Status: accepted, 21 October 2026; drawn names became given names by [ADR 0038](0038-given-names-and-a-welcome-box.md). Changes the drawn names of [ADR 0017](0017-chosen-trader-names.md) and the house traders of [ADR 0015](0015-three-languages-and-the-comics-characters.md); the rest of both stands.
 
 ## 1 Context
 

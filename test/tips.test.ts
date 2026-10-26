@@ -127,3 +127,29 @@ it("writes Stop Loss and Take Profit in capitals wherever English reads them", (
   expect(en).toContain("Stop Loss");
   expect(en).toContain("Take Profit");
 });
+
+// ADR 0038: the name box carries its own language, music and theme controls
+// at its top right, and a newcomer's two ways to begin below; names are the
+// given name alone, with no "You are"; and a tip sits in the top layer so a
+// dialog never covers it.
+it("has language, music and theme tools in the name box, above its title, and two ways to begin below", () => {
+  const box = page.querySelector("#name-box")!;
+  const form = box.querySelector("form")!;
+  for (const id of ["n-lang", "n-music", "n-theme"]) expect(box.querySelector("#" + id), id).not.toBeNull();
+  const kids = [...form.children];
+  expect(kids.findIndex((e) => e.classList.contains("name-tools"))).toBeLessThan(kids.findIndex((e) => e.id === "name-title"));
+  const first = box.querySelector("#name-first")!;
+  expect(first.querySelector("#name-learn")?.getAttribute("value")).toBe("tutorial");
+  expect(first.querySelector("#name-free")?.getAttribute("value")).toBe("replay");
+  expect(kids.indexOf(first)).toBeGreaterThan(kids.findIndex((e) => e.classList.contains("name-row") || e.id === "name-error"));
+});
+it("says the name alone, never 'You are', in any language", () => {
+  const src = readFileSync("public/i18n.js", "utf8");
+  expect(src).not.toMatch(/youAre/);
+  expect(readFileSync("public/app.js", "utf8")).not.toMatch(/youAre/);
+});
+it("shows a tip in the top layer, over any dialog", () => {
+  const src = readFileSync("public/tips.js", "utf8");
+  expect(src).toMatch(/popover\s*=\s*"manual"/);
+  expect(src).toMatch(/showPopover/);
+});

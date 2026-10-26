@@ -176,7 +176,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 @keyframes ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-5deg); } }
 .losscut .art { margin-bottom: 0.4rem; animation: none; }
 /* The tip: one for the page, shown at once, in the page's colours. */
-.tip { position: absolute; z-index: 30; max-width: min(22rem, calc(100vw - 8px)); padding: 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 18px rgb(0 0 0 / 0.35); font-size: 0.8rem; line-height: 1.4; pointer-events: none; text-wrap: pretty; animation: tip-in 0.12s ease-out; }
+.tip { position: fixed; inset: auto; margin: 0; z-index: 30; overflow: visible; max-width: min(22rem, calc(100vw - 8px)); padding: 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 18px rgb(0 0 0 / 0.35); font-size: 0.8rem; line-height: 1.4; pointer-events: none; text-wrap: pretty; animation: tip-in 0.12s ease-out; }
 .tip[hidden] { display: none; }
 @keyframes tip-in { from { opacity: 0; transform: translateY(3px); } }
 [data-tip], [data-tip-text] { cursor: help; }
@@ -192,8 +192,8 @@ button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[dat
 .icon:hover { color: var(--ink); border-color: var(--muted); }
 /* The button shows what a click switches to: the sun in dark mode, the
    moon in light. */
-#theme .moon, :root[data-mode-shown="light"] #theme .sun { display: none; }
-:root[data-mode-shown="light"] #theme .moon { display: block; }
+#theme .moon, #n-theme .moon, :root[data-mode-shown="light"] #theme .sun, :root[data-mode-shown="light"] #n-theme .sun { display: none; }
+:root[data-mode-shown="light"] #theme .moon, :root[data-mode-shown="light"] #n-theme .moon { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* The language switch: three short labels, the chosen one filled. */
 
@@ -472,7 +472,13 @@ body.bell-up .ticket { display: none; }
 /* The name box: a field and a dice button on one row, Cancel and Save below. */
 .name-box { width: min(26rem, calc(100% - 2rem)); color: var(--ink); }
 .name-box::backdrop { background: var(--scrim); }
-.name-box form { display: grid; gap: 0.6rem; }
+.name-box form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; }
+.name-tools { display: flex; align-items: center; gap: 0.4rem; justify-self: end; max-width: 100%; height: 34px; margin-bottom: -0.3rem; }
+.name-tools .lang select { width: 7.5rem; }
+.name-box .row.first { justify-content: space-between; flex-wrap: wrap; }
+.name-box .row.first button { flex: 1 1 8rem; }
+.name-box { overflow-x: hidden; }
+.name-box .row.first[hidden], .name-box .row[hidden] { display: none; }
 .name-box h2 { margin: 0; }
 .name-hint { margin: 0; color: var(--muted); font-size: 0.88rem; }
 .name-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; }
@@ -534,9 +540,9 @@ body.bell-up .ticket { display: none; }
 @keyframes tick-up { 0% { color: var(--up); text-shadow: 0 0 10px var(--up); } }
 @keyframes tick-down { 0% { color: var(--down); text-shadow: 0 0 10px var(--down); } }
 /* The music switch: a note, struck through while off, pink while on. */
-#music[aria-pressed="false"] .slash { display: inline; }
-#music[aria-pressed="true"] .slash { display: none; }
-#music[aria-pressed="true"] { color: var(--pink); border-color: var(--pink); }
+.music[aria-pressed="false"] .slash { display: inline; }
+.music[aria-pressed="true"] .slash { display: none; }
+.music[aria-pressed="true"] { color: var(--pink); border-color: var(--pink); }
 @keyframes fade { 100% { opacity: 0; } }
 /* The debug console, for the operator only (ADR 0019): a tag in the
    corner and a panel above everything, in a terminal's monospace. */

@@ -26,7 +26,7 @@ const pts = (n) => t("points", { n: `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(
 // a drawn name in this language's form, a typed name as typed. People
 // are found by short code.
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
-const nameIn = (name, draw) => (draw ? drawn(lang, draw) : name);
+const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : name);
 // A tip in this language, by key (ADR 0025).
 const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", vars);
 useWords((k) => tip(k));
@@ -52,14 +52,14 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
   if ($("lev-ticks")) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
-  $("lang").value = lang;
+  $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, 300_000) }));
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
 // Another language is another address. The market keeps running and the
 // tab is remembered, so the page comes back to the same room.
-$("lang").onchange = () => location.assign(home($("lang").value));
+for (const id of ["lang", "n-lang"]) $(id).onchange = () => location.assign(home($(id).value));
 
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
@@ -199,10 +199,12 @@ const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "d
 function label() {
   document.documentElement.dataset.modeShown = theme();
   const name = theme() === "dark" ? t("toLight") : t("toDark");
-  $("theme").dataset.tip = theme() === "dark" ? "toLight" : "toDark";
-  $("theme").setAttribute("aria-label", name);
+  for (const id of ["theme", "n-theme"]) {
+    $(id).dataset.tip = theme() === "dark" ? "toLight" : "toDark";
+    $(id).setAttribute("aria-label", name);
+  }
 }
-$("theme").onclick = () => {
+const switchTheme = () => {
   const next = theme() === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   try {
@@ -213,6 +215,7 @@ $("theme").onclick = () => {
   label();
   if (state) draw(state);
 };
+$("theme").onclick = $("n-theme").onclick = switchTheme;
 dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
@@ -230,9 +233,11 @@ const bgm = $("bgm");
 bgm.volume = 0.35;
 const musicLabel = () => {
   const on = !bgm.paused;
-  $("music").setAttribute("aria-pressed", String(on));
-  $("music").dataset.tip = on ? "musicOff" : "musicOn";
-  $("music").setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
+  for (const id of ["music", "n-music"]) {
+    $(id).setAttribute("aria-pressed", String(on));
+    $(id).dataset.tip = on ? "musicOff" : "musicOn";
+    $(id).setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
+  }
 };
 const remember = (on) => {
   try {
@@ -241,7 +246,7 @@ const remember = (on) => {
     // a private window: the choice lasts this visit
   }
 };
-$("music").onclick = async () => {
+const toggleMusic = async () => {
   if (bgm.paused) {
     try {
       await bgm.play();
@@ -255,13 +260,14 @@ $("music").onclick = async () => {
   }
   musicLabel();
 };
+$("music").onclick = $("n-music").onclick = toggleMusic;
 bgm.addEventListener("play", musicLabel);
 bgm.addEventListener("pause", musicLabel);
 try {
   if (localStorage.getItem("music") === "on") {
     addEventListener("pointerdown", function resume(e) {
       removeEventListener("pointerdown", resume, true);
-      if (bgm.paused && !e.target.closest?.("#music")) bgm.play().catch(() => {});
+      if (bgm.paused && !e.target.closest?.("#music, #n-music")) bgm.play().catch(() => {});
     }, true);
   }
 } catch {
@@ -310,15 +316,25 @@ $("face-draw").onclick = () => {
   tryFace = others[Math.floor(Math.random() * others.length)];
   showFace();
 };
-$("whoami").onclick = () => {
+// A newcomer, with no record on the server, meets this box on arrival and
+// chooses where to begin; a returning player opens it to rename (ADR 0038).
+let welcomed = false;
+function openNames(first) {
   tryFace = myFace;
   showFace();
   $("name-input").value = me;
   $("name-error").textContent = "";
-  $("name-box").showModal();
+  $("name-box").dataset.first = String(first);
+  $("name-row").hidden = first;
+  $("name-first").hidden = !first;
+  $("name-title").textContent = t(first ? "nameWelcome" : "nameTitle");
+  if (!$("name-box").open) $("name-box").showModal();
   $("name-input").select();
-};
+}
+$("whoami").onclick = () => openNames(false);
 $("name-cancel").onclick = () => $("name-box").close();
+// A newcomer cannot dismiss the box by Escape: they begin from it.
+$("name-box").addEventListener("cancel", (e) => $("name-box").dataset.first === "true" && e.preventDefault());
 $("name-draw").onclick = async () => {
   const res = await fetch("/api/name");
   if (res.ok) {
@@ -340,7 +356,9 @@ $("name-form").onsubmit = async (e) => {
   const out = await res.json();
   if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
   me = nameIn(out.name, out.draw);
+  const begin = e.submitter?.value;
   $("name-box").close();
+  if (begin && begin !== mode) watch(begin);
 };
 
 // The lobby: a market waits for someone on the tab to press Start, then
@@ -895,8 +913,12 @@ function render(s) {
   myFace = s.you.face;
   // Your code tells you apart from a namesake; it lives in the tip, so
   // the line keeps its room for the name.
-  $("whoami").replaceChildren(avatar(s.you.face, 18), `${t("youAre")} `, strong(me), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
+  $("whoami").replaceChildren(avatar(s.you.face, 18), strong(me), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
   setTip($("whoami"), tip("whoami", { code: s.you.code }));
+  if (!s.you.named && !welcomed) {
+    welcomed = true;
+    openNames(true);
+  }
   draw(s);
   ticket(s);
 

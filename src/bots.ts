@@ -16,7 +16,7 @@ export const BOTS: Bot[] = [
     // Kurumi: a stop-loss is admitting defeat. Buys every dip with absurd
     // leverage, averages down while there is margin, prays, borrows.
     id: "bot:kurumi",
-    name: "Fukuga Kurumi",
+    name: "Kurumi",
     motto: "It's okay, I've got leverage~♪",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
@@ -32,7 +32,7 @@ export const BOTS: Bot[] = [
     // Mochiko: cold and rational. Follows the trend at modest leverage,
     // always with a tight stop and a take profit.
     id: "bot:mochiko",
-    name: "Kogane Mochiko",
+    name: "Mochiko",
     motto: "A stable market is a trader's enemy.",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
@@ -52,7 +52,7 @@ export const BOTS: Bot[] = [
   {
     // Yasuko: burned once already, so she only ever sells, and holds.
     id: "bot:yasuko",
-    name: "Takane Yasuko",
+    name: "Yasuko",
     motto: "I've seen how this ends. It goes down.",
     act(desk, me, _prices, rnd) {
       if (!desk.account(me).pos && rnd() < 0.05) return { kind: "order", side: -1, leverage: 30, stake: 0.7 };
@@ -63,7 +63,7 @@ export const BOTS: Bot[] = [
     // Mebuki: trades so she never has to work. Buys the high-yielder for
     // the interest and never sells.
     id: "bot:mebuki",
-    name: "Yamashi Mebuki",
+    name: "Mebuki",
     motto: "I just don't want to work. The interest can do it.",
     act(desk, me, _prices, rnd) {
       const pos = desk.account(me).pos;
@@ -77,7 +77,7 @@ export const BOTS: Bot[] = [
     // name is the locust of イナゴトレード: she swarms onto any big move,
     // the way it went, at high leverage, and flees at the first loss.
     id: "bot:inago",
-    name: "Sakata Inago",
+    name: "Inago",
     motto: "Everyone's buying! Me too!",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
@@ -90,7 +90,7 @@ export const BOTS: Bot[] = [
     // Nana, "Banana": saw Yasuko's losscut at school and calls FX hell.
     // She will only buy what she believes in, unleveraged, and hold it.
     id: "bot:nana",
-    name: "Zenba Nana",
+    name: "Nana",
     motto: "FX is hell. I just buy what I believe in.",
     act(desk, me, _prices, rnd) {
       if (!desk.account(me).pos && rnd() < 0.05) return { kind: "order", side: 1, leverage: 1, stake: 0.8 };
@@ -101,7 +101,7 @@ export const BOTS: Bot[] = [
     // Kizuna: three months into a sales job and chasing a billion yen.
     // Adds to every winner and lets the losers run.
     id: "bot:kizuna",
-    name: "Tsukimori Kizuna",
+    name: "Kizuna",
     motto: "A billion yen, then I quit. Want in?",
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;

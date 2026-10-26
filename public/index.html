@@ -36,7 +36,7 @@
       </label>
       <!-- Optional music: off until a player turns it on; the track loads
            only then (ADR 0020). -->
-      <button id="music" class="icon" type="button" aria-pressed="false" data-tip="musicOn" data-t-aria="musicOn">
+      <button id="music" class="icon music" type="button" aria-pressed="false" data-tip="musicOn" data-t-aria="musicOn">
         <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M9 17.5V5.5l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="2.5" fill="currentColor"/><circle cx="16.5" cy="15.5" r="2.5" fill="currentColor"/><path class="slash" d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
       <audio id="bgm" src="/audio/bgm.m4a" preload="none" loop></audio>
@@ -251,6 +251,26 @@
        be used (ADRs 0017, 0021). -->
   <dialog id="name-box" class="card name-box" aria-labelledby="name-title">
     <form id="name-form" method="dialog">
+      <!-- The same language, music and theme controls as the header, for a
+           newcomer who meets this box first (ADR 0038). -->
+      <div class="name-tools">
+        <label class="lang" data-tip="lang">
+          <span class="sr-only">Language</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          <select id="n-lang" aria-label="Language">
+            <option value="en" lang="en">English</option>
+            <option value="ja" lang="ja">日本語</option>
+            <option value="zh" lang="zh-CN">简体中文</option>
+          </select>
+        </label>
+        <button id="n-music" class="icon music" type="button" aria-pressed="false" data-tip="musicOn" data-t-aria="musicOn">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M9 17.5V5.5l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="2.5" fill="currentColor"/><circle cx="16.5" cy="15.5" r="2.5" fill="currentColor"/><path class="slash" d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button id="n-theme" class="icon theme" type="button" data-tip="toLight">
+          <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
+          <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
+        </button>
+      </div>
       <h2 id="name-title" data-t="nameTitle">Your trader name</h2>
       <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
       <div class="name-row">
@@ -262,9 +282,14 @@
         </button>
       </div>
       <p id="name-error" class="error" role="status"></p>
-      <div class="row">
+      <div class="row" id="name-row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
+      </div>
+      <!-- A newcomer chooses where to begin: the tutorial, or the markets. -->
+      <div class="row first" id="name-first" hidden>
+        <button id="name-free" class="ghost" type="submit" value="replay" data-t="nameFree" data-tip="nameFree">Play freely</button>
+        <button id="name-learn" class="next" type="submit" value="tutorial" data-t="nameLearn" data-tip="nameLearn">Start the tutorial</button>
       </div>
     </form>
   </dialog>

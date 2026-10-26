@@ -126,7 +126,7 @@ it.skipIf(live)("lists only people present or trading", async () => {
 it("tells a visitor their own trader name and short code on the page", async () => {
   const me = await visitor();
   const s = (await state(me)) as unknown as { you: { name: string; code: string } };
-  expect(s.you.name).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+  expect(s.you.name).toMatch(/^[A-Z][a-z]+$/);
   expect(s.you.code).toMatch(/^[0-9a-f]{6}$/);
   expect(me).not.toContain(s.you.code);
   expect(await (await fetch(new URL("/", baseUrl))).text()).toContain('id="whoami"');

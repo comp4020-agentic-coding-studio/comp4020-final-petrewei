@@ -1,6 +1,6 @@
 # ADR 0017: Chosen Trader Names
 
-Status: accepted, 21 October 2026. Amends [ADR 0010](0010-who-may-see-and-change-what.md), where a trader's name was always drawn from their cookie.
+Status: accepted, 21 October 2026; drawn names became given names by [ADR 0038](0038-given-names-and-a-welcome-box.md). Amends [ADR 0010](0010-who-may-see-and-change-what.md), where a trader's name was always drawn from their cookie.
 
 ## 1 Context
 
