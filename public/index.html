@@ -127,9 +127,23 @@
           <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
       </table>
+      <!-- The same two toggles and joined track as the ticket, bound to the
+           open position: a toggle sets or removes the exit, and letting go of a
+           thumb places it (ADR 0037). -->
       <div class="pos-exits" id="pos-exits" hidden>
-        <button id="stop" class="mini exit-btn sl" data-tip="addStop"></button>
-        <button id="take" class="mini exit-btn tp" data-tip="addTake"></button>
+        <div class="exits" id="pexits">
+        <div class="exit-heads">
+          <button id="psl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop Loss</span> <b id="psl-pct" class="pct"></b></button>
+          <button id="ptp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take Profit</span> <b id="ptp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+        </div>
+        <div class="exit-track" data-sl="false" data-tp="false">
+          <span class="fill sl" id="psl-fill" aria-hidden="true"></span>
+          <span class="fill tp" id="ptp-fill" aria-hidden="true"></span>
+          <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-label="slFull" data-tip="slDist">
+          <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
+          <div class="exit-line" aria-hidden="true"></div>
+        </div>
+      </div>
       </div>
     </section>
 
@@ -251,20 +265,6 @@
       <div class="row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
-      </div>
-    </form>
-  </dialog>
-  <!-- Edit a position's stop loss or take profit: a distance slider, what
-       it locks in or risks, Set and Remove (ADR 0032). -->
-  <dialog id="exit-box" class="card exit-box" aria-labelledby="exit-title">
-    <form id="exit-form" method="dialog">
-      <h2 id="exit-title"></h2>
-      <input id="exit-dist" type="range" min="0" max="1000" step="1" data-tip="exitDist">
-      <p class="exit-read" id="exit-read"></p>
-      <div class="row">
-        <button id="exit-remove" class="ghost" type="button" data-t="exitRemove" data-tip="exitRemove">Remove</button>
-        <button id="exit-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
-        <button id="exit-set" class="next" type="submit" data-t="exitSet" data-tip="exitSet">Set</button>
       </div>
     </form>
   </dialog>

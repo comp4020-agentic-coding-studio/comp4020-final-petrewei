@@ -111,13 +111,14 @@ it("never abbreviates stop loss or take profit in any language", () => {
   }
 });
 
-// ADR 0036: a position's exits are two compact chips under the position
-// row, each opening a small editor, and English names them in capitals.
-it("keeps the stop and take chips out of the position table, so Close has its row", () => {
-  const rows = page.querySelector(".positions table")!;
-  expect(rows.querySelector("#stop, #take")).toBeNull();
-  expect(page.querySelectorAll(".pos-exits #stop, .pos-exits #take")).toHaveLength(2);
-  expect(page.querySelector("#exit-box")).not.toBeNull();
+// ADR 0037: a position's exits are the ticket's two toggles and one track,
+// under the position row, and English names them in capitals.
+it("puts a toggle and a thumb for each exit under the position row, outside its table", () => {
+  const table = page.querySelector(".positions table")!;
+  expect(table.querySelector("#psl-on, #ptp-on, #psl-dist, #ptp-dist")).toBeNull();
+  const box = page.querySelector(".positions #pexits")!;
+  for (const id of ["psl-on", "ptp-on", "psl-dist", "ptp-dist", "psl-fill", "ptp-fill"]) expect(box.querySelector("#" + id), id).not.toBeNull();
+  expect(page.querySelector("#exit-box, #stop, #take")).toBeNull();
 });
 it("writes Stop Loss and Take Profit in capitals wherever English reads them", () => {
   const src = readFileSync("public/i18n.js", "utf8");

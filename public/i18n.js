@@ -52,14 +52,6 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "addStop": "Add a Stop Loss: close automatically if the price moves against you by the distance you choose. Kurumi never uses this.",
-      "removeStop": "Remove the stop. Bold. Possibly fatal.",
-      "addTake": "Add a Take Profit: bank the win automatically at a price you choose",
-      "editStop": "Move or remove your Stop Loss",
-      "editTake": "Move or remove your Take Profit",
-      "exitDist": "Distance from today's price",
-      "exitSet": "Place it at this distance from the current price",
-      "exitRemove": "Take it off the position",
       "tabReplay": "Forty real trading days, date hidden till the bell. Could be a quiet Tuesday. Could be Lehman.",
       "tabScenario": "A made-up market from today's real rate, following a hidden script. Read the headlines.",
       "tabTutorial": "A private practice room. Nobody sees you fall over.",
@@ -119,12 +111,6 @@ export const T = {
       "rankRow": "Ended on {worth} ({change}) · code {code}",
     },
     ui: {
-      exitSlTitle: "Stop Loss",
-      exitTpTitle: "Take Profit",
-      exitSet: "Set",
-      exitRemove: "Remove",
-      exitSlRead: "{dist} away, at {price}: loses about {yen} if hit",
-      exitTpRead: "{dist} away, at {price}: makes about {yen} if hit",
       logo: "Losscut!",
       titleJoin: " ",
       sub: "Kurumi's FX Fantasy",
@@ -316,7 +302,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "Press Close on your position to bank the profit.",
       "Press Close on your position.": "Press Close on your position.",
       "Press Close on your position to cut your loss.": "Press Close on your position to cut your loss.",
-      "Press + Stop Loss on your position and set it 1% away.": "Press + Stop Loss on your position and set it 1% away.",
+      "Drag Stop Loss on your position to 1% away.": "Drag Stop Loss on your position to 1% away.",
       "Press Next to walk away, or Borrow.": "Press Next to walk away, or Borrow.",
       "Press Next to finish.": "Press Next to finish.",
       "Praying isn't part of the tutorial. It does nothing anyway.": "Praying isn't part of the tutorial. It does nothing anyway.",
@@ -373,14 +359,6 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "addStop": "損切りを置く。決めた幅だけ逆行したら自動で決済。くるみは絶対に使いません",
-      "removeStop": "逆指値を外す。勇敢。たぶん致命的",
-      "addTake": "利確を置く。決めた価格で自動的に利益を確定",
-      "editStop": "損切りを動かす・外す",
-      "editTake": "利確を動かす・外す",
-      "exitDist": "現在値からの幅",
-      "exitSet": "現在値からこの幅に置く",
-      "exitRemove": "ポジションから外す",
       "tabReplay": "本物の相場から切り出した40営業日。いつの相場かはベルまで秘密。平穏な一日か、リーマンか。",
       "tabScenario": "今日の実際のレートから始まる、架空の相場。筋書きは秘密。ニュースを読もう",
       "tabTutorial": "ひとり用の練習部屋。転んでも誰にも見られません",
@@ -440,12 +418,6 @@ export const T = {
       "rankRow": "最終 {worth}（{change}）・コード {code}",
     },
     ui: {
-      exitSlTitle: "損切り（逆指値）",
-      exitTpTitle: "利確（指値）",
-      exitSet: "設定",
-      exitRemove: "外す",
-      exitSlRead: "{dist}先の{price}：届けば約{yen}の損失",
-      exitTpRead: "{dist}先の{price}：届けば約{yen}の利益",
       logo: "ロスカット！",
       titleJoin: " ",
       sub: "くるみのFXファンタジー",
@@ -637,7 +609,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "ポジションの「決済」を押して利益を確定しましょう。",
       "Press Close on your position.": "ポジションの「決済」を押してください。",
       "Press Close on your position to cut your loss.": "ポジションの「決済」を押して損切りしましょう。",
-      "Press + Stop Loss on your position and set it 1% away.": "ポジションの「+ 損切り」を押して1%に設定してください。",
+      "Drag Stop Loss on your position to 1% away.": "ポジションの損切りのつまみを1%までドラッグしてください。",
       "Press Next to walk away, or Borrow.": "「次へ」で手を引くか、借りてみてください。",
       "Press Next to finish.": "「次へ」を押して終わりましょう。",
       "Praying isn't part of the tutorial. It does nothing anyway.": "祈りはチュートリアルにありません。どのみち効果はありません。",
@@ -693,14 +665,6 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "addStop": "加止损：反向走到你设的幅度就自动平仓。久留美从来不用",
-      "removeStop": "撤掉止损。很勇，也可能很致命",
-      "addTake": "加止盈：到你选的价格自动锁定盈利",
-      "editStop": "移动或撤销止损",
-      "editTake": "移动或撤销止盈",
-      "exitDist": "距现价的幅度",
-      "exitSet": "按距现价这个幅度挂上",
-      "exitRemove": "从仓位上撤掉",
       "tabReplay": "截取真实行情的40个交易日，哪一段要等收盘铃响才揭晓。可能风平浪静，也可能是雷曼。",
       "tabScenario": "从今天的真实汇率出发的虚构行情，剧本保密。留意新闻。",
       "tabTutorial": "只属于你的练习室，摔倒了也没人看见",
@@ -760,12 +724,6 @@ export const T = {
       "rankRow": "最终 {worth}（{change}）· 代码 {code}",
     },
     ui: {
-      exitSlTitle: "止损",
-      exitTpTitle: "止盈",
-      exitSet: "设置",
-      exitRemove: "撤销",
-      exitSlRead: "距现价{dist}，在{price}：触发约亏{yen}",
-      exitTpRead: "距现价{dist}，在{price}：触发约赚{yen}",
       logo: "强制平仓！",
       sub: "久留美的FX白日梦",
       // Chinese sets no space after full-width punctuation.
@@ -958,7 +916,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "按持仓上的“平仓”锁定利润。",
       "Press Close on your position.": "按持仓上的“平仓”。",
       "Press Close on your position to cut your loss.": "按持仓上的“平仓”止损。",
-      "Press + Stop Loss on your position and set it 1% away.": "按持仓上的“+ 止损”，设在1%。",
+      "Drag Stop Loss on your position to 1% away.": "把持仓上的止损滑块拖到1%。",
       "Press Next to walk away, or Borrow.": "按“下一步”收手，或者借钱试试。",
       "Press Next to finish.": "按“下一步”结束。",
       "Praying isn't part of the tutorial. It does nothing anyway.": "教程里没有祈祷这一步。反正也没用。",

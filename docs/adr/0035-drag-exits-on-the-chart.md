@@ -1,6 +1,6 @@
 # ADR 0035: Drag the Exits on the Chart
 
-Status: accepted, 26 October 2026; the chart dragging replaced by [ADR 0036](0036-exit-chips-under-the-position.md). Replaces the position cells and dialog of [ADR 0032](0032-stop-loss-and-take-profit.md); the ticket of [ADR 0034](0034-a-toggle-for-each-exit.md) stands.
+Status: accepted, 26 October 2026; its chips replaced by [ADR 0037](0037-sliders-on-the-position.md); the chart dragging replaced by [ADR 0036](0036-exit-chips-under-the-position.md). Replaces the position cells and dialog of [ADR 0032](0032-stop-loss-and-take-profit.md); the ticket of [ADR 0034](0034-a-toggle-for-each-exit.md) stands.
 
 ## 1 Context
 

@@ -1,6 +1,6 @@
 # ADR 0036: Exit Chips Under the Position
 
-Status: accepted, 26 October 2026. Replaces the chart dragging of [ADR 0035](0035-drag-exits-on-the-chart.md); the capital names of that ADR stand, and the dialog of [ADR 0032](0032-stop-loss-and-take-profit.md) returns.
+Status: accepted, 26 October 2026; replaced by [ADR 0037](0037-sliders-on-the-position.md). Replaces the chart dragging of [ADR 0035](0035-drag-exits-on-the-chart.md); the capital names of that ADR stand, and the dialog of [ADR 0032](0032-stop-loss-and-take-profit.md) returns.
 
 ## 1 Context
 

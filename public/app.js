@@ -362,7 +362,7 @@ $("restart").onclick = () => act("restart");
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
-const FOCUS = { chart: "chart", equity: "equity", pnl: "pnl-box", level: "level-box", leverage: "leverage-box", stake: "stake-box", buy: "buy", sell: "sell", close: "close", stop: "stop", borrow: "borrow" };
+const FOCUS = { chart: "chart", equity: "equity", pnl: "pnl-box", level: "level-box", leverage: "leverage-box", stake: "stake-box", buy: "buy", sell: "sell", close: "close", stop: "pexits", borrow: "borrow" };
 function lesson(s) {
   $("lesson").hidden = !s.lesson;
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
@@ -414,48 +414,42 @@ for (const k of ["sl", "tp"]) {
   };
 }
 seatExits();
-// A position's stop loss or take profit, edited in a small dialog: a
-// distance, what it would make or lose, Set or Remove (ADR 0032).
-let editing = null;
-let editDist = 1;
-function exitRead() {
-  const pos = state?.you.pos;
-  if (!pos || !editing) return;
-  const yenAt = moveYen(pos.margin, pos.leverage, editDist);
-  const price = state.prices.at(-1) * (1 + ((editing === "tp" ? 1 : -1) * pos.side * editDist) / 100);
-  $("exit-read").replaceChildren(...rich(t(editing === "tp" ? "exitTpRead" : "exitSlRead"), { dist: `${editDist}%`, price: price.toFixed(state.digits), yen: yen(yenAt) }));
+// The position's own two toggles and track (ADR 0037), the ticket's control
+// bound to the open position: a toggle sets the exit at the distance shown or
+// removes it, and letting go of a thumb places it. A held distance is kept per
+// exit so the thumb stays where it was set while the price moves.
+const held = { sl: 5, tp: 10 };
+let grabbed = null;
+function paintHeld(on) {
+  for (const k of ["sl", "tp"]) {
+    const [min, max] = HALF[k];
+    if (grabbed !== k) $(`p${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: held[k] }) * 1000));
+    const { from, to } = fillSpan(k, Number($(`p${k}-dist`).value), min, max);
+    const left = k === "sl" ? 0 : 52;
+    $(`p${k}-fill`).style.left = `${left + from * 48}%`;
+    $(`p${k}-fill`).style.width = `${(to - from) * 48}%`;
+    $(`p${k}-pct`).textContent = `${held[k]}%`;
+    $(`p${k}-on`).setAttribute("aria-checked", String(on[k]));
+    $("pexits").querySelector(".exit-track").dataset[k] = String(on[k]);
+  }
 }
-function editExit(kind) {
-  const pos = state?.you.pos;
-  if (!pos) return;
-  editing = kind;
-  const at = kind === "tp" ? pos.take : pos.stop;
-  editDist = at ? distAt(distPos(Math.max(1, Math.abs(at / state.prices.at(-1) - 1) * 100))) : kind === "tp" ? 10 : 5;
-  $("exit-dist").value = String(Math.round(distPos(editDist) * 1000));
-  $("exit-title").textContent = t(kind === "tp" ? "exitTpTitle" : "exitSlTitle");
-  $("exit-box").className = `card exit-box ${kind}`;
-  $("exit-remove").hidden = !at;
-  // Removing a stop gets its own warning; a take profit's is plain.
-  $("exit-remove").dataset.tip = kind === "sl" ? "removeStop" : "exitRemove";
-  exitRead();
-  $("exit-box").showModal();
+for (const k of ["sl", "tp"]) {
+  const kind = k === "sl" ? "stop" : "take";
+  $(`p${k}-on`).onclick = () => {
+    const at = state?.you.pos?.[kind];
+    act(kind, at ? {} : { pct: held[k] });
+  };
+  $(`p${k}-dist`).oninput = () => {
+    grabbed = k;
+    held[k] = exitAt(Number($(`p${k}-dist`).value) / 1000).dist;
+    $(`p${k}-pct`).textContent = `${held[k]}%`;
+    paintHeld({ sl: !!state?.you.pos?.stop, tp: !!state?.you.pos?.take });
+  };
+  $(`p${k}-dist`).onchange = () => {
+    grabbed = null;
+    act(kind, { pct: held[k] });
+  };
 }
-$("exit-dist").oninput = () => {
-  editDist = distAt(Number($("exit-dist").value) / 1000);
-  exitRead();
-};
-$("exit-form").onsubmit = (e) => {
-  e.preventDefault();
-  act(editing === "tp" ? "take" : "stop", { pct: editDist });
-  $("exit-box").close();
-};
-$("exit-remove").onclick = () => {
-  act(editing === "tp" ? "take" : "stop", {});
-  $("exit-box").close();
-};
-$("exit-cancel").onclick = () => $("exit-box").close();
-$("stop").onclick = () => editExit("sl");
-$("take").onclick = () => editExit("tp");
 
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
@@ -952,13 +946,11 @@ function render(s) {
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
-    // Each exit is a chip: its distance once set, a plus to add one.
-    for (const [id, at, add] of [["stop", y.pos.stop, "addStop"], ["take", y.pos.take, "addTake"]]) {
-      const name = t(id === "stop" ? "slFull" : "tpFull");
-      $(id).textContent = at ? `${name} ${Math.abs((at / price - 1) * 100).toFixed(2)}%` : `+ ${name}`;
-      $(id).classList.toggle("set", !!at);
-      $(id).dataset.tip = at ? (id === "stop" ? "editStop" : "editTake") : add;
+    // An exit set elsewhere (an order's, a bot's) shows at its distance now.
+    for (const [k, at] of [["sl", y.pos.stop], ["tp", y.pos.take]]) {
+      if (at && grabbed !== k) held[k] = exitAt(exitPos({ kind: k, dist: Math.abs((at / price - 1) * 100) })).dist;
     }
+    paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
   } else {
     $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
@@ -966,7 +958,7 @@ function render(s) {
   const closed = !open || y.out || y.left || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   $("pray").disabled = closed || s.phase === "countdown";
-  for (const id of ["close", "stop", "take"]) $(id).disabled = closed || !y.pos;
+  for (const id of ["close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
