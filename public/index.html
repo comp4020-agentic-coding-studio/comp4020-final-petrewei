@@ -173,19 +173,20 @@
         <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
       </div>
       <!-- A stop loss and a take profit that ride on the order (ADR 0032,
-           0033): one switch and one track, always shown and grey when off.
-           The stop loss thumb moves in the left half, the take profit
-           thumb in the right, each a distance from 1% to 50%. -->
-      <div class="exits" id="exits" data-on="false">
-        <p class="label"><button id="exits-on" class="toggle" type="button" role="switch" aria-checked="false" data-tip="exitsOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="exitsLabel">Stop loss and take profit</span></button></p>
-        <div class="exit-track">
-          <input id="sl-dist" class="sl" type="range" min="0" max="1000" step="1" data-t-label="slFull" data-tip="slDist">
-          <input id="tp-dist" class="tp" type="range" min="0" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
-          <div class="exit-line" aria-hidden="true"></div>
+           0034): a toggle for each, the stop loss on the left and the take
+           profit on the right, over one joined track with a thumb each,
+           grey when its toggle is off. Each shows only its percentage. -->
+      <div class="exits" id="exits">
+        <div class="exit-heads">
+          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop loss</span> <b id="sl-pct" class="pct"></b></button>
+          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take profit</span> <b id="tp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
         </div>
-        <div class="exit-reads">
-          <output id="sl-out" class="exit-out sl" for="sl-dist" data-tip="slDist"></output>
-          <output id="tp-out" class="exit-out tp" for="tp-dist" data-tip="tpDist"></output>
+        <div class="exit-track" data-sl="false" data-tp="false">
+          <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
+          <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
+          <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-label="slFull" data-tip="slDist">
+          <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
+          <div class="exit-line" aria-hidden="true"></div>
         </div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>

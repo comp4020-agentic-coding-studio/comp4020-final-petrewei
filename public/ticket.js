@@ -63,3 +63,15 @@ export function exitAt(pos) {
   const from = kind === "sl" ? HALF - Math.min(p, HALF) : Math.max(p - (0.5 + GAP), 0);
   return { kind, dist: distAt(from / HALF) };
 }
+
+// The coloured fill of one thumb on the joined track (ADR 0034), as
+// fractions of that thumb's own half. A native slider paints to the left of
+// its thumb, which is right for a take profit, growing rightwards from the
+// middle, but backwards for a stop loss, growing leftwards: so the page
+// draws the fill itself. The stop loss's runs from its thumb to the middle
+// (the right end of its half), the take profit's from the middle (the left
+// end of its half) to its thumb; both are longer the further the distance.
+export function fillSpan(kind, value, min, max) {
+  const at = (value - min) / (max - min);
+  return kind === "sl" ? { from: at, to: 1 } : { from: 0, to: at };
+}

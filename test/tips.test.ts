@@ -69,19 +69,27 @@ it("loads the tip script with the page", () => {
   expect(readFileSync("src/server.ts", "utf8")).toMatch(/"\/tips\.js": \[read\("public\/tips\.js"\)/);
 });
 
-// ADR 0033: the ticket's stop loss and take profit are one control: a
-// single switch and a single two-thumb track, always shown (grey when
-// off), with the stop loss on the left and the take profit on the right,
-// and no abbreviation of either name on the page.
-it("shows one switch and one track for both exits, always, labelled in full", () => {
+// ADR 0034: the ticket's stop loss and take profit each have their own
+// toggle, the stop loss on the left and the take profit on the right, over
+// one joined track with a thumb for each. Both are always shown, grey when
+// their toggle is off, and show a percentage only.
+const appCss = readFileSync("public/app.css", "utf8");
+it("gives the stop loss and the take profit a toggle each, one on the left and one on the right, over one joined track", () => {
   const exits = page.querySelector("#exits")!;
   expect(exits).not.toBeNull();
-  expect(exits.querySelectorAll("[role=switch]")).toHaveLength(1);
-  const thumbs = [...exits.querySelectorAll("input[type=range]")] as HTMLInputElement[];
+  // stop loss first in the page, so on the left; take profit after, on the right
+  expect([...exits.querySelectorAll("[role=switch]")].map((s) => s.id)).toEqual(["sl-on", "tp-on"]);
+  expect(appCss).toMatch(/\.exit-heads \.sl \{[^}]*justify-self: start/);
+  expect(appCss).toMatch(/\.exit-heads \.tp \{[^}]*justify-self: end/);
+  // one track, both thumbs on it, never hidden by a toggle
+  expect(exits.querySelectorAll(".exit-track")).toHaveLength(1);
+  const thumbs = [...exits.querySelectorAll(".exit-track input[type=range]")] as HTMLInputElement[];
   expect(thumbs.map((t) => t.id)).toEqual(["sl-dist", "tp-dist"]);
-  // always in the page, never hidden by the switch
   for (const t of thumbs) expect(t.hasAttribute("hidden"), t.id).toBe(false);
-  expect(exits.querySelectorAll(".exit-out")).toHaveLength(2);
+  // a percentage for each, in the toggle itself, and no amount of yen
+  expect(exits.querySelector("#sl-on #sl-pct")).not.toBeNull();
+  expect(exits.querySelector("#tp-on #tp-pct")).not.toBeNull();
+  expect(exits.querySelector("#sl-out, #tp-out")).toBeNull();
 });
 
 it("never abbreviates stop loss or take profit in any language", () => {

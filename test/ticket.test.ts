@@ -148,3 +148,41 @@ describe("the ticket's exits match the desk", async () => {
     }
   });
 });
+
+// ADR 0034: the stop loss and take profit share one joined track. Each
+// thumb's coloured fill grows from the middle outwards, so it is longer the
+// further the distance: the stop loss's runs from its thumb to the middle
+// (the right end of its left half), the take profit's from the middle to its
+// thumb. A native slider fills to the left of its thumb, which for the stop
+// loss is the wrong side, so the page draws the fill from these spans.
+describe("the joined track's fill", () => {
+  it("runs from the thumb to the middle for the stop loss, and from the middle to the thumb for the take profit", async () => {
+    const { fillSpan } = await import("../public/ticket.js");
+    // the stop loss half is 0 (50% away, far left) to 480 (1%, beside the middle)
+    expect(fillSpan("sl", 0, 0, 480)).toEqual({ from: 0, to: 1 });
+    expect(fillSpan("sl", 240, 0, 480)).toEqual({ from: 0.5, to: 1 });
+    expect(fillSpan("sl", 480, 0, 480)).toEqual({ from: 1, to: 1 });
+    // the take profit half is 520 (1%, beside the middle) to 1000 (50%, far right)
+    expect(fillSpan("tp", 520, 520, 1000)).toEqual({ from: 0, to: 0 });
+    expect(fillSpan("tp", 760, 520, 1000)).toEqual({ from: 0, to: 0.5 });
+    expect(fillSpan("tp", 1000, 520, 1000)).toEqual({ from: 0, to: 1 });
+  });
+
+  it("is longer the further the distance, for both, and empty at 1%", async () => {
+    const { DISTANCES, exitPos, fillSpan } = await import("../public/ticket.js");
+    const len = (kind: "sl" | "tp", dist: number) => {
+      const v = Math.round(exitPos({ kind, dist }) * 1000);
+      const { from, to } = kind === "sl" ? fillSpan("sl", v, 0, 480) : fillSpan("tp", v, 520, 1000);
+      return to - from;
+    };
+    for (const kind of ["sl", "tp"] as const) {
+      expect(len(kind, 1), kind).toBeCloseTo(0, 2);
+      expect(len(kind, 50), kind).toBeCloseTo(1, 2);
+      let last = -1;
+      for (const d of DISTANCES) {
+        expect(len(kind, d), `${kind} ${d}`).toBeGreaterThan(last);
+        last = len(kind, d);
+      }
+    }
+  });
+});
