@@ -274,7 +274,7 @@ export class Tutorial {
       else if (e.kind === "close") say(`You closed: ${yen(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
       else if (e.kind === "stop") say(`Your stop filled at ${e.price.toFixed(3)}: ${yen(e.pnl)}.`, "loss", "you-stopped");
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
-      else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}.`, "bust", "you-stopout");
+      else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}. You are out until you borrow.`, "bust", "you-stopout");
       else if (e.kind === "zerocut") say(`Wiped out at ${e.price.toFixed(3)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
     }
   }

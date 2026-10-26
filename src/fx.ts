@@ -36,7 +36,8 @@ export type Position = {
   stop: number | null;
   called: boolean;
 };
-// `out` is set when a close leaves nothing and cleared by a loan; `cuts`
+// `out` is set by a forced cut, or a close that leaves nothing, and is
+// cleared by a loan; `cuts`
 // counts forced closes, so a page can tell when a new one happens;
 // `traded` says whether the player placed an order this round at all;
 // `left` that they walked out of it and only watch until the bell.
@@ -207,8 +208,13 @@ export class Desk {
     const pnl = this.pnl(who);
     account.balance = Math.max(0, Math.round(account.balance + pnl));
     account.pos = null;
+    // A forced cut ends the player's round (ADR 0026): what is left is kept,
+    // but only a loan from Dad lets them trade again. A wipe-out does too.
+    if (kind === "stopout" || kind === "zerocut") {
+      account.cuts++;
+      account.out = true;
+    }
     if (account.balance === 0) account.out = true;
-    if (kind === "stopout" || kind === "zerocut") account.cuts++;
     return { kind, who, price: this.price, pnl };
   }
 

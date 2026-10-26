@@ -381,13 +381,17 @@ function ticket(s) {
   const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
   // Two short lines, each a whole phrase, so no line ends on a stray word:
   // what the order puts in, then what it risks or does.
-  const [one, two] = pos
-    ? margin > 0
-      ? [t("previewAdd1", { same, lev: choice.leverage }), t("previewAdd2", { other })]
-      : [t("previewFull1"), t("previewFull2", { other })]
-    : margin > 0
-      ? [t("previewOpen1"), t("previewOpen2")]
-      : [t("previewNone"), ""];
+  // Out of the round after a cut (ADR 0026): no order to preview, only
+  // the way back in.
+  const [one, two] = s.you.out
+    ? [t("previewOut1"), t("previewOut2")]
+    : pos
+      ? margin > 0
+        ? [t("previewAdd1", { same, lev: choice.leverage }), t("previewAdd2", { other })]
+        : [t("previewFull1"), t("previewFull2", { other })]
+      : margin > 0
+        ? [t("previewOpen1"), t("previewOpen2")]
+        : [t("previewNone"), ""];
   const slots = { margin: yen(margin), controls: yen(controls), away };
   $("preview-1").replaceChildren(...rich(one, slots));
   $("preview-2").replaceChildren(...rich(two, slots));
@@ -818,7 +822,9 @@ function render(s) {
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
-    $("losscut-sub").textContent = t(y.out ? "zerocut" : "losscut");
+    // Every cut ends the round now (ADR 0026); one that leaves nothing is a
+    // wipe-out, and the stamp says which, and what comes next.
+    $("losscut-sub").textContent = t(y.balance === 0 ? "zerocut" : "losscut");
     // The stamp is the parody's catchphrase: Japanese in Japanese and
     // English, as the comic says it; in Chinese, what Chinese traders say.
     $("losscut-big").textContent = lang === "zh" ? "强制平仓！" : "強制ロスカット";

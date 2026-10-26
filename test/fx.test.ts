@@ -66,7 +66,9 @@ describe("the trading desk", () => {
     expect(desk.account("a").balance).toBeGreaterThan(START * 1.19);
   });
 
-  it("warns once at a margin call, then stops the position out", () => {
+  // ADR 0026: a forced loss cut ends the player's round. What is left is
+  // kept, but no more orders until the bell, unless they borrow from Dad.
+  it("warns once at a margin call, then stops the position out and the player with it", () => {
     const desk = new Desk(100);
     desk.join("a");
     desk.order("a", 1, 100);
@@ -76,6 +78,41 @@ describe("the trading desk", () => {
     expect(events.map((e) => e.kind)).toEqual(["stopout"]);
     expect(desk.account("a").pos).toBeNull();
     expect(desk.account("a").balance).toBeGreaterThan(0);
+    expect(desk.account("a").out).toBe(true);
+    expect(desk.order("a", 1, 5)).toBe("You are out of the market until next round.");
+  });
+
+  it("lets a stopped-out player back in only on Dad's money, and a second cut on it ends the round", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100);
+    desk.mark(99.2);
+    expect(desk.account("a").out).toBe(true);
+    // the money left after the cut is still theirs, and counts at the bell
+    const left = desk.account("a").balance;
+    expect(desk.borrow("a")).toBeNull();
+    expect(desk.account("a")).toMatchObject({ out: false, balance: left + BORROW, debt: BORROW });
+    expect(desk.order("a", 1, 100)).toEqual([expect.objectContaining({ kind: "open" })]);
+    desk.mark(98.4);
+    expect(desk.account("a").out).toBe(true);
+    expect(desk.borrow("a")).toBeNull();
+    desk.order("a", 1, 100);
+    desk.mark(97.6);
+    expect(desk.account("a").out).toBe(true);
+    expect(desk.borrow("a")).toBe("Dad's savings are gone.");
+    expect(desk.account("a").cuts).toBe(3);
+  });
+
+  it("does not send out a player whose own stop or close takes a loss", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100);
+    desk.stop("a", 99.6);
+    expect(desk.mark(99.55).map((e) => e.kind)).toEqual(["stop"]);
+    expect(desk.account("a").out).toBe(false);
+    desk.order("a", 1, 10);
+    desk.mark(98);
+    desk.close("a");
     expect(desk.account("a").out).toBe(false);
   });
 
@@ -227,11 +264,16 @@ describe("the trading desk", () => {
     expect(ranking[1].net).toBe(-BORROW * LOANS);
   });
 
-  it("lends to a player left with crumbs after a stop-out, once nothing is open", () => {
+  it("lends to a player left with crumbs after closing at a loss, once nothing is open", () => {
     const desk = new Desk(100);
     desk.join("a");
+    // two losing closes at 1000×, each taken by hand above the cut
     desk.order("a", 1, 1000);
-    desk.mark(99.92);
+    desk.mark(99.94);
+    desk.close("a");
+    desk.order("a", 1, 1000);
+    desk.mark(99.88004);
+    desk.close("a");
     expect(desk.account("a").balance).toBeGreaterThan(0);
     expect(desk.account("a").balance).toBeLessThan(BROKE);
     expect(desk.account("a").out).toBe(false);
