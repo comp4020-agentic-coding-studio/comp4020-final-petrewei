@@ -122,10 +122,12 @@ $("ironman-fist").innerHTML = prop("fist", 20);
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
-const MODES = ["history", "live", "tutorial"];
+const MODES = ["history", "scenario", "tutorial"];
 let mode = (() => {
   try {
-    const saved = localStorage.getItem("tab");
+    // the Scenario tab was called Live; a browser that remembers it lands there
+    const kept = localStorage.getItem("tab");
+    const saved = kept === "live" ? "scenario" : kept;
     if (MODES.includes(saved)) return saved;
   } catch {
     // no storage: start on History
@@ -134,8 +136,9 @@ let mode = (() => {
 })();
 // Older links named the tab in the address (/#live); honour one once,
 // then drop it, so the address names only the language.
-if (MODES.includes(location.hash.slice(1))) {
-  mode = location.hash.slice(1);
+const hashed = location.hash.slice(1) === "live" ? "scenario" : location.hash.slice(1);
+if (MODES.includes(hashed)) {
+  mode = hashed;
   history.replaceState(null, "", location.pathname);
 }
 // ?debug=… has done its work by the time the page runs (the server set
@@ -332,8 +335,8 @@ function lobby(s) {
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
   $("ironman").hidden = counting;
-  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "live" ? "lobbyLive" : "lobbyHistory");
-  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "live" ? "lobbyLiveText" : "lobbyHistoryText");
+  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "scenario" ? "lobbyScenario" : "lobbyHistory");
+  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "scenario" ? "lobbyScenarioText" : "lobbyHistoryText");
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
@@ -725,9 +728,9 @@ function render(s) {
   lesson(s);
   lobby(s);
   // The tab shows a head count as a bare number; its tooltip says what.
-  for (const m of ["history", "live"]) {
+  for (const m of ["history", "scenario"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "live" ? "tabLive" : "tabHistory")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
+    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "scenario" ? "tabScenario" : "tabHistory")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -748,7 +751,7 @@ function render(s) {
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
   const head = s.headline && T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n];
-  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeLive" : "modeReplay");
+  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeScenario" : "modeReplay");
   $("mode").classList.toggle("headline", !!head);
   setTip($("mode"), head ?? "");
   $("clock").textContent = tutorial

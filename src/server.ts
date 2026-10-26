@@ -1,9 +1,9 @@
-// Losscut!'s server: two shared markets, History and Live, each traded
+// Losscut!'s server: two shared markets, History and Scenario, each traded
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
 // 0010). A round is three minutes: History replays real days with the
-// date hidden, Live simulates on from today's rate. The hall of fame,
+// date hidden, Scenario plays a hidden script from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
@@ -18,7 +18,7 @@ import { yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T } from "../public/i18n.js";
 import { drawn, FAMILY, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
-import { History, PAIRS, STEPS, live, random, replay, type Pair, type Round } from "./market.ts";
+import { History, PAIRS, STEPS, random, replay, scenario, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -302,9 +302,9 @@ function record(who: string): Career | null {
 
 // The two markets a visitor can pick between by tab. Each is a room of
 // its own, with its own round, desk, bots, feed and bell, and both run
-// all the time: History replays real days with the date hidden, Live
-// starts from today's real rate and simulates on.
-const MODES = ["history", "live"] as const;
+// all the time: History replays real days with the date hidden, Scenario
+// starts from today's real rate and plays a hidden script (ADR 0027).
+const MODES = ["history", "scenario"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
@@ -355,10 +355,10 @@ class Market {
 
   // Draws the next round and parks it, its price still, in the lobby.
   ready(): void {
-    if (this.mode === "live") {
+    if (this.mode === "scenario") {
       const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
-      this.round = live(history, pair, now.rate, rnd);
+      this.round = scenario(history, pair, now.rate, rnd);
       const story = T.en.scenarios[this.round.scenario!];
       this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
       this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
@@ -470,7 +470,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Scenario: ${this.round.pair} from today's real rate. The script is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "live-round" : "replay-round", { pair: this.round.pair });
+    this.say(this.round.simulated ? `Scenario: ${this.round.pair} from today's real rate. The script is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -723,7 +723,9 @@ class Market {
 }
 
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
-const modeOf = (value: unknown): Mode => (MODES.includes(value as Mode) ? (value as Mode) : "history");
+// The Scenario tab was called Live; an old page or link asking for it gets
+// Scenario (ADR 0027).
+const modeOf = (value: unknown): Mode => (value === "live" ? "scenario" : MODES.includes(value as Mode) ? (value as Mode) : "history");
 
 // The Tutorial tab: each visitor's own private market (src/tutorial.ts),
 // kept in memory, seen by nobody else and never in the hall of fame. One

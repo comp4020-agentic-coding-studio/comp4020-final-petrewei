@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DAYS, EVENTS, GAP, History, PAIRS, SCENARIOS, STEPS, live, path, random, replay } from "../src/market.ts";
+import { DAYS, EVENTS, GAP, History, PAIRS, SCENARIOS, STEPS, path, random, replay, scenario } from "../src/market.ts";
 
 const history = new History(readFileSync(join(import.meta.dirname, "..", "data", "ecb.csv"), "utf8"));
 
@@ -71,11 +71,11 @@ describe("a replay", () => {
 describe("a scenario round", () => {
   const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % STEPS === 0);
   const moves = (c: number[]) => c.slice(1).map((x, i) => Math.log(x / c[i]));
-  const run = (id: string, seed: number) => live(history, "EUR/CHF", 1.08, random(seed), id);
+  const run = (id: string, seed: number) => scenario(history, "EUR/CHF", 1.08, random(seed), id);
   const seeds = Array.from({ length: 30 }, (_, i) => i + 1);
 
   it("starts from today's rate, labelled simulated, with its scenario named", () => {
-    const round = live(history, "USD/JPY", 158.45, random(7));
+    const round = scenario(history, "USD/JPY", 158.45, random(7));
     expect(round.prices[0]).toBe(158.45);
     expect(round.simulated).toBe(true);
     expect(round.prices.length).toBe(DAYS * STEPS + 1);
@@ -83,7 +83,7 @@ describe("a scenario round", () => {
   });
 
   it("draws every scenario, and each has headlines for the feed", () => {
-    const seen = new Set(seeds.concat(seeds.map((s) => s + 100)).map((s) => live(history, "USD/JPY", 150, random(s)).scenario));
+    const seen = new Set(seeds.concat(seeds.map((s) => s + 100)).map((s) => scenario(history, "USD/JPY", 150, random(s)).scenario));
     expect(seen.size).toBe(SCENARIOS.length);
     expect(SCENARIOS.length).toBeGreaterThanOrEqual(6);
     for (const x of SCENARIOS) {

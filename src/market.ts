@@ -1,8 +1,8 @@
 // Where a round's prices come from. A replay plays forty real trading days
 // of one pair from the ECB's daily reference rates (data/ecb.csv, source:
 // ECB; the crosses are derived), with the dates hidden until the round
-// ends. A Scenario round (the tab still called "live" inside) starts from
-// today's rate and plays out a scripted market for forty days.
+// ends. A Scenario round starts from today's rate and plays out a scripted
+// market for forty days.
 // Free sources give one rate a day, so between closes the price wanders
 // on a random bridge that always lands on the real close; a day that
 // moved a lot opens with a gap, as the market did, and stops slip.
@@ -223,21 +223,21 @@ export const SCENARIOS: Scenario[] = [
 // move drawn at the pair's real volatility over the past year and bent by
 // the scenario's plan. The day the scenario turns is drawn, so the turn
 // can't be timed by the calendar. `pick` forces a scenario, for checks.
-export function live(history: History, pair: Pair, rate: number, rnd: () => number, pick?: string): Round {
+export function scenario(history: History, pair: Pair, rate: number, rnd: () => number, pick?: string): Round {
   const recent = history.series(pair).slice(-251);
   const moves = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
   // A floor of 0.4% a day, so a pegged pair still moves enough to play.
   const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
-  const scenario = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
+  const script = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
   const crash = 18 + Math.floor(rnd() * 12);
   // Each script runs either way up, so no one can just sell every round: a
   // peg can break up as well as down, a carry trade unwind either way.
   const way = rnd() < 0.5 ? 1 : -1;
   const closes = [rate];
   for (let d = 0; d < DAYS; d++) {
-    const { drift, vol: wild } = scenario.plan(d, crash, (way * Math.log(closes[d] / rate)) / vol);
+    const { drift, vol: wild } = script.plan(d, crash, (way * Math.log(closes[d] / rate)) / vol);
     closes.push(closes[d] * Math.exp((way * drift + normal(rnd) * wild) * vol));
   }
   const days = closes.map((_, d) => `day ${d}`);
-  return { pair, days, prices: path(closes, rnd), event: null, simulated: true, scenario: scenario.id, headlines: scenario.headlines };
+  return { pair, days, prices: path(closes, rnd), event: null, simulated: true, scenario: script.id, headlines: script.headlines };
 }

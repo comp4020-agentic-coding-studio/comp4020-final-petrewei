@@ -12,11 +12,12 @@ A Scenario round starts from today's real rate and plays out one of six hidden s
 
 Two headlines per script, on set days, drop clues into the feed, and the latest stays pinned under the price, so a careful trader can read the script coming. At the bell the script is named, with the real market it was modelled on. Names, notes and headlines are written in each language in `public/i18n-long.js`; the server sends a headline by its script and number, and each page tells it in its own language.
 
-The tab is Scenario, シナリオ and 剧本 to players; inside the code, its mode stays `live`, since thirty references and players' remembered tab choice use that name.
+The tab is Scenario, シナリオ and 剧本 to players. At first its mode stayed `live` in the code, to spare thirty references and players' remembered tab; Peter then asked for the rename, and the mode is now `scenario` throughout. The old name still works: the server reads `live` as `scenario`, and a browser that remembered the Live tab, or an old `/#live` link, opens Scenario.
 
 ## 3 Consequences
 
 - The simulated tab has a reveal and a skill: reading the headlines and the shape.
 - Each script teaches a pattern that has ruined real traders, which suits the parody.
 - The generator is its own function in `src/market.ts`, so a later Marathon can draw its rounds from Scenario and History alike.
+- `spec/modes.test.ts` checks that the old name, `live`, is read as Scenario.
 - `test/market.test.ts` checks that every script leaves its shape in the prices over thirty seeds, that each runs both ways, that prices stay finite, and that every script and headline is told in every language.

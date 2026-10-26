@@ -225,16 +225,16 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
 it("starts one round when two people press Start at once", async () => {
   s = await server(8097, { STATS_KEY: KEY });
   const { visitor, page, attempt, state } = app();
-  expect((await state(undefined, "live")).phase).toBe("lobby");
+  expect((await state(undefined, "scenario")).phase).toBe("lobby");
   const a = await visitor();
   const b = await visitor();
-  const pa = await page(a, "live");
-  const pb = await page(b, "live");
+  const pa = await page(a, "scenario");
+  const pb = await page(b, "scenario");
   try {
-    const [ra, rb] = await Promise.all([attempt({ kind: "start", mode: "live" }, a), attempt({ kind: "start", mode: "live" }, b)]);
+    const [ra, rb] = await Promise.all([attempt({ kind: "start", mode: "scenario" }, a), attempt({ kind: "start", mode: "scenario" }, b)]);
     expect([ra.status, rb.status].sort()).toEqual([200, 409]);
     expect((await (ra.status === 409 ? ra : rb).json()).error).toMatch(/about to start/);
-    expect((await state(undefined, "live")).phase).toBe("countdown");
+    expect((await state(undefined, "scenario")).phase).toBe("countdown");
     expect((await log()).recent.filter((l) => l.ev === "ask")).toHaveLength(1);
   } finally {
     pa.close();

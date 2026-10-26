@@ -85,7 +85,7 @@ it("keeps every slot of every template in every language", () => {
 // Chinese character counts as two. The budgets were measured in a browser
 // against the slots in public/app.css (see PROCESS.md).
 const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿]/.test(ch) ? 2 : 1), 0);
-const BUDGET: Record<string, number> = { warnClose: 16, logo: 12, history: 16, live: 16, tutorial: 16, sub: 30, spread: 34, leverage: 18, stake: 18, stakeNote: 28, netWorth: 14, pnl: 14, level: 14, meterKey: 50, pray: 34, start: 16, next: 14, restart: 14, clockLobby: 20, clockClosed: 20, clockTutorial: 20 };
+const BUDGET: Record<string, number> = { warnClose: 16, logo: 12, history: 16, scenario: 16, tutorial: 16, sub: 30, spread: 34, leverage: 18, stake: 18, stakeNote: 28, netWorth: 14, pnl: 14, level: 14, meterKey: 50, pray: 34, start: 16, next: 14, restart: 14, clockLobby: 20, clockClosed: 20, clockTutorial: 20 };
 
 it("keeps every fixed-width label inside its slot in every language", () => {
   for (const lang of LANGS) {
