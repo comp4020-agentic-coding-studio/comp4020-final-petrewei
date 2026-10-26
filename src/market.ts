@@ -1,7 +1,8 @@
 // Where a round's prices come from. A replay plays forty real trading days
 // of one pair from the ECB's daily reference rates (data/ecb.csv, source:
 // ECB; the crosses are derived), with the dates hidden until the round
-// ends. A live round starts from today's rate and simulates forty days on.
+// ends. A Scenario round (the tab still called "live" inside) starts from
+// today's rate and plays out a scripted market for forty days.
 // Free sources give one rate a day, so between closes the price wanders
 // on a random bridge that always lands on the real close; a day that
 // moved a lot opens with a gap, as the market did, and stops slip.
@@ -15,7 +16,7 @@ export const STEPS = 9;
 export const GAP = 0.015;
 
 type Day = { date: string; rate: number };
-export type Round = { pair: Pair; days: string[]; prices: number[]; event: Episode | null; simulated: boolean };
+export type Round = { pair: Pair; days: string[]; prices: number[]; event: Episode | null; simulated: boolean; scenario?: string; headlines?: Headline[] };
 export type Episode = { pair: Pair; date: string; title: string; note: string };
 
 // The famous days a replay may hide. Each note is shown when the round
@@ -134,19 +135,109 @@ function window(days: Day[], pair: Pair, rnd: () => number, event: Episode | nul
   return { pair, days: days.map((d) => d.date), prices: path(days.map((d) => d.rate), rnd), event, simulated: false };
 }
 
-// A live round from today's real rate: forty simulated days, each move
-// drawn at the pair's real volatility over the past year, with a small
-// chance each day of a shock four times that size.
-export function live(history: History, pair: Pair, rate: number, rnd: () => number): Round {
+// The simulated tab, Scenario (ADR 0027): a round from today's real rate
+// that plays out one of a few scripted markets, each modelled on a real
+// one, hidden until the bell. A script says, for each day, how far the
+// market drifts and how wild it is, as multiples of the pair's own daily
+// volatility over the past year; the headlines say just enough, on the
+// day, for a careful trader to read it. The reveal names the real market
+// it was modelled on, so the bell teaches as History's does.
+// A headline is shown on its day; its words, in every language, are in
+// public/i18n-long.js under the scenario's id, in the same order.
+export type Headline = { day: number };
+export type Scenario = {
+  id: string;
+  // The day's drift (in daily volatilities, signed) and wildness, given the
+  // day, the day the scenario turns, and how far the price has wandered
+  // from the open, in daily volatilities.
+  plan: (day: number, crash: number, away: number) => { drift: number; vol: number };
+  headlines: Headline[];
+};
+
+// Days of the round, counted from 0.
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+export const SCENARIOS: Scenario[] = [
+  {
+    // A currency held to a floor, very still, until the floor is dropped in
+    // one day: Switzerland, 15 January 2015.
+    id: "peg",
+    plan: (d, crash) => (d < crash ? { drift: 0, vol: 0.15 } : d === crash ? { drift: -24, vol: 0.4 } : { drift: 0.6, vol: 1.6 }),
+    headlines: [
+      { day: 4 },
+      { day: 12 },
+    ],
+  },
+  {
+    // Borrowing cheap to hold a high-yielding currency: a long, calm climb,
+    // then everyone leaves at once. The yen carry trade, August 2024.
+    id: "carry",
+    plan: (d, crash) => (d < crash ? { drift: 0.55, vol: 0.6 } : d < crash + 5 ? { drift: -4.5, vol: 1.8 } : { drift: -0.3, vol: 1.2 }),
+    headlines: [
+      { day: 6 },
+      { day: 20 },
+    ],
+  },
+  {
+    // A surprise decision moves the market in a day, and the trend follows.
+    // The yuan's devaluation, 11 August 2015.
+    id: "shock",
+    plan: (d, crash) => (d < crash ? { drift: 0, vol: 0.8 } : d === crash ? { drift: -9, vol: 0.5 } : d < crash + 4 ? { drift: -1.6, vol: 1.3 } : { drift: -0.3, vol: 1 }),
+    headlines: [
+      { day: 5 },
+      { day: 14 },
+    ],
+  },
+  {
+    // A trend everyone joins, until it turns. Sterling before and after the
+    // vote, June 2016, run the other way.
+    id: "bubble",
+    plan: (d, crash) => (d < crash ? { drift: lerp(0.3, 1.2, d / crash), vol: 0.9 } : { drift: -1.7, vol: 1.8 }),
+    headlines: [
+      { day: 8 },
+      { day: 22 },
+    ],
+  },
+  {
+    // No trend at all, only swings: the market that takes stops both ways,
+    // pulled back towards where it opened whenever it strays.
+    id: "chop",
+    plan: (_d, _c, away) => ({ drift: -0.5 * away, vol: 1.2 }),
+    headlines: [
+      { day: 6 },
+      { day: 18 },
+    ],
+  },
+  {
+    // A currency falling day after day, until its government steps in and
+    // buys it back. Japan, 22 September 2022.
+    id: "intervention",
+    plan: (d, crash) => (d < crash ? { drift: -0.7, vol: 0.9 } : d === crash ? { drift: 12, vol: 0.6 } : { drift: 0.2, vol: 1.3 }),
+    headlines: [
+      { day: 9 },
+      { day: 20 },
+    ],
+  },
+];
+
+// A Scenario round from today's real rate: forty simulated days, each
+// move drawn at the pair's real volatility over the past year and bent by
+// the scenario's plan. The day the scenario turns is drawn, so the turn
+// can't be timed by the calendar. `pick` forces a scenario, for checks.
+export function live(history: History, pair: Pair, rate: number, rnd: () => number, pick?: string): Round {
   const recent = history.series(pair).slice(-251);
   const moves = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
-  const vol = Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length);
+  // A floor of 0.4% a day, so a pegged pair still moves enough to play.
+  const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
+  const scenario = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
+  const crash = 18 + Math.floor(rnd() * 12);
+  // Each script runs either way up, so no one can just sell every round: a
+  // peg can break up as well as down, a carry trade unwind either way.
+  const way = rnd() < 0.5 ? 1 : -1;
   const closes = [rate];
   for (let d = 0; d < DAYS; d++) {
-    const shock = rnd() < 0.03 ? 4 : 1;
-    // Game days move twice as much as real ones: forty quiet days are dull.
-    closes.push(closes[d] * Math.exp(normal(rnd) * vol * 2 * shock));
+    const { drift, vol: wild } = scenario.plan(d, crash, (way * Math.log(closes[d] / rate)) / vol);
+    closes.push(closes[d] * Math.exp((way * drift + normal(rnd) * wild) * vol));
   }
   const days = closes.map((_, d) => `day ${d}`);
-  return { pair, days, prices: path(closes, rnd), event: null, simulated: true };
+  return { pair, days, prices: path(closes, rnd), event: null, simulated: true, scenario: scenario.id, headlines: scenario.headlines };
 }

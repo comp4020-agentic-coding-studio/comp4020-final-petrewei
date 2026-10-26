@@ -155,3 +155,33 @@ export const EVENTS = {
     "2022-09-26": { title: "英国迷你预算案", note: "英国没有资金来源的减税计划让英镑兑美元跌至历史最低，迫使英格兰银行出手干预。" },
   },
 };
+
+// The Scenario tab's scripts (ADR 0027), in every language: a name and
+// what real market it was modelled on, told at the bell, and the
+// headlines the feed shows on their day, in the order the script has them.
+export const SCENARIOS = {
+  en: {
+    peg: { name: "a peg break", note: "a currency held still at a floor until the central bank let go in a day, as Switzerland did on 15 January 2015.", headlines: ["The central bank calls its floor 'the cornerstone of policy'.", "Reserves to defend the floor have swelled past a year's output."] },
+    carry: { name: "a carry-trade unwind", note: "a long, calm climb on cheap borrowed money, then everyone leaving at once, as the yen carry trade did in August 2024.", headlines: ["Borrowing in the cheap currency to buy the dear one: 'free money', says a fund.", "The low-rate central bank hints its rates may finally rise."] },
+    shock: { name: "a policy shock", note: "a surprise decision that moved the market in a day, and a trend that followed it, as China's devaluation did on 11 August 2015.", headlines: ["The central bank meets on Tuesday. Economists expect no change.", "Exports fell for the third month running."] },
+    bubble: { name: "a bubble", note: "a trend everyone joined until it turned, as sterling's did around the Brexit vote in June 2016.", headlines: ["Retail traders pile in: long positions at a record.", "'This time it's different,' says a strategist."] },
+    chop: { name: "a choppy market", note: "no trend at all, only swings that take out stops on both sides. Most days in most markets look like this.", headlines: ["Analysts split: half say up, half say down.", "Volume is high, and no one knows why."] },
+    intervention: { name: "an intervention", note: "a currency sliding day after day until its government stepped in and bought it back, as Japan did on 22 September 2022.", headlines: ["The finance minister is 'watching the market with a sense of urgency'.", "Officials won't rule out 'decisive action'."] },
+  },
+  ja: {
+    peg: { name: "ペッグ崩壊", note: "下限で張りついていた通貨が、中央銀行の一日の決断で解き放たれる。2015年1月15日のスイスがそうでした。", headlines: ["中銀総裁「下限は政策の要だ」と強調。", "下限防衛のための外貨準備、ついにGDPの1年分を超える。"] },
+    carry: { name: "キャリートレードの巻き戻し", note: "安く借りたお金で長く穏やかに上がり、ある日いっせいに逃げ出す。2024年8月の円キャリーがそうでした。", headlines: ["「低金利で借りて高金利で運用、タダでもらえるお金」とファンド関係者。", "低金利の中銀、ついに利上げを示唆。"] },
+    shock: { name: "政策ショック", note: "予想外の決定で一日のうちに相場が動き、その流れが続く。2015年8月11日の人民元切り下げがそうでした。", headlines: ["中銀会合は火曜。エコノミストの予想は「据え置き」。", "輸出、3か月連続で減少。"] },
+    bubble: { name: "バブル", note: "誰もが乗ったトレンドが、ある日向きを変える。2016年6月、EU離脱の国民投票前後のポンドがそうでした。", headlines: ["個人投資家が殺到、買いポジションが過去最高に。", "ストラテジスト「今回は違う」。"] },
+    chop: { name: "レンジ相場", note: "トレンドはなく、上下に振れるだけで両方向の逆指値を刈っていく。たいていの相場の、たいていの日はこれです。", headlines: ["アナリストの見方は真っ二つ、上か下か。", "出来高は多いのに、理由は誰にもわからない。"] },
+    intervention: { name: "為替介入", note: "下げ続けた通貨を、政府がついに買い支える。2022年9月22日の日本がそうでした。", headlines: ["財務相「緊張感を持って市場を注視している」。", "当局者「断固たる措置」を排除せず。"] },
+  },
+  zh: {
+    peg: { name: "脱钩", note: "一种被压在底线上一动不动的货币，央行一天之内松手放开。2015年1月15日的瑞士就是这样。", headlines: ["央行行长称底线是“政策的基石”。", "为守住底线，外汇储备已超过一年的经济产出。"] },
+    carry: { name: "套息交易平仓", note: "借便宜钱一路慢涨，某天所有人一起夺门而逃。2024年8月的日元套息交易就是这样。", headlines: ["“借低息货币买高息货币，等于白捡钱”，某基金如是说。", "低利率央行暗示终于要加息。"] },
+    shock: { name: "政策冲击", note: "一个意外决定让行情一天之内变脸，之后趋势顺势延续。2015年8月11日人民元贬值就是这样。", headlines: ["央行周二开会，经济学家预计按兵不动。", "出口连续第三个月下滑。"] },
+    bubble: { name: "泡沫", note: "人人都上车的趋势，某天掉头。2016年6月脱欧公投前后的英镑就是这样。", headlines: ["散户蜂拥而入，多头仓位创纪录。", "策略师：“这次不一样。”"] },
+    chop: { name: "震荡市", note: "没有趋势，只有来回拉锯，两边的止损都被扫掉。大多数市场的大多数日子都是这样。", headlines: ["分析师意见对半开：一半看涨，一半看跌。", "成交量很大，却没人知道为什么。"] },
+    intervention: { name: "汇市干预", note: "一种货币连日下跌，直到政府出手买回。2022年9月22日的日本就是这样。", headlines: ["财务大臣表示正“以紧迫感关注市场”。", "官员不排除采取“果断行动”。"] },
+  },
+};

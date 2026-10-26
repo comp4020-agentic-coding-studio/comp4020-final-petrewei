@@ -11,7 +11,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 ## What good means here
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, such as Lehman Brothers or the franc's unpegging, revealed at the bell. Live simulates from today's real rate.
+- **History is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, like Lehman Brothers, revealed at the bell. Scenario plays a hidden script, like a peg break.
 - **Leverage is the joke, and the lesson.** From 1× to offshore 1000×, past Japan's 25× and Australia's 30× caps. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you borrow. A gap can wipe you out in one tick.
 - **Losing is public.** Stop-outs hit the feed; Dad lends twice, as debt.
 - **There's always someone to trade against.** Seven of the comic's traders play every round; Kurumi never cuts a loss.

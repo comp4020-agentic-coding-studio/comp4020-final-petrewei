@@ -745,7 +745,12 @@ function render(s) {
   const ch = (price / first - 1) * 100;
   $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
   $("change").className = ch >= 0 ? "up" : "down";
-  $("mode").textContent = t(tutorial ? "modeTutorial" : s.simulated ? "modeLive" : "modeReplay");
+  // A Scenario's latest headline takes the mode line, so the clue stays
+  // in view after the feed has moved on (ADR 0027).
+  const head = s.headline && T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n];
+  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeLive" : "modeReplay");
+  $("mode").classList.toggle("headline", !!head);
+  setTip($("mode"), head ?? "");
   $("clock").textContent = tutorial
     ? t("clockTutorial")
     : s.phase === "trade"
@@ -953,7 +958,11 @@ watch(mode);
 function reveal(result) {
   if (lang === "en") return result.reveal;
   const f = result.facts;
-  if (f.simulated) return t("revealSim", { pair: f.pair, date: f.from });
+  // A Scenario names its script, and the real market it was modelled on.
+  if (f.simulated) {
+    const x = f.scenario && T[lang].scenarios[f.scenario];
+    return x ? t("revealScenario", { name: x.name, pair: f.pair, date: f.from, note: x.note }) : t("revealSim", { pair: f.pair, date: f.from });
+  }
   const said = t("revealReplay", { pair: f.pair, from: f.from, to: f.to });
   const e = f.event && T[lang].events[f.event.date];
   return e ? `${said} ${e.title}（${f.event.date}）：${e.note}` : said;

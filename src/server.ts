@@ -308,7 +308,7 @@ const MODES = ["history", "live"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
-type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string };
+type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; scenario?: string };
 const listeners = new Set<Listener>();
 
 class Market {
@@ -325,6 +325,8 @@ class Market {
   countdown = 0;
   startedBy: string | null = null;
   ironman = false;
+  // The latest Scenario headline, pinned under the price until the next.
+  headline: { scenario: string; n: number } | null = null;
   // Ticks left in a pause, or 0 when the market runs.
   paused = 0;
   result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
@@ -357,8 +359,9 @@ class Market {
       const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
       this.round = live(history, pair, now.rate, rnd);
-      this.reveal = `That was a simulation from ${pair} on ${now.date} (${now.source}).`;
-      this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source };
+      const story = T.en.scenarios[this.round.scenario!];
+      this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
+      this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
     } else {
       const round = replay(history, rnd, 0.6);
       this.round = round;
@@ -373,6 +376,7 @@ class Market {
     this.startedBy = null;
     this.ironman = false;
     this.paused = 0;
+    this.headline = null;
     this.prays.clear();
     this.pops = [];
   }
@@ -466,7 +470,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Live round: ${this.round.pair} from today's real rate. Prices from here on are simulated.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "live-round" : "replay-round", { pair: this.round.pair });
+    this.say(this.round.simulated ? `Scenario: ${this.round.pair} from today's real rate. The script is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "live-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -572,6 +576,17 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
+    // A Scenario's headlines, each on its day: enough, read with care, to
+    // see the script coming (ADR 0027).
+    if (this.tick % STEPS === 1) {
+      const day = (this.tick - 1) / STEPS;
+      const words = this.round.scenario ? T.en.scenarios[this.round.scenario].headlines : [];
+      this.round.headlines?.forEach((h, i) => {
+        if (h.day !== day) return;
+        this.say(words[i], "news", "headline", { scenario: this.round.scenario!, n: i });
+        this.headline = { scenario: this.round.scenario!, n: i };
+      });
+    }
     const seen = this.round.prices.slice(0, this.tick + 1);
     for (const b of BOTS) {
       const action = b.act(this.desk, b.id, seen, rnd);
@@ -653,6 +668,7 @@ class Market {
       // Whether this visitor may cancel or end the round for everyone.
       rules: this.startedBy !== null && this.mayRule(who),
       ironman: this.ironman,
+      headline: this.headline,
       // Seconds left in a pause, or null while the market runs.
       paused: this.paused ? Math.ceil((this.paused * TICK_MS) / 1000) : null,
       startedDraw: this.startedBy && drawOf(this.startedBy),

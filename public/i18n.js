@@ -5,7 +5,7 @@
 // Japanese and mainland Chinese retail traders and brokers actually say.
 // Shared by the market page and test/i18n.test.ts.
 
-import { EVENTS, LESSONS } from "./i18n-long.js";
+import { EVENTS, LESSONS, SCENARIOS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
 
@@ -31,6 +31,8 @@ function fill(lang, text, args, nameOf) {
 
 // A feed line in the reader's language, or its English if a key is new.
 export function news(lang, line, nameOf) {
+  // A Scenario's headline is the script's own words (ADR 0027).
+  if (line.key === "headline") return T[lang].scenarios[line.args.scenario]?.headlines[line.args.n] ?? line.text;
   const text = T[lang].news[line.key];
   return text ? fill(lang, text, line.args, nameOf) : line.text;
 }
@@ -50,7 +52,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabHistory": "Forty real trading days, date hidden till the bell. Could be a quiet Tuesday. Could be Lehman.",
-      "tabLive": "Starts from today's real rate, then the dice take over",
+      "tabLive": "A made-up market from today's real rate, following a hidden script. Read the headlines.",
       "tabTutorial": "A private practice room. Nobody sees you fall over.",
       "whoami": "That's you · code {code} · click to rename, or redraw your face",
       "lang": "Same rooms, whichever language you read",
@@ -107,7 +109,7 @@ export const T = {
       titleJoin: " ",
       sub: "Kurumi's FX Fantasy",
       history: "History",
-      live: "Live",
+      live: "Scenario",
       tutorial: "Tutorial",
       youAre: "You are",
       nameTitle: "Your trader name",
@@ -187,7 +189,7 @@ export const T = {
       previewOut1: "Out of the round after the cut",
       previewOut2: "Only Dad's savings get you back in",
       modeTutorial: "Tutorial: scripted prices",
-      modeLive: "Live: today's rate, then simulated",
+      modeLive: "Scenario: today's rate, then a hidden script",
       modeReplay: "Replay: the date is hidden until the bell",
       clockTutorial: "practice, private",
       clockDay: "day {d} / {of}",
@@ -195,14 +197,15 @@ export const T = {
       clockLobby: "waiting for Start",
       clockClosed: "market closed",
       lobbyHistory: "History is waiting",
-      lobbyLive: "Live is waiting",
+      lobbyLive: "Scenario is waiting",
       lobbyOpens: "Trading opens in {s}s",
       lobbyHistoryText: "Forty real trading days, with the date kept secret until the bell. Anyone on this tab can start the round, and everyone here plays it.",
-      lobbyLiveText: "Forty simulated days from today's real rate. Anyone on this tab can start the round, and everyone here plays it.",
+      lobbyLiveText: "Forty days from today's real rate, following a script you won't see until the bell. Watch the headlines. Anyone on this tab can start the round, and everyone here plays it.",
       start: "Start round",
       bell: "The bell",
       bellNext: "Back to the lobby in {s}s",
       revealSim: "That was a simulation of {pair} from {date}.",
+      revealScenario: "That was {name}, simulated from {pair} on {date}: {note}",
       revealReplay: "That was {pair} from {from} to {to}.",
       losscut: "Forced loss cut · your round is over",
       zerocut: "Wiped out: zero-cut",
@@ -240,7 +243,7 @@ export const T = {
       unpaused: "The pause is over.",
       finished: "{who} ended the round early.",
       left: "{who} left the round to watch.",
-      "live-round": "Live round: {pair} from today's real rate. Prices from here on are simulated.",
+      "live-round": "Scenario: {pair} from today's real rate. The script is hidden until the bell.",
       "replay-round": "Replay: {pair}, forty real trading days. When? Find out at the bell.",
       bought: "{who} bought at {lev}×",
       sold: "{who} sold at {lev}×",
@@ -337,7 +340,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabHistory": "本物の相場から切り出した40営業日。いつの相場かはベルまで秘密。平穏な一日か、リーマンか。",
-      "tabLive": "今日の実際のレートから。そこから先はサイコロ任せ",
+      "tabLive": "今日の実際のレートから始まる、架空の相場。筋書きは秘密。ニュースを読もう",
       "tabTutorial": "ひとり用の練習部屋。転んでも誰にも見られません",
       "whoami": "あなたです・コード {code}・クリックで名前の変更や顔の引き直し",
       "lang": "どの言語で読んでも、部屋はみんな同じです",
@@ -394,7 +397,7 @@ export const T = {
       titleJoin: " ",
       sub: "くるみのFXファンタジー",
       history: "ヒストリー",
-      live: "ライブ",
+      live: "シナリオ",
       tutorial: "チュートリアル",
       youAre: "あなたは",
       nameTitle: "トレーダー名",
@@ -474,7 +477,7 @@ export const T = {
       previewOut1: "ロスカットでこのラウンドは退場",
       previewOut2: "戻れるのはパパの貯金だけ",
       modeTutorial: "チュートリアル：台本どおりの値動き",
-      modeLive: "ライブ：今日のレートから先はシミュレーション",
+      modeLive: "シナリオ：今日のレートから、秘密の筋書きで",
       modeReplay: "リプレイ：日付はベルが鳴るまで秘密",
       clockTutorial: "練習・ひとりだけ",
       clockDay: "{d} / {of}日目",
@@ -482,14 +485,15 @@ export const T = {
       clockLobby: "スタート待ち",
       clockClosed: "取引終了",
       lobbyHistory: "ヒストリーは待機中",
-      lobbyLive: "ライブは待機中",
+      lobbyLive: "シナリオは待機中",
       lobbyOpens: "あと{s}秒で取引開始",
       lobbyHistoryText: "実際の相場から切り出した40営業日。いつの相場かは、ベルが鳴るまでのお楽しみです。このタブにいる誰でも開始でき、ここにいる全員が参加します。",
-      lobbyLiveText: "今日の実際のレートから、40日分をシミュレーションします。このタブにいる誰でも開始でき、ここにいる全員が参加します。",
+      lobbyLiveText: "今日の実際のレートから40日分。どんな筋書きかはベルまで秘密です。ニュースから先を読みましょう。このタブにいる誰でも開始でき、ここにいる全員が参加します。",
       start: "ラウンド開始",
       bell: "ベル",
       bellNext: "あと{s}秒でロビーへ",
       revealSim: "{date}の{pair}から始めたシミュレーションでした。",
+      revealScenario: "{date}の{pair}から始めた「{name}」のシミュレーションでした。モデルにしたのは、{note}",
       revealReplay: "{pair}、{from}から{to}でした。",
       losscut: "強制ロスカット・このラウンドは終了",
       zerocut: "退場：ゼロカット",
@@ -527,7 +531,7 @@ export const T = {
       unpaused: "一時停止の時間切れ。相場が再び動きます。",
       finished: "{who}がラウンドを早めに終了しました。",
       left: "{who}がラウンドを抜けて見学中。",
-      "live-round": "ライブ：{pair}、今日の実際のレートから。ここから先はシミュレーションです。",
+      "live-round": "シナリオ：{pair}、今日の実際のレートから。筋書きはベルまで秘密です。",
       "replay-round": "リプレイ：{pair}、本物の40営業日。いつのこと？ベルが鳴ればわかります。",
       bought: "{who}が{lev}倍で買い",
       sold: "{who}が{lev}倍で売り",
@@ -623,7 +627,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabHistory": "截取真实行情的40个交易日，哪一段要等收盘铃响才揭晓。可能风平浪静，也可能是雷曼。",
-      "tabLive": "从今天的真实汇率出发，之后交给骰子",
+      "tabLive": "从今天的真实汇率出发的虚构行情，剧本保密。留意新闻。",
       "tabTutorial": "只属于你的练习室，摔倒了也没人看见",
       "whoami": "这是你 · 代码 {code} · 点击改名或换头像",
       "lang": "不管看哪种语言，大家都在同一个房间",
@@ -681,7 +685,7 @@ export const T = {
       // Chinese sets no space after full-width punctuation.
       titleJoin: "",
       history: "历史",
-      live: "实时",
+      live: "剧本",
       tutorial: "教程",
       youAre: "你是",
       nameTitle: "交易员昵称",
@@ -761,7 +765,7 @@ export const T = {
       previewOut1: "被强平，本局出局",
       previewOut2: "只有老爹的存款能让你回来",
       modeTutorial: "教程：按剧本走的行情",
-      modeLive: "实时：从今天的汇率开始，之后为模拟",
+      modeLive: "剧本：从今天的汇率出发，剧本保密",
       modeReplay: "回放：日期在收盘铃响前保密",
       clockTutorial: "练习，仅你一人",
       clockDay: "第{d}/{of}天",
@@ -769,14 +773,15 @@ export const T = {
       clockLobby: "等待开始",
       clockClosed: "已收盘",
       lobbyHistory: "历史模式等待中",
-      lobbyLive: "实时模式等待中",
+      lobbyLive: "剧本模式等待中",
       lobbyOpens: "{s}秒后开盘",
       lobbyHistoryText: "截取真实行情中的40个交易日，是哪一段行情，收盘铃响时揭晓。这个标签页里谁都能开局，在场的人一起玩。",
-      lobbyLiveText: "从今天的真实汇率出发，模拟往后的40天。这个标签页里谁都能开局，在场的人一起玩。",
+      lobbyLiveText: "从今天的真实汇率出发的40天，剧本到收盘铃响才揭晓。从新闻里读出端倪吧。这个标签页里谁都能开局，在场的人一起玩。",
       start: "开始一局",
       bell: "收盘铃",
       bellNext: "{s}秒后回到大厅",
       revealSim: "这是从{date}的{pair}开始的模拟。",
+      revealScenario: "这是从{date}的{pair}出发、按“{name}”剧本模拟的行情：{note}",
       revealReplay: "这是{pair}，{from}至{to}。",
       losscut: "强制平仓 · 本局出局",
       zerocut: "爆仓：负余额清零",
@@ -814,7 +819,7 @@ export const T = {
       unpaused: "暂停时间到，行情继续。",
       finished: "{who}提前结束了本局。",
       left: "{who}退出本局，正在旁观。",
-      "live-round": "实时局：{pair}，从今天的真实汇率开始。之后的价格都是模拟。",
+      "live-round": "剧本局：{pair}，从今天的真实汇率开始。剧本到收盘时揭晓。",
       "replay-round": "回放局：{pair}，真实的40个交易日。是哪一年？收盘铃响时揭晓。",
       bought: "{who}以{lev}倍买入",
       sold: "{who}以{lev}倍卖出",
@@ -912,6 +917,8 @@ for (const lang of ["ja", "zh"]) {
   T[lang].lessons = LESSONS[lang];
   T[lang].events = EVENTS[lang];
 }
+// The Scenario tab's scripts, in every language (ADR 0027).
+for (const lang of LANGS) T[lang].scenarios = SCENARIOS[lang];
 // For the checks: English lessons and days exist wherever the others do.
 export function english(lessons, events) {
   for (const l of lessons) T.en.lessons[l.id] = { title: l.title, text: l.text, task: l.task };
