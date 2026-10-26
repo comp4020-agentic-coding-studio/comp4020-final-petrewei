@@ -8,7 +8,7 @@ Peter asked that a trader go by a given name alone, such as Kurumi and not Fukug
 
 ## 2 Decision
 
-**Given names alone.** The seven house traders are Kurumi, Mochiko, Yasuko, Mebuki, Inago, Nana and Kizuna in every language: くるみ, 萌智子, やす子, 芽吹, いなご, なな and きずな in Japanese, and 久留美, 安子, 芽吹, 稻子, 奈奈 and 绊 in Chinese. A drawn name is one of 124 given names with a form in each language, so a draw is a single number the server sends and each page writes in its own script. The family names are gone. A name saved as a family and a given name keeps the given one, and the old full names of the house traders stay reserved so nobody can take them. The line at the top is the face and the name with its pencil, with no "You are"; the code stays in its tip.
+**Given names alone.** The seven house traders are Kurumi, Mochiko, Yasuko, Mebuki, Inago, Nana and Kizuna in every language: くるみ, 萌智子, やす子, 芽吹, いなご, なな and きずな in Japanese, and 久留美, 安子, 芽吹, 稻子, 奈奈 and 绊 in Chinese. A drawn name is one of 227 given names with a form in each language, so a draw is a single number the server sends and each page writes in its own script. The family names are gone. A name saved as a family and a given name keeps the given one, and the old full names of the house traders stay reserved so nobody can take them. The line at the top is the face and the name with its pencil, with no "You are"; the code stays in its tip.
 
 **A clean hall.** Names changed shape, so the hall began again, once. The server empties the saved hall the first time it starts without a marker file beside it, then writes the marker; careers saved after that are kept. Peter chose to wipe it, rather than keep the records under shorter names.
 
