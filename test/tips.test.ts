@@ -206,13 +206,24 @@ it("keeps who you are on the first header row on a narrow screen, with the subti
   expect(narrow).not.toMatch(/\.whoami \{[^}]*grid-row: 3/);
   expect(css).toMatch(/@media \(max-width: 419px\) \{ \.sub \{ display: none; \} \}/);
 });
-it("folds the chart's price line with the chart, and names the favicon's candlesticks and yen", () => {
-  const css = readFileSync("public/app.css", "utf8");
-  expect(css).not.toMatch(/chart-panel\.folded > \.quote/);
+it("folds the chart's price line with the chart", () => {
+  expect(readFileSync("public/app.css", "utf8")).not.toMatch(/chart-panel\.folded > \.quote/);
+});
+// ADR 0043, 0045: the favicon is two candlesticks on nothing, one up in the
+// page's green and one down in its red, the up one higher; no tile, no line
+// graph, and no coin, which is lost at 16 pixels.
+it("draws the favicon as one up and one down candle on a clear background", () => {
   const svg = readFileSync("public/favicon.svg", "utf8");
-  expect(svg).not.toMatch(/<polyline/);
-  expect(svg.match(/<rect /g)!.length).toBeGreaterThanOrEqual(4);
-  expect(svg).toMatch(/<circle /);
+  const css = readFileSync("public/app.css", "utf8");
+  const colour = (name: string) => css.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))![1];
+  const bodies = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"[^>]*fill="(#[0-9a-f]{6})"/g)];
+  expect(bodies).toHaveLength(2);
+  expect(svg).not.toMatch(/<polyline|<circle|<text|width="64" height="64"/);
+  const [up, down] = bodies;
+  expect(up[5]).toBe(colour("up"));
+  expect(down[5]).toBe(colour("down"));
+  expect(Number(up[2])).toBeLessThan(Number(down[2]));
+  expect(Number(up[2]) + Number(up[4]) / 2).toBeLessThan(Number(down[2]) + Number(down[4]) / 2);
 });
 it("breaks the Japanese subtitle after くるみちゃんの, and names Kurumi with ちゃん there", () => {
   expect(T.ja.ui.sub).toBe("くるみちゃんの FXファンタジー");

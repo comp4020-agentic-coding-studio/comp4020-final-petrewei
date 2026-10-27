@@ -1,6 +1,6 @@
 # ADR 0043: A Candlestick Icon and a Subtitle at the Side
 
-Status: accepted, 28 October 2026. Replaces the stacked subtitle of [ADR 0041](0041-a-stacked-subtitle.md); the chart's folding of [ADR 0042](0042-headed-and-foldable-chart-and-position.md) is extended.
+Status: accepted, 28 October 2026; its favicon replaced by [ADR 0045](0045-two-candles-for-the-favicon.md). Replaces the stacked subtitle of [ADR 0041](0041-a-stacked-subtitle.md); the chart's folding of [ADR 0042](0042-headed-and-foldable-chart-and-position.md) is extended.
 
 ## 1 Context
 
