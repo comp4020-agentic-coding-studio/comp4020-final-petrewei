@@ -164,7 +164,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "ready",
     title: "You're Ready",
-    text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch your margin level, cut losses early, use a stop, and remember gaps. In real life most retail traders using leverage lose money; here it is free. Try Replay for real crashes with the date hidden, or Scenario for a scripted market from today's rate.",
+    text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch your margin level, cut losses early, use a stop, and remember gaps. In real life most retail traders using leverage lose money; here it is free. Try Replay for real crashes with the date hidden, or Scenario for a simulated, random market from today's rate.",
     task: "Press Next to finish, then choose a tab above.",
     focus: [],
     allow: only("next", "Press Next to finish."),

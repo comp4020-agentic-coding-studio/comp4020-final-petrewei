@@ -261,3 +261,19 @@ it("shows the same Title Case in the page's own markup as in its translations", 
     expect(el.textContent, key).toBe(T.en.ui[key]);
   }
 });
+
+// ADR 0046: Scenario is a simulation drawn at random, not a script. Nothing a
+// player reads about it says script, 剧本 or 筋書き, and the Chinese tab is
+// 模拟. The Tutorial is fixed, and may still say so.
+it("describes Scenario as a random simulation, never a script", async () => {
+  const { ABOUT } = await import("../public/about.js");
+  const words = /script|剧本|脚本|筋書き|台本/i;
+  const fixed = new Set(["modeTutorial"]);
+  for (const lang of LANGS) {
+    const own = Object.entries(T[lang].ui).filter(([k]) => !fixed.has(k)).map(([k, v]) => `${k}: ${v}`);
+    for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { scenarios: unknown }).scenarios)]) expect(line, lang).not.toMatch(words);
+  }
+  expect(T.zh.ui.scenario).toBe("模拟");
+  expect(T.en.ui.lobbyScenarioText).toMatch(/random/);
+  expect(ABOUT.en.sections.flat(2).join(" ")).toMatch(/at random/);
+});

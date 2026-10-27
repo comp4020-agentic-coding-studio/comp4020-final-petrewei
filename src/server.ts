@@ -3,7 +3,7 @@
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
 // 0010). A round is three minutes: Replay plays real days with the
-// date hidden, Scenario plays a hidden script from today's rate. The hall of fame,
+// date hidden, Scenario simulates a random market from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
@@ -338,7 +338,7 @@ const FIRST_YEAR = 1999;
 // The two markets a visitor can pick between by tab. Each is a room of
 // its own, with its own round, desk, bots, feed and bell, and both run
 // all the time: Replay plays real days with the date hidden, Scenario
-// starts from today's real rate and plays a hidden script (ADR 0027).
+// starts from today's real rate and simulates a random market (ADR 0027).
 const MODES = ["replay", "scenario"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
@@ -520,7 +520,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Scenario: ${this.round.pair} from today's real rate. The script is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
+    this.say(this.round.simulated ? `Scenario: ${this.round.pair}, simulated from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -640,7 +640,7 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
-    // Headlines, each on its day: a Scenario's script (ADR 0027), or a
+    // Headlines, each on its day: a Scenario's situation (ADR 0027), or a
     // replay's clues before its famous day (ADR 0030); enough, read with
     // care, to see it coming.
     if (this.tick % STEPS === 1) {

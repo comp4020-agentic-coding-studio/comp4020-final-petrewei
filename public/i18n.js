@@ -31,7 +31,7 @@ function fill(lang, text, args, nameOf) {
 
 // A feed line in the reader's language, or its English if a key is new.
 export function news(lang, line, nameOf) {
-  // A Scenario's headline is the script's own words (ADR 0027).
+  // A Scenario's headline is the situation's own words (ADR 0027).
   if (line.key === "headline") return T[lang].scenarios[line.args.scenario]?.headlines[line.args.n] ?? line.text;
   if (line.key === "clue") return T[lang].clues[line.args.date]?.[line.args.n] ?? line.text;
   const text = T[lang].news[line.key];
@@ -53,7 +53,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabReplay": "Forty real trading days, date hidden till the bell. Could be a quiet Tuesday. Could be Lehman.",
-      "tabScenario": "A made-up market from today's real rate, following a hidden script. Read the headlines.",
+      "tabScenario": "A simulated market from today's real rate, drawn at random, shaped by a situation you aren't told. Read the headlines.",
       "tabTutorial": "A private practice room. Nobody sees you fall over.",
       "whoami": "That's you · code {code} · click to rename or redraw your face",
       "lang": "Same rooms, whichever language you read",
@@ -209,7 +209,7 @@ export const T = {
       previewOut1: "Out of the round after the cut",
       previewOut2: "Only Dad's savings get you back in",
       modeTutorial: "Tutorial: scripted prices",
-      modeScenario: "Scenario: today's rate, then a hidden script",
+      modeScenario: "Scenario: simulated from today's rate, drawn at random",
       modeReplay: "Replay: the date is hidden until the bell",
       clockTutorial: "practice, private",
       clockDay: "day {d} / {of}",
@@ -220,7 +220,7 @@ export const T = {
       lobbyScenario: "Scenario Is Waiting",
       lobbyOpens: "Trading Opens in {s}s",
       lobbyReplayText: "40 real days. The date stays secret.",
-      lobbyScenarioText: "40 scripted days from today's rate.",
+      lobbyScenarioText: "40 simulated days, random each time.",
       start: "Start Round",
       bell: "The Bell",
       bellNext: "Back to the lobby in {s}s",
@@ -238,7 +238,7 @@ export const T = {
       doneTitle: "Tutorial Complete",
       doneText: "Well done. Choose Replay or Scenario above to trade against other people, or start the tutorial again.",
       doneTask: "Pick a tab above.",
-      footer: "Prices: the ECB's euro reference rates, with other pairs worked out from them, and Frankfurter for today's rate. Scenario moves are simulated. This is an unofficial fan parody of FX Fighter Kurumi-chan, with no link to its creators, KADOKAWA, the studio or any broker. It uses play money only. In real markets, most people who trade FX with leverage lose money. If gambling or debt is hurting you, in Australia call Gambling Help on 1800 858 858.",
+      footer: "Prices: the ECB's euro reference rates, with other pairs worked out from them, and Frankfurter for today's rate. Scenario prices are simulated at random. This is an unofficial fan parody of FX Fighter Kurumi-chan, with no link to its creators, KADOKAWA, the studio or any broker. It uses play money only. In real markets, most people who trade FX with leverage lose money. If gambling or debt is hurting you, in Australia call Gambling Help on 1800 858 858.",
       notes: { 1: "sensible", 2: "careful", 5: "steady", 10: "keen", 30: "Australia's legal cap", 50: "bold", 100: "offshore", 200: "reckless", 500: "brave", 1000: "It's okay, I've got leverage~♪" },
       previewOpen1: "Puts in {margin} → controls {controls}",
       previewOpen2: "A {away} move against you loses it all",
@@ -263,7 +263,7 @@ export const T = {
       unpaused: "The pause is over.",
       finished: "{who} ended the round early.",
       left: "{who} left the round to watch.",
-      "scenario-round": "Scenario: {pair} from today's real rate. The script is hidden until the bell.",
+      "scenario-round": "Scenario: {pair}, simulated from today's real rate. The situation is hidden until the bell.",
       "replay-round": "Replay: {pair}, forty real trading days. When? Find out at the bell.",
       bought: "{who} bought at {lev}×",
       sold: "{who} sold at {lev}×",
@@ -368,7 +368,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabReplay": "本物の相場から切り出した40営業日。いつの相場かはベルまで秘密。平穏な一日か、リーマンか。",
-      "tabScenario": "今日の実際のレートから始まる、架空の相場。筋書きは秘密。ニュースを読もう",
+      "tabScenario": "今日の実際のレートから、ランダムに作るシミュレーション相場。状況は秘密。ニュースを読もう",
       "tabTutorial": "ひとり用の練習部屋。転んでも誰にも見られません",
       "whoami": "あなたです・コード {code}・クリックで名前の変更や顔の引き直し",
       "lang": "どの言語で読んでも、部屋はみんな同じです",
@@ -524,7 +524,7 @@ export const T = {
       previewOut1: "ロスカットでこのラウンドは退場",
       previewOut2: "戻れるのはパパの貯金だけ",
       modeTutorial: "チュートリアル：台本どおりの値動き",
-      modeScenario: "シナリオ：今日のレートから、秘密の筋書きで",
+      modeScenario: "シナリオ：今日のレートからのシミュレーション、毎回ランダム",
       modeReplay: "リプレイ：日付はベルが鳴るまで秘密",
       clockTutorial: "練習・ひとりだけ",
       clockDay: "{d} / {of}日目",
@@ -535,7 +535,7 @@ export const T = {
       lobbyScenario: "シナリオは待機中",
       lobbyOpens: "あと{s}秒で取引開始",
       lobbyReplayText: "実在の40営業日。時期は秘密。",
-      lobbyScenarioText: "今日のレートから40日分の筋書き。",
+      lobbyScenarioText: "40日分のシミュレーション。毎回ランダム。",
       start: "ラウンド開始",
       bell: "ベル",
       bellNext: "あと{s}秒でロビーへ",
@@ -578,7 +578,7 @@ export const T = {
       unpaused: "一時停止の時間切れ。相場が再び動きます。",
       finished: "{who}がラウンドを早めに終了しました。",
       left: "{who}がラウンドを抜けて見学中。",
-      "scenario-round": "シナリオ：{pair}、今日の実際のレートから。筋書きはベルまで秘密です。",
+      "scenario-round": "シナリオ：{pair}、今日の実際のレートからのシミュレーション。状況はベルまで秘密です。",
       "replay-round": "リプレイ：{pair}、本物の40営業日。いつのこと？ベルが鳴ればわかります。",
       bought: "{who}が{lev}倍で買い",
       sold: "{who}が{lev}倍で売り",
@@ -682,7 +682,7 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "tabReplay": "截取真实行情的40个交易日，哪一段要等收盘铃响才揭晓。可能风平浪静，也可能是雷曼。",
-      "tabScenario": "从今天的真实汇率出发的虚构行情，剧本保密。留意新闻。",
+      "tabScenario": "从今天的真实汇率出发、随机生成的模拟行情，背后的情形保密。留意新闻。",
       "tabTutorial": "只属于你的练习室，摔倒了也没人看见",
       "whoami": "这是你 · 代码 {code} · 点击改名或换头像",
       "lang": "不管看哪种语言，大家都在同一个房间",
@@ -751,7 +751,7 @@ export const T = {
       // Chinese sets no space after full-width punctuation.
       titleJoin: "",
       replay: "回放",
-      scenario: "剧本",
+      scenario: "模拟",
       tutorial: "教程",
       nameTitle: "交易员昵称",
       nameHint: "房间里的所有人都会看到它，旁边是你的代码。",
@@ -838,8 +838,8 @@ export const T = {
       previewNone: "没有可用资金。",
       previewOut1: "被强平，本局出局",
       previewOut2: "只有老爹的存款能让你回来",
-      modeTutorial: "教程：按剧本走的行情",
-      modeScenario: "剧本：从今天的汇率出发，剧本保密",
+      modeTutorial: "教程：预先设定的行情",
+      modeScenario: "模拟：从今天的汇率出发，每局随机生成",
       modeReplay: "回放：日期在收盘铃响前保密",
       clockTutorial: "练习，仅你一人",
       clockDay: "第{d}/{of}天",
@@ -847,15 +847,15 @@ export const T = {
       clockLobby: "等待开始",
       clockClosed: "已收盘",
       lobbyReplay: "回放模式等待中",
-      lobbyScenario: "剧本模式等待中",
+      lobbyScenario: "模拟模式等待中",
       lobbyOpens: "{s}秒后开盘",
       lobbyReplayText: "40个真实交易日，收盘铃响才揭晓日期。",
-      lobbyScenarioText: "从今天汇率出发的40天剧本。",
+      lobbyScenarioText: "40天随机模拟，每局不同。",
       start: "开始一局",
       bell: "收盘铃",
       bellNext: "{s}秒后回到大厅",
       revealSim: "这是从{date}的{pair}开始的模拟。",
-      revealScenario: "这是从{date}的{pair}出发、按“{name}”剧本模拟的行情：{note}",
+      revealScenario: "这是从{date}的{pair}出发、按“{name}”情形模拟的行情：{note}",
       revealReplay: "这是{pair}，{from}至{to}。",
       losscut: "强制平仓 · 本局出局",
       zerocut: "爆仓：负余额清零",
@@ -866,9 +866,9 @@ export const T = {
       next: "下一步",
       restart: "重新开始",
       doneTitle: "教程完成",
-      doneText: "干得好。选择上方的回放或剧本与其他人交易，或者重新开始教程。",
+      doneText: "干得好。选择上方的回放或模拟与其他人交易，或者重新开始教程。",
       doneTask: "选择上方的标签页。",
-      footer: "汇率数据：欧洲央行（ECB）欧元参考汇率，交叉汇率由此换算；今日汇率来自 Frankfurter。剧本模式的走势为模拟。本站是《FX战士久留美》的非官方同人恶搞，与原作者、KADOKAWA、动画制作公司及任何外汇平台无关，全程只用虚拟币。现实中，用杠杆炒外汇的散户大多亏钱。如果赌博或债务正在困扰你，请及时向身边的人或专业机构求助；在澳大利亚可拨打 Gambling Help 热线 1800 858 858。",
+      footer: "汇率数据：欧洲央行（ECB）欧元参考汇率，交叉汇率由此换算；今日汇率来自 Frankfurter。模拟模式的走势为随机生成的模拟。本站是《FX战士久留美》的非官方同人恶搞，与原作者、KADOKAWA、动画制作公司及任何外汇平台无关，全程只用虚拟币。现实中，用杠杆炒外汇的散户大多亏钱。如果赌博或债务正在困扰你，请及时向身边的人或专业机构求助；在澳大利亚可拨打 Gambling Help 热线 1800 858 858。",
       notes: { 1: "稳健", 2: "谨慎", 5: "稳扎稳打", 10: "积极", 30: "澳洲上限", 50: "激进", 100: "海外平台", 200: "鲁莽", 500: "勇士", 1000: "有杠杆就没问题♪" },
       previewOpen1: "投入{margin}，撬动{controls}",
       previewOpen2: "反向波动{away}就全部亏光",
@@ -893,7 +893,7 @@ export const T = {
       unpaused: "暂停时间到，行情继续。",
       finished: "{who}提前结束了本局。",
       left: "{who}退出本局，正在旁观。",
-      "scenario-round": "剧本局：{pair}，从今天的真实汇率开始。剧本到收盘时揭晓。",
+      "scenario-round": "模拟局：{pair}，从今天的真实汇率开始随机生成。背后的情形到收盘时揭晓。",
       "replay-round": "回放局：{pair}，真实的40个交易日。是哪一年？收盘铃响时揭晓。",
       bought: "{who}以{lev}倍买入",
       sold: "{who}以{lev}倍卖出",

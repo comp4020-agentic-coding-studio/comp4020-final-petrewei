@@ -1,6 +1,6 @@
 # ADR 0027: Scenario Replaces Live
 
-Status: accepted, 26 October 2026. Changes the Live tab of [ADR 0012](0012-history-and-live-as-tabs.md).
+Status: accepted, 26 October 2026; its wording of the tab changed by [ADR 0046](0046-scenario-is-a-random-simulation.md). Changes the Live tab of [ADR 0012](0012-history-and-live-as-tabs.md).
 
 ## 1 Context
 

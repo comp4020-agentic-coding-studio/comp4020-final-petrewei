@@ -1,7 +1,7 @@
 // Where a round's prices come from. A replay plays forty real trading days
 // of one pair from the ECB's daily reference rates (data/ecb.csv, source:
 // ECB; the crosses are derived), with the dates hidden until the round
-// ends. A Scenario round starts from today's rate and plays out a scripted
+// ends. A Scenario round starts from today's rate and simulates a random
 // market for forty days.
 // Free sources give one rate a day, so between closes the price wanders
 // on a random bridge that always lands on the real close; a day that
@@ -142,11 +142,11 @@ function window(days: Day[], pair: Pair, rnd: () => number, event: Episode | nul
 }
 
 // The simulated tab, Scenario (ADR 0027): a round from today's real rate
-// that plays out one of a few scripted markets, each modelled on a real
-// one, hidden until the bell. A script says, for each day, how far the
-// market drifts and how wild it is, as multiples of the pair's own daily
-// volatility over the past year; the headlines say just enough, on the
-// day, for a careful trader to read it. The reveal names the real market
+// that simulates a random market shaped by one of a few situations, each
+// modelled on a real one, hidden until the bell. A situation says, for each
+// day, how far the market drifts and how wild it is, as multiples of the
+// pair's own daily volatility over the past year; the headlines say just
+// enough, on the day, for a careful trader to read it. The reveal names the real market
 // it was modelled on, so the bell teaches as History's does.
 // A headline is shown on its day; its words, in every language, are in
 // public/i18n-long.js under the scenario's id, in the same order.
@@ -236,7 +236,7 @@ export function scenario(history: History, pair: Pair, rate: number, rnd: () => 
   const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
   const script = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
   const crash = 18 + Math.floor(rnd() * 12);
-  // Each script runs either way up, so no one can just sell every round: a
+  // Each situation runs either way up, so no one can just sell every round: a
   // peg can break up as well as down, a carry trade unwind either way.
   const way = rnd() < 0.5 ? 1 : -1;
   const closes = [rate];
