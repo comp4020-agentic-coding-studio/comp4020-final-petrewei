@@ -193,18 +193,26 @@ it("translates the lobby's line, note and the ticket's title in every language, 
   }
 });
 
-// ADR 0040, 0041: on a narrow screen who you are shares the first row with
-// the logo and the tools, and the subtitle stays, small and broken onto two
-// lines under the logo, rather than costing the name its room.
-it("keeps who you are on the first header row on a narrow screen, under a stacked subtitle", () => {
+// ADR 0040, 0043: on a narrow screen who you are shares the first row with
+// the logo and the tools; the subtitle sits at the logo's right where it
+// fits, and goes on a narrow phone so the name always shows.
+it("keeps who you are on the first header row on a narrow screen, with the subtitle at the logo's right", () => {
   const css = readFileSync("public/app.css", "utf8");
   const narrow = css.slice(css.indexOf("@media (max-width: 900px)"), css.indexOf("@media (max-width: 560px)"));
-  expect(narrow).not.toMatch(/\.sub \{ display: none; \}/);
-  expect(narrow).toMatch(/\.brand \{ flex-direction: column;/);
-  expect(narrow).toMatch(/\.sub \{[^}]*max-width: 4\.6rem/);
+  expect(narrow).toMatch(/\.top \{ grid-template-columns: minmax\(0, 1fr\) auto auto;/);
+  expect(narrow).not.toMatch(/\.brand \{[^}]*flex-direction: column/);
   expect(narrow).toMatch(/\.whoami \{ grid-column: 2; grid-row: 1;/);
   expect(narrow).toMatch(/\.tools \{ grid-column: 3; grid-row: 1; \}/);
   expect(narrow).not.toMatch(/\.whoami \{[^}]*grid-row: 3/);
+  expect(css).toMatch(/@media \(max-width: 419px\) \{ \.sub \{ display: none; \} \}/);
+});
+it("folds the chart's price line with the chart, and names the favicon's candlesticks and yen", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  expect(css).not.toMatch(/chart-panel\.folded > \.quote/);
+  const svg = readFileSync("public/favicon.svg", "utf8");
+  expect(svg).not.toMatch(/<polyline/);
+  expect(svg.match(/<rect /g)!.length).toBeGreaterThanOrEqual(4);
+  expect(svg).toMatch(/<circle /);
 });
 it("breaks the Japanese subtitle after くるみちゃんの, and names Kurumi with ちゃん there", () => {
   expect(T.ja.ui.sub).toBe("くるみちゃんの FXファンタジー");

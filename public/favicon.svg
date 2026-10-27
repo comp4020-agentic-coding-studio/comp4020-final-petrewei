@@ -1,5 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#ff4f8b"/>
-  <polyline points="8,20 20,26 30,18 40,30 48,44 56,52" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="17" y="56" font-family="sans-serif" font-weight="900" font-size="22" fill="#fff">¥</text>
+  <!-- Three candlesticks, rising, and a yen coin: a market at a glance. -->
+  <g stroke="#fff" stroke-width="3" stroke-linecap="round">
+    <path d="M14 34v24M28 26v30M42 38v20"/>
+  </g>
+  <rect x="9" y="40" width="10" height="12" rx="1.5" fill="#fff"/>
+  <rect x="23" y="32" width="10" height="16" rx="1.5" fill="#7a1237"/>
+  <rect x="37" y="42" width="10" height="11" rx="1.5" fill="#fff"/>
+  <circle cx="46" cy="20" r="14" fill="#fff"/>
+  <path d="M39.5 12.5 46 21l6.5-8.5M46 21v9M41 22.5h10M41 26.5h10" fill="none" stroke="#ff4f8b" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

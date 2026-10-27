@@ -222,9 +222,6 @@ main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-co
 body:not(.tutorial) .panel.folded > h2 { border-bottom-color: transparent; }
 body:not(.tutorial) .panel.folded > h2::after { transform: rotate(-45deg); }
 body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
-/* The chart folds to its price line, so pause, leave and end stay in reach. */
-body:not(.tutorial) .chart-panel.folded > .quote { display: grid; }
-body:not(.tutorial) .chart-panel.folded > .quote ~ * { display: none; }
 .ticket-body { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
 /* The quote line above the chart. */
@@ -650,17 +647,12 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
      fixed row at the bottom. */
   .lesson-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .lesson { height: 360px; }
-  /* The subtitle goes under the logo, small, so the first row has room for
-     who you are, between the brand and the tools (ADR 0040, 0041). */
-  .brand { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.05; }
-  /* The subtitle wraps at its space, "Kurumi's / FX Fantasy", to be no wider
-     than the logo above it; a Japanese or Chinese one wraps where it can. */
-  .sub { font-size: 0.66rem; line-height: 1.1; white-space: normal; max-width: 4.6rem; overflow: visible; }
-  /* Chinese is short enough for one line under its logo. Japanese breaks
-     at its phrase, くるみの / FXファンタジー, never inside ファンタジー. */
-  :root:lang(zh-CN) .sub { max-width: none; white-space: nowrap; }
-  :root:lang(ja) .sub { max-width: 5.6rem; word-break: keep-all; }
-  .top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; }
+    .top { grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.6rem; }
+  .brand { gap: 0.4rem; min-width: 0; overflow: hidden; }
+  .logo { flex: none; }
+  /* The subtitle stays at the logo's right, small, where it fits, and is
+     hidden on a narrow phone, so the name always shows (ADR 0043). */
+  .sub { font-size: 0.66rem; line-height: 1.1; min-width: 0; }
   .brand { grid-column: 1; grid-row: 1; }
   .whoami { grid-column: 2; grid-row: 1; justify-self: end; }
   .tools { grid-column: 3; grid-row: 1; }
@@ -669,6 +661,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* On a phone the position row becomes a card, each figure labelled, and
    Close spans the width: it must never scroll out of reach. */
 @media (max-width: 560px) {
+  @media (max-width: 419px) { .sub { display: none; } }
   /* Tabs share the width, labels kept on one line; the chart is tall
      enough to hold the lobby and its Start button. */
   .tabs button { font-size: 0.85rem; }
@@ -678,11 +671,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .lesson { height: 472px; }
   /* The empty-position line wraps in a box sized for two lines. */
   #pos-empty td { height: 3.6rem; vertical-align: top; }
-  /* The logo stays a good size over its small subtitle. */
-  .top .logo { font-size: 1.25rem; }
-  /* ロスカット！ and 强制平仓！ are wider than Losscut! at one size. */
-  :root:lang(ja) .top .logo { font-size: 0.95rem; }
-  :root:lang(zh-CN) .top .logo { font-size: 1.05rem; }
+  .top .logo { font-size: 1.05rem; }
+  :root:lang(ja) .top .logo { font-size: 0.9rem; }
+  :root:lang(zh-CN) .top .logo { font-size: 0.95rem; }
   /* Four tools beside the logo: a little tighter, so ロスカット！ still
      clears them at 360px. */
   .tools .icon, .lang { width: 30px; height: 30px; }

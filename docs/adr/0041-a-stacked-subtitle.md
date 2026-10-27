@@ -1,6 +1,6 @@
 # ADR 0041: A Stacked Subtitle
 
-Status: accepted, 27 October 2026. Replaces the hidden subtitle of [ADR 0040](0040-who-you-are-on-the-first-row.md); the name's place on the first row stands.
+Status: accepted, 27 October 2026; replaced by [ADR 0043](0043-a-candlestick-icon-and-a-subtitle-at-the-side.md). Replaces the hidden subtitle of [ADR 0040](0040-who-you-are-on-the-first-row.md); the name's place on the first row stands.
 
 ## 1 Context
 
