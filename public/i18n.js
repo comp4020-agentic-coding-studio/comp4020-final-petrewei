@@ -113,6 +113,8 @@ export const T = {
       "rankRow": "Ended on {worth} ({change}) · code {code}",
     },
     ui: {
+      positionTitle: "Your position",
+      chartTitle: "Chart",
       ticketTitle: "Order ticket",
       lobbyNote: "Play money only. Real FX trading can lose everything you put in.",
       logo: "Losscut!",
@@ -219,7 +221,7 @@ export const T = {
       lobbyOpens: "Trading opens in {s}s",
       lobbyReplayText: "40 real days. The date stays secret.",
       lobbyScenarioText: "40 scripted days from today's rate.",
-      start: "Start round",
+      start: "Start Round",
       bell: "The bell",
       bellNext: "Back to the lobby in {s}s",
       revealSim: "That was a simulation of {pair} from {date}.",
@@ -426,6 +428,8 @@ export const T = {
       "rankRow": "最終 {worth}（{change}）・コード {code}",
     },
     ui: {
+      positionTitle: "あなたのポジション",
+      chartTitle: "チャート",
       ticketTitle: "注文チケット",
       lobbyNote: "遊びのお金だけで遊べます。本物のFXは、元手をすべて失うこともあります。",
       logo: "ロスカット！",
@@ -738,6 +742,8 @@ export const T = {
       "rankRow": "最终 {worth}（{change}）· 代码 {code}",
     },
     ui: {
+      positionTitle: "你的持仓",
+      chartTitle: "图表",
       ticketTitle: "下单票据",
       lobbyNote: "只用虚拟资金。真实外汇交易可能亏掉全部本金。",
       logo: "强制平仓！",

@@ -167,16 +167,18 @@ it("puts pause, leave and end in the quote line, between the price and the clock
   expect(page.querySelectorAll("#pause, #leave, #finish")).toHaveLength(3);
   expect(page.querySelector(".ticket #pause, .ticket #leave, .ticket #finish")).toBeNull();
 });
-it("puts Ironman to the right of Start, and only one line of text and a note in the lobby", () => {
+it("puts Ironman below Start, and only one line of text and a note in the lobby", () => {
   const go = page.querySelector(".lobby-go")!;
   expect([...go.children].map((e) => e.id)).toEqual(["start", "ironman"]);
+  expect(readFileSync("public/app.css", "utf8")).toMatch(/\.lobby-go \{[^}]*flex-direction: column/);
+  expect(T.en.ui.start).toBe("Start Round");
   const lobby = page.querySelector("#lobby")!;
   expect(lobby.querySelectorAll("p")).toHaveLength(3);
   expect(lobby.querySelector(".lobby-note")).not.toBeNull();
 });
 it("gives the ticket a heading, and lets headed panels fold", () => {
   expect(page.querySelector(".ticket > h2")?.textContent).toMatch(/\S/);
-  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["fame", "feed", "room", "ticket"]);
+  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["chart", "fame", "feed", "position", "room", "ticket"]);
   for (const p of page.querySelectorAll(".panel[data-fold]")) expect(p.querySelector(":scope > h2"), (p as HTMLElement).dataset.fold).not.toBeNull();
 });
 it("shows the language as a globe alone, and lets the footer take the page's width", () => {

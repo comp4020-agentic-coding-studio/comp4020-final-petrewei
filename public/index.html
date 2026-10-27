@@ -69,7 +69,8 @@
     </section>
 
     <div class="col main-col">
-    <section class="panel chart-panel" aria-label="Chart">
+    <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
+      <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
       <div class="quote">
         <span class="pair" id="pair">—</span>
         <strong class="price" id="price">—</strong>
@@ -115,7 +116,7 @@
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
           <div class="lobby-go">
-            <button id="start" class="start" data-t="start" data-tip="start">Start round</button>
+            <button id="start" class="start" data-t="start" data-tip="start">Start Round</button>
             <!-- Ironman: nobody may pause this round (ADR 0024). -->
             <button id="ironman" class="ironman" type="button" role="switch" aria-checked="false" data-tip="ironman">
               <span class="track" aria-hidden="true"><span class="knob"></span></span>
@@ -129,7 +130,8 @@
       </div>
     </section>
 
-    <section class="panel positions" aria-label="Your position">
+    <section class="panel positions" data-fold="position" aria-label="Your position">
+      <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your position</span></h2>
       <table>
         <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
         <tbody>

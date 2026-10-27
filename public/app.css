@@ -222,6 +222,9 @@ main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-co
 body:not(.tutorial) .panel.folded > h2 { border-bottom-color: transparent; }
 body:not(.tutorial) .panel.folded > h2::after { transform: rotate(-45deg); }
 body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
+/* The chart folds to its price line, so pause, leave and end stay in reach. */
+body:not(.tutorial) .chart-panel.folded > .quote { display: grid; }
+body:not(.tutorial) .chart-panel.folded > .quote ~ * { display: none; }
 .ticket-body { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
 /* The quote line above the chart. */
@@ -310,7 +313,7 @@ body.tutorial .studies { display: none; }
 #ranking li.left { counter-increment: none; color: var(--muted); }
 #ranking li.left::before { content: "–"; }
 .lobby p { margin: 0; max-width: 100%; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lobby-go { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.6rem 0.9rem; }
+.lobby-go { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .lobby-go .start { margin-top: 0; }
 .lobby .lobby-note { position: absolute; bottom: 0.6rem; left: 1rem; right: 1rem; max-width: none; white-space: normal; font-size: 0.72rem; color: var(--muted); }
 .lobby.counting .lobby-note { display: none; }

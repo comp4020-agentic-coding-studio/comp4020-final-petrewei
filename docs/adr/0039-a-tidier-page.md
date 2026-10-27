@@ -1,6 +1,6 @@
 # ADR 0039: A Tidier Page
 
-Status: accepted, 27 October 2026; its header refined by [ADR 0040](0040-who-you-are-on-the-first-row.md). Moves the round controls of [ADR 0022](0022-a-rounds-controls.md) and [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md), and the language picker of [ADR 0016](0016-the-address-names-the-language.md).
+Status: accepted, 27 October 2026; its header refined by [ADR 0040](0040-who-you-are-on-the-first-row.md), its folding and lobby by [ADR 0042](0042-headed-and-foldable-chart-and-position.md). Moves the round controls of [ADR 0022](0022-a-rounds-controls.md) and [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md), and the language picker of [ADR 0016](0016-the-address-names-the-language.md).
 
 ## 1 Context
 
