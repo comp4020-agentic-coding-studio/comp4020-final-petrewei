@@ -141,7 +141,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
    that cannot fit its slot is cut with an ellipsis, never wrapped. */
 /* Slot widths fit the longest language: the brand's Japanese subtitle,
    the tabs' longest label three times over. */
-.top { display: grid; grid-template-columns: 344px 390px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.top { display: grid; grid-template-columns: 344px 460px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
 .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Each language has its own logo; it never wraps, so the bar keeps its height. */
@@ -628,9 +628,14 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
    tabs and tools keep their slots. */
 @media (max-width: 1180px) {
   .lesson { height: 220px; }
-  .top { grid-template-columns: 344px 390px minmax(0, 1fr); }
-  .tools { justify-self: end; }
-  .whoami { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  /* The brand and the tools share the first row, and the tabs take the
+     second at their full width, with room for a badge on each (ADR 0048),
+     where side by side the tools overlapped them. Who you are follows. */
+  .top { grid-template-columns: minmax(0, 1fr) auto; }
+  .brand { grid-column: 1; grid-row: 1; }
+  .tools { grid-column: 2; grid-row: 1; justify-self: end; }
+  .tabs { grid-column: 1 / -1; grid-row: 2; justify-self: start; width: 460px; max-width: 100%; }
+  .whoami { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
 }
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */

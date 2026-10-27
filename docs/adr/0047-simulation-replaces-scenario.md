@@ -1,6 +1,6 @@
 # ADR 0047: Simulation Replaces Scenario
 
-Status: accepted, 28 October 2026. Renames the tab of [ADR 0027](0027-scenario-replaces-live.md), whose wording [ADR 0046](0046-scenario-is-a-random-simulation.md) had already changed.
+Status: accepted, 28 October 2026; its tab bar widened by [ADR 0048](0048-room-for-the-longest-tab.md). Renames the tab of [ADR 0027](0027-scenario-replaces-live.md), whose wording [ADR 0046](0046-scenario-is-a-random-simulation.md) had already changed.
 
 ## 1 Context
 

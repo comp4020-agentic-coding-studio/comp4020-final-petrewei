@@ -300,3 +300,17 @@ it("never calls the tab Scenario to a player", () => {
   expect(T.en.tips.tabSimulation).toBeTruthy();
   expect(T.en.tips).not.toHaveProperty("tabScenario");
 });
+
+// ADR 0048: the tab bar is wide enough for the longest tab with a player
+// count on it, Simulation 12, in every state: 460px, which the header holds
+// as a column from 1181px and as a row of its own from 901px down, where side
+// by side the tools overlapped it. No tab truncates with an ellipsis.
+it("gives the tab bar room for its widest tab, and its own row where the header is narrow", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  expect(css).toMatch(/\.top \{ display: grid; grid-template-columns: 344px 460px minmax\(0, 1fr\) auto;/);
+  const band = css.slice(css.indexOf("@media (max-width: 1180px)"), css.indexOf("@media (max-width: 900px)"));
+  expect(band).toMatch(/\.tabs \{ grid-column: 1 \/ -1; grid-row: 2; justify-self: start; width: 460px; max-width: 100%; \}/);
+  expect(band).toMatch(/\.tools \{ grid-column: 2; grid-row: 1;/);
+  expect(band).toMatch(/\.whoami \{ grid-column: 1 \/ -1; grid-row: 3;/);
+  expect(band).not.toMatch(/\.tabs button \{[^}]*font-size/);
+});
