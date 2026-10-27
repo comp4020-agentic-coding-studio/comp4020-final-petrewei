@@ -13,7 +13,7 @@ export const baseUrl = inject("baseUrl");
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
 export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
-export type Mode = "replay" | "scenario" | "tutorial";
+export type Mode = "replay" | "simulation" | "tutorial";
 export type State = {
   mode: Mode;
   here: Record<Mode, number>;

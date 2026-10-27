@@ -1,6 +1,6 @@
 # ADR 0046: Scenario Is a Random Simulation
 
-Status: accepted, 28 October 2026. Rewords the Scenario tab of [ADR 0027](0027-scenario-replaces-live.md); the market it draws is unchanged.
+Status: accepted, 28 October 2026; the tab renamed by [ADR 0047](0047-simulation-replaces-scenario.md). Rewords the Scenario tab of [ADR 0027](0027-scenario-replaces-live.md); the market it draws is unchanged.
 
 ## 1 Context
 

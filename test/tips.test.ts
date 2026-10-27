@@ -188,8 +188,8 @@ it("shows the language as a globe alone, and lets the footer take the page's wid
 });
 it("translates the lobby's line, note and the ticket's title in every language, each text on one line", () => {
   for (const lang of LANGS) {
-    for (const k of ["lobbyReplayText", "lobbyScenarioText", "lobbyNote", "ticketTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).toBeTruthy();
-    for (const k of ["lobbyReplayText", "lobbyScenarioText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
+    for (const k of ["lobbyReplayText", "lobbySimulationText", "lobbyNote", "ticketTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).toBeTruthy();
+    for (const k of ["lobbyReplayText", "lobbySimulationText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
   }
 });
 
@@ -245,7 +245,7 @@ const titleCase = (text: string): boolean => {
   });
 };
 it("writes the English headings and titles in Title Case", () => {
-  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyReplay", "lobbyScenario", "lobbyOpens", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
+  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyReplay", "lobbySimulation", "lobbyOpens", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
   for (const k of keys) expect(titleCase(T.en.ui[k]), `${k}: ${T.en.ui[k]}`).toBe(true);
 });
 it("writes every lesson title and About heading in Title Case", async () => {
@@ -262,10 +262,10 @@ it("shows the same Title Case in the page's own markup as in its translations", 
   }
 });
 
-// ADR 0046: Scenario is a simulation drawn at random, not a script. Nothing a
+// ADR 0046, 0047: Simulation is drawn at random, not a script. Nothing a
 // player reads about it says script, 剧本 or 筋書き, and the Chinese tab is
 // 模拟. The Tutorial is fixed, and may still say so.
-it("describes Scenario as a random simulation, never a script", async () => {
+it("describes Simulation as a random simulation, never a script", async () => {
   const { ABOUT } = await import("../public/about.js");
   const words = /script|剧本|脚本|筋書き|台本/i;
   const fixed = new Set(["modeTutorial"]);
@@ -273,7 +273,30 @@ it("describes Scenario as a random simulation, never a script", async () => {
     const own = Object.entries(T[lang].ui).filter(([k]) => !fixed.has(k)).map(([k, v]) => `${k}: ${v}`);
     for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { scenarios: unknown }).scenarios)]) expect(line, lang).not.toMatch(words);
   }
-  expect(T.zh.ui.scenario).toBe("模拟");
-  expect(T.en.ui.lobbyScenarioText).toMatch(/random/);
+  expect(T.zh.ui.simulation).toBe("模拟");
+  expect(T.en.ui.simulation).toBe("Simulation");
+  expect(T.ja.ui.simulation).toBe("シナリオ");
+  expect(T.en.ui.lobbySimulationText).toMatch(/random/);
   expect(ABOUT.en.sections.flat(2).join(" ")).toMatch(/at random/);
+});
+
+// ADR 0047: the tab is Simulation in English and 模拟 in Chinese, with the mode
+// id `simulation`; Japanese keeps シナリオ, which fits the phone tab bar where
+// シミュレーション does not. Its old names, Scenario, Live and History, still
+// lead to the tabs, in the page and the server.
+it("names the mode simulation, and keeps its old names working", () => {
+  expect(page.querySelector('[data-mode="simulation"]')).not.toBeNull();
+  expect(page.querySelector('[data-mode="scenario"]')).toBeNull();
+  expect(page.querySelector("#here-simulation")).not.toBeNull();
+  const app = readFileSync("public/app.js", "utf8");
+  expect(app).toMatch(/const MODES = \["replay", "simulation", "tutorial"\]/);
+  expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", live: "simulation", scenario: "simulation" \}\)/);
+  const server = readFileSync("src/server.ts", "utf8");
+  expect(server).toMatch(/const MODES = \["replay", "simulation"\] as const/);
+  expect(server).toMatch(/OLD: Record<string, Mode> = \{ history: "replay", live: "simulation", scenario: "simulation" \}/);
+});
+it("never calls the tab Scenario to a player", () => {
+  for (const lang of LANGS) for (const [k, v] of Object.entries(T[lang].ui)) if (lang !== "ja") expect(`${k}: ${v}`, lang).not.toMatch(/Scenario|scenario:/);
+  expect(T.en.tips.tabSimulation).toBeTruthy();
+  expect(T.en.tips).not.toHaveProperty("tabScenario");
 });

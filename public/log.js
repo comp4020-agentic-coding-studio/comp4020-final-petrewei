@@ -23,7 +23,7 @@ function say(l) {
     case "borrow": return `borrowed from Dad, owing ${yen(l.debt)}`;
     case "pray": return `prayed to the chart (×${l.times})`;
     case "refused": return `tried to ${l.action}; refused: ${l.why}`;
-    case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.simulated ? " (scenario, simulated)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
+    case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.simulated ? " (simulation)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
     case "end": return `${l.mode ?? ""} round ended: ${l.ranking.map(([w, n]) => `${w} ${yen(n)}`).join(", ")}`;
     case "rates": return `fetched today's rates (${l.date})`;
     default: return l.ev;

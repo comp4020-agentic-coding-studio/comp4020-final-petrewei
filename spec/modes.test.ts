@@ -1,23 +1,23 @@
 import { expect, it } from "vitest";
 import { act, live, open, page, state, visitor } from "./helpers.ts";
 
-// History and Scenario are two markets, chosen by tab, running side by side:
+// Replay and Simulation are two markets, chosen by tab, running side by side:
 // each has its own round, price and room, and a trade on one never shows
 // on the other. Read-only checks run against the live app too.
 
-it("runs a Replay and a Scenario at the same time", async () => {
+it("runs a Replay and a Simulation at the same time", async () => {
   const past = await state(undefined, "replay");
-  const now = await state(undefined, "scenario");
+  const now = await state(undefined, "simulation");
   expect(past.mode).toBe("replay");
   expect(past.simulated).toBe(false);
-  expect(now.mode).toBe("scenario");
+  expect(now.mode).toBe("simulation");
   expect(now.simulated).toBe(true);
 });
 
 // The tab was called Live; an old page or link that still asks for it
-// gets Scenario, not Replay (ADR 0027).
-it("takes the old name, live, as Scenario", async () => {
-  expect((await state(undefined, "live" as "scenario")).mode).toBe("scenario");
+// gets Simulation, not Replay (ADRs 0027, 0047).
+it("takes the old names, live and scenario, as Simulation", async () => {
+  for (const old of ["live", "scenario"]) expect((await state(undefined, old as "simulation")).mode, old).toBe("simulation");
 });
 
 it("treats an unknown mode as Replay", async () => {
@@ -31,10 +31,10 @@ it("takes the old name, history, as Replay", async () => {
 });
 
 it("streams only the chosen market to a page", async () => {
-  const p = await page(undefined, "scenario");
+  const p = await page(undefined, "simulation");
   try {
     const first = (await p.next(() => true, 2000)) as { mode: string };
-    expect(first.mode).toBe("scenario");
+    expect(first.mode).toBe("simulation");
   } finally {
     p.close();
   }
@@ -42,32 +42,32 @@ it("streams only the chosen market to a page", async () => {
 
 it.skipIf(live)("keeps a trade on one tab off the other", async () => {
   const trader = await visitor();
-  const onScenario = await page(await visitor(), "scenario");
+  const onSimulation = await page(await visitor(), "simulation");
   const onReplay = await page(await visitor(), "replay");
-  const own = await page(trader, "scenario");
+  const own = await page(trader, "simulation");
   const me = (await own.next(() => true, 2000)) as { you: { name: string } };
   const shows = (e: Record<string, unknown>): boolean => (e.traders as { name: string; side: number }[]).some((t) => t.name === me.you.name && t.side === 1);
   try {
-    await open(8, "scenario");
-    const seenLive = onScenario.next(shows, 1000);
+    await open(8, "simulation");
+    const seenLive = onSimulation.next(shows, 1000);
     const seenHistory = onReplay.next(shows, 1500);
-    expect((await act(trader, { kind: "buy", leverage: 5, stake: 0.25, mode: "scenario" })).status).toBe(200);
+    expect((await act(trader, { kind: "buy", leverage: 5, stake: 0.25, mode: "simulation" })).status).toBe(200);
     expect(await seenLive).not.toBeNull();
     expect(await seenHistory).toBeNull();
-    expect((await state(trader, "scenario")).you.pos).not.toBeNull();
+    expect((await state(trader, "simulation")).you.pos).not.toBeNull();
     expect((await state(trader, "replay")).you.pos).toBeNull();
   } finally {
-    onScenario.close();
+    onSimulation.close();
     onReplay.close();
     own.close();
   }
 });
 
 it.skipIf(live)("counts who is on each tab", async () => {
-  const p = await page(await visitor(), "scenario");
+  const p = await page(await visitor(), "simulation");
   try {
-    const seen = (await p.next(() => true, 2000)) as { here: { scenario: number } };
-    expect(seen.here.scenario).toBeGreaterThanOrEqual(1);
+    const seen = (await p.next(() => true, 2000)) as { here: { simulation: number } };
+    expect(seen.here.simulation).toBeGreaterThanOrEqual(1);
   } finally {
     p.close();
   }

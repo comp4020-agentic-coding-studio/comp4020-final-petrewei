@@ -65,7 +65,7 @@ describe("a replay", () => {
 });
 
 
-// ADR 0027: the simulated tab, Scenario, plays out one of a few scripted
+// ADR 0027: the simulated tab, Simulation, plays out one of a few shaped
 // markets from today's rate, hidden until the bell. Each script must leave
 // its mark in the prices, over any seed, or the reveal is only a label.
 describe("a scenario round", () => {

@@ -123,9 +123,10 @@ $("ironman-fist").innerHTML = prop("fist", 20);
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
-const MODES = ["replay", "scenario", "tutorial"];
-// The tabs' old names, History and Live, still lead to them (ADRs 0027, 0028).
-const renamed = (m) => ({ history: "replay", live: "scenario" })[m] ?? m;
+const MODES = ["replay", "simulation", "tutorial"];
+// The tabs' old names, History, Live and Scenario, still lead to them (ADRs
+// 0027, 0028, 0047).
+const renamed = (m) => ({ history: "replay", live: "simulation", scenario: "simulation" })[m] ?? m;
 let mode = (() => {
   try {
     // the tabs were called History and Live; a browser that remembers either
@@ -137,7 +138,7 @@ let mode = (() => {
   }
   return "replay";
 })();
-// An address may name a tab (/#scenario, or an old /#history); honour it,
+// An address may name a tab (/#simulation, or an old /#history or /#scenario); honour it,
 // then drop it, so the address names only the language. Called on load,
 // before the page connects, and on every hash change after.
 let connected = false;
@@ -401,8 +402,8 @@ function lobby(s) {
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
   $("ironman").hidden = counting;
-  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "scenario" ? "lobbyScenario" : "lobbyReplay");
-  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "scenario" ? "lobbyScenarioText" : "lobbyReplayText");
+  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
+  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
@@ -904,9 +905,9 @@ function render(s) {
   lesson(s);
   lobby(s);
   // The tab shows a head count as a bare number; its tooltip says what.
-  for (const m of ["replay", "scenario"]) {
+  for (const m of ["replay", "simulation"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "scenario" ? "tabScenario" : "tabReplay")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
+    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "simulation" ? "tabSimulation" : "tabReplay")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -927,7 +928,7 @@ function render(s) {
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
   const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : T[lang].clues[s.headline.date]?.[s.headline.n]);
-  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeScenario" : "modeReplay");
+  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeSimulation" : "modeReplay");
   $("mode").classList.toggle("headline", !!head);
   setTip($("mode"), head ?? "");
   $("clock").textContent = tutorial
@@ -1163,7 +1164,7 @@ function reveal(result) {
   // A Scenario names its script, and the real market it was modelled on.
   if (f.simulated) {
     const x = f.scenario && T[lang].scenarios[f.scenario];
-    return x ? t("revealScenario", { name: x.name, pair: f.pair, date: f.from, note: x.note }) : t("revealSim", { pair: f.pair, date: f.from });
+    return x ? t("revealSimulation", { name: x.name, pair: f.pair, date: f.from, note: x.note }) : t("revealSim", { pair: f.pair, date: f.from });
   }
   const said = t("revealReplay", { pair: f.pair, from: f.from, to: f.to });
   const e = f.event && T[lang].events[f.event.date];

@@ -6,8 +6,8 @@ import { attempt, live, open, page, sleep, state, visitor } from "./helpers.ts";
 // a round, and returns to the lobby after the bell.
 
 it("refuses a Start from someone without the tab open", async () => {
-  const s = await state(undefined, "scenario");
-  const res = await attempt({ kind: "start", mode: "scenario" }, await visitor());
+  const s = await state(undefined, "simulation");
+  const res = await attempt({ kind: "start", mode: "simulation" }, await visitor());
   if (s.phase === "lobby") expect((await res.json()).error).toMatch(/Open this tab/);
   else expect(res.status).toBe(409);
 });
@@ -21,17 +21,17 @@ it("refuses a trade while the market waits in the lobby", async () => {
 });
 
 it.skipIf(live)("holds the price still in the lobby", async () => {
-  const before = await state(undefined, "scenario");
+  const before = await state(undefined, "simulation");
   if (before.phase !== "lobby") return;
   await sleep(1500);
-  const after = await state(undefined, "scenario");
+  const after = await state(undefined, "simulation");
   expect(after.phase).toBe("lobby");
   expect(after.tick).toBe(before.tick);
 });
 
 it.skipIf(live)("counts down after a Start, then opens trading", async () => {
-  await open(8, "scenario");
-  const s = await state(undefined, "scenario");
+  await open(8, "simulation");
+  const s = await state(undefined, "simulation");
   expect(s.phase).toBe("trade");
 });
 

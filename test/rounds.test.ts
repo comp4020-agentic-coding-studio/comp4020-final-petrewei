@@ -300,15 +300,15 @@ it("takes a year guess in a replay's second half, private until the bell", async
   }
 }, 30_000);
 
-it("takes no year guess in a Scenario round", async () => {
+it("takes no year guess in a Simulation round", async () => {
   s = await server(8096, { TICK_MS: "20", COUNTDOWN_TICKS: "2" });
   const { visitor, page, act, until } = app();
   const me = await visitor();
-  const tab = await page(me, "scenario");
+  const tab = await page(me, "simulation");
   try {
-    await act(me, { kind: "start", mode: "scenario" });
-    await until(me, (x) => x.phase === "trade", 10_000, "scenario");
-    const res = await act(me, { kind: "guess", year: 2015, mode: "scenario" });
+    await act(me, { kind: "start", mode: "simulation" });
+    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
+    const res = await act(me, { kind: "guess", year: 2015, mode: "simulation" });
     expect(res.status).toBe(409);
   } finally {
     tab.close();

@@ -1,9 +1,9 @@
-// Losscut!'s server: two shared markets, Replay and Scenario, each traded
+// Losscut!'s server: two shared markets, Replay and Simulation, each traded
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
 // 0010). A round is three minutes: Replay plays real days with the
-// date hidden, Scenario simulates a random market from today's rate. The hall of fame,
+// date hidden, Simulation simulates a random market from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
@@ -337,9 +337,9 @@ const FIRST_YEAR = 1999;
 
 // The two markets a visitor can pick between by tab. Each is a room of
 // its own, with its own round, desk, bots, feed and bell, and both run
-// all the time: Replay plays real days with the date hidden, Scenario
+// all the time: Replay plays real days with the date hidden, Simulation
 // starts from today's real rate and simulates a random market (ADR 0027).
-const MODES = ["replay", "scenario"] as const;
+const MODES = ["replay", "simulation"] as const;
 type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
@@ -360,7 +360,7 @@ class Market {
   countdown = 0;
   startedBy: string | null = null;
   ironman = false;
-  // The latest Scenario headline, pinned under the price until the next.
+  // The latest Simulation headline, pinned under the price until the next.
   headline: { scenario: string; n: number } | { date: string; n: number } | null = null;
   // Each trader's guess at a replay's year, private until the bell.
   guesses = new Map<string, number>();
@@ -392,7 +392,7 @@ class Market {
 
   // Draws the next round and parks it, its price still, in the lobby.
   ready(): void {
-    if (this.mode === "scenario") {
+    if (this.mode === "simulation") {
       const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
       this.round = scenario(history, pair, now.rate, rnd);
@@ -520,7 +520,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Scenario: ${this.round.pair}, simulated from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
+    this.say(this.round.simulated ? `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -640,7 +640,7 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
-    // Headlines, each on its day: a Scenario's situation (ADR 0027), or a
+    // Headlines, each on its day: a Simulation's situation (ADR 0027), or a
     // replay's clues before its famous day (ADR 0030); enough, read with
     // care, to see it coming.
     if (this.tick % STEPS === 1) {
@@ -795,8 +795,10 @@ class Market {
 
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
 // The tabs were called History and Live; an old page or link asking for
-// either gets Replay or Scenario (ADRs 0027, 0028).
-const OLD: Record<string, Mode> = { history: "replay", live: "scenario" };
+// either gets Replay or Simulation (ADRs 0027, 0028).
+// The tabs' old names still lead to them: History and Live (ADRs 0027, 0028),
+// then Scenario (ADR 0047).
+const OLD: Record<string, Mode> = { history: "replay", live: "simulation", scenario: "simulation" };
 const modeOf = (value: unknown): Mode => OLD[value as string] ?? (MODES.includes(value as Mode) ? (value as Mode) : "replay");
 
 // The Tutorial tab: each visitor's own private market (src/tutorial.ts),

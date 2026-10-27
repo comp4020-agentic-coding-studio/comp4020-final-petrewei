@@ -468,7 +468,7 @@ th:first-child, td:first-child { text-align: left; }
 #feed .k-loss { color: var(--down); }
 #feed .k-wild { color: var(--pink); }
 #feed .k-pray, #feed .k-info { color: var(--muted); }
-/* A Scenario's headline: the clue, so it reads as news, not chatter. */
+/* A Simulation's headline: the clue, so it reads as news, not chatter. */
 #feed .k-news { color: var(--ink); font-style: italic; }
 /* A house trader's line, said off screen: face, name, the quote. */
 #feed .k-said { color: var(--soft); }
@@ -664,7 +664,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   @media (max-width: 419px) { .sub { display: none; } }
   /* Tabs share the width, labels kept on one line; the chart is tall
      enough to hold the lobby and its Start button. */
-  .tabs button { font-size: 0.85rem; }
+  .tabs button { font-size: 0.8rem; padding-left: 0.25rem; padding-right: 0.25rem; }
+  .tabs .ico { margin-right: 0.15rem; }
   /* On a phone, チュートリアル needs every pixel: Japanese tabs drop
      their icons, and the tip still says what each tab is. */
   :root:lang(ja) .tabs .ico { display: none; }
