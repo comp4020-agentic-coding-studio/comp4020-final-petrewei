@@ -43,7 +43,7 @@ const holding = (t: Tutorial): boolean => !!t.desk.account(ME).pos;
 export const LESSONS: Lesson[] = [
   {
     id: "welcome",
-    title: "Welcome to the trading floor",
+    title: "Welcome to the Trading Floor",
     text: "Forex (FX) is trading one currency for another. This chart is USD/JPY: the price is how many yen one US dollar costs, so when it rises the dollar has grown stronger. You have ¥1,000,000 of practice money. Nothing here is real or saved, and nobody else is in this room. It takes about five minutes.",
     task: "Press Next to begin.",
     focus: ["chart", "equity"],
@@ -53,7 +53,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "buy",
-    title: "Buy: betting the price rises",
+    title: "Buy: Betting the Price Rises",
     text: "To buy is to bet that the price will go up. Leverage is how many times your money you bet with; 1× means you borrow nothing. Stake is the share of your money you put in.",
     task: "Set Leverage to 1×, then press Buy, and watch the chart.",
     focus: ["leverage", "buy"],
@@ -65,7 +65,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "take-profit",
-    title: "Taking profit",
+    title: "Taking Profit",
     text: "The price rose about 1%, and so did your money. Open P&L is what you would make if you closed now: a profit is not yours until you close. You started slightly down because of the spread, the small gap between the buying and selling price that the broker keeps.",
     task: "Press Close on your position to bank the profit.",
     focus: ["pnl", "close"],
@@ -75,7 +75,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "sell",
-    title: "Sell: betting the price falls",
+    title: "Sell: Betting the Price Falls",
     text: "To sell, or go short, is the opposite bet: you make money when the price falls. You don't need to own any dollars to sell them; the broker lends them to you.",
     task: "Keep Leverage at 1× and press Sell.",
     focus: ["sell"],
@@ -86,7 +86,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "close-short",
-    title: "Closing a short",
+    title: "Closing a Short",
     text: "The price fell, so your short made money: you sold dollars at the higher price and buy them back cheaper. Closing does the buying back.",
     task: "Press Close on your position.",
     focus: ["close"],
@@ -96,7 +96,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "leverage",
-    title: "Leverage: the magnifying glass",
+    title: "Leverage: The Magnifying Glass",
     text: "At 30× leverage your ¥1,000,000 controls ¥30,000,000 of dollars, so a 1% move changes your money by 30%, either way. 30× is the legal limit for retail traders in Australia on major pairs; offshore brokers offer up to 1000×. Watch the Margin level bar: it is your money as a share of the deposit the broker holds against the bet.",
     task: "Set Leverage to 30× and Stake to 100%, press Buy, then watch the margin level.",
     focus: ["leverage", "stake", "buy", "level"],
@@ -108,7 +108,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "cut-loss",
-    title: "Margin call: cut the loss",
+    title: "Margin Call: Cut the Loss",
     text: "A fall of about 2% has cost you around half your money, and your margin level is under 50%: a margin call, the broker's warning. If it reaches 20%, the broker closes your position for you, at whatever the price is then. That is a forced loss cut, 強制ロスカット. Hoping the price comes back is how accounts are lost; cutting a loss means closing a losing trade on purpose while you still have money left.",
     task: "Press Close on your position to cut your loss.",
     focus: ["close", "level"],
@@ -118,7 +118,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "stop-buy",
-    title: "A stop-loss decides in advance",
+    title: "A Stop-Loss Decides in Advance",
     text: "A stop-loss closes your position by itself if the price moves against you by a set amount. You decide how much you can afford to lose before the trade, not in a panic during it. Your account is back to ¥1,000,000.",
     task: "Set Leverage to 10× and Stake to 100%, then press Buy.",
     focus: ["leverage", "stake", "buy"],
@@ -129,7 +129,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "stop-set",
-    title: "Setting the stop",
+    title: "Setting the Stop",
     text: "A stop 1% below the price will sell if the price falls that far. At 10× leverage that keeps your loss to about 10% of your money.",
     task: "Drag Stop Loss on your position to 1% away, then watch.",
     focus: ["stop"],
@@ -140,7 +140,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "gap",
-    title: "When a stop can't save you",
+    title: "When a Stop Can't Save You",
     text: "Your stop filled a little past −1%: a stop closes at the next price there is, not exactly at its level. Usually that is close. On 15 January 2015 the Swiss central bank dropped its cap on the franc, and the price jumped about 15% in minutes with almost no prices in between. Stops filled far past their levels, and many traders lost more than they had.",
     task: "Set Leverage to 30× and Stake to 100%, then press Buy. A stop 1% below is set for you.",
     focus: ["leverage", "stake", "buy"],
@@ -153,7 +153,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "dad",
-    title: "Dad's savings",
+    title: "Dad's Savings",
     text: "Wiped out: the price jumped straight past your stop, and your loss was several times your money. This broker has a zero-cut, so you owe nothing and your account is simply ¥0; brokers in Japan can bill you for the rest. In the game you may now borrow from Dad's savings, twice a round, and the debt counts against your result. Borrowing to win back what you lost is the trap the comic is about.",
     task: "Press Next to walk away, or Borrow to see how it works.",
     focus: ["borrow"],
@@ -163,7 +163,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "ready",
-    title: "You're ready",
+    title: "You're Ready",
     text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch your margin level, cut losses early, use a stop, and remember gaps. In real life most retail traders using leverage lose money; here it is free. Try Replay for real crashes with the date hidden, or Scenario for a scripted market from today's rate.",
     task: "Press Next to finish, then choose a tab above.",
     focus: [],

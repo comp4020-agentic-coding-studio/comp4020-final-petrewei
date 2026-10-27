@@ -219,3 +219,34 @@ it("breaks the Japanese subtitle after くるみちゃんの, and names Kurumi w
   expect(T.en.ui.sub).toBe("Kurumi's FX Fantasy");
   for (const lang of LANGS) expect(T[lang].ui.sub, lang).toMatch(/\S\s\S|白日梦/);
 });
+
+// ADR 0044: English titles and headings are in Title Case: every word starts
+// with a capital except the small ones (a, and, of, the, to ...), which stay
+// lower-case unless first. Buttons and sentences are not headings and stay as
+// they are.
+const SMALL = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "from", "if", "in", "nor", "of", "off", "on", "or", "per", "so", "the", "to", "up", "via", "vs", "with", "into", "onto", "than"]);
+const titleCase = (text: string): boolean => {
+  const words = text.replace(/\{[^}]*\}\w*/g, "").split(/\s+/).filter((w) => /[A-Za-z]/.test(w));
+  return words.every((w, i) => {
+    const bare = w.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "");
+    if (/^[A-Z]/.test(bare)) return true;
+    return i > 0 && SMALL.has(bare);
+  });
+};
+it("writes the English headings and titles in Title Case", () => {
+  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyReplay", "lobbyScenario", "lobbyOpens", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
+  for (const k of keys) expect(titleCase(T.en.ui[k]), `${k}: ${T.en.ui[k]}`).toBe(true);
+});
+it("writes every lesson title and About heading in Title Case", async () => {
+  const { LESSONS } = await import("../src/tutorial.ts");
+  for (const l of LESSONS) expect(titleCase(l.title), l.title).toBe(true);
+  const { ABOUT } = await import("../public/about.js");
+  for (const [heading] of ABOUT.en.sections) expect(titleCase(heading), heading).toBe(true);
+});
+it("shows the same Title Case in the page's own markup as in its translations", () => {
+  for (const el of page.querySelectorAll("[data-t]")) {
+    const key = (el as HTMLElement).dataset.t!;
+    if (!["nameTitle", "positionTitle", "ticketTitle", "fame", "bell", "guessLabel", "yourTurn", "netWorth", "level", "thAvg"].includes(key)) continue;
+    expect(el.textContent, key).toBe(T.en.ui[key]);
+  }
+});

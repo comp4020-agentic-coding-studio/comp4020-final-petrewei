@@ -59,7 +59,7 @@
           <p id="lesson-text"></p>
         </div>
         <div class="lesson-do">
-          <p class="task"><span data-t="yourTurn">Your turn</span> <strong id="lesson-task"></strong></p>
+          <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
           <div class="row">
             <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext">Next</button>
             <button id="restart" class="ghost" data-t="restart" data-tip="restart">Start again</button>
@@ -131,7 +131,7 @@
     </section>
 
     <section class="panel positions" data-fold="position" aria-label="Your position">
-      <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your position</span></h2>
+      <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
       <table>
         <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
         <tbody>
@@ -172,15 +172,15 @@
     </section>
 
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
-      <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-tip="thAvg">Avg/round</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
+      <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th data-t="thAvg" data-tip="thAvg">Avg Score</th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
     </section>
     </div>
     <div class="col side-col">
     <!-- After the bell, trading is over: the result takes the order
          ticket's place in the right column, and the chart stays in view. -->
     <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
-      <h2><span class="art bell-art" id="bell-art" aria-hidden="true"></span><span data-t="bell">The bell</span></h2>
+      <h2><span class="art bell-art" id="bell-art" aria-hidden="true"></span><span data-t="bell">The Bell</span></h2>
       <p id="reveal"></p>
       <ol id="ranking"></ol>
       <div class="bell-foot">
@@ -190,7 +190,7 @@
       </div>
     </section>
     <section class="panel ticket" data-fold="ticket" aria-label="Order ticket">
-      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order ticket</span></h2>
+      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span></h2>
       <div class="ticket-body">
       <div class="quotes">
         <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
@@ -228,9 +228,9 @@
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <dl class="acct">
-        <div data-tip="netWorth"><dt data-t="netWorth">Net worth</dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
+        <div data-tip="netWorth"><dt data-t="netWorth">Net Worth</dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
         <div id="pnl-box" data-tip="pnl"><dt data-t="pnl">Open P&amp;L</dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
-        <div id="level-box" data-tip="level"><dt data-t="level">Margin level</dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
+        <div id="level-box" data-tip="level"><dt data-t="level">Margin Level</dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
       </dl>
       <!-- Net worth against the starting money: losses run left in red,
            profit right in green, on a log scale centred on the start. With a
@@ -249,7 +249,7 @@
       <!-- Name that year (ADR 0030): in a replay's second half, a private
            guess at the year it is from, scored at the bell. -->
       <form class="guess" id="guess" hidden>
-        <label for="guess-year" data-t="guessLabel">Name that year</label>
+        <label for="guess-year" data-t="guessLabel">Name That Year</label>
         <input id="guess-year" type="number" inputmode="numeric" min="1999" step="1" data-tip="guessYear">
         <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
       </form>
@@ -288,11 +288,11 @@
           <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
         </button>
       </div>
-      <h2 id="name-title" data-t="nameTitle">Your trader name</h2>
+      <h2 id="name-title" data-t="nameTitle">Your Trader Name</h2>
       <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
       <div class="name-row">
         <button id="face-draw" class="face-draw" type="button" data-tip="faceDraw" data-t-aria="faceDraw"></button>
-        <label class="sr-only" for="name-input" data-t="nameTitle">Your trader name</label>
+        <label class="sr-only" for="name-input" data-t="nameTitle">Your Trader Name</label>
         <input id="name-input" name="name" autocomplete="nickname" spellcheck="false" maxlength="40" required>
         <button id="name-draw" class="icon" type="button" data-tip="nameDraw" data-t-aria="nameDraw">
           <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>

@@ -16,13 +16,13 @@ box.innerHTML = `
       <button type="button" data-do="end">End at the bell</button>
       <button type="button" data-do="lobby">Back to lobby</button>
     </div></section>
-  <section><h3>My account</h3>
+  <section><h3>My Account</h3>
     <div class="dbg-row">
       <button type="button" data-do="call">Margin call</button>
       <button type="button" data-do="cut">Losscut</button>
       <button type="button" data-do="reset-me">Reset money</button>
     </div></section>
-  <section><h3>Hall of fame</h3>
+  <section><h3>Hall of Fame</h3>
     <div class="dbg-row"><button type="button" class="danger" data-do="reset-fame" data-confirm="Reset the hall of fame for everyone? This cannot be undone.">Reset the hall</button></div></section>
   <section><h3>Status</h3><pre data-status></pre>
     <div class="dbg-row"><button type="button" data-do="status">Refresh</button><a href="?debug=off">Turn debug off</a></div></section>
