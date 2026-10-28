@@ -15,8 +15,9 @@ const tips = [...page.querySelectorAll("[data-tip]")].map((el) => (el as HTMLEle
 it("gives every control on the market a tip, in every language", () => {
   const controls = [...page.querySelectorAll("button, input, select, a.icon, [role=switch]")].filter((el) => !el.closest("dialog, #name-box"));
   for (const el of controls) {
-    // a key, or text the page script fills in (such as your code)
-    const named = el.closest("[data-tip], [data-tip-text]") as HTMLElement | null;
+    // a key, or text the page script fills in (such as your code); an info
+    // button is its own explanation (ADR 0049), carried in the info table
+    const named = el.closest("[data-tip], [data-tip-text], [data-info]") as HTMLElement | null;
     expect(named, el.outerHTML.slice(0, 80)).not.toBeNull();
   }
   expect(tips.length).toBeGreaterThanOrEqual(20);
@@ -313,4 +314,39 @@ it("gives the tab bar room for its widest tab, and its own row where the header 
   expect(band).toMatch(/\.tools \{ grid-column: 2; grid-row: 1;/);
   expect(band).toMatch(/\.whoami \{ grid-column: 1 \/ -1; grid-row: 3;/);
   expect(band).not.toMatch(/\.tabs button \{[^}]*font-size/);
+});
+
+// ADR 0049: a hover tip is a joke or a short name; a term that needs
+// explaining has a small info button (ⓘ) beside it, whose text is the
+// definition. The two are never the same words.
+it("gives every info button an explanation and a name in every language", () => {
+  const buttons = [...page.querySelectorAll("button[data-info]")] as HTMLElement[];
+  expect(buttons.length).toBeGreaterThanOrEqual(10);
+  for (const b of buttons) {
+    expect(b.textContent?.trim(), b.dataset.info).toBe("ⓘ");
+    expect(b.getAttribute("type")).toBe("button");
+    expect(b.dataset.tAria, b.dataset.info).toBe(`info_${b.dataset.info}`);
+    expect(b.closest("button:not([data-info])"), `${b.dataset.info} is inside another button`).toBeNull();
+    for (const lang of LANGS) {
+      expect(T[lang].info[b.dataset.info!], `${lang}.info.${b.dataset.info}`).toEqual(expect.stringMatching(/\S{3}/));
+      expect(T[lang].ui[`info_${b.dataset.info}`], `${lang}.ui.info_${b.dataset.info}`).toEqual(expect.stringMatching(/\S{3}/));
+    }
+  }
+});
+it("never reuses an explanation as a hover tip, or leaves one without a counterpart", () => {
+  for (const lang of LANGS) {
+    const explained = new Set(Object.values(T[lang].info));
+    for (const [k, tip] of Object.entries(T[lang].tips)) expect(explained.has(tip), `${lang}.tips.${k} repeats an explanation`).toBe(false);
+    for (const k of Object.keys(T[lang].info)) expect(Object.keys(T.en.info), `${lang} has info.${k}`).toContain(k);
+  }
+  expect(Object.keys(T.ja.info).sort()).toEqual(Object.keys(T.en.info).sort());
+  expect(Object.keys(T.zh.info).sort()).toEqual(Object.keys(T.en.info).sort());
+});
+it("keeps a hover tip short: one line of voice, never a definition", () => {
+  const limit = { en: 60, ja: 40, zh: 36 };
+  const longer = new Set<string>();
+  for (const lang of LANGS) for (const [k, tip] of Object.entries(T[lang].tips)) {
+    if (longer.has(k) || k.endsWith("Row") || k === "unrankedRow") continue;
+    expect([...tip].length, `${lang}.tips.${k}: ${tip}`).toBeLessThanOrEqual(limit[lang]);
+  }
 });

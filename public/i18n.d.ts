@@ -4,6 +4,7 @@ type Table = Record<string, string>;
 type Lang = {
   ui: Record<string, string> & { notes: Record<number, string> };
   tips: Table;
+  info: Table;
   news: Table;
   refusals: Table;
   wants: { buy: string; sell: string };
@@ -22,3 +23,5 @@ export declare function money(lang: string, n: number): string;
 export declare function news(lang: string, line: { key: string; args: Record<string, string | number>; text?: string }, nameOf: (code: string) => string): string;
 export declare function refusal(lang: string, english: string): string;
 export declare function english(lessons: { id: string; title: string; text: string; task: string }[], events: { date: string; title: string; note: string }[]): void;
+export declare function clueDates(lang: "en" | "ja" | "zh"): string[];
+export declare function clueText(lang: "en" | "ja" | "zh", clue: number, n: number): string | undefined;

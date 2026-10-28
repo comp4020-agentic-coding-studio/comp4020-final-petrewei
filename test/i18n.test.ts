@@ -121,3 +121,16 @@ describe("the bots' lines", () => {
     for (const lang of LANGS) expect(shape(lang), lang).toEqual(shape("en"));
   });
 });
+
+// ADR 0050: a clue is told to a page by its place in the clue table, so every
+// language must keep the same dates in the same order, and each date must
+// name a famous day the server can draw, or the numbers would point at the
+// wrong words.
+it("keeps the clue table in the same order in every language, one entry per famous day", async () => {
+  const { clueDates } = await import("../public/i18n.js");
+  const { EVENTS } = await import("../src/market.ts");
+  expect(clueDates("ja")).toEqual(clueDates("en"));
+  expect(clueDates("zh")).toEqual(clueDates("en"));
+  expect([...clueDates("en")].sort()).toEqual(EVENTS.map((e) => e.date).sort());
+  for (const lang of ["en", "ja", "zh"] as const) for (const d of clueDates(lang)) expect(T[lang].clues[d], `${lang} ${d}`).toHaveLength(2);
+});

@@ -2,13 +2,13 @@
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
-import { LANGS, T, money, news, refusal } from "/i18n.js";
+import { LANGS, T, clueText, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
-import { refresh as retip, useWords } from "/tips.js";
+import { refresh as retip, useInfo, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -30,6 +30,8 @@ const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : n
 // A tip in this language, by key (ADR 0025).
 const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", vars);
 useWords((k) => tip(k));
+// What an info button explains (ADR 0049), in this language, by key.
+useInfo((k) => T[lang].info[k] ?? T.en.info[k] ?? "");
 // A tip that carries values, written only when it changes, since render
 // runs twice a second.
 const setTip = (el, text) => {
@@ -892,6 +894,7 @@ function render(s) {
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
   $("round-ctl").hidden = ["pause", "leave", "finish"].every((id) => $(id).hidden);
+  $("round-info").hidden = $("round-ctl").hidden;
   // Name that year opens halfway through a replay; your guess is shown
   // back to you, and to nobody else, until the bell.
   const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2 && !s.you.left;
@@ -927,7 +930,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : T[lang].clues[s.headline.date]?.[s.headline.n]);
+  const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
   $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeSimulation" : "modeReplay");
   $("mode").classList.toggle("headline", !!head);
   setTip($("mode"), head ?? "");

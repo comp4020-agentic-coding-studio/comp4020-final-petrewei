@@ -4,6 +4,7 @@
 // in the page's language) or carries its text (data-tip-text, for tips
 // that change, such as your code). A screen reader hears it too.
 let words = () => "";
+let infoWords = () => "";
 // A popover, so it sits in the top layer: over a dialog, not under it.
 const tip = Object.assign(document.createElement("div"), { id: "tip", className: "tip", role: "tooltip", hidden: true });
 tip.popover = "manual";
@@ -11,8 +12,10 @@ document.body.append(tip);
 let over = null;
 let timer = 0;
 
-// Text the page set beats a key, since it carries values such as a code.
-const textOf = (el) => el.dataset.tipText || (el.dataset.tip ? words(el.dataset.tip) : "");
+// Text the page set beats a key, since it carries values such as a code. An
+// info button (ADR 0049) speaks the explanation of its own key, never the
+// hover tip of the label beside it.
+const textOf = (el) => (el.dataset.info ? infoWords(el.dataset.info) : el.dataset.tipText || (el.dataset.tip ? words(el.dataset.tip) : ""));
 
 function show(el) {
   const text = textOf(el);
@@ -42,10 +45,28 @@ function hide() {
 }
 
 // The element under the pointer or focus that has a tip, if any.
-const owner = (target) => target?.closest?.("[data-tip], [data-tip-text]");
+const owner = (target) => target?.closest?.("[data-info], [data-tip], [data-tip-text]");
+// An info button pinned open by a click or tap, until a second click, Escape
+// or a click elsewhere.
+let pinned = null;
+function unpin() {
+  if (!pinned) return;
+  pinned.setAttribute("aria-expanded", "false");
+  pinned = null;
+  hide();
+}
+addEventListener("click", (e) => {
+  const el = e.target?.closest?.("[data-info]");
+  if (!el) return unpin();
+  if (pinned === el) return unpin();
+  if (pinned) pinned.setAttribute("aria-expanded", "false");
+  pinned = el;
+  el.setAttribute("aria-expanded", "true");
+  show(el);
+});
 
 addEventListener("pointerover", (e) => {
-  if (e.pointerType === "touch") return;
+  if (e.pointerType === "touch" || pinned) return;
   const el = owner(e.target);
   if (el === over) return;
   clearTimeout(timer);
@@ -54,6 +75,7 @@ addEventListener("pointerover", (e) => {
 });
 addEventListener("pointerdown", (e) => {
   // A long press shows a tip on a touch screen; a tap goes on as a click.
+  if (pinned) return;
   if (e.pointerType !== "touch") return hide();
   const el = owner(e.target);
   clearTimeout(timer);
@@ -64,14 +86,18 @@ addEventListener("focusin", (e) => {
   const el = owner(e.target);
   if (el && e.target.matches(":focus-visible")) show(el);
 });
-addEventListener("focusout", hide);
-addEventListener("keydown", (e) => e.key === "Escape" && hide());
-addEventListener("scroll", hide, { passive: true });
+addEventListener("focusout", () => !pinned && hide());
+addEventListener("keydown", (e) => e.key === "Escape" && (pinned ? unpin() : hide()));
+addEventListener("scroll", () => !pinned && hide(), { passive: true });
 
 // The page passes its own lookup, so tips follow its language; a tip
 // already showing is refreshed when its text changes underneath it.
 export function useWords(lookup) {
   words = lookup;
+}
+// The same for the explanations the info buttons carry.
+export function useInfo(lookup) {
+  infoWords = lookup;
 }
 export function refresh() {
   if (over) show(over);

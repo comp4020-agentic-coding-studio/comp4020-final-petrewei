@@ -16,7 +16,7 @@ import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { yen } from "../public/format.js";
-import { LANGS as LANG_LIST, T } from "../public/i18n.js";
+import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { History, PAIRS, STEPS, random, replay, scenario, type Pair, type Round } from "./market.ts";
@@ -42,6 +42,8 @@ const BREAK_MAX = Math.round(300_000 / TICK_MS);
 // After Start, five seconds for others on the tab to join, and to place
 // an order at the opening price, before the price moves.
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
+// How often a Replay hides a famous day: six rounds in ten, unless a check sets it.
+const EVENT_CHANCE = Number(process.env.EVENT_CHANCE ?? 0.6);
 // A pause halts the price and the orders for everyone; anyone on the tab
 // may pause or resume, and a pause ends by itself after a minute so
 // nobody can hold a room (ADR 0024). An ironman round cannot pause.
@@ -361,7 +363,7 @@ class Market {
   startedBy: string | null = null;
   ironman = false;
   // The latest Simulation headline, pinned under the price until the next.
-  headline: { scenario: string; n: number } | { date: string; n: number } | null = null;
+  headline: { scenario: string; n: number } | { clue: number; n: number } | null = null;
   // Each trader's guess at a replay's year, private until the bell.
   guesses = new Map<string, number>();
   // Ticks left in a pause, or 0 when the market runs.
@@ -400,7 +402,7 @@ class Market {
       this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
       this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
     } else {
-      const round = replay(history, rnd, 0.6);
+      const round = replay(history, rnd, EVENT_CHANCE);
       this.round = round;
       this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
       this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
@@ -649,9 +651,12 @@ class Market {
       const words = scenario ? T.en.scenarios[scenario].headlines : event ? T.en.clues[event.date] : [];
       this.round.headlines?.forEach((h, i) => {
         if (h.day !== day) return;
-        const at: Record<string, string | number> = scenario ? { scenario, n: i } : { date: event!.date, n: i };
+        // A replay's clue goes out by number, not by the date it leads to
+        // (ADR 0050): the date is the answer to Name That Year.
+        const clue = event ? clueDates("en").indexOf(event.date) : -1;
+        const at: Record<string, string | number> = scenario ? { scenario, n: i } : { clue, n: i };
         this.say(words[i], "news", scenario ? "headline" : "clue", at);
-        this.headline = scenario ? { scenario, n: i } : { date: event!.date, n: i };
+        this.headline = scenario ? { scenario, n: i } : { clue, n: i };
       });
     }
     const seen = this.round.prices.slice(0, this.tick + 1);

@@ -314,3 +314,44 @@ it("takes no year guess in a Simulation round", async () => {
     tab.close();
   }
 });
+
+// ADR 0050: a replay hides its famous day until the bell, and so does what it
+// sends: a clue is told to a page by an opaque number, never by the date it
+// leads to, which is the answer to Name That Year. Rounds are random and only
+// some hide a day, so several are played and every state and feed line is read.
+it("never puts a replay's famous date on the wire before the bell, in a clue or the pinned headline", async () => {
+  s = await server(8095, { TICK_MS: "4", COUNTDOWN_TICKS: "2", EVENT_CHANCE: "1" });
+  const { visitor, page, act, look } = app();
+  const me = await visitor();
+  let tab = await page(me);
+  const dates = /(19|20)\d\d-\d\d-\d\d/;
+  let clues = 0;
+  try {
+    for (let round = 0; round < 6; round++) {
+      // starting a round needs the tab open, so open it afresh each round
+      tab.close();
+      tab = await page(me);
+      const began = await act(me, { kind: "start", mode: "replay" });
+      expect(began.status, `round ${round}: ${await began.clone().text()}`).toBe(200);
+      for (const end = Date.now() + 15_000; Date.now() < end; ) {
+        const x = (await look(me)) as unknown as { phase: string; headline: unknown; feed: { key: string; args: Record<string, unknown> }[] };
+        if (x.phase === "trade") {
+          const wire = JSON.stringify({ headline: x.headline, feed: x.feed });
+          expect(wire, "a date was sent while the round was trading").not.toMatch(dates);
+          clues += x.feed.filter((f) => f.key === "clue").length;
+          for (const f of x.feed.filter((f) => f.key === "clue")) expect(f.args, "a clue names its date").not.toHaveProperty("date");
+        }
+        if (x.phase === "break") break;
+        await new Promise((r) => setTimeout(r, 15));
+      }
+      await act(me, { kind: "dismiss", mode: "replay" });
+      for (const end = Date.now() + 10_000; Date.now() < end; ) {
+        if (((await look(me)) as unknown as { phase: string }).phase === "lobby") break;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    }
+    expect(clues, "no round showed a clue, so nothing was checked").toBeGreaterThan(0);
+  } finally {
+    tab.close();
+  }
+}, 120_000);
