@@ -70,6 +70,8 @@ for (const id of ["lang", "n-lang"]) $(id).onchange = () => location.assign(home
 let state = null;
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
+// Loans Dad has found out about, as last seen; null before the first state.
+let caught = null;
 // The last pop shown, by number; the first message's pops are old news.
 let popped = null;
 let lastPrice = null;
@@ -79,10 +81,17 @@ let fame = "";
 // Leverage runs on a log scale and snaps to the desk's ladder, its ends
 // and the two legal caps marked; stake runs evenly. What a leverage means
 // is said beside it, in the parody's voice.
-const choice = { leverage: 25, stake: 1 };
+const choice = { leverage: 30, stake: 1 };
 let seated = false;
-let ladder = [1, 2, 5, 10, 25, 30, 50, 100, 200, 500, 1000];
+let ladder = [1, 2, 5, 10, 30, 50, 100, 200, 500, 1000];
 const RISKY = 100;
+// What the desk charges an open position each minute (two ticks a second):
+// its margin times FEE times the leverage squared, per tick (ADR 0058).
+const FEE = 1e-9;
+const feePct = (lev) => {
+  const p = FEE * lev * lev * 120 * 100;
+  return `${p < 0.01 ? p.toPrecision(1) : p.toFixed(p < 1 ? 2 : 1)}%`;
+};
 function ticks(id, marks) {
   $(id).replaceChildren(
     ...marks.map(([at, text, cls = ""]) => {
@@ -93,8 +102,9 @@ function ticks(id, marks) {
   );
 }
 function sliders() {
-  // Australia's cap, 30×, is marked on the track (ADR 0033).
-  ticks("lev-ticks", [[0, "1×"], [levPos(30), t("capsTick"), "cap"], [1, "1000×"]]);
+  // Every rung of the ladder is marked on the track, the one chosen lit, so a
+  // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
+  ticks("lev-ticks", ladder.map((v) => [levPos(v), `${v}`, `rung-${v}`]));
   ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
 }
 function mark() {
@@ -106,6 +116,10 @@ function mark() {
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
   $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
   $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
+  for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
+  for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
+  // The financing fee grows with the square of the leverage (ADR 0058).
+  $("fee-note").textContent = t("feeRate", { pct: feePct(choice.leverage) });
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
@@ -224,8 +238,17 @@ $("pray").onclick = () => {
   burst($("pray"), ["🙏", "✨", "🙏", "⛩️", "✨"]);
   act("pray");
 };
-$("borrow").onclick = () => act("borrow");
-$("lesson-next").onclick = () => act("next");
+// "Borrow" is taken from a pop-up, which closes once it is (ADR 0057).
+$("borrow").onclick = () => {
+  act("borrow");
+  dadAsked = true;
+  $("dad").close();
+};
+$("dad-no").onclick = () => {
+  dadAsked = true;
+  $("dad").close();
+};
+let dadAsked = false;
 // The explanation opens on Why?, and stays as the player left it (ADR 0054).
 $("lesson-why").onclick = () => {
   const open = $("lesson").classList.toggle("open");
@@ -420,7 +443,10 @@ function lobby(s) {
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
   $("start").hidden = counting;
 }
-$("restart").onclick = () => act("restart");
+$("restart").onclick = () => {
+  looked = 0;
+  act("again");
+};
 // Hints can be paused, which stops the countdown and the helper's doing the
 // step; the lit control and its words stay (ADR 0055). The tutorial can be
 // ended from its card, which goes back to Replay.
@@ -438,14 +464,20 @@ $("lesson-pause").onclick = () => {
   armAuto();
   showCount();
 };
-$("lesson-end").onclick = () => watch("replay");
+// ⏹ resets the tutorial and stays in it; ↻ starts the lesson again; ⏩ does
+// the lesson's moves and goes on (ADR 0057).
+$("lesson-end").onclick = () => {
+  looked = 0;
+  act("restart");
+};
+$("lesson-skip").onclick = () => act("skip");
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
 // The exact element each step of a lesson points at (ADR 0052): the slider
 // and not its whole block, the one button, the one figure. A step is lit while
 // the page can see it is still to do.
-const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", stake: "stake", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow", next: "lesson-next" };
+const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", stake: "stake", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow" };
 function lesson(s) {
   $("lesson").hidden = !s.lesson;
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
@@ -458,7 +490,6 @@ function lesson(s) {
   $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
   $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
   $("lesson-task").textContent = l.finished ? t("doneTask") : moving ? t("watch") : own.task;
-  $("lesson-next").hidden = l.finished || moving || !l.next;
 }
 // How many of the lesson's looks the player has had (ADR 0052, 0053): a step
 // to look at waits for them, and they move on by a click or a key, or by
@@ -473,7 +504,7 @@ function currentStep(l) {
     lookedIn = l.id;
     looked = 0;
   }
-  return planStep(l.plan ?? [], { choice, looked }, (s) => onScreen($(TARGETS[s.target])));
+  return planStep(l.plan ?? [], { choice, looked, stage: l.stage }, (s) => onScreen($(TARGETS[s.target])));
 }
 // When a step has waited AUTO_S seconds with no input, the tutorial does it
 // for the player (ADR 0054): a slider slides, a button is pressed through the
@@ -496,7 +527,7 @@ function armAuto() {
 function tickAuto() {
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
-  if (document.hidden || document.querySelector("dialog[open]") || sliding) return;
+  if (document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
   if (--autoLeft > 0) return showCount();
   clearInterval(autoTimer);
   doForPlayer(l);
@@ -553,6 +584,9 @@ function nextLook() {
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving" || currentStep(l)?.until !== "look") return false;
   looked++;
+  // A lesson of looks alone, the welcome, is over when the last look is: the
+  // page tells the server, since there is no Next button (ADR 0057).
+  if (!currentStep(l)) act("next");
   spotlight(l, false);
   return true;
 }
@@ -561,7 +595,7 @@ function nextLook() {
 // still does its job; a key typed in a field or on a control, where the same
 // keys do something else, is left alone (ADR 0053).
 addEventListener("pointerdown", (e) => {
-  if (e.target.closest?.("dialog[open], #name-box")) return;
+  if (e.target.closest?.("dialog[open]:not(#dad), #name-box")) return;
   // A click on the lesson card's own buttons (Why?, Pause, End) is not a
   // click on the page: it must not move a look step on.
   if (!e.target.closest?.("#lesson") && nextLook()) return;
@@ -570,7 +604,7 @@ addEventListener("pointerdown", (e) => {
 addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !["Enter", " ", "ArrowRight"].includes(e.key)) return;
   const t = e.target;
-  if (document.querySelector("dialog[open]") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
+  if (document.querySelector("dialog[open]:not(#dad)") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
   if (nextLook()) e.preventDefault();
 });
 // A key or a slider move by the player starts the countdown again.
@@ -1166,6 +1200,7 @@ function render(s) {
   if (!seated) {
     seated = true;
     ladder = s.leverages;
+    sliders();
     choice.leverage = levAt(levPos(s.you.pos?.leverage ?? 25), ladder);
     mark();
   }
@@ -1237,11 +1272,19 @@ function render(s) {
     // Level is equity over margin, so at a level the equity is that share of it.
     if (show) $(id).style.left = `${gauge((share * y.pos.margin - y.debt) / s.start) * 100}%`;
   }
-  // A round lends while it trades; the tutorial has no trading phase, so it
-  // lends whenever the price is standing still (ADR 0052), which the Dad's
-  // Savings lesson needs to ask the player to press it.
+  // Dad's savings are offered in a pop-up, to a player under a margin call
+  // or out of money, while the round trades (the tutorial, whenever the price
+  // stands still), in every mode (ADR 0057).
   const lending = tutorial ? s.phase === "waiting" : s.phase === "trade";
-  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && lending && !y.left);
+  const offer = (y.broke || y.called) && y.loansLeft > 0 && !y.caught && lending && !y.left && !s.paused;
+  $("borrow").hidden = !offer;
+  if (!offer) {
+    dadAsked = false;
+    if ($("dad").open) $("dad").close();
+  } else if (!dadAsked && !$("dad").open && !document.querySelector("dialog[open]:not(#dad)")) {
+    $("dad-text").textContent = t("dadText", { amount: yen(300_000) });
+    $("dad").show();
+  }
   warn(s, open);
   // Your position: one row with its own close and stop, as on any
   // platform, or a line saying what to do when there is none.
@@ -1262,7 +1305,7 @@ function render(s) {
     }
     paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
   } else {
-    $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+    $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
   const closed = !open || y.out || y.left || !!s.paused;
@@ -1283,6 +1326,15 @@ function render(s) {
     setTimeout(() => ($("losscut").hidden = true), 2200);
   }
   cuts = y.cuts;
+  // Dad finds out: the same stamp, for being found out (ADR 0057).
+  if (caught !== null && y.caught > caught) {
+    $("losscut-sub").textContent = t("caughtText");
+    $("losscut-big").textContent = t("caughtBig");
+    $("losscut-big").lang = lang === "zh" ? "zh-CN" : lang;
+    $("losscut").hidden = false;
+    setTimeout(() => ($("losscut").hidden = true), 3200);
+  }
+  caught = y.caught;
 
   const humans = s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
@@ -1408,6 +1460,8 @@ function watch(next) {
   clearPointer();
   shown = null;
   cuts = null;
+  caught = null;
+  dadAsked = false;
   $("error").textContent = "";
   events = new EventSource(`/api/events?mode=${mode}`);
   events.onmessage = (e) => receive(JSON.parse(e.data));

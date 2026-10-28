@@ -11,9 +11,9 @@ export const ICONS = {
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁", left: "🚪",
     "scenario-round": "📡", "replay-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
-    call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", entered: "👋",
+    call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
   },
-  pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷" },
+  pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷", caught: "🚨" },
 };
 
 // k is the outline and w white, in every prop; each adds its own colours.

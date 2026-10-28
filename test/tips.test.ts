@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ICONS, PROPS, prop } from "../public/art.js";
 import { LANGS, T } from "../public/i18n.js";
 
@@ -179,7 +179,7 @@ it("puts Ironman below Start, and only one line of text and a note in the lobby"
 });
 it("gives the ticket a heading, and lets headed panels fold", () => {
   expect(page.querySelector(".ticket > h2")?.textContent).toMatch(/\S/);
-  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["chart", "fame", "feed", "position", "room", "ticket"]);
+  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["account", "chart", "fame", "feed", "position", "room", "ticket"]);
   for (const p of page.querySelectorAll(".panel[data-fold]")) expect(p.querySelector(":scope > h2"), (p as HTMLElement).dataset.fold).not.toBeNull();
 });
 it("shows the language as a globe alone, and lets the footer take the page's width", () => {
@@ -424,9 +424,12 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
   const lending = app.match(/const lending = (.*);/)![1];
   expect(lending, "a tutorial lends while the price stands still").toMatch(/tutorial \? s\.phase === "waiting"/);
   expect(lending, "a market lends while it trades").toMatch(/s\.phase === "trade"/);
-  const rule = app.match(/\$\("borrow"\)\.hidden = (.*);/)![1];
+  // Borrow is offered, in a pop-up (ADR 0057), to a player who is broke or under a margin call
+  const rule = app.match(/const offer = (.*);/)![1];
   expect(rule).toMatch(/y\.broke/);
+  expect(rule).toMatch(/y\.called/);
   expect(rule).toMatch(/loansLeft/);
+  expect(rule, "nobody Dad has caught is offered it again").toMatch(/!y\.caught/);
   expect(rule, "Borrow must follow the rule above, not a bare trade phase").toMatch(/\blending\b/);
   expect(rule).not.toMatch(/s\.phase === "trade"/);
 });
@@ -476,11 +479,14 @@ it("puts the lesson inside the chart's box, not in a panel across the page", () 
   const card = doc.getElementById("lesson")!;
   expect(card.closest(".chart-box"), "the lesson is in the chart box").not.toBeNull();
   expect(card.closest("main > .lesson"), "and not a panel above the columns").toBeNull();
-  for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task", "lesson-next", "restart", "lesson-why"]) expect(card.querySelector("#" + id), id).not.toBeNull();
+  for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task", "restart", "lesson-why", "lesson-skip", "lesson-pause", "lesson-end"]) expect(card.querySelector("#" + id), id).not.toBeNull();
+  expect(card.querySelector("#lesson-next"), "no Next button").toBeNull();
   const rule = lessonCss.match(/\n\.lesson \{([^}]*)\}/g)!.join(" ");
   expect(rule).toMatch(/position: absolute/);
   expect(rule).toMatch(/bottom:/);
-  expect(rule).toMatch(/right:/);
+  // it spans the chart's width but stops short of its right end, where the price runs
+  expect(rule).toMatch(/left: \d+px/);
+  expect(Number(rule.match(/right: (\d+)%/)?.[1]), "a share of the chart's right end is left clear").toBeGreaterThanOrEqual(14);
   expect(lessonCss, "the full-width fixed heights are gone").not.toMatch(/\.lesson \{ height: (196|220|360|472)px/);
 });
 it("shows a countdown for five seconds, and does the step for the player when it ends", () => {
@@ -531,7 +537,7 @@ it("shows the title and task, and the explanation only behind a Why? button", ()
 it("counts in bare seconds, can pause the hints, and can end the tutorial (ADR 0055)", () => {
   for (const lang of LANGS) {
     expect(T[lang].ui.autoIn, lang).toMatch(/^\{s\}\S{0,2}$/);
-    for (const k of ["hintsPause", "hintsResume", "endTutorial"]) {
+    for (const k of ["hintsPause", "hintsResume", "resetTutorial", "skipLesson"]) {
       expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
       expect(T[lang].tips[k], `${lang} tip ${k}`).toEqual(expect.stringMatching(/\S/));
     }
@@ -540,15 +546,69 @@ it("counts in bare seconds, can pause the hints, and can end the tutorial (ADR 0
   expect(lessonHtml).toMatch(/id="lesson-end"/);
   // symbols, not words: no visible text, a label and a tip instead
   const doc = new JSDOM(lessonHtml).window.document;
-  for (const id of ["restart", "lesson-pause", "lesson-end"]) {
+  for (const id of ["lesson-skip", "restart", "lesson-pause", "lesson-end"]) {
     expect(doc.getElementById(id)!.textContent, id).toMatch(/^[^A-Za-z]{1,3}$/);
     expect(doc.getElementById(id)!.closest(".lesson-head"), id).not.toBeNull();
   }
-  expect(lessonApp).toMatch(/\$\("lesson-end"\)\.onclick = \(\) => watch\("replay"\)/);
+  // ⏹ resets the tutorial and stays in it, ↻ starts the lesson again, ⏩ skips it (ADR 0057)
+  expect(lessonApp.slice(lessonApp.indexOf('$("lesson-end").onclick'), lessonApp.indexOf('$("lesson-end").onclick') + 120)).toMatch(/act\("restart"\)/);
+  expect(lessonApp).not.toMatch(/\$\("lesson-end"\)\.onclick = \(\) => watch/);
+  expect(lessonApp).toMatch(/\$\("lesson-skip"\)\.onclick = \(\) => act\("skip"\)/);
+  expect(lessonApp).toMatch(/\$\("restart"\)\.onclick = \(\) => \{[^}]*act\("again"\)/);
+  // the buttons are in the order ⏩ ⏸ ↻ ⏹, each a symbol
+  expect([...doc.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["lesson-skip", "lesson-pause", "restart", "lesson-end"]);
   // paused: no timer is armed and no countdown text is shown
   expect(lessonApp.slice(lessonApp.indexOf("function armAuto"), lessonApp.indexOf("function tickAuto"))).toMatch(/autoPaused/);
   expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/autoPaused/);
 });
 it("a click on the lesson card does not move a look step on", () => {
   expect(lessonApp).toMatch(/closest\?\.\("#lesson"\) && nextLook\(\)/);
+});
+
+// ADR 0057: the lesson card's layout, Dad's savings as a pop-up in every
+// mode, an Account panel of its own, every tick scale, and the fee.
+describe("the lesson card, the pop-up for Dad's savings, the Account panel and the sliders' scales", () => {
+  const doc = new JSDOM(lessonHtml).window.document;
+  it("puts Your Turn and Why? at the card's right end, in a side column", () => {
+    const side = doc.querySelector(".lesson-side")!;
+    expect(side.querySelector("#lesson-task")).not.toBeNull();
+    expect(side.querySelector("#lesson-why")).not.toBeNull();
+    expect(side.compareDocumentPosition(doc.querySelector(".lesson-main")!) & 2, "the side column follows the words").toBeTruthy();
+    expect(lessonCss).toMatch(/\.lesson \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  });
+  it("keeps Borrow in a pop-up, not in a panel, and says it in quotation marks", () => {
+    const dad = doc.getElementById("dad")!;
+    expect(dad.tagName).toBe("DIALOG");
+    expect(dad.querySelector("#borrow")).not.toBeNull();
+    expect(doc.querySelector(".panel #borrow"), "no Borrow button in a panel").toBeNull();
+    for (const lang of LANGS) {
+      for (const k of ["borrow", "dadText"]) expect(T[lang].ui[k], `${lang} ${k}`).toMatch(/["“「]/);
+      for (const k of ["caughtText", "caughtBig", "caughtSub", "dadTitle", "dadNo"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      expect(T[lang].news.caught, lang).toContain("{who}");
+      expect(T[lang].news["you-caught"], lang).toEqual(expect.stringMatching(/\S/));
+    }
+  });
+  it("gives the account its own panel, apart from the ticket", () => {
+    const panel = doc.querySelector('.panel[data-fold="account"]')!;
+    expect(panel.querySelector("#equity")).not.toBeNull();
+    expect(panel.querySelector("#level")).not.toBeNull();
+    expect(panel.querySelector("#meter")).not.toBeNull();
+    expect(doc.querySelector(".ticket #equity"), "the ticket no longer holds the figures").toBeNull();
+    expect(panel.closest(".side-col")).not.toBeNull();
+  });
+  it("marks every rung of the ladder, lights the chosen one, and no longer names Australia's cap on the track", () => {
+    expect(lessonApp).toMatch(/ticks\("lev-ticks", ladder\.map/);
+    expect(lessonApp).not.toMatch(/capsTick\b[^\n]*"cap"/);
+    expect(lessonApp).toMatch(/classList\.toggle\("on"/);
+    expect(lessonCss).toMatch(/\.ticks span\.on/);
+  });
+  it("says what the financing fee is, from the same rate the desk charges", async () => {
+    const { FEE } = await import("../src/fx.ts");
+    expect(lessonApp).toMatch(new RegExp(`const FEE = ${String(FEE).replace(/[.+]/g, "\\$&")};`));
+    expect(doc.getElementById("fee-note")).not.toBeNull();
+    for (const lang of LANGS) {
+      expect(T[lang].ui.feeRate, lang).toContain("{pct}");
+      expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));
+    }
+  });
 });

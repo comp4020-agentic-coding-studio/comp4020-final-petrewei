@@ -85,20 +85,23 @@
           <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
-        <!-- The tutorial's lesson: a compact card over the chart's empty bottom
-             right, not a panel across the page (ADR 0054). It folds to one line. -->
+        <!-- The tutorial's lesson: a card across the bottom of the chart, clear
+             of its right end where the price runs (ADR 0057). The task and the
+             Why? button sit at its right edge; the controls in its top row. -->
         <section class="lesson" id="lesson" hidden aria-live="polite">
-          <div class="lesson-head">
-            <p class="lesson-n" id="lesson-n"></p>
-            <button id="restart" class="icon" type="button" data-t-aria="restart" data-tip="restart" data-tip-side="below">↻&#xFE0E;</button>
-            <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause" data-tip-side="below">⏸&#xFE0E;</button>
-            <button id="lesson-end" class="icon" type="button" data-t-aria="endTutorial" data-tip="endTutorial" data-tip-side="below">⏹&#xFE0E;</button>
+          <div class="lesson-main">
+            <div class="lesson-head">
+              <p class="lesson-n" id="lesson-n"></p>
+              <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson" data-tip-side="below">⏩&#xFE0E;</button>
+              <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause" data-tip-side="below">⏸&#xFE0E;</button>
+              <button id="restart" class="icon" type="button" data-t-aria="restart" data-tip="restart" data-tip-side="below">↻&#xFE0E;</button>
+              <button id="lesson-end" class="icon" type="button" data-t-aria="resetTutorial" data-tip="resetTutorial" data-tip-side="below">⏹&#xFE0E;</button>
+            </div>
+            <h2 id="lesson-title"></h2>
+            <p id="lesson-text"></p>
           </div>
-          <h2 id="lesson-title"></h2>
-          <p id="lesson-text"></p>
-          <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
-          <div class="row">
-            <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext" data-tip-side="below">Next</button>
+          <div class="lesson-side">
+            <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
             <button id="lesson-why" class="ghost" type="button" aria-expanded="false" aria-controls="lesson-text" data-t="lessonWhy" data-tip="lessonWhy" data-tip-side="below">Why?</button>
           </div>
         </section>
@@ -207,6 +210,7 @@
         <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button> <span id="lev-note" class="note"></span><output id="lev-out" for="leverage"></output></p>
         <input id="leverage" type="range" min="0" max="1000" step="1" data-t-label="leverage" data-tip="leverage">
         <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
+        <p class="fee" id="fee-note" data-tip="fee"></p>
       </div>
       <div class="field slide" id="stake-box">
         <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
@@ -232,22 +236,6 @@
         </div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
-      <dl class="acct">
-        <div data-tip="netWorth"><dt><span data-t="netWorth">Net Worth</span><button class="info" type="button" data-info="netWorth" data-t-aria="info_netWorth" aria-expanded="false">ⓘ</button></dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
-        <div id="pnl-box" data-tip="pnl"><dt><span data-t="pnl">Open P&amp;L</span><button class="info" type="button" data-info="pnl" data-t-aria="info_pnl" aria-expanded="false">ⓘ</button></dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
-        <div id="level-box" data-tip="level"><dt><span data-t="level">Margin Level</span><button class="info" type="button" data-info="level" data-t-aria="info_level" aria-expanded="false">ⓘ</button></dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
-      </dl>
-      <!-- Net worth against the starting money: losses run left in red,
-           profit right in green, on a log scale centred on the start. With a
-           position open, where a margin call and the losscut would land. -->
-      <div class="meter" id="meter-box" data-tip="meter">
-        <div class="fill" id="meter"></div>
-        <span class="mark zero">±0</span>
-        <span class="mark call" id="mark-call" hidden data-t="markCall">call</span>
-        <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut</span>
-      </div>
-      <p class="meter-key"><span data-t="meterKey">Margin call at 50%, forced loss cut at 20%</span><button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button></p>
-      <button id="borrow" class="borrow" data-tip="borrow" hidden></button>
       <button id="pray" class="pray" data-t="pray" data-tip="pray">Pray to the chart</button>
       <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
            pressed Start, end it for everyone. -->
@@ -259,6 +247,26 @@
         <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
       </form>
       <p id="error" class="error" role="status"></p>
+      </div>
+    </section>
+    <section class="panel account" data-fold="account" aria-label="Account">
+      <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="accountTitle">Account</span></h2>
+      <div class="account-body">
+        <dl class="acct">
+          <div data-tip="netWorth"><dt><span data-t="netWorth">Net Worth</span><button class="info" type="button" data-info="netWorth" data-t-aria="info_netWorth" aria-expanded="false">ⓘ</button></dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
+          <div id="pnl-box" data-tip="pnl"><dt><span data-t="pnl">Open P&amp;L</span><button class="info" type="button" data-info="pnl" data-t-aria="info_pnl" aria-expanded="false">ⓘ</button></dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
+          <div id="level-box" data-tip="level"><dt><span data-t="level">Margin Level</span><button class="info" type="button" data-info="level" data-t-aria="info_level" aria-expanded="false">ⓘ</button></dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
+        </dl>
+        <!-- Net worth against the starting money: losses run left in red,
+             profit right in green, on a log scale centred on the start. With a
+             position open, where a margin call and the losscut would land. -->
+        <div class="meter" id="meter-box" data-tip="meter">
+          <div class="fill" id="meter"></div>
+          <span class="mark zero">±0</span>
+          <span class="mark call" id="mark-call" hidden data-t="markCall">call</span>
+          <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut</span>
+        </div>
+        <p class="meter-key"><span data-t="meterKey">Margin call at 50%, forced loss cut at 20%</span><button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button></p>
       </div>
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
@@ -314,6 +322,17 @@
         <button id="name-free" class="next" type="submit" value="replay" data-t="nameFree" data-tip="nameFree">Play freely</button>
       </div>
     </form>
+  </dialog>
+  <!-- Dad's savings (ADR 0057): a pop-up after a margin call or a cut, not a
+       button in a panel. Not modal, so the position can still be closed. -->
+  <dialog id="dad" class="dad" aria-labelledby="dad-title">
+    <span class="art" id="dad-art" aria-hidden="true"></span>
+    <h2 id="dad-title" data-t="dadTitle">Dad's Savings</h2>
+    <p id="dad-text"></p>
+    <div class="row">
+      <button id="borrow" class="borrow" type="button" data-tip="borrow"></button>
+      <button id="dad-no" class="ghost" type="button" data-t="dadNo" data-tip="dadNo">Not now</button>
+    </div>
   </dialog>
   <div id="losscut" class="losscut" hidden><span class="art" id="losscut-art" aria-hidden="true"></span><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
 

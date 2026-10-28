@@ -41,6 +41,9 @@ const HOLD_TICKS = Math.round(30_000 / TICK_MS);
 const BREAK_MAX = Math.round(300_000 / TICK_MS);
 // After Start, five seconds for others on the tab to join, and to place
 // an order at the opening price, before the price moves.
+// Dad finds the missing money this long after a "loan", or at the bell if
+// the round ends first (ADR 0057).
+const DAD_TICKS = Number(process.env.DAD_TICKS ?? Math.round(30_000 / TICK_MS));
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
 // How often a Replay hides a famous day: six rounds in ten, unless a check sets it.
 const EVENT_CHANCE = Number(process.env.EVENT_CHANCE ?? 0.6);
@@ -377,6 +380,8 @@ class Market {
   // translation, plus a key and values a page translates from.
   feed: News[] = [];
   prays = new Map<string, number>();
+  // When Dad finds out about each trader's "loan": a tick, set by the first.
+  dad = new Map<string, number>();
   // Moments every page on the tab pops a bubble for: a prayer, a big bet,
   // a banked result, a margin call, a cut, a loan. Numbered so a page
   // shows each once; only the last few seconds are kept, and each names
@@ -418,6 +423,7 @@ class Market {
     this.headline = null;
     this.guesses.clear();
     this.prays.clear();
+    this.dad.clear();
     this.pops = [];
   }
 
@@ -560,10 +566,11 @@ class Market {
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
       else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}. Out of the round.`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
+      else if (e.kind === "caught") this.say(`Dad found the money gone from the dresser. ${name} is grounded.`, "bust", "caught", a);
       if (e.kind === "open" && e.leverage! >= WILD) this.pop(e.who, "wild", { lev: e.leverage });
       else if (e.kind === "add") this.pop(e.who, "add", { lev: e.leverage });
       else if (e.kind === "close" || e.kind === "stop" || e.kind === "take") this.pop(e.who, "close", { pnl: Math.round(e.pnl) });
-      else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut") this.pop(e.who, e.kind);
+      else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut" || e.kind === "caught") this.pop(e.who, e.kind);
       if (e.kind === "stopout" || e.kind === "zerocut") {
         const c = record(e.who);
         if (c) c.busts++;
@@ -574,6 +581,10 @@ class Market {
 
   end(): void {
     const desk = this.desk;
+    // Dad finds out about every "loan" by the bell, whether the round lasted
+    // long enough or not (ADR 0057), and the score counts it.
+    for (const who of desk.players()) this.report(desk.discover(who));
+    this.dad.clear();
     const ranking = desk.settle();
     // Watchers are on the desk but never ordered, so they get no career.
     // Each trader's score: the % result less the cost of each forced cut
@@ -585,7 +596,7 @@ class Market {
     const bonus = (who: string): number => (year ? guessBonus(this.guesses.get(who) ?? null, year) : 0);
     const points = (who: string): number => {
       const a = desk.account(who);
-      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW }) + bonus(who);
+      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW, caught: a.caught }) + bonus(who);
     };
     ranking.sort((a, b) => points(b.who) - points(a.who));
     const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
@@ -642,6 +653,12 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
+    // Dad's discoveries fall due, a round's worth of players at a time.
+    for (const [who, at] of this.dad) {
+      if (this.tick < at) continue;
+      this.dad.delete(who);
+      this.report(this.desk.discover(who));
+    }
     // Headlines, each on its day: a Simulation's situation (ADR 0027), or a
     // replay's clues before its famous day (ADR 0030); enough, read with
     // care, to see it coming.
@@ -699,7 +716,8 @@ class Market {
       const refused = desk.borrow(who);
       if (refused) return refused;
       const first = desk.account(who).debt === BORROW;
-      this.say(first ? `${nameOf(who)} borrowed ${yen(BORROW)} from Dad's savings. "Just until the market turns."` : `${nameOf(who)} borrowed from Dad again. That was the last of it.`, "wild", first ? "borrowed" : "borrowed-again", { who: short(who), amount: BORROW });
+      if (!this.dad.has(who)) this.dad.set(who, this.tick + DAD_TICKS);
+      this.say(first ? `${nameOf(who)} "borrowed" ${yen(BORROW)} from Dad's savings. He wasn't home.` : `${nameOf(who)} "borrowed" from Dad again. That was the last of it.`, "wild", first ? "borrowed" : "borrowed-again", { who: short(who), amount: BORROW });
       this.pop(who, "borrow");
       log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
       return null;
@@ -772,6 +790,8 @@ class Market {
         debt: mine?.debt ?? 0,
         loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
         broke: mine ? desk.broke(who) : false,
+        called: mine ? desk.called(who) : false,
+        caught: mine?.caught ?? 0,
         cuts: mine?.cuts ?? 0,
         pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
       },
@@ -841,7 +861,7 @@ function tutorialView(who: string) {
     tick: t.prices.length - 1,
     steps: 4,
     start: START,
-    lesson: { id: l.id, next: l.allow({ kind: "next" }) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
+    lesson: { id: l.id, stage: t.stage, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
     you: {
       name: nameOf(who),
       draw: drawOf(who),
@@ -855,6 +875,8 @@ function tutorialView(who: string) {
       debt: a.debt,
       loansLeft: LOANS - a.debt / BORROW,
       broke: t.desk.broke("me"),
+      called: t.desk.called("me"),
+      caught: a.caught,
       cuts: a.cuts,
       pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...t.desk.lines("me") } : null,
     },
@@ -1243,6 +1265,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const t = tutorialOf(who);
       let error: string | null = null;
       if (kind === "restart") t.restart();
+      else if (kind === "again") t.restartLesson();
+      else if (kind === "skip") error = t.skip();
       else if (kind === "next") error = t.act({ kind: "next" });
       else if (action && action.kind !== "pray") error = t.act(action as Move);
       else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";

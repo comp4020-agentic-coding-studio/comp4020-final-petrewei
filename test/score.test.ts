@@ -60,3 +60,11 @@ describe("naming the year", () => {
     expect(YEAR_BONUS).toBeGreaterThan(NEAR_BONUS);
   });
 });
+
+// ADR 0057: Dad's punishment is in the score, for each loan he found out.
+import { CAUGHT_COST, score as scored } from "../src/score.ts";
+it("docks a score for each loan Dad found out about, on top of the loans", () => {
+  const base = { start: 1_000_000, net: 1_000_000, cuts: 0, loans: 2 };
+  expect(scored({ ...base, caught: 2 })).toBe(scored(base) - 2 * CAUGHT_COST);
+  expect(scored({ ...base, caught: 0 })).toBe(scored(base));
+});

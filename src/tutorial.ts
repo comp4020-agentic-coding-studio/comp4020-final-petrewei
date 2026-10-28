@@ -8,7 +8,9 @@ import { Desk, type Fill, type Side } from "./fx.ts";
 
 export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
 
-export type Step = { target: string; until: string; say: string };
+// `stage`: a press that belongs to one stage of a lesson of several moves; the
+// pointer shows it only then (ADR 0057).
+export type Step = { target: string; until: string; say: string; stage?: number };
 type Lesson = {
   id: string;
   title: string;
@@ -20,11 +22,14 @@ type Lesson = {
   plan: Step[];
   // Whether the lesson starts from a fresh ¥1,000,000.
   fresh?: boolean;
-  // Null if the move is the one this lesson teaches, else a hint.
-  allow: (m: Move) => string | null;
+  // Null if the move is the one this lesson teaches, else a hint. A lesson
+  // of several moves reads `t.stage`, the moves already made in it.
+  allow: (m: Move, t: Tutorial) => string | null;
   // Prices to play after the move, as multiples of the price at the time.
-  path?: number[];
+  path?: number[] | ((t: Tutorial) => number[]);
   after?: (t: Tutorial) => void;
+  // Run whenever the price stands still again, before `done` is asked.
+  settle?: (t: Tutorial) => void;
   done: (t: Tutorial) => boolean;
   // The move that passes the lesson, for tests.
   solve: (t: Tutorial) => Move;
@@ -48,13 +53,12 @@ export const LESSONS: Lesson[] = [
     id: "welcome",
     title: "Welcome to the Trading Floor",
     text: "Forex (FX) is trading one currency for another. This chart is USD/JPY: the price is how many yen one US dollar costs, so a rising price means a stronger dollar. You have ¥1,000,000 of practice money. Nothing here is real or saved. It takes about five minutes.",
-    task: "Look at the price and your Net Worth, then press Next.",
+    task: "Look at the price and your Net Worth. A click moves on.",
     plan: [
       { target: "chart", until: "look", say: "The price of one dollar, in yen." },
       { target: "equity", until: "look", say: "Your practice money." },
-      { target: "next", until: "press", say: "Press Next to begin." },
     ],
-    allow: only("next", "Press Next to begin."),
+    allow: only("next", "Click anywhere to begin."),
     done: (t) => t.nexted,
     solve: () => ({ kind: "next" }),
   },
@@ -177,76 +181,40 @@ export const LESSONS: Lesson[] = [
     solve: () => ({ kind: "stop", pct: 1 }),
   },
   {
-    id: "gap",
-    title: "When a Stop Can't Save You",
-    text: "Your stop filled a little past −1%. A stop closes at the next price there is, not exactly at its level. Usually that is close. On 15 January 2015 the Swiss central bank dropped its cap on the franc, and the price jumped about 15% in minutes. Stops filled far past their levels, and many traders lost more than they had.",
-    task: "Set Leverage to 30× and Stake to 100%, then press Buy.",
-    plan: [
-      { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
-      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
-      { target: "buy", until: "press", say: "Press Buy. A 1% stop is set for you." },
-    ],
-    fresh: true,
-    allow: order(1, 30, true),
-    after: (t) => t.desk.stopAway(ME, 1),
-    path: [1.001, 0.85, 0.86, 0.87],
-    done: (t) => t.desk.account(ME).out,
-    solve: () => ({ kind: "order", side: 1, leverage: 30, stake: 1 }),
-  },
-  {
-    id: "dad",
-    title: "Dad's Savings",
-    text: "Wiped out: the price jumped straight past your stop, and your loss was several times your money. This broker has a zero-cut, so you owe nothing and your account is ¥0. Brokers in Japan can bill you for the rest. In the game you may borrow from Dad's savings, twice a round, and the debt counts against your result. Borrowing to win back a loss is the trap the comic is about.",
-    task: "Press Next to walk away, or Borrow to see how it works.",
-    plan: [
-      { target: "borrow", until: "press", say: "Borrow from Dad's savings, or press Next." },
-    ],
-    allow: (m) => (m.kind === "next" || m.kind === "borrow" ? null : "Press Next to walk away, or Borrow."),
-    done: (t) => t.nexted || t.desk.account(ME).debt > 0,
-    solve: () => ({ kind: "next" }),
-  },
-  {
-    id: "thousand",
+    id: "highest",
     title: "The Highest Leverage: 1000×",
-    text: "Some offshore brokers offer 1000×, the top of the menu. Your ¥1,000,000 would control ¥1,000,000,000, so a move of a tenth of a percent is your whole account. Watch what two tiny moves do: the price rises a little, then falls a little. Neither is more than an ordinary minute of trading.",
-    task: "Set Leverage to 1000× and Stake to 100%, then press Buy.",
+    text: "Some offshore brokers offer 1000×, the top of the menu. Your ¥1,000,000 would control ¥1,000,000,000, so a move of a tenth of a percent is your whole account. Watch the price rise a little and fall a little, as in any ordinary minute.\nThe spread alone takes a fifth of your money the moment you buy, and the financing fee grows with the square of the leverage. A fall of 0.1% brings a margin call, then the forced loss cut. Now you may \"borrow\" from Dad's savings. In the comic that means taking the money from the dresser at home, without asking. Do it, and trade 1000× again.\nThis time the price gaps, as the franc did on 15 January 2015, and a gap jumps every stop and every loss cut: you are bankrupt, and Dad finds the money gone. Nobody can call moves this small, so the highest leverage is a coin flip the spread tilts against you. If you ever trade for real, keep leverage low, risk little, and use a Stop Loss.",
+    task: "Set Leverage to 1000× and Stake to 100%, press Buy, then \"borrow\" and press Buy again.",
     plan: [
       { target: "leverage", until: "leverage=1000", say: "Slide Leverage to 1000×, the highest." },
       { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
-      { target: "buy", until: "press", say: "Press Buy, then watch." },
+      { target: "buy", until: "press", say: "Press Buy, then watch.", stage: 0 },
+      { target: "borrow", until: "press", say: "\"Borrow\" from Dad's savings.", stage: 1 },
+      { target: "buy", until: "press", say: "Press Buy again.", stage: 2 },
     ],
     fresh: true,
-    allow: order(1, 1000, true),
-    path: [1.0001, 1.0002, 1.0003, 1.0002, 1.0001, 0.9999, 0.9997, 0.9995, 0.9993, 0.999, 0.9985],
-    done: (t) => t.desk.account(ME).out,
-    solve: () => ({ kind: "order", side: 1, leverage: 1000, stake: 1 }),
-  },
-  {
-    id: "warning",
-    title: "The Warning: Don't Chase 1000×",
-    text: "That took seconds. The spread alone cost you 20% the moment you bought. A rise of 0.03% made you about 10% richer, which feels like skill, and a fall of about 0.1% then closed you out at a 90% loss. Nobody can call moves this small, so the highest leverage is a coin flip that the spread tilts against you, and a few such flips end every account. If you ever trade for real, keep leverage low, risk little, and use a Stop Loss.",
-    task: "Press Next to finish.",
-    plan: [{ target: "next", until: "press", say: "Press Next. Remember this one." }],
-    allow: only("next", "Press Next to finish."),
-    done: (t) => t.nexted,
-    solve: () => ({ kind: "next" }),
-  },
-  {
-    id: "ready",
-    title: "You're Ready",
-    text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch Margin Level, cut losses early, use a Stop Loss, and remember gaps. Most retail traders who use leverage lose money, but here it is free. Try Replay for real crashes with the date hidden, or Simulation for a random market from today's rate.",
-    task: "Press Next to finish, then choose a tab above.",
-    plan: [],
-    allow: only("next", "Press Next to finish."),
-    done: (t) => t.nexted,
-    solve: () => ({ kind: "next" }),
+    allow: (m, t) => (t.stage === 1 ? (m.kind === "borrow" ? null : "\"Borrow\" from Dad's savings in the pop-up first.") : order(1, 1000, true)(m)),
+    // the first Buy: small moves, then the fall; the second: a gap through everything
+    path: (t) => (t.stage === 0 ? [1.0001, 1.0002, 1.0003, 1.0002, 1.0001, 0.9999, 0.9997, 0.9995, 0.9993, 0.999, 0.9985] : t.stage === 1 ? [] : [1.001, 0.85, 0.86]),
+    // Dad finds out once the second trade has been wiped out
+    settle: (t) => {
+      if (t.stage >= 3 && t.desk.account(ME).caught === 0) t.describe(t.desk.discover(ME));
+    },
+    done: (t) => t.desk.account(ME).caught > 0,
+    solve: (t) => (t.stage === 1 ? { kind: "borrow" } : { kind: "order", side: 1, leverage: 1000, stake: 1 }),
   },
 ];
+
+type Snapshot = { desk: Desk; prices: number[]; feed: Tutorial["feed"]; stage: number };
 
 export class Tutorial {
   desk!: Desk;
   index = 0;
   nexted = false;
+  // The moves made so far in a lesson that takes several (ADR 0057).
+  stage = 0;
+  // How a lesson began, so it can be started again without the others.
+  private begun!: Snapshot;
   prices: number[] = [];
   feed: { text: string; kind: string; key: string; args: Record<string, string | number> }[] = [];
   private queue: number[] = [];
@@ -264,7 +232,38 @@ export class Tutorial {
     this.queue = [];
     this.prices = [START_PRICE];
     this.feed = [];
+    this.stage = 0;
     this.fresh();
+    this.snapshot();
+  }
+
+  private snapshot(): void {
+    this.begun = { desk: this.desk.clone(), prices: [...this.prices], feed: structuredClone(this.feed), stage: 0 };
+  }
+
+  // Start the current lesson again, from the money and price it began with.
+  restartLesson(): void {
+    this.runs++;
+    this.queue = [];
+    this.nexted = false;
+    this.stage = 0;
+    this.desk = this.begun.desk.clone();
+    this.prices = [...this.begun.prices];
+    this.feed = structuredClone(this.begun.feed);
+  }
+
+  // Pass the current lesson at once, by making the moves it teaches, and
+  // begin the next (the fast-forward button). Every lesson's own moves, as
+  // `solve` gives them, are the ones the lesson accepts.
+  skip(): string | null {
+    if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
+    const at = this.index;
+    for (let guard = 0; this.index === at && guard < 12; guard++) {
+      const failed = this.act(this.lesson().solve(this));
+      if (failed) return failed;
+      while (this.moving()) this.step();
+    }
+    return this.index === at ? "That lesson would not finish." : null;
   }
 
   lesson(): Lesson {
@@ -287,7 +286,7 @@ export class Tutorial {
     if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
     if (this.moving()) return "Wait for the price to finish moving.";
     const lesson = this.lesson();
-    const hint = lesson.allow(m);
+    const hint = lesson.allow(m, this);
     if (hint) return hint;
     if (m.kind === "next") this.nexted = true;
     else {
@@ -300,7 +299,9 @@ export class Tutorial {
       if (Array.isArray(out)) this.describe(out);
       lesson.after?.(this);
       const base = this.desk.price;
-      this.queue = (lesson.path ?? []).map((x) => base * x);
+      const path = typeof lesson.path === "function" ? lesson.path(this) : (lesson.path ?? []);
+      this.queue = path.map((x) => base * x);
+      this.stage++;
     }
     if (!this.moving()) this.advance();
     return null;
@@ -319,10 +320,13 @@ export class Tutorial {
   }
 
   private advance(): void {
+    this.lesson().settle?.(this);
     if (!this.lesson().done(this)) return;
     this.index++;
     this.nexted = false;
+    this.stage = 0;
     if (!this.finished() && this.lesson().fresh) this.fresh();
+    if (!this.finished()) this.snapshot();
   }
 
   // A fresh ¥1,000,000 at the current price.
@@ -332,7 +336,7 @@ export class Tutorial {
   }
 
   // What just happened, in plain words for a beginner.
-  private describe(events: Fill[]): void {
+  describe(events: Fill[]): void {
     const yen = (n: number): string => `${n < 0 ? "−" : "+"}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
     for (const e of events) {
       const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: e.price.toFixed(3) };
@@ -346,6 +350,7 @@ export class Tutorial {
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
       else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}. You are out until you borrow.`, "bust", "you-stopout");
       else if (e.kind === "zerocut") say(`Wiped out at ${e.price.toFixed(3)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
+      else if (e.kind === "caught") say("Dad found the money gone from the dresser. You are grounded.", "bust", "you-caught");
     }
   }
 }

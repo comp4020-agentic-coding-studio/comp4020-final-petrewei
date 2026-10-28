@@ -466,3 +466,70 @@ describe("stop loss and take profit", () => {
     expect(desk.mark(98.5).map((e) => e.kind)).toEqual(["stop"]);
   });
 });
+
+// ADR 0057 and 0058: "borrowing" from Dad is open to a player under a margin
+// call, he finds out, and the financing fee grows with the leverage squared.
+describe("Dad's savings", () => {
+  it("lets a player under a margin call take the money, before anything is lost", async () => {
+    const { Desk, BORROW } = await import("../src/fx.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 1000);
+    expect(desk.borrow("a")).toMatch(/still have money/);
+    desk.mark(99.965);
+    expect(desk.called("a")).toBe(true);
+    expect(desk.borrow("a")).toBeNull();
+    expect(desk.account("a").debt).toBe(BORROW);
+  });
+  it("is found out: the position is closed, the player is grounded, and it counts once", async () => {
+    const { Desk } = await import("../src/fx.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.discover("a"), "nothing taken, nothing found").toEqual([]);
+    desk.order("a", 1, 10);
+    desk.mark(90);
+    desk.account("a").balance = 50_000;
+    desk.account("a").pos = null;
+    desk.borrow("a");
+    desk.order("a", 1, 1);
+    const found = desk.discover("a");
+    expect(found.map((f) => f.kind)).toEqual(["close", "caught"]);
+    expect(desk.account("a").pos).toBeNull();
+    expect(desk.account("a").out).toBe(true);
+    expect(desk.account("a").caught).toBe(1);
+    expect(desk.discover("a"), "found out only once").toEqual([]);
+    expect(desk.borrow("a")).toMatch(/hidden/);
+  });
+});
+describe("the financing fee", () => {
+  it("is nothing to notice at 1× and costs more than the leverage as it rises", async () => {
+    const { feeRate } = await import("../src/fx.ts");
+    expect(feeRate(1000) / feeRate(1)).toBeCloseTo(1_000_000, 3);
+    expect(feeRate(100) * 360, "a round at 100× costs under 1% of the margin").toBeLessThan(0.01);
+    expect(feeRate(1000) * 360, "and at 1000× over a third of it").toBeGreaterThan(0.3);
+  });
+  it("is charged each tick on the open position, and counts against its profit", async () => {
+    const { Desk, feeRate } = await import("../src/fx.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 500);
+    const before = desk.pnl("a");
+    for (let i = 0; i < 10; i++) desk.mark(100);
+    const margin = desk.account("a").pos!.margin;
+    expect(before - desk.pnl("a")).toBeCloseTo(10 * margin * feeRate(500), 4);
+  });
+  it("leaves the margin lines where the desk acts on them", async () => {
+    const { Desk } = await import("../src/fx.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 100, 0.5);
+    for (let i = 0; i < 50; i++) desk.mark(100);
+    const { call } = desk.lines("a")!;
+    const d = new Desk(100);
+    d.join("a");
+    d.order("a", 1, 100, 0.5);
+    d.account("a").pos!.fees = desk.account("a").pos!.fees;
+    d.price = call;
+    expect(d.level("a")).toBeCloseTo(0.5, 9);
+  });
+});

@@ -16,11 +16,18 @@ export const LEVERAGES = [1, 2, 5, 10, 30, 50, 100, 200, 500, 1000];
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
 export const STOP_OUT = 0.2;
-// A broke player (wiped out, or left with crumbs and nothing open) may
-// borrow from Dad's savings, twice a round. It gets them back in the game
-// but the debt comes off their result.
+// A player in trouble, under a margin call or wiped out or left with crumbs
+// and nothing open, may "borrow" from Dad's savings, twice a round. It is
+// the dresser at home, not a loan: Dad is never asked, and finds out (ADR
+// 0057). It gets them back in the game, but the debt comes off their result.
 export const BORROW = 300_000;
 export const LOANS = 2;
+// The financing fee (ADR 0058): each tick an open position pays its margin
+// times FEE times its leverage squared, so the more is borrowed, the faster
+// the fee eats the account: over a round of 360 ticks, 0.03% of the margin at
+// 30×, 0.4% at 100×, 9% at 500× and 36% at 1000×.
+export const FEE = 1e-9;
+export const feeRate = (leverage: number): number => FEE * leverage * leverage;
 // A stop loss or take profit is set between 1% and 50% away (ADR 0033).
 const inRange = (pct: number): boolean => pct >= 1 && pct <= 50;
 export const BROKE = 100_000;
@@ -39,14 +46,18 @@ export type Position = {
   stop: number | null;
   take: number | null;
   called: boolean;
+  // The financing fees paid so far, which count against the position.
+  fees: number;
 };
 // `out` is set by a forced cut, or a close that leaves nothing, and is
 // cleared by a loan; `cuts`
 // counts forced closes, so a page can tell when a new one happens;
 // `traded` says whether the player placed an order this round at all;
 // `left` that they walked out of it and only watch until the bell.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; left: boolean };
-export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
+// `caught` counts the loans Dad has found out about (ADR 0057); it equals the
+// loans once he has, and a caught player is grounded: out for the round.
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; left: boolean; caught: number };
+export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
@@ -63,7 +74,14 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false });
+    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0 });
+  }
+
+  // An independent copy, for the tutorial's way back to a lesson's start.
+  clone(): Desk {
+    const copy = new Desk(this.price);
+    for (const [who, account] of this.accounts) copy.accounts.set(who, structuredClone(account));
+    return copy;
   }
 
   players(): string[] {
@@ -80,7 +98,7 @@ export class Desk {
   pnl(who: string, mid = this.price): number {
     const pos = this.account(who).pos;
     if (!pos) return 0;
-    return pos.side * (pos.units * fill(mid, -pos.side as Side) - pos.notional);
+    return pos.side * (pos.units * fill(mid, -pos.side as Side) - pos.notional) - pos.fees;
   }
 
   equity(who: string): number {
@@ -102,7 +120,7 @@ export class Desk {
   lines(who: string): { call: number; cut: number } | null {
     const { balance, pos } = this.account(who);
     if (!pos) return null;
-    const at = (level: number) => (pos.side * (level * pos.margin - balance) + pos.notional) / (pos.units * (1 - pos.side * half));
+    const at = (level: number) => (pos.side * (level * pos.margin - balance + pos.fees) + pos.notional) / (pos.units * (1 - pos.side * half));
     return { call: at(CALL), cut: at(STOP_OUT) };
   }
 
@@ -134,7 +152,7 @@ export class Desk {
     const pos = account.pos;
     if (!pos) {
       const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : this.price * (1 + (sign * pct) / 100));
-      account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: away(with_.sl, -side), take: away(with_.tp, side), called: false };
+      account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: away(with_.sl, -side), take: away(with_.tp, side), called: false, fees: 0 };
       return [{ kind: "open", who, price: this.price, pnl: 0, leverage, side }];
     }
     // Adding to a position merges it, so the entry is the average paid.
@@ -193,20 +211,24 @@ export class Desk {
     const pos = account.pos;
     if (!pos) return false;
     const exit = fill(this.price, -pos.side as Side);
-    pos.units = (pos.side * (level * pos.margin - account.balance) + pos.notional) / exit;
+    pos.units = (pos.side * (level * pos.margin - account.balance + pos.fees) + pos.notional) / exit;
     pos.entry = pos.notional / pos.units;
     return true;
   }
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false });
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0 });
   }
 
   // Move the price and enforce the rules on every account, in join order.
   mark(price: number): Fill[] {
     this.price = price;
-    return [...this.accounts.keys()].flatMap((who) => this.enforce(who));
+    const fills = [...this.accounts.keys()].flatMap((who) => this.enforce(who));
+    // The fee is charged after the rules have acted, so the call and cut
+    // prices a page shows are the ones the next mark acts at.
+    for (const account of this.accounts.values()) if (account.pos) account.pos.fees += account.pos.margin * feeRate(account.pos.leverage);
+    return fills;
   }
 
   // The broker's rules on one account at the current price.
@@ -263,15 +285,34 @@ export class Desk {
     return fills;
   }
 
+  // Whether a margin call is on the player's position.
+  called(who: string): boolean {
+    return !!this.account(who).pos?.called;
+  }
+
   borrow(who: string): string | null {
     const account = this.account(who);
     if (account.left) return "You left this round. You can watch it to the bell.";
-    if (!this.broke(who)) return "You still have money. For now.";
+    if (account.caught) return "Dad has hidden the rest of the savings.";
+    if (!this.broke(who) && !this.called(who)) return "You still have money. For now.";
     if (account.debt >= BORROW * LOANS) return "Dad's savings are gone.";
     account.balance += BORROW;
     account.debt += BORROW;
     account.out = false;
     return null;
+  }
+
+  // Dad finds the missing money (ADR 0057): everything open is closed, the
+  // player is grounded for the round, and every loan so far is found out.
+  // Nothing happens to someone who took nothing.
+  discover(who: string): Fill[] {
+    const account = this.account(who);
+    const loans = Math.round(account.debt / BORROW);
+    if (loans <= account.caught) return [];
+    const fills: Fill[] = account.pos ? [this.settleOne(who, "close")] : [];
+    account.caught = loans;
+    account.out = true;
+    return [...fills, { kind: "caught", who, price: this.price, pnl: 0 }];
   }
 
   // Close everything at the last price and rank by balance less debt.

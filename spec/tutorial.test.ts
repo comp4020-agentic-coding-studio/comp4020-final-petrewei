@@ -17,7 +17,7 @@ it("refuses a move the lesson does not teach, with a hint", async () => {
   const me = await visitor();
   const res = await attempt({ mode: "tutorial", kind: "sell", leverage: 1 }, me);
   expect(res.status).toBe(409);
-  expect((await res.json()).error).toMatch(/Next/);
+  expect((await res.json()).error).toMatch(/Click anywhere/);
 });
 
 it("keeps each visitor's lessons to themselves", async () => {

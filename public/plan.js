@@ -8,7 +8,10 @@
 // as they go: the nth look is met when `looked` is above n. A step to press is
 // never met by anything the page can see, since the server moves the lesson on
 // when the action is taken.
-export function met(step, index, { choice, looked }) {
+export function met(step, index, { choice, looked, stage = 0 }) {
+  // A press that belongs to another stage of a lesson of several moves is
+  // either done or not yet due, and not the one to point at (ADR 0057).
+  if (step.stage !== undefined && step.until === "press") return step.stage !== stage;
   const m = step.until.match(/^(leverage|stake)=(\d+)$/);
   if (m) return Number(choice[m[1]]) === Number(m[2]);
   if (step.until === "look") return index < looked;
@@ -47,6 +50,6 @@ export function autoMove(step, lessonId, plan = [], choice = { leverage: 25, sta
   if (step.target === "buy" || step.target === "sell") return { act: { kind: step.target, leverage: asked("leverage") ?? choice.leverage, stake: asked("stake") ?? choice.stake } };
   if (step.target === "stopthumb") return { act: { kind: "stop", pct: 1 } };
   if (step.target === "close") return { act: { kind: "close" } };
-  if (step.target === "borrow" || step.target === "next") return { act: { kind: "next" } };
+  if (step.target === "borrow") return { act: { kind: "borrow" } };
   return null;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { START } from "../src/fx.ts";
+import { BORROW, START } from "../src/fx.ts";
 import { LESSONS, Tutorial } from "../src/tutorial.ts";
 
 // The tutorial is one player's private market, run lesson by lesson. Each
@@ -26,6 +26,7 @@ describe("the tutorial", () => {
 
   it("refuses an action the lesson does not teach, with a hint", () => {
     const t = new Tutorial();
+    expect(t.act({ kind: "order", side: 1, leverage: 1 })).toMatch(/Click anywhere/);
     t.act({ kind: "next" });
     const refused = t.act({ kind: "order", side: -1, leverage: 1 });
     expect(refused).toMatch(/a Buy at 1×/);
@@ -65,6 +66,7 @@ describe("the tutorial", () => {
     }
     expect(kinds).toContain("call");
     expect(kinds).toContain("stop");
+    expect(kinds).toContain("stopout");
     expect(kinds).toContain("zerocut");
   });
 
@@ -75,6 +77,38 @@ describe("the tutorial", () => {
     expect(t.lesson().id).toBe(LESSONS[0].id);
     expect(t.desk.account("me").balance).toBe(START);
   });
+
+  it("starts the current lesson again, keeping the others passed", () => {
+    const t = new Tutorial();
+    // a lesson in which a position is opened: its money starts fresh, and
+    // starting it again returns the account to what it began with
+    while (t.lesson().id !== "leverage") { t.act(t.lesson().solve(t)); run(t); }
+    const at = t.lesson().id;
+    const balance = t.desk.account("me").balance;
+    t.act({ kind: "order", side: 1, leverage: 30, stake: 1 });
+    expect(t.desk.account("me").pos).not.toBeNull();
+    t.restartLesson();
+    expect(t.desk.account("me").pos).toBeNull();
+    expect(t.lesson().id).toBe(at);
+    expect(t.desk.account("me").balance).toBe(balance);
+    expect(t.act(t.lesson().solve(t))).toBeNull();
+  });
+
+  it("skips a lesson by making its moves, and lands on the next", () => {
+    const t = new Tutorial();
+    for (let i = 0; i < LESSONS.length; i++) {
+      const at = t.index;
+      expect(t.skip(), LESSONS[i].id).toBeNull();
+      expect(t.index, LESSONS[i].id).toBe(at + 1);
+    }
+    expect(t.finished()).toBe(true);
+    expect(t.skip()).toMatch(/finished/);
+  });
+
+  it("has ten lessons", () => {
+    expect(LESSONS.length).toBe(10);
+    expect(LESSONS.at(-1)!.id).toBe("highest");
+  });
 });
 
 // ADR 0052: a lesson points at one control at a time. Its plan is an ordered
@@ -82,13 +116,12 @@ describe("the tutorial", () => {
 // at something, to set a slider to a value the page can check, or to press the
 // button that takes the lesson's action, which every lesson has exactly once.
 describe("a lesson's plan", () => {
-  const TARGETS = ["chart", "equity", "leverage", "stake", "buy", "sell", "close", "pnl", "level", "stop", "stopthumb", "borrow", "next"];
+  const TARGETS = ["chart", "equity", "leverage", "stake", "buy", "sell", "close", "pnl", "level", "stop", "stopthumb", "borrow"];
   const UNTIL = /^(look|press|leverage=\d+|stake=1)$/;
   const plan = (id: string) => LESSONS.find((l) => l.id === id)!.plan;
-  it("gives every lesson but the last a plan of steps, each with a known target, condition and words", () => {
+  it("gives every lesson a plan of steps, each with a known target, condition and words", () => {
     for (const l of LESSONS) {
       expect(l.plan, l.id).toBeInstanceOf(Array);
-      if (l.id === "ready") continue;
       expect(l.plan.length, l.id).toBeGreaterThan(0);
       for (const s of l.plan) {
         expect(TARGETS, `${l.id} target ${s.target}`).toContain(s.target);
@@ -98,15 +131,20 @@ describe("a lesson's plan", () => {
     }
   });
   it("has exactly one step to press in each lesson, naming the control that takes its action", () => {
-    const action: Record<string, string> = { welcome: "next", buy: "buy", "take-profit": "close", sell: "sell", "close-short": "close", leverage: "buy", "cut-loss": "close", "stop-buy": "buy", "stop-set": "stopthumb", gap: "buy", dad: "borrow", thousand: "buy", warning: "next" };
+    const action: Record<string, string> = { buy: "buy", "take-profit": "close", sell: "sell", "close-short": "close", leverage: "buy", "cut-loss": "close", "stop-buy": "buy", "stop-set": "stopthumb" };
     for (const l of LESSONS) {
       if (!action[l.id]) continue;
       const pressing = l.plan.filter((s) => s.until === "press");
       expect(pressing.map((s) => s.target), l.id).toEqual([action[l.id]]);
     }
+    // the welcome has nothing to press: a click moves it on; the last lesson
+    // has three presses, one for each of its stages
+    expect(plan("welcome").filter((s) => s.until === "press")).toEqual([]);
+    expect(plan("highest").filter((s) => s.until === "press").map((s) => [s.target, s.stage])).toEqual([["buy", 0], ["borrow", 1], ["buy", 2]]);
   });
   it("sets the sliders before pressing, and only looks after pressing", () => {
     for (const l of LESSONS) {
+      if (l.id === "highest") continue;
       const kinds = l.plan.map((s) => (s.until === "look" ? "look" : s.until === "press" ? "press" : "set"));
       const press = kinds.indexOf("press");
       if (press < 0) continue;
@@ -123,8 +161,7 @@ describe("a lesson's plan", () => {
     expect(sets("sell")).toEqual(["leverage=1"]);
     expect(sets("leverage")).toEqual(["leverage=30", "stake=1"]);
     expect(sets("stop-buy")).toEqual(["leverage=10", "stake=1"]);
-    expect(sets("gap")).toEqual(["leverage=30", "stake=1"]);
-    expect(sets("thousand")).toEqual(["leverage=1000", "stake=1"]);
+    expect(sets("highest")).toEqual(["leverage=1000", "stake=1"]);
   });
   it("matches the plan to what the lesson accepts: the leverage a plan sets is the leverage allowed", () => {
     for (const l of LESSONS) for (const s of l.plan) {
@@ -171,7 +208,7 @@ describe("the stop lesson's directions", () => {
     expect(exitPos({ kind: "sl", dist: 1 })).toBeGreaterThan(exitPos({ kind: "sl", dist: 50 }));
     expect(exitPos({ kind: "sl", dist: 1 })).toBeGreaterThan(0.4);
     const lesson = LESSONS.find((l) => l.id === "stop-set")!;
-    const words = [lesson.task, ...lesson.plan.map((s) => s.say), String(lesson.allow({ kind: "stop", pct: 25 })), String(lesson.allow({ kind: "stop", pct: null }))].join(" ");
+    const words = [lesson.task, ...lesson.plan.map((s) => s.say), String(lesson.allow({ kind: "stop", pct: 25 }, new Tutorial())), String(lesson.allow({ kind: "stop", pct: null }, new Tutorial()))].join(" ");
     expect(words).toMatch(/middle line/);
     expect(words).not.toMatch(/left end|right end|far left|far right/i);
   });
@@ -184,7 +221,7 @@ describe("the stop lesson's directions", () => {
 describe("which step a lesson points at", () => {
   const plan = (id: string) => LESSONS.find((l) => l.id === id)!.plan;
   const all = () => true;
-  const now = async (id: string, ctx: { choice: { leverage: number; stake: number }; looked: number }, seen: (t: string) => boolean = all) => {
+  const now = async (id: string, ctx: { choice: { leverage: number; stake: number }; looked: number; stage?: number }, seen: (t: string) => boolean = all) => {
     const { currentStep } = await import("../public/plan.js");
     return currentStep(plan(id), ctx, (s: { target: string }) => seen(s.target))?.target ?? null;
   };
@@ -192,7 +229,7 @@ describe("which step a lesson points at", () => {
     const choice = { leverage: 30, stake: 1 };
     expect(await now("welcome", { choice, looked: 0 })).toBe("chart");
     expect(await now("welcome", { choice, looked: 1 })).toBe("equity");
-    expect(await now("welcome", { choice, looked: 2 })).toBe("next");
+    expect(await now("welcome", { choice, looked: 2 })).toBeNull();
     expect(await now("take-profit", { choice, looked: 0 })).toBe("pnl");
     expect(await now("take-profit", { choice, looked: 1 })).toBe("close");
     expect(await now("cut-loss", { choice, looked: 1 })).toBe("close");
@@ -209,7 +246,10 @@ describe("which step a lesson points at", () => {
     const choice = { leverage: 30, stake: 1 };
     expect(await now("take-profit", { choice, looked: 9 }, (t) => t !== "close")).toBeNull();
     expect(await now("take-profit", { choice, looked: 9 })).toBe("close");
-    expect(await now("dad", { choice, looked: 9 })).toBe("borrow");
+    // the last lesson points at the press that belongs to its stage
+    expect(await now("highest", { choice: { leverage: 1000, stake: 1 }, looked: 0, stage: 0 })).toBe("buy");
+    expect(await now("highest", { choice: { leverage: 1000, stake: 1 }, looked: 0, stage: 1 })).toBe("borrow");
+    expect(await now("highest", { choice: { leverage: 1000, stake: 1 }, looked: 0, stage: 2 })).toBe("buy");
   });
   it("counts a look by its place in the plan, so only steps before it were seen", async () => {
     const { met } = await import("../public/plan.js");
@@ -242,8 +282,7 @@ describe("what the tutorial does for a player who waits", () => {
     expect(await doing("leverage", 2)).toEqual({ act: { kind: "buy", leverage: 30, stake: 1 } });
     expect(await doing("take-profit", 1)).toEqual({ act: { kind: "close" } });
     expect(await doing("stop-set", 1)).toEqual({ act: { kind: "stop", pct: 1 } });
-    expect(await doing("welcome", 2)).toEqual({ act: { kind: "next" } });
-    expect(await doing("dad", 0)).toEqual({ act: { kind: "next" } });
+    expect(await doing("highest", 3)).toEqual({ act: { kind: "borrow" } });
   });
   it("only moves on from a step to look at", async () => {
     expect(await doing("welcome", 0)).toEqual({ look: true });
@@ -256,33 +295,34 @@ describe("what the tutorial does for a player who waits", () => {
       const m = (autoMove(s, l.id, l.plan, { leverage: 25, stake: 0.5 }) as { act: { kind: string; leverage?: number; stake?: number; pct?: number } }).act;
       const t = new Tutorial();
       while (t.lesson().id !== l.id) { expect(t.act(t.lesson().solve(t))).toBeNull(); while (t.moving()) t.step(); }
+      // bring a lesson of several moves to the stage this press belongs to
+      while (t.stage < (s.stage ?? 0)) { expect(t.act(t.lesson().solve(t))).toBeNull(); while (t.moving()) t.step(); }
       const move = m.kind === "buy" || m.kind === "sell" ? { kind: "order" as const, side: m.kind === "buy" ? (1 as const) : (-1 as const), leverage: m.leverage!, stake: m.stake } : m.kind === "stop" ? { kind: "stop" as const, pct: m.pct! } : ({ kind: m.kind } as { kind: "next" | "close" | "borrow" });
       expect(t.act(move as never), `${l.id}`).toBeNull();
     }
   });
 });
 
-// The warning lesson: the highest leverage, and what it does within moments.
-describe("the 1000× warning", () => {
-  const play = (): Tutorial => {
+
+// ADR 0057: the last lesson takes the highest leverage through a margin call
+// and a forced cut, lets the player "borrow" from Dad's savings, trades again
+// into a gap, and has Dad find out.
+describe("the last lesson", () => {
+  const atHighest = (): Tutorial => {
     const t = new Tutorial();
-    while (t.lesson().id !== "thousand") {
+    while (t.lesson().id !== "highest") {
       expect(t.act(t.lesson().solve(t))).toBeNull();
-      while (t.moving()) t.step();
+      run(t);
     }
     return t;
   };
-  it("comes after Dad's savings and before the last lesson", () => {
-    const ids = LESSONS.map((l) => l.id);
-    expect(ids.slice(-4)).toEqual(["dad", "thousand", "warning", "ready"]);
-  });
-  it("refuses any leverage but the highest, and the top of the menu is 1000×", () => {
-    const t = play();
+  it("refuses any leverage but the highest", () => {
+    const t = atHighest();
     expect(t.act({ kind: "order", side: 1, leverage: 500, stake: 1 })).toMatch(/1000/);
     expect(t.desk.account("me").pos).toBeFalsy();
   });
-  it("calls the margin and cuts the player out on tiny moves, so the warning's numbers hold", () => {
-    const t = play();
+  it("calls the margin and cuts the player out on tiny moves", () => {
+    const t = atHighest();
     const start = t.price();
     expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toBeNull();
     let peak = start;
@@ -294,7 +334,31 @@ describe("the 1000× warning", () => {
     expect(peak / start - 1, "the rise stays under 0.05%").toBeLessThan(0.0005);
     expect(kinds).toContain("call");
     expect(kinds).toContain("stopout");
-    expect(t.lesson().id).toBe("warning");
+    expect(t.lesson().id).toBe("highest");
     expect(t.desk.account("me").balance, "about a tenth is left").toBeLessThan(150_000);
+  });
+  it("accepts nothing but the \"borrow\" after the cut, then a second 1000× buy", () => {
+    const t = atHighest();
+    t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 });
+    run(t);
+    expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toMatch(/pop-up/);
+    expect(t.act({ kind: "borrow" })).toBeNull();
+    expect(t.desk.account("me").debt).toBe(BORROW);
+    expect(t.act({ kind: "borrow" }), "a second \"loan\" is not taught").toMatch(/Buy at 1000×/);
+  });
+  it("gaps through the second trade, wipes it out, and Dad finds out", () => {
+    const t = atHighest();
+    t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 });
+    run(t);
+    t.act({ kind: "borrow" });
+    expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toBeNull();
+    const kinds: string[] = [];
+    while (t.moving()) kinds.push(...t.step().map((e) => e.kind));
+    expect(kinds).toContain("zerocut");
+    const account = t.desk.account("me");
+    expect(account.caught).toBe(1);
+    expect(account.out).toBe(true);
+    expect(t.feed.some((f) => f.key === "you-caught")).toBe(true);
+    expect(t.finished()).toBe(true);
   });
 });

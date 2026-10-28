@@ -355,3 +355,58 @@ it("never puts a replay's famous date on the wire before the bell, in a clue or 
     tab.close();
   }
 }, 120_000);
+
+// ADR 0057: in a real market, a player who "borrows" from Dad's savings is
+// found out after a while, or at the bell if the round ends first, whichever
+// comes first: everything is closed, they are grounded, the room is told, and
+// the score is docked. The same rule as the tutorial's, in every mode.
+it("has Dad find out about a \"loan\" in a market round, and tells the room", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", DAD_TICKS: "6" });
+  const { visitor, page, act, until } = app();
+  const me = await visitor();
+  const tab = await page(me, "simulation");
+  try {
+    await act(me, { kind: "start", mode: "simulation" });
+    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
+    // a position at the top of the menu meets a margin call or a cut within moments
+    await act(me, { kind: "buy", leverage: 1000, mode: "simulation" });
+    const hurt = await until(me, (x) => x.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), 15_000, "simulation");
+    expect(hurt.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), "the 1000× position was hurt").toBe(true);
+    expect((await act(me, { kind: "borrow", mode: "simulation" })).status).toBe(200);
+    const caught = await until(me, (x) => x.feed.some((f) => f.key === "caught"), 10_000, "simulation");
+    expect(caught.feed.map((f) => f.key)).toContain("caught");
+    const after = (await app().look(me, "simulation")) as Seen & { you: { out: boolean; caught: number; pos: unknown } };
+    expect(after.you.caught).toBe(1);
+    expect(after.you.out).toBe(true);
+    expect(after.you.pos).toBeNull();
+    // and a second "loan" is refused: Dad has hidden the rest
+    const again = await act(me, { kind: "borrow", mode: "simulation" });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error).toMatch(/hidden|gone/);
+  } finally {
+    tab.close();
+  }
+}, 40_000);
+
+it("has Dad find out at the bell if the round ends before he would have, and docks the score", async () => {
+  // Dad's delay is far longer than the round, so only the bell can reveal it
+  s = await server(8096, { TICK_MS: "20", COUNTDOWN_TICKS: "2", DAD_TICKS: "100000" });
+  const { visitor, page, act, until, look } = app();
+  const me = await visitor();
+  const tab = await page(me, "simulation");
+  try {
+    await act(me, { kind: "start", mode: "simulation" });
+    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
+    await act(me, { kind: "buy", leverage: 1000, mode: "simulation" });
+    await until(me, (x) => x.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), 15_000, "simulation");
+    expect((await act(me, { kind: "borrow", mode: "simulation" })).status).toBe(200);
+    expect(((await look(me, "simulation")) as Seen & { you: { caught: number } }).you.caught, "not found out yet").toBe(0);
+    const bell = await until(me, (x) => x.phase === "break", 30_000, "simulation");
+    expect(bell.feed.map((f) => f.key), "Dad found out at the bell").toContain("caught");
+    const mine = bell.result!.ranking.find((r) => r.you)! as Row & { score: number };
+    // the loan, a forced cut or a wipe-out and Dad's punishment are all in the score
+    expect(mine.score).toBeLessThan(-20);
+  } finally {
+    tab.close();
+  }
+}, 60_000);

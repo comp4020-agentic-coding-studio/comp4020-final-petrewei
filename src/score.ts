@@ -7,6 +7,9 @@
 
 export const CUT_COST = 10;
 export const LOAN_COST = 5;
+// Dad's punishment for each loan he finds out about (ADR 0057), which the bell
+// applies to every loan, found out in the round or not.
+export const CAUGHT_COST = 10;
 export const MIN_ROUNDS = 3;
 // Naming a replay's year before the bell (ADR 0030): the right year, or
 // one off.
@@ -18,8 +21,8 @@ export function guessBonus(guess: number | null, year: number): number {
   return guess === year ? YEAR_BONUS : Math.abs(guess - year) === 1 ? NEAR_BONUS : 0;
 }
 
-export function score(r: { start: number; net: number; cuts: number; loans: number }): number {
-  return ((r.net - r.start) / r.start) * 100 - r.cuts * CUT_COST - r.loans * LOAN_COST;
+export function score(r: { start: number; net: number; cuts: number; loans: number; caught?: number }): number {
+  return ((r.net - r.start) / r.start) * 100 - r.cuts * CUT_COST - r.loans * LOAN_COST - (r.caught ?? 0) * CAUGHT_COST;
 }
 
 // The hall: players with enough rounds, best average first, then the rest,
