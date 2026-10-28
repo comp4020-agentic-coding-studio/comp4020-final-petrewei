@@ -1,6 +1,6 @@
 # ADR 0030: Replay Clues and Name That Year
 
-Status: accepted, 26 October 2026; its clues told by number, not date, by [ADR 0050](0050-a-clue-never-names-its-date.md). Adds to the Replay tab of [ADR 0028](0028-history-becomes-replay.md), and to the score of [ADR 0029](0029-a-fairer-score.md).
+Status: accepted, 26 October 2026; its clues told by number, not date, by [ADR 0050](0050-a-clue-never-names-its-date.md). Adds to the Replay tab of [ADR 0028](0028-history-becomes-replay.md), and to the score of [ADR 0029](0029-a-fairer-score.md); Replay plays thirteen plots by [ADR 0064](0064-thirteen-plots-and-a-lobby-that-chooses.md).
 
 ## 1 Context
 

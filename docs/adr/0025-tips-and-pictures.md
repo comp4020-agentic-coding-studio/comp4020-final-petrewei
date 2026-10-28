@@ -1,6 +1,6 @@
 # ADR 0025: Tips and Pictures
 
-Status: accepted, 22 October 2026. Extends the faces of [ADR 0021](0021-pixel-faces.md) and the ticket of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md).
+Status: accepted, 22 October 2026. Extends the faces of [ADR 0021](0021-pixel-faces.md) and the ticket of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md); prayer is for a rise or a fall by [ADR 0065](0065-prayers-six-distances-faces-and-news.md).
 
 ## 1 Context
 

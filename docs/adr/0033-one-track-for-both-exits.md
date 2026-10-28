@@ -1,6 +1,6 @@
 # ADR 0033: One Track for Both Exits, and Australia's Cap Alone
 
-Status: accepted, 26 October 2026; its ticket control replaced by [ADR 0034](0034-a-toggle-for-each-exit.md). Changes the ticket of [ADR 0032](0032-stop-loss-and-take-profit.md) and the leverage ladder of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md).
+Status: accepted, 26 October 2026; its ticket control replaced by [ADR 0034](0034-a-toggle-for-each-exit.md). Changes the ticket of [ADR 0032](0032-stop-loss-and-take-profit.md) and the leverage ladder of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md); its distances are six by [ADR 0065](0065-prayers-six-distances-faces-and-news.md).
 
 ## 1 Context
 
