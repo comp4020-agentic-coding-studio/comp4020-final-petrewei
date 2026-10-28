@@ -12,7 +12,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { MIN_ROUNDS, guessBonus, hall, score } from "./score.ts";
-import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, START } from "./fx.ts";
+import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, RULES, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { yen } from "../public/format.js";
@@ -786,6 +786,7 @@ class Market {
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
+      desk: { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) },
       minRounds: MIN_ROUNDS,
       ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
@@ -804,8 +805,6 @@ class Market {
 }
 
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
-// The tabs were called History and Live; an old page or link asking for
-// either gets Replay or Simulation (ADRs 0027, 0028).
 // The tabs' old names still lead to them: History and Live (ADRs 0027, 0028),
 // then Scenario (ADR 0047).
 const OLD: Record<string, Mode> = { history: "replay", live: "simulation", scenario: "simulation" };
@@ -871,6 +870,7 @@ function tutorialView(who: string) {
     result: null,
     career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
     leverages: LEVERAGES,
+      desk: { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) },
     ...quote(t.price()),
     here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
   };

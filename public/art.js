@@ -8,7 +8,7 @@ import { pixels } from "./avatars.js";
 
 export const ICONS = {
   news: {
-    headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁", left: "🚪",
+    headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "scenario-round": "📡", "replay-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
     call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
@@ -105,28 +105,6 @@ export const PROPS = {
       "..kPPPPPPPPPPk..",
       "..kpk.....kpk...",
       "..kkk.....kkk...",
-      "................",
-    ],
-  },
-  // A trophy for the round's winner.
-  trophy: {
-    colors: { y: "#f2c14e", Y: "#c8902a", l: "#fff1b8", b: "#6a4a8a" },
-    rows: [
-      "................",
-      "..kkkkkkkkkkkk..",
-      ".kkyyllyyyyyykk.",
-      "kykylyyyyyyyykyk",
-      "kyk.kyyyyyyyk.ky",
-      ".kykkyyyyyyYkkyk",
-      "..kkkyyyyyyYkkk.",
-      ".....kyyyyYk....",
-      "......kyyYk.....",
-      ".......kyk......",
-      ".......kYk......",
-      ".....kkkkkkk....",
-      "....kbbbbbbbk...",
-      "....kbbwwwbbk...",
-      "....kkkkkkkkk...",
       "................",
     ],
   },

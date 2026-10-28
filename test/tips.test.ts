@@ -265,13 +265,12 @@ it("shows the same Title Case in the page's own markup as in its translations", 
 
 // ADR 0046, 0047: Simulation is drawn at random, not a script. Nothing a
 // player reads about it says script, 剧本 or 筋書き, and the Chinese tab is
-// 模拟. The Tutorial is fixed, and may still say so.
+// 模拟.
 it("describes Simulation as a random simulation, never a script", async () => {
   const { ABOUT } = await import("../public/about.js");
   const words = /script|剧本|脚本|筋書き|台本/i;
-  const fixed = new Set(["modeTutorial"]);
   for (const lang of LANGS) {
-    const own = Object.entries(T[lang].ui).filter(([k]) => !fixed.has(k)).map(([k, v]) => `${k}: ${v}`);
+    const own = Object.entries(T[lang].ui).map(([k, v]) => `${k}: ${v}`);
     for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { scenarios: unknown }).scenarios)]) expect(line, lang).not.toMatch(words);
   }
   expect(T.zh.ui.simulation).toBe("模拟");
@@ -426,12 +425,6 @@ it("puts the lesson in the chart's box, with five symbol buttons in its head, an
 // the sliders' notes, colours and fee, and a plain line on Buy and Sell.
 describe("the ticket, the account and Dad's pop-up", () => {
   const doc = new JSDOM(lessonHtml).window.document;
-  // the page's own pure functions, read out of its source and run here
-  const fromPage = (from: string, to: string, names: string): Record<string, (x: number) => never> => {
-    const src = lessonApp.slice(lessonApp.indexOf(from), lessonApp.indexOf(to) + to.length);
-    return new Function(`${src}; return { ${names} };`)();
-  };
-
   it("keeps Borrow in a pop-up, not in a panel, and says it in quotation marks in every language", () => {
     const dad = doc.getElementById("dad")!;
     expect(dad.tagName).toBe("DIALOG");
@@ -439,7 +432,7 @@ describe("the ticket, the account and Dad's pop-up", () => {
     expect(doc.querySelector(".panel #borrow"), "no Borrow button in a panel").toBeNull();
     for (const lang of LANGS) {
       for (const k of ["borrow", "dadText"]) expect(T[lang].ui[k], `${lang} ${k}`).toMatch(/["“「]/);
-      for (const k of ["caughtText", "caughtBig", "caughtSub", "dadTitle", "dadNo"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      for (const k of ["caughtText", "caughtBig", "dadTitle", "dadNo"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
       expect(T[lang].news.caught, lang).toContain("{who}");
     }
   });
@@ -462,22 +455,24 @@ describe("the ticket, the account and Dad's pop-up", () => {
     expect(T.zh.ui.notes[30]).toMatch(/澳洲|澳大利亚/);
   });
 
-  it("runs the heat from green through amber at the cap to red at the top, in visible steps", () => {
-    const { hue, levHeat } = fromPage("const hue =", "const CAP = 30;", "hue, levHeat") as unknown as { hue: (h: number) => string; levHeat: (l: number) => number };
-    const h = (l: number) => Number(hue(levHeat(l)).match(/hsl\((\d+)/)![1]);
-    expect(levHeat(1)).toBe(0);
-    expect(levHeat(30)).toBeCloseTo(0.35, 6);
-    expect(levHeat(1000)).toBeCloseTo(1, 6);
+  it("runs the heat from green through amber at the cap to red at the top, in visible steps", async () => {
+    const { hue, levHeat } = await import("../public/ticket.js");
+    const { CAP, LEVERAGES } = await import("../src/fx.ts");
+    const top = LEVERAGES.at(-1)!;
+    const h = (l: number) => Number(hue(levHeat(l, CAP, top)).match(/hsl\((\d+)/)![1]);
+    expect(levHeat(1, CAP, top)).toBe(0);
+    expect(levHeat(CAP, CAP, top)).toBeCloseTo(0.35, 6);
+    expect(levHeat(top, CAP, top)).toBeCloseTo(1, 6);
     expect(h(1), "calm is green").toBeGreaterThanOrEqual(120);
-    expect(h(1000), "alarm is red").toBeLessThanOrEqual(5);
+    expect(h(top), "alarm is red").toBeLessThanOrEqual(5);
     for (const [a, b] of [[1, 30], [30, 100], [100, 200], [200, 500], [500, 1000]]) expect(h(a) - h(b), `${a} to ${b}`).toBeGreaterThanOrEqual(8);
   });
 
-  it("shows the same financing fee the desk charges, a minute at a time", async () => {
-    const { feeRate } = await import("../src/fx.ts");
-    const { feePct } = fromPage("const FEE =", "}%`;\n};", "feePct") as unknown as { feePct: (l: number) => string };
-    // the page shows a rate per minute at two ticks a second; the desk charges per tick
-    for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePct(lev)), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
+  it("shows the financing fee a minute at a time, from the desk's own rate", async () => {
+    const { feeRate, RULES } = await import("../src/fx.ts");
+    const { feePerMinute } = await import("../public/ticket.js");
+    // the desk charges per tick, and the page is told how many ticks make a minute
+    for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePerMinute(RULES.fee, lev, 120)), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
     for (const lang of LANGS) {
       expect(T[lang].ui.feeRate, lang).toContain("{pct}");
       expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));

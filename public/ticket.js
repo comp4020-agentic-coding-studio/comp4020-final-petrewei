@@ -3,6 +3,9 @@
 // slider position snaps to, the stakes, a signed percentage, and where a
 // net worth sits on the meter.
 
+// A position on a slider or a meter, held to its ends.
+const unit = (x) => Math.min(1, Math.max(0, x));
+
 // What share of free money an order puts up: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
 
@@ -13,7 +16,7 @@ const rung = (lev, ladder) => ladder.reduce((best, r, i) => (Math.abs(Math.log(r
 export const levPos = (lev, ladder) => rung(lev, ladder) / (ladder.length - 1);
 // The rung nearest a slider position, so a drag lands where the eye expects.
 export function levAt(pos, ladder) {
-  const p = Math.min(1, Math.max(0, pos));
+  const p = unit(pos);
   return ladder[Math.round(p * (ladder.length - 1))];
 }
 
@@ -33,7 +36,7 @@ export function pct(change) {
 // the start. A tenth of the money or less fills nothing; ten times fills it.
 export function gauge(worth) {
   if (!(worth > 0)) return 0;
-  return Math.min(1, Math.max(0, 0.5 + Math.log10(worth) / 2));
+  return unit(0.5 + Math.log10(worth) / 2);
 }
 
 // A stop loss or take profit's distance from the price (ADR 0032, 0033):
@@ -43,7 +46,7 @@ const LO = Math.log(DISTANCES[0]);
 const SPAN = Math.log(DISTANCES.at(-1)) - LO;
 export const distPos = (d) => (Math.log(d) - LO) / SPAN;
 export function distAt(pos) {
-  const p = Math.min(1, Math.max(0, pos));
+  const p = unit(pos);
   return DISTANCES.reduce((best, d) => (Math.abs(distPos(d) - p) < Math.abs(distPos(best) - p) ? d : best));
 }
 // What a move of `pct` percent makes or loses on a margin at a leverage.
@@ -59,7 +62,7 @@ const GAP = 0.02;
 const HALF = 0.5 - GAP;
 export const exitPos = ({ kind, dist }) => (kind === "sl" ? HALF - distPos(dist) * HALF : 0.5 + GAP + distPos(dist) * HALF);
 export function exitAt(pos) {
-  const p = Math.min(1, Math.max(0, pos));
+  const p = unit(pos);
   const kind = p < 0.5 ? "sl" : "tp";
   const from = kind === "sl" ? HALF - Math.min(p, HALF) : Math.max(p - (0.5 + GAP), 0);
   return { kind, dist: distAt(from / HALF) };
@@ -76,3 +79,21 @@ export function fillSpan(kind, value, min, max) {
   const at = (value - min) / (max - min);
   return kind === "sl" ? { from: at, to: 1 } : { from: 0, to: at };
 }
+
+// The financing fee a leverage costs a minute, as a share of the margin, in the
+// words a page shows (ADR 0058): the desk charges margin times `fee` times the
+// leverage squared each tick, and a minute is `ticksPerMinute` ticks.
+export function feePerMinute(fee, leverage, ticksPerMinute) {
+  const p = fee * leverage * leverage * ticksPerMinute * 100;
+  return `${p < 0.01 ? p.toPrecision(1) : p.toFixed(p < 1 ? 2 : 1)}%`;
+}
+
+// A slider's heat, 0 calm to 1 alarm (ADR 0059): green up to the legal cap, amber
+// at it, then through orange to red as leverage climbs from the cap to the top
+// rung. Stake has no legal cap, and gives its own heat.
+export function levHeat(leverage, cap, top) {
+  return leverage <= cap ? (0.35 * Math.log(leverage)) / Math.log(cap) : 0.35 + (0.65 * Math.log(leverage / cap)) / Math.log(top / cap);
+}
+// The colour of a heat: hue 140 (green) down to 0 (red).
+export const hue = (heat) => `hsl(${Math.round(140 - 140 * heat)} ${Math.round(65 + 25 * heat)}% ${Math.round(52 - 4 * heat)}%)`;
+

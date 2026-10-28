@@ -7,7 +7,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
+import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
@@ -56,10 +56,10 @@ function translate() {
   document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
-  if ($("lev-ticks")) sliders();
+  if (ladder.length) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = $("n-lang").value = lang;
-  $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, 300_000) }));
+  $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.borrow) }));
   pauseLabel();
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
@@ -84,21 +84,10 @@ let fame = "";
 // is said beside it, in the parody's voice.
 const choice = { leverage: 30, stake: 1 };
 let seated = false;
-let ladder = [1, 2, 5, 10, 30, 100, 200, 500, 1000];
-// A slider's heat, 0 calm to 1 alarm: green up to Australia's 30× cap, amber at
-// it, then through orange to red as leverage climbs past it (ADR 0059). Stake
-// has no legal cap, so it runs its own range, calm at a quarter and alarming
-// when everything is in.
-const hue = (heat) => `hsl(${Math.round(140 - 140 * heat)} ${Math.round(65 + 25 * heat)}% ${Math.round(52 - 4 * heat)}%)`;
-const levHeat = (lev) => (lev <= CAP ? (0.35 * Math.log(lev)) / Math.log(CAP) : 0.35 + (0.65 * Math.log(lev / CAP)) / Math.log(1000 / CAP));
-const CAP = 30;
-// What the desk charges an open position each minute (two ticks a second):
-// its margin times FEE times the leverage squared, per tick (ADR 0058).
-const FEE = 1e-9;
-const feePct = (lev) => {
-  const p = FEE * lev * lev * 120 * 100;
-  return `${p < 0.01 ? p.toPrecision(1) : p.toFixed(p < 1 ? 2 : 1)}%`;
-};
+// The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
+// amount Dad's savings offer, so the page keeps no copy of them.
+let ladder = [];
+let broker = { cap: 1, fee: 0, borrow: 0, ticksPerMinute: 120 };
 function ticks(id, marks) {
   $(id).replaceChildren(
     ...marks.map(([at, text, cls = ""]) => {
@@ -121,8 +110,8 @@ function mark() {
   $("stake-out").textContent = `${choice.stake * 100}%`;
   // A leverage over the cap says so in the note's colour too, and the page
   // marks the box, so a style can tell a legal choice from an offshore one.
-  $("leverage-box").style.setProperty("--heat", hue(levHeat(choice.leverage)));
-  $("leverage-box").classList.toggle("offshore", choice.leverage > CAP);
+  $("leverage-box").style.setProperty("--heat", hue(levHeat(choice.leverage, broker.cap, ladder.at(-1))));
+  $("leverage-box").classList.toggle("offshore", choice.leverage > broker.cap);
   $("stake-box").style.setProperty("--heat", hue(0.1 + 0.55 * ((STAKES.indexOf(choice.stake) + 1) / STAKES.length)));
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
   $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
@@ -130,7 +119,7 @@ function mark() {
   for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
   for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
   // The financing fee grows with the square of the leverage (ADR 0058).
-  $("fee-note").textContent = t("feeRate", { pct: feePct(choice.leverage) });
+  $("fee-note").textContent = t("feeRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
@@ -146,8 +135,6 @@ $("stake").oninput = () => {
   mark();
   if (state) ticket(state);
 };
-sliders();
-mark();
 // The pixel props (ADR 0025), drawn once: they never change.
 $("bell-art").innerHTML = prop("bell", 26);
 $("paused-art").innerHTML = prop("pause", 64);
@@ -190,10 +177,16 @@ addEventListener("hashchange", fromAddress);
 // is never left in the bar, a bookmark or the history.
 if (new URLSearchParams(location.search).has("debug")) history.replaceState(null, "", location.pathname + location.hash);
 
+// A JSON post, answered with the response and what it said; a refusal's words are
+// the server's English, which `refusal` puts in this page's language.
+async function post(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const out = await res.json().catch(() => ({}));
+  return { ok: res.ok, out, why: res.ok ? "" : refusal(lang, out.error ?? "Refused.") };
+}
 async function act(kind, extra = {}) {
   $("error").textContent = "";
-  const res = await fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode, ...extra }) });
-  if (!res.ok) $("error").textContent = refusal(lang, (await res.json()).error ?? "Refused.");
+  $("error").textContent = (await post("/api/act", { kind, mode, ...extra })).why;
 }
 // A stop loss and a take profit each ride on the order when their own
 // toggle is on (ADR 0032, 0034); off, each is still shown, grey, and not sent.
@@ -418,15 +411,13 @@ $("name-draw").onclick = async () => {
 $("name-form").onsubmit = async (e) => {
   e.preventDefault();
   if (tryFace !== myFace) {
-    const res = await fetch("/api/face", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ face: tryFace }) });
-    const out = await res.json();
-    if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
-    myFace = out.face;
+    const done = await post("/api/face", { face: tryFace });
+    if (!done.ok) return void ($("name-error").textContent = done.why);
+    myFace = done.out.face;
   }
-  const res = await fetch("/api/name", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: $("name-input").value }) });
-  const out = await res.json();
-  if (!res.ok) return void ($("name-error").textContent = refusal(lang, out.error ?? "Refused."));
-  me = nameIn(out.name, out.draw);
+  const saved = await post("/api/name", { name: $("name-input").value });
+  if (!saved.ok) return void ($("name-error").textContent = saved.why);
+  me = nameIn(saved.out.name, saved.out.draw);
   const begin = e.submitter?.value;
   $("name-box").close();
   if (begin && begin !== mode) watch(begin);
@@ -1172,11 +1163,13 @@ async function receive(s) {
   // A message from the market this page just left is dropped.
   if (s.mode !== mode) return;
   if (s.from === 0) {
-    prices = s.prices;
+    prices = [...s.prices];
     before = s.history ?? [];
-  }
-  else if (s.mode === shown && s.round === roundNo && s.from <= prices.length) prices = prices.slice(0, s.from).concat(s.prices);
-  else {
+  } else if (s.mode === shown && s.round === roundNo && s.from <= prices.length) {
+    // new prices go on the end of the array this page owns, not into a copy of all of it
+    prices.length = s.from;
+    prices.push(...s.prices);
+  } else {
     const res = await fetch(`/api/state?mode=${mode}`);
     return receive(await res.json());
   }
@@ -1220,16 +1213,19 @@ function render(s) {
   if (!seated) {
     seated = true;
     ladder = s.leverages;
+    broker = s.desk;
     sliders();
-    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? 30, ladder), ladder);
+    // a new visitor starts at the legal cap
+    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? broker.cap, ladder), ladder);
     mark();
+    translate();
   }
   const price = s.prices.at(-1);
   const first = s.prices[0];
   $("pair").textContent = s.pair;
   $("price").textContent = price.toFixed(s.digits);
   const ch = (price / first - 1) * 100;
-  $("change").textContent = `${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`;
+  $("change").textContent = pct(ch / 100);
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
@@ -1304,7 +1300,7 @@ function render(s) {
     dadAsked = false;
     if ($("dad").open) $("dad").close();
   } else if (!dadAsked && !$("dad").open && !document.querySelector("dialog[open]:not(#dad)")) {
-    $("dad-text").textContent = t("dadText", { amount: yen(300_000) });
+    $("dad-text").textContent = t("dadText", { amount: yen(broker.borrow) });
     $("dad").show();
   }
   warn(s, open);

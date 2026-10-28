@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { LEVERAGES, RULES } from "../src/fx.ts";
 import { act, live, open, page, state, visitor } from "./helpers.ts";
 
 // Replay and Simulation are two markets, chosen by tab, running side by side:
@@ -89,5 +90,18 @@ it("sends the thirty days before a round with a whole state, ending where the ro
 it("keeps every date out of a replay's history and prices", async () => {
   const s = await state(undefined, "replay");
   expect(JSON.stringify({ h: s.history, p: s.prices })).not.toMatch(/(19|20)\d\d-\d\d-\d\d/);
+});
+
+// The page keeps no copy of the broker's numbers: every state carries them, so a change
+// on the server shows on the page without an edit there.
+it("sends the desk's own numbers with every state, so a page keeps no copy", async () => {
+  for (const mode of ["replay", "simulation"] as const) {
+    const s = await state(undefined, mode);
+    // what the desk itself says: tuning one of these changes this, and nothing else
+    expect(s.desk, mode).toMatchObject({ cap: RULES.cap, fee: RULES.fee, borrow: RULES.borrow });
+    expect(s.desk.ticksPerMinute, mode).toBeGreaterThan(0);
+    expect(s.leverages, mode).toEqual(LEVERAGES);
+    expect(s.leverages, mode).toContain(s.desk.cap);
+  }
 });
 

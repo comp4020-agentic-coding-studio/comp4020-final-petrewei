@@ -31,6 +31,10 @@ export type State = {
   from: number;
   // The market's thirty days before the open, sent with a whole state (ADR 0062).
   history?: number[];
+  // The desk's own numbers, so a page keeps no copy: the legal cap, the fee a tick, what Dad's
+  // savings offer, and how many ticks make a minute.
+  desk: { cap: number; fee: number; borrow: number; ticksPerMinute: number };
+  leverages: number[];
   prices: number[];
   you: { name: string; draw: number | null; named: boolean; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
   traders: Trader[];

@@ -11,3 +11,6 @@ export declare function exitPos(e: { kind: "sl" | "tp"; dist: number }): number;
 export declare function exitAt(pos: number): { kind: "sl" | "tp"; dist: number };
 export declare function fillSpan(kind: "sl" | "tp", value: number, min: number, max: number): { from: number; to: number };
 export declare function moveYen(margin: number, leverage: number, pct: number): number;
+export declare function feePerMinute(fee: number, leverage: number, ticksPerMinute: number): string;
+export declare function levHeat(leverage: number, cap: number, top: number): number;
+export declare const hue: (heat: number) => string;

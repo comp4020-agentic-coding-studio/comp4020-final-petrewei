@@ -15,7 +15,7 @@ export const LEVERAGES = [1, 2, 5, 10, 30, 100, 200, 500, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
-export const STOP_OUT = 0.2;
+const STOP_OUT = 0.2;
 // A player in trouble, under a margin call or wiped out or left with crumbs
 // and nothing open, may "borrow" from Dad's savings, twice a round. It is
 // the dresser at home, not a loan: Dad is never asked, and finds out (ADR
@@ -32,6 +32,10 @@ export const RECALL = 10;
 // 30×, 0.4% at 100×, 9% at 500× and 36% at 1000×.
 export const FEE = 1e-9;
 export const feeRate = (leverage: number): number => FEE * leverage * leverage;
+// Australia's legal cap for retail traders on major pairs, which is a rung of the ladder.
+export const CAP = 30;
+// The numbers a page shows from the desk's rules, sent with every state so it keeps no copy.
+export const RULES = { cap: CAP, fee: FEE, borrow: BORROW };
 // A stop loss or take profit is set between 1% and 50% away (ADR 0033).
 const inRange = (pct: number): boolean => pct >= 1 && pct <= 50;
 export const BROKE = 100_000;
