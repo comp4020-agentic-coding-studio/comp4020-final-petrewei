@@ -59,20 +59,16 @@
         <strong class="price" id="price">—</strong>
         <span id="change"></span>
         <!-- A round's controls, between the price and the clock (ADRs 0022,
-             0024, 0039): pause, leave it yourself, and, for whoever pressed
-             Start, end it for everyone. Icons, each named by its tip. -->
+             0024, 0039, 0060): pause, and, for whoever pressed Start, end it
+             for everyone. Icons, each named by its tip. -->
         <div class="round-ctl" id="round-ctl">
           <button id="pause" class="ctl" type="button" data-tip="pause" data-t-aria="pause" hidden>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-          </button>
-          <button id="leave" class="ctl" type="button" data-tip="leave" data-t-aria="leave" hidden>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button id="finish" class="ctl danger" type="button" data-tip="finish" data-t-aria="finish" hidden>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
           </button>
         </div>
-        <button id="round-info" class="info" type="button" data-info="round" data-t-aria="info_round" aria-expanded="false" hidden>ⓘ</button>
         <span class="clock" id="clock"></span>
       </div>
       <div class="chart-box">
@@ -238,8 +234,6 @@
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <button id="pray" class="pray" data-t="pray" data-tip="pray">Pray to the chart</button>
-      <!-- A round's controls (ADR 0022): leave it yourself, or, for whoever
-           pressed Start, end it for everyone. -->
       <!-- Name that year (ADR 0030): in a replay's second half, a private
            guess at the year it is from, scored at the bell. -->
       <form class="guess" id="guess" hidden>

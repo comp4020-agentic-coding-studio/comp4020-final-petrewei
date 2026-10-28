@@ -4,14 +4,13 @@ import { type Server, server } from "./server.ts";
 
 // ADR 0022: a round's controls. The countdown is five seconds, and orders
 // are taken during it; whoever pressed Start may cancel it, or end the
-// round early for everyone, which rings the bell at once; anyone may leave
-// a round for themselves and watch it out; after the bell anyone may close
+// round early for everyone, which rings the bell at once; after the bell anyone may close
 // it straight away, or hold it longer.
 let s: Server;
 afterEach(() => s.stop());
 
-type Row = { code: string; you: boolean; sat?: boolean; left?: boolean; balance: number; guess?: number | null; bonus?: number };
-type Seen = { phase: string; countdown: number; startedCode: string | null; breakLeft: number; you: { code: string; left?: boolean; pos: unknown; equity: number }; result: { ranking: Row[] } | null; career: { you: boolean; rounds: number; profit: number }[]; feed: { key: string }[] };
+type Row = { code: string; you: boolean; sat?: boolean; balance: number; guess?: number | null; bonus?: number };
+type Seen = { phase: string; countdown: number; startedCode: string | null; breakLeft: number; you: { code: string; pos: unknown; equity: number }; result: { ranking: Row[] } | null; career: { you: boolean; rounds: number; profit: number }[]; feed: { key: string }[] };
 const app = () => {
   const c = client(s.base);
   const look = async (cookie?: string, mode: Mode = "replay"): Promise<Seen> => (await c.state(cookie, mode)) as unknown as Seen;
@@ -127,194 +126,6 @@ it("lets a starter who has left be replaced: anyone on the tab may end it", asyn
   }
 });
 
-it("lets a person leave the round alone: closed out, then watching, listed as left", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look } = app();
-  const me = await visitor();
-  const other = await visitor();
-  const tabs = [await page(me), await page(other)];
-  try {
-    await act(me, { kind: "start", mode: "replay" });
-    await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "buy", leverage: 5, mode: "replay" });
-    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
-    expect((await act(me, { kind: "leave", mode: "replay" })).status).toBe(200);
-    const x = await look(me);
-    expect(x.phase).toBe("trade");
-    expect(x.you.left).toBe(true);
-    expect(x.you.pos).toBeNull();
-    // no more orders this round, and nobody else is touched
-    expect((await act(me, { kind: "buy", leverage: 5, mode: "replay" })).status).toBe(409);
-    expect((await look(other)).you.pos).not.toBeNull();
-    expect((await act(me, { kind: "leave", mode: "replay" })).status).toBe(409);
-    await act(me, { kind: "finish", mode: "replay" });
-    const bell = await until(me, (y) => y.phase === "break");
-    const row = bell.result!.ranking.find((r) => r.you)!;
-    expect(row.left).toBe(true);
-    // listed last, unranked, after the traders
-    expect(bell.result!.ranking.at(-1)?.you).toBe(true);
-    // leaving keeps what was banked in the hall: a loss can't be walked away from
-    expect(bell.career.find((c) => c.you)?.rounds).toBe(1);
-  } finally {
-    for (const t of tabs) t.close();
-  }
-}, 20_000);
-
-it("lets anyone close the bell now, or hold it longer", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look, attempt } = app();
-  const me = await visitor();
-  const tab = await page(me);
-  try {
-    await act(me, { kind: "start", mode: "replay" });
-    await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "finish", mode: "replay" });
-    const bell = await until(me, (x) => x.phase === "break");
-    expect((await act(me, { kind: "hold", mode: "replay" })).status).toBe(200);
-    expect((await look(me)).breakLeft).toBeGreaterThan(bell.breakLeft + 20);
-    // held, but capped: a bell can't be held for ever
-    for (let i = 0; i < 20; i++) await act(me, { kind: "hold", mode: "replay" });
-    expect((await look(me)).breakLeft).toBeLessThanOrEqual(300);
-    // someone who is not on the tab can't touch it
-    expect((await attempt({ kind: "dismiss", mode: "replay" }, await visitor())).status).toBe(409);
-    expect((await act(me, { kind: "dismiss", mode: "replay" })).status).toBe(200);
-    expect((await look(me)).phase).toBe("lobby");
-    // and neither works outside the bell
-    expect((await act(me, { kind: "hold", mode: "replay" })).status).toBe(409);
-    expect((await act(me, { kind: "dismiss", mode: "replay" })).status).toBe(409);
-  } finally {
-    tab.close();
-  }
-}, 20_000);
-
-// ADR 0024: anyone on the tab may pause a trading round, freezing the
-// price and the orders for everyone, and anyone may resume it; it resumes
-// by itself after a minute. A round started in ironman mode cannot pause.
-it("pauses for everyone and resumes, by anyone on the tab", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look, attempt } = app();
-  const me = await visitor();
-  const other = await visitor();
-  const tabs = [await page(me), await page(other)];
-  try {
-    await act(me, { kind: "start", mode: "replay" });
-    await until(me, (x) => x.phase === "trade");
-    expect((await act(other, { kind: "pause", mode: "replay" })).status).toBe(200);
-    const paused = (await look(me)) as Seen & { paused: number | null; tick: number };
-    expect(paused.paused).toBeGreaterThan(0);
-    await new Promise((r) => setTimeout(r, 400));
-    const later = (await look(me)) as Seen & { tick: number };
-    // the price stands still and orders wait
-    expect(later.tick).toBe(paused.tick);
-    const refused = await act(me, { kind: "buy", leverage: 5, mode: "replay" });
-    expect(refused.status).toBe(409);
-    expect((await refused.json()).error).toMatch(/paused/);
-    expect((await act(me, { kind: "pause", mode: "replay" })).status).toBe(409);
-    // someone not on the tab may not resume it
-    expect((await attempt({ kind: "resume", mode: "replay" }, await visitor())).status).toBe(409);
-    expect((await act(me, { kind: "resume", mode: "replay" })).status).toBe(200);
-    await new Promise((r) => setTimeout(r, 300));
-    expect(((await look(me)) as Seen & { tick: number }).tick).toBeGreaterThan(paused.tick);
-    expect((await act(me, { kind: "resume", mode: "replay" })).status).toBe(409);
-  } finally {
-    for (const t of tabs) t.close();
-  }
-}, 20_000);
-
-it("resumes a pause by itself after a minute, and says so", async () => {
-  // a test's minute is 40 ticks of 50ms
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", PAUSE_TICKS: "40" });
-  const { visitor, page, act, until } = app();
-  const me = await visitor();
-  const tab = await page(me);
-  try {
-    await act(me, { kind: "start", mode: "replay" });
-    await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "pause", mode: "replay" });
-    const resumed = await until(me, (x) => (x as Seen & { paused: number | null }).paused === null, 15_000);
-    expect((resumed as Seen & { paused: number | null }).paused).toBeNull();
-    expect(resumed.feed.some((f) => f.key === "unpaused")).toBe(true);
-  } finally {
-    tab.close();
-  }
-}, 20_000);
-
-it("starts an ironman round, which nobody can pause", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look } = app();
-  const me = await visitor();
-  const tab = await page(me);
-  try {
-    expect((await act(me, { kind: "start", mode: "replay", ironman: true })).status).toBe(200);
-    expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(true);
-    await until(me, (x) => x.phase === "trade");
-    const refused = await act(me, { kind: "pause", mode: "replay" });
-    expect(refused.status).toBe(409);
-    expect((await refused.json()).error).toMatch(/ironman/i);
-    // the next round is an ordinary one unless asked again
-    await act(me, { kind: "finish", mode: "replay" });
-    await until(me, (x) => x.phase === "break");
-    await act(me, { kind: "dismiss", mode: "replay" });
-    await act(me, { kind: "start", mode: "replay" });
-    expect(((await look(me)) as Seen & { ironman: boolean }).ironman).toBe(false);
-  } finally {
-    tab.close();
-  }
-}, 20_000);
-
-// ADR 0030: in a replay's second half, anyone in the round may name the
-// year it is from, privately; the bell shows each guess and pays for a
-// right one in the score.
-it("takes a year guess in a replay's second half, private until the bell", async () => {
-  s = await server(8096, { TICK_MS: "20", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look, attempt } = app();
-  const me = await visitor();
-  const other = await visitor();
-  const tabs = [await page(me), await page(other)];
-  try {
-    await act(me, { kind: "start", mode: "replay" });
-    await until(me, (x) => x.phase === "trade");
-    // not before halfway
-    const early = await act(me, { kind: "guess", year: 2015, mode: "replay" });
-    expect(early.status).toBe(409);
-    expect((await early.json()).error).toMatch(/halfway/);
-    await until(me, (x) => (x as Seen & { tick: number }).tick >= 20 * 9);
-    for (const bad of [1990, 2099, "2015", null]) expect((await act(me, { kind: "guess", year: bad, mode: "replay" })).status, String(bad)).toBe(400);
-    expect((await act(me, { kind: "guess", year: 2010, mode: "replay" })).status).toBe(200);
-    expect((await act(me, { kind: "guess", year: 2012, mode: "replay" })).status).toBe(200);
-    // mine to see, nobody else's
-    expect(((await look(me)) as Seen & { you: { guess: number | null } }).you.guess).toBe(2012);
-    // nowhere in the other's view: not as their guess, nor any "guess" field
-    const seen = (await look(other)) as Seen & { you: { guess: number | null } };
-    expect(seen.you.guess).toBeNull();
-    expect(JSON.stringify(seen)).not.toMatch(/"guess(es)?":\s*2012/);
-    // someone not on the tab can't guess
-    expect((await attempt({ kind: "guess", year: 2012, mode: "replay" }, await visitor())).status).toBe(409);
-    await act(me, { kind: "finish", mode: "replay" });
-    const bell = (await until(me, (x) => x.phase === "break")) as Seen & { result: { ranking: (Row & { guess?: number | null; bonus?: number })[] } };
-    const mine = bell.result.ranking.find((r) => r.you)!;
-    expect(mine.guess).toBe(2012);
-    expect(mine.bonus).toEqual(expect.any(Number));
-  } finally {
-    for (const t of tabs) t.close();
-  }
-}, 30_000);
-
-it("takes no year guess in a Simulation round", async () => {
-  s = await server(8096, { TICK_MS: "20", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until } = app();
-  const me = await visitor();
-  const tab = await page(me, "simulation");
-  try {
-    await act(me, { kind: "start", mode: "simulation" });
-    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
-    const res = await act(me, { kind: "guess", year: 2015, mode: "simulation" });
-    expect(res.status).toBe(409);
-  } finally {
-    tab.close();
-  }
-});
-
 // ADR 0050: a replay hides its famous day until the bell, and so does what it
 // sends: a clue is told to a page by an opaque number, never by the date it
 // leads to, which is the answer to Name That Year. Rounds are random and only
@@ -412,3 +223,26 @@ it("has Dad find out at the bell if the round ends before he would have, and doc
     tab.close();
   }
 }, 60_000);
+
+// ADR 0060: there is no leaving a round. The action, the desk's rule, the
+// button and the words are gone, and an old page that still sends it is turned
+// away like any unknown action, and changes nothing.
+it("no longer lets anyone leave a round, and an old page that asks is refused", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, until, look, attempt } = app();
+  const me = await visitor();
+  const tab = await page(me);
+  try {
+    await act(me, { kind: "start", mode: "replay" });
+    await until(me, (x) => x.phase === "trade");
+    await act(me, { kind: "buy", leverage: 5, stake: 0.5, mode: "replay" });
+    const res = await attempt({ kind: "leave", mode: "replay" }, me);
+    expect(res.status).toBe(400);
+    const x = await look(me);
+    expect(x.you.pos, "the position is untouched").not.toBeNull();
+    expect((await act(me, { kind: "buy", leverage: 5, stake: 0.5, mode: "replay" })).status, "and orders are still taken").toBe(200);
+    expect(JSON.stringify(x)).not.toMatch(/"left"/);
+  } finally {
+    tab.close();
+  }
+});

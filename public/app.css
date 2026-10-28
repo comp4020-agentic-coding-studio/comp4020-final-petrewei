@@ -307,8 +307,6 @@ body.tutorial .studies { display: none; }
 .ghost.danger { color: var(--down); border-color: var(--down); }
 .bell-foot { display: flex; align-items: center; gap: 0.4rem; }
 .bell-foot .bell-next { flex: 1; min-width: 0; }
-#ranking li.left { counter-increment: none; color: var(--muted); }
-#ranking li.left::before { content: "–"; }
 .lobby p { margin: 0; max-width: 100%; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lobby-go { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .lobby-go .start { margin-top: 0; }
@@ -471,7 +469,6 @@ th:first-child, td:first-child { text-align: left; }
 #traders li:last-child { border-bottom: none; }
 #traders li.you .n { color: var(--pink); font-weight: 700; }
 #traders li.out { opacity: 0.45; text-decoration: line-through; }
-#traders li.gone { opacity: 0.55; }
 #traders .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #traders .eq { font-family: var(--mono); font-size: 0.85rem; }
 /* A badge in place of a word: a bot, gone, wiped out. */
@@ -537,9 +534,9 @@ body.bell-up .ticket { display: none; }
 #ranking li { display: grid; grid-template-columns: 1.6rem auto minmax(0, 1fr) auto; gap: 0.4rem; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--line); counter-increment: rank; }
 #ranking li::before { content: counter(rank) "."; color: var(--muted); font-family: var(--mono); }
 /* Medals for the first three at the bell, and in the hall. */
-#ranking li:nth-child(1):not(.sat, .left)::before { content: "🥇"; }
-#ranking li:nth-child(2):not(.sat, .left)::before { content: "🥈"; }
-#ranking li:nth-child(3):not(.sat, .left)::before { content: "🥉"; }
+#ranking li:nth-child(1):not(.sat)::before { content: "🥇"; }
+#ranking li:nth-child(2):not(.sat)::before { content: "🥈"; }
+#ranking li:nth-child(3):not(.sat)::before { content: "🥉"; }
 #career tr:nth-child(1):not(.unranked) td:first-child::before { content: "🥇 "; }
 #career tr:nth-child(2):not(.unranked) td:first-child::before { content: "🥈 "; }
 #career tr:nth-child(3):not(.unranked) td:first-child::before { content: "🥉 "; }

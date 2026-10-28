@@ -159,14 +159,14 @@ it("shows a tip in the top layer, over any dialog", () => {
 // the clock, Ironman to the right of Start, the ticket has a header, panels
 // with a heading fold, the language is a globe alone, and the footer spans
 // the page.
-it("puts pause, leave and end in the quote line, between the price and the clock", () => {
+it("puts pause and end in the quote line, between the price and the clock", () => {
   const quote = page.querySelector(".quote")!;
   const order = [...quote.children].map((e) => e.id || e.className);
   expect(order.indexOf("round-ctl")).toBeGreaterThan(order.indexOf("price"));
   expect(order.indexOf("round-ctl")).toBeLessThan(order.indexOf("clock"));
-  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "leave", "finish"]);
-  expect(page.querySelectorAll("#pause, #leave, #finish")).toHaveLength(3);
-  expect(page.querySelector(".ticket #pause, .ticket #leave, .ticket #finish")).toBeNull();
+  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "finish"]);
+  expect(page.querySelectorAll("#pause, #finish")).toHaveLength(2);
+  expect(page.querySelector(".ticket #pause, .ticket #finish")).toBeNull();
 });
 it("puts Ironman below Start, and only one line of text and a note in the lobby", () => {
   const go = page.querySelector(".lobby-go")!;
@@ -707,4 +707,39 @@ it("puts the lesson card under the chart on a phone, where the chart is too shor
   const phone = lessonCss.slice(lessonCss.indexOf("@media (max-width: 560px)"));
   expect(phone).toMatch(/\.lesson \{ position: static;/);
   expect(phone).toMatch(/\.lesson \{[^}]*max-height: none/);
+});
+
+// ADR 0060: no Leave button, no round-info button, and none of their words.
+describe("the round controls without Leave", () => {
+  it("has no Leave button and no info button on the chart's quote line", () => {
+    const doc = new JSDOM(lessonHtml).window.document;
+    expect(doc.getElementById("leave")).toBeNull();
+    expect(doc.getElementById("round-info")).toBeNull();
+    expect(doc.querySelector('[data-info="round"]')).toBeNull();
+    expect(lessonApp).not.toMatch(/\$\("leave"\)|\$\("round-info"\)|act\("leave"\)/);
+  });
+  it("keeps none of Leave's words in any language", () => {
+    for (const lang of LANGS) {
+      const ui = Object.keys(T[lang].ui);
+      for (const k of ["leave", "leaveConfirm", "leftTag", "leftText", "info_round"]) expect(ui, `${lang}.ui.${k}`).not.toContain(k);
+      expect(Object.keys(T[lang].tips), `${lang} tips`).not.toContain("leave");
+      expect(Object.keys(T[lang].tips), `${lang} tips`).not.toContain("leftRow");
+      expect(Object.keys(T[lang].info), `${lang} info`).not.toContain("round");
+      expect(Object.keys(T[lang].news), `${lang} news`).not.toContain("left");
+      expect(Object.keys(T[lang].refusals).join(" "), `${lang} refusals`).not.toMatch(/left this round|leave its round/);
+    }
+  });
+  it("tells nobody they can leave a round, in the About page in any language", async () => {
+    const { ABOUT } = await import("../public/about.js");
+    expect(JSON.stringify(ABOUT.en)).not.toMatch(/leave a round/i);
+    expect(JSON.stringify(ABOUT.ja)).not.toMatch(/ラウンドを抜けて/);
+    expect(JSON.stringify(ABOUT.zh)).not.toMatch(/中途退出/);
+  });
+  it("has no leave in the desk, the market, or the page's request", async () => {
+    const { Desk } = await import("../src/fx.ts");
+    expect((new Desk(100) as unknown as Record<string, unknown>).leave).toBeUndefined();
+    const server = readFileSync("src/server.ts", "utf8");
+    expect(server).not.toMatch(/\bleave: \(m, who\)|\n  leave\(who: string\)/);
+    expect(server).not.toMatch(/left: a\.left|left: left\(/);
+  });
 });

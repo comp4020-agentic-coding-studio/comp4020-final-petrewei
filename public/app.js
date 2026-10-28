@@ -45,7 +45,7 @@ const setTip = (el, text) => {
 const avatar = (face, size = 20) => Object.assign(document.createElement("span"), { className: "av", innerHTML: svg(face, size) });
 let names = new Map();
 // What a room row is, and the badge and word that say so in place of text.
-const ROWS = { bot: { badge: "🤖", label: "bot" }, left: { badge: "🚪", label: "leftTag" }, wiped: { badge: "💀", label: "wipedTag" }, person: {} };
+const ROWS = { bot: { badge: "🤖", label: "bot" }, wiped: { badge: "💀", label: "wipedTag" }, person: {} };
 const nameOf = (code) => names.get(code) ?? botName(code, code);
 
 // Every fixed string on the page carries data-t (its text), data-t-title
@@ -240,7 +240,6 @@ $("guess").onsubmit = (e) => {
   act("guess", { year: Number($("guess-year").value) });
 };
 $("resume").onclick = () => act("resume");
-$("leave").onclick = () => confirm(t("leaveConfirm")) && act("leave");
 $("finish").onclick = () => confirm(t("finishConfirm")) && act("finish");
 $("hold").onclick = () => act("hold");
 $("dismiss").onclick = () => act("dismiss");
@@ -1178,18 +1177,15 @@ function render(s) {
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
-  // Leave is for anyone still in a running round; End is the starter's.
-  const running = !tutorial && (s.phase === "trade" || s.phase === "countdown");
-  $("leave").hidden = !running || s.you.left;
-  $("finish").hidden = s.you.left || !(s.phase === "trade" && s.rules);
+  // End is the starter's, in a trading round.
+  $("finish").hidden = !(s.phase === "trade" && s.rules);
   // Pause: anyone may, in a trading round that isn't ironman; a pause veils
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
-  $("round-ctl").hidden = ["pause", "leave", "finish"].every((id) => $(id).hidden);
-  $("round-info").hidden = $("round-ctl").hidden;
+  $("round-ctl").hidden = ["pause", "finish"].every((id) => $(id).hidden);
   // Name that year opens halfway through a replay; your guess is shown
   // back to you, and to nobody else, until the bell.
-  const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2 && !s.you.left;
+  const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2;
   $("guess").hidden = !guessing;
   $("guess").classList.toggle("made", s.you.guess !== null);
   if (guessing && s.you.guess !== null && document.activeElement !== $("guess-year")) $("guess-year").value = String(s.you.guess);
@@ -1288,7 +1284,7 @@ function render(s) {
   // or out of money, while the round trades (the tutorial, whenever the price
   // stands still), in every mode (ADR 0057).
   const lending = tutorial ? s.phase === "waiting" : s.phase === "trade";
-  const offer = (y.broke || y.called) && y.loansLeft > 0 && !y.caught && lending && !y.left && !s.paused;
+  const offer = (y.broke || y.called) && y.loansLeft > 0 && !y.caught && lending && !s.paused;
   $("borrow").hidden = !offer;
   if (!offer) {
     dadAsked = false;
@@ -1317,10 +1313,10 @@ function render(s) {
     }
     paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
   } else {
-    $("position").textContent = t(y.left ? "leftText" : y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+    $("position").textContent = t(y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
-  const closed = !open || y.out || y.left || !!s.paused;
+  const closed = !open || y.out || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   $("pray").disabled = closed || s.phase === "countdown";
   for (const id of ["close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
@@ -1354,13 +1350,13 @@ function render(s) {
   list.replaceChildren(
     ...s.traders.map((tr) => {
       const li = document.createElement("li");
-      li.className = `${tr.you ? "you" : ""} ${tr.out && !tr.left ? "out" : ""} ${tr.left ? "gone" : ""}`;
+      li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
       const n = document.createElement("span");
       n.className = "n";
       n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
       // A small badge says what a word would: a bot, gone, or wiped out;
       // the tip says the rest, so the row keeps its room for the name.
-      const kind = tr.bot ? "bot" : tr.left ? "left" : tr.out ? "wiped" : "person";
+      const kind = tr.bot ? "bot" : tr.out ? "wiped" : "person";
       const row = ROWS[kind];
       if (row.badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: row.badge, ariaLabel: t(row.label) }));
       const change = pct(tr.equity / s.start - 1);
@@ -1431,18 +1427,18 @@ function render(s) {
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {
         const li = document.createElement("li");
-        li.className = `${r.you ? "you" : ""} ${r.sat ? "sat" : ""} ${r.left ? "left" : ""}`;
+        li.className = `${r.you ? "you" : ""} ${r.sat ? "sat" : ""}`;
         // Rank, name and result on one row, as a column this narrow can hold.
         // Someone who sat the round out is listed after, without a rank.
         const delta = r.balance - s.start;
         const name = Object.assign(document.createElement("span"), { className: "who", textContent: `${botName(r.code, nameIn(r.name, r.draw))}${r.you ? ` ${t("youTag")}` : ""}` });
-        const result = r.sat || r.left
-          ? Object.assign(document.createElement("span"), { className: "res", textContent: t(r.left ? "leftTag" : "satOut") })
+        const result = r.sat
+          ? Object.assign(document.createElement("span"), { className: "res", textContent: t("satOut") })
           : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}` });
         // The percentage first, as a trader reads it; the score, which ranks
         // the bell (ADR 0029), after it: lower than the percentage by the
         // cost of each forced cut and loan. The yen is in the tip.
-        if (!(r.sat || r.left)) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
+        if (!r.sat) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
         li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${yen(delta)}` }) + (r.bonus ? ` · ${t("bonus", { n: r.bonus })}` : "");
         // A replay guess, shown at the bell, a hit marked by its bonus.
         if (r.guess) name.append(" ", Object.assign(document.createElement("span"), { className: `guessed ${r.bonus ? "hit" : ""}`, textContent: t("guessed", { year: r.guess }) }));

@@ -330,7 +330,6 @@ function record(who: string): Career | null {
 const CONTROLS: Record<string, (m: Market, who: string, input: Record<string, unknown>) => string | null> = {
   cancel: (m, who) => m.cancel(who),
   finish: (m, who) => m.finish(who),
-  leave: (m, who) => m.leave(who),
   pause: (m, who) => m.pause(who, true),
   resume: (m, who) => m.pause(who, false),
   hold: (m, who) => m.bell(who, true),
@@ -371,7 +370,7 @@ class Market {
   guesses = new Map<string, number>();
   // Ticks left in a pause, or 0 when the market runs.
   paused = 0;
-  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; left: boolean }[]; reveal: string; facts: Facts } | null = null;
+  result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean }[]; reveal: string; facts: Facts } | null = null;
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -472,20 +471,6 @@ class Market {
     log(who, "finish", { mode: this.mode, tick: this.tick });
     this.say(`${nameOf(who)} ended the round early.`, "info", "finished", { who: short(who) });
     this.end();
-    return null;
-  }
-
-  // One person walks out: their position closes at the price, their
-  // result stands, and they watch the rest. Nobody else is touched.
-  leave(who: string): string | null {
-    if (this.phase !== "trade" && this.phase !== "countdown") return "No round is running.";
-    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to leave its round.";
-    this.desk.join(who);
-    const out = this.desk.leave(who);
-    if (typeof out === "string") return out;
-    this.report(out);
-    this.say(`${nameOf(who)} left the round to watch.`, "info", "left", { who: short(who) });
-    log(who, "leave", { mode: this.mode });
     return null;
   }
 
@@ -614,13 +599,11 @@ class Market {
     // The bell ranks the bots and everyone who traded, then lists, unranked,
     // everyone still on the tab when it rang who sat the round out; a
     // passer-by who left is not named.
-    // Who left mid-round is listed with them, unranked, as having left.
     const here = new Set(this.listeners().map((l) => l.who));
     const sat = (who: string): boolean => !bot(who) && !desk.account(who).traded;
-    const left = (who: string): boolean => desk.account(who).left;
-    const aside = (who: string): number => Number(sat(who) || left(who));
-    const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who) || left(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
-    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, guess: this.guesses.get(r.who) ?? null, bonus: bonus(r.who), sat: sat(r.who) && !left(r.who), left: left(r.who) })), reveal: this.reveal, facts: this.facts };
+    const aside = (who: string): number => Number(sat(who));
+    const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
+    this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, guess: this.guesses.get(r.who) ?? null, bonus: bonus(r.who), sat: sat(r.who) })), reveal: this.reveal, facts: this.facts };
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
@@ -735,7 +718,7 @@ class Market {
     const open = new Set(this.listeners().map((l) => l.who));
     const traders = desk.players().filter((p) => bot(p) || open.has(p) || desk.account(p).pos).map((p) => {
       const a = desk.account(p);
-      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out, left: a.left };
+      return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
     });
     traders.sort((a, b) => b.equity - a.equity);
     return { traders };
@@ -785,7 +768,6 @@ class Market {
         pnl: Math.round(mine ? desk.pnl(who) : 0),
         level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
         out: mine?.out ?? false,
-        left: mine?.left ?? false,
         guess: this.guesses.get(who) ?? null,
         debt: mine?.debt ?? 0,
         loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
