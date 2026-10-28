@@ -430,3 +430,37 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
   expect(rule, "Borrow must follow the rule above, not a bare trade phase").toMatch(/\blending\b/);
   expect(rule).not.toMatch(/s\.phase === "trade"/);
 });
+
+// ADR 0053: the tutorial's pointer is the tutorial's alone, it waits for the
+// player, and it does not dim the page. It must be gone the moment another
+// mode is on show, since only a tutorial's state has a lesson to clear it.
+const pointerApp = readFileSync("public/app.js", "utf8");
+const pointerCss = readFileSync("public/app.css", "utf8");
+it("tutorial pointer: does not dim the page: no shadow spread around the ring, and no dimming class", () => {
+  const focus = pointerCss.match(/\n\.focus \{([^}]*)\}/)![1];
+  expect(focus).not.toMatch(/100vmax|100vw|100vh/);
+  expect(focus).toMatch(/outline: 3px solid/);
+  expect(pointerApp).not.toMatch(/classList\.(add|remove|toggle)\("spotlit"/);
+  expect(pointerCss).not.toMatch(/\.spotlit/);
+});
+it("tutorial pointer: is cleared when another mode is shown, by the state and by the switch", () => {
+  const render = pointerApp.slice(pointerApp.indexOf("function render(s) {"), pointerApp.indexOf("\n// One stream at a time"));
+  expect(render, "render clears it when a state has no lesson").toMatch(/if \(s\.lesson\) spotlight\([^)]*\);\s*else clearPointer\(\)/);
+  const watch = pointerApp.slice(pointerApp.indexOf("function watch(next) {"), pointerApp.indexOf("\nfor (const tab of document.querySelectorAll"));
+  expect(watch, "switching tabs clears it at once").toMatch(/clearPointer\(\)/);
+});
+it("tutorial pointer: waits for the player, with no timer that moves it on by itself", () => {
+  expect(pointerApp).not.toMatch(/LOOK_MS|lookTimer|lookNext/);
+});
+it("tutorial pointer: moves on from a step to look at by a click or Enter, Space or the right arrow, and not from typing", () => {
+  expect(pointerApp).toMatch(/function nextLook\(/);
+  const keys = pointerApp.match(/addEventListener\("keydown", \(e\) => \{([\s\S]*?)\n\}\);/g)?.find((k) => k.includes("nextLook"));
+  expect(keys, "a keydown handler calls nextLook").toBeDefined();
+  expect(keys).toMatch(/Enter/);
+  expect(keys).toMatch(/ArrowRight/);
+  expect(keys).toMatch(/INPUT|isContentEditable|tagName/);
+  const down = pointerApp.slice(pointerApp.indexOf('addEventListener("pointerdown", (e) => {'));
+  expect(down.slice(0, down.indexOf("\n});")), "a pointerdown listener calls nextLook").toMatch(/nextLook\(\)/);
+  // a click must still do its own work: the handler never stops or cancels it
+  expect(down.slice(0, down.indexOf("\n});"))).not.toMatch(/preventDefault|stopPropagation|stopImmediatePropagation/);
+});

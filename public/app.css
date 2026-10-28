@@ -614,11 +614,10 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }
 .next[hidden] { display: none; }
 .ghost { background: none; }
-/* The tutorial's spotlight (ADR 0052): the one control a step points at is
-   ringed in a solid colour with a halo, and everything else is dimmed by the
-   shadow around it, not an overlay, so the control stays clickable. The ring
-   pulses in width and never fades out. */
-.focus { position: relative; z-index: 40; outline: 3px solid var(--pink); outline-offset: 3px; border-radius: 8px; box-shadow: 0 0 0 6px var(--glow), 0 0 0 100vmax rgb(10 8 24 / 0.55); animation: pulse 1.4s ease-in-out infinite; }
+/* The tutorial's pointer (ADR 0052, 0053): the one control a step names is
+   ringed in a solid colour with a halo, and nothing else on the page changes.
+   The ring pulses in width and never fades out. */
+.focus { position: relative; z-index: 40; outline: 3px solid var(--pink); outline-offset: 3px; border-radius: 8px; box-shadow: 0 0 0 6px var(--glow); animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { outline-width: 5px; outline-offset: 5px; } }
 /* A slider's own box is thin, so its ring sits around its whole row. */
 input.focus { outline-offset: 6px; }

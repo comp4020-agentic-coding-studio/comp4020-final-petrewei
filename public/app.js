@@ -435,36 +435,44 @@ function lesson(s) {
   $("lesson-task").textContent = l.finished ? t("doneTask") : moving ? t("watch") : own.task;
   $("lesson-next").hidden = l.finished || moving || !l.next;
 }
-// How many of the lesson's looks the player has had, and when the one on show
-// began: a look stays lit for a few seconds, then the next step is lit, and a
-// new lesson starts again (ADR 0052). Pure choosing is in /plan.js.
-const LOOK_MS = 3500;
+// How many of the lesson's looks the player has had (ADR 0052, 0053): a step
+// to look at waits for them, and they move on by a click or a key, or by
+// doing the next thing. A new lesson starts again. Pure choosing is in /plan.js.
 let looked = 0;
 let lookedIn = null;
-let lookTimer = 0;
 // A step whose control is not on screen yet (Close before there is a position,
-// Borrow before a wipe-out) is passed over, not dimmed to: pointing at nothing
-// would darken the page for no reason.
+// Borrow before a wipe-out) is passed over: pointing at nothing helps no one.
 const onScreen = (el) => !!el && el.getClientRects().length > 0;
 function currentStep(l) {
   if (lookedIn !== l.id) {
     lookedIn = l.id;
     looked = 0;
-    clearTimeout(lookTimer);
   }
   return planStep(l.plan ?? [], { choice, looked }, (s) => onScreen($(TARGETS[s.target])));
 }
-// When a look is on show, the next is lit after a pause, unless the lesson has
-// moved on by then.
-function lookNext(l, step) {
-  clearTimeout(lookTimer);
-  if (step?.until !== "look") return;
-  lookTimer = setTimeout(() => {
-    if (lookedIn !== l.id || document.hidden) return;
-    looked++;
-    if (state?.lesson?.id === l.id) spotlight(state.lesson, state.phase === "moving");
-  }, LOOK_MS);
+// Move on from the step to look at that is on show, if one is. Returns whether
+// it did, so a click on a control still does its own work.
+function nextLook() {
+  const l = state?.lesson;
+  if (!l || l.finished || state.phase === "moving" || currentStep(l)?.until !== "look") return false;
+  looked++;
+  spotlight(l, false);
+  return true;
 }
+// Any click, or Enter, Space or the right arrow, moves on from a step to look
+// at. The click carries on to whatever it landed on, so pressing a control
+// still does its job; a key typed in a field or on a control, where the same
+// keys do something else, is left alone (ADR 0053).
+addEventListener("pointerdown", (e) => {
+  if (e.target.closest?.("dialog[open], #name-box")) return;
+  nextLook();
+});
+addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !["Enter", " ", "ArrowRight"].includes(e.key)) return;
+  const t = e.target;
+  if (document.querySelector("dialog[open]") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
+  if (nextLook()) e.preventDefault();
+});
 // The step's words, in this language, kept beside the lit control: a small
 // label that follows it, so the instruction is where the eye already is.
 const hint = Object.assign(document.createElement("div"), { id: "step-hint", className: "step-hint", hidden: true });
@@ -512,10 +520,16 @@ function placeHint(el, text) {
   hint.style.top = `${Math.max(4, Math.min(innerHeight - h.height - 4, sides[best].y))}px`;
   hint.dataset.side = best;
 }
+// The pointer is the tutorial's alone: gone the moment another mode is on show,
+// or the tab changes, since only a tutorial's state has a lesson to clear it.
+function clearPointer() {
+  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
+  hint.hidden = true;
+  hintFor = null;
+}
 let scrolledTo = null;
 function spotlight(l, moving) {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
-  document.body.classList.remove("spotlit");
   hint.hidden = true;
   hintFor = null;
   if (l.finished || moving) return;
@@ -533,7 +547,6 @@ function spotlight(l, moving) {
     if (r.top < innerHeight * 0.15 || r.bottom > innerHeight * 0.8) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
   el.classList.add("focus");
-  document.body.classList.add("spotlit");
   const i = l.plan.indexOf(step);
   const says = T[lang].lessons[l.id]?.steps?.[i] ?? step.say;
   const words = `${l.plan.length > 1 ? `${i + 1}/${l.plan.length} ` : ""}${says}`;
@@ -542,7 +555,6 @@ function spotlight(l, moving) {
   // is scrolling to it, they are placed again as it settles, and as the player
   // scrolls or resizes afterwards.
   hintFor = { el, words };
-  lookNext(l, step);
 }
 let hintFor = null;
 let settle = 0;
@@ -1266,6 +1278,7 @@ function render(s) {
   // Last, once every panel has shown or hidden what it will: the step looks at
   // what is on screen (ADR 0052).
   if (s.lesson) spotlight(s.lesson, s.phase === "moving");
+  else clearPointer();
 }
 
 // One stream at a time, on the chosen market. Switching tabs closes it and
@@ -1280,6 +1293,7 @@ function watch(next) {
   }
   for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   events?.close();
+  clearPointer();
   shown = null;
   cuts = null;
   $("error").textContent = "";

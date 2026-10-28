@@ -1,6 +1,6 @@
 # ADR 0052: A Tutorial That Points
 
-Status: accepted, 28 October 2026. Refines the tutorial of [ADR 0013](0013-a-private-tutorial.md) and the stop lesson of [ADR 0037](0037-sliders-on-the-position.md).
+Status: accepted, 28 October 2026; its dimming, its 3.5-second timer and where its pointer stayed changed by [ADR 0053](0053-a-pointer-that-waits-and-does-not-dim.md). Refines the tutorial of [ADR 0013](0013-a-private-tutorial.md) and the stop lesson of [ADR 0037](0037-sliders-on-the-position.md).
 
 ## 1 Context
 
@@ -8,9 +8,9 @@ Peter asked for the tutorial to be improved and refined, for example with a more
 
 ## 2 Decision
 
-**A plan of steps.** Each lesson carries a plan, an ordered list of steps, each naming the exact element to light, what finishes it, and the words for it in all three languages. A step is to look at something, to set a slider to a value the page can check, such as leverage=30, or to press the control that takes the lesson's action, which every lesson has exactly once. Sliders come before the press, and only looking comes after it. The page lights the first step not yet met; a slider already at the right value is passed over, so a beginner who has the settings is not made to redo them. A step that only looks stays lit for 3.5 seconds and then the next is lit, which Peter chose over a click or showing them all at once; the choosing is a small pure module, `public/plan.js`, shared with the checks.
+**A plan of steps.** Each lesson carries a plan, an ordered list of steps, each naming the exact element to light, what finishes it, and the words for it in all three languages. A step is to look at something, to set a slider to a value the page can check, such as leverage=30, or to press the control that takes the lesson's action, which every lesson has exactly once. Sliders come before the press, and only looking comes after it. The page lights the first step not yet met; a slider already at the right value is passed over, so a beginner who has the settings is not made to redo them. A step that only looks stayed lit for 3.5 seconds and then the next was lit, which Peter chose over a click or showing them all at once, and then found too slow (ADR 0053 has it wait for a click or a key instead); the choosing is a small pure module, `public/plan.js`, shared with the checks.
 
-**A spotlight.** The one control a step names is ringed in the brand pink with a halo, and everything else is dimmed by the shadow around it, not an overlay, so the control stays clickable. The ring pulses in width and never fades. Its words sit beside it, numbered when there are several steps, on the side of the control where they cover least: a button or slider counts most, a figure or label less, a heading least. A control as wide as the chart gets its words inside it. A control below the fold is scrolled into view once per step, and the words are placed again as the page settles.
+**A spotlight.** The one control a step names is ringed in the brand pink with a halo, and everything else was dimmed by the shadow around it, not an overlay, so the control stayed clickable; ADR 0053 took the dimming out. The ring pulses in width and never fades. Its words sit beside it, numbered when there are several steps, on the side of the control where they cover least: a button or slider counts most, a figure or label less, a heading least. A control as wide as the chart gets its words inside it. A control below the fold is scrolled into view once per step, and the words are placed again as the page settles.
 
 **Exact targets.** The Leverage slider alone, 309 by 22px and not a 309 by 64 block; the one Buy or Sell button; the Open P&L figure; the Stop Loss thumb. A step whose control is not on screen yet, such as Close before there is a position, is passed over and not dimmed to.
 
