@@ -55,6 +55,9 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "lessonWhy": "Why this matters, in a few words.",
+      "hintsPause": "Stop the countdown. The lit control stays.",
+      "hintsResume": "Start the countdown again.",
+      "endTutorial": "Leave the tutorial and go to Replay.",
       "tabReplay": "Could be a quiet Tuesday. Could be Lehman.",
       "tabSimulation": "Invented weather. Real consequences, in play money.",
       "tabTutorial": "A private practice room. Nobody sees you fall over.",
@@ -141,8 +144,10 @@ export const T = {
     },
     ui: {
       lessonWhy: "Why?",
-      "autoIn": "Doing it for you in {s}s",
-      "autoNow": "Doing it for you",
+      hintsPause: "Pause hints",
+      hintsResume: "Resume hints",
+      endTutorial: "End tutorial",
+      "autoIn": "{s}s",
       info_leverage: "About Leverage",
       info_stake: "About Stake",
       info_spread: "About the spread",
@@ -410,6 +415,9 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "lessonWhy": "なぜ大事か、少しだけ。",
+      "hintsPause": "カウントダウンを止めます。光る場所はそのままです。",
+      "hintsResume": "カウントダウンを再開します。",
+      "endTutorial": "チュートリアルを終えてリプレイへ。",
       "tabReplay": "静かな火曜日かも。リーマンかも。",
       "tabSimulation": "作り物の天気。結果は本物、ただし遊びのお金。",
       "tabTutorial": "ひとり用の練習部屋。転んでも誰にも見られません",
@@ -496,8 +504,10 @@ export const T = {
     },
     ui: {
       lessonWhy: "なぜ？",
-      "autoIn": "あと{s}秒で代わりにやります",
-      "autoNow": "代わりにやっています",
+      hintsPause: "ヒントを止める",
+      hintsResume: "ヒントを再開",
+      endTutorial: "チュートリアルを終える",
+      "autoIn": "{s}秒",
       info_leverage: "レバレッジについて",
       info_stake: "投入額について",
       info_spread: "スプレッドについて",
@@ -764,6 +774,9 @@ export const T = {
     // parody's voice where it helps.
     tips: {
       "lessonWhy": "为什么要学这个，简单说。",
+      "hintsPause": "停止倒计时，高亮保持不变。",
+      "hintsResume": "重新开始倒计时。",
+      "endTutorial": "离开教程，去回放。",
       "tabReplay": "可能是平静的周二，也可能是雷曼。",
       "tabSimulation": "虚构的天气，真实的后果，只是用虚拟资金。",
       "tabTutorial": "只属于你的练习室，摔倒了也没人看见",
@@ -850,8 +863,10 @@ export const T = {
     },
     ui: {
       lessonWhy: "为什么？",
-      "autoIn": "{s}秒后替你操作",
-      "autoNow": "正在替你操作",
+      hintsPause: "暂停提示",
+      hintsResume: "继续提示",
+      endTutorial: "结束教程",
+      "autoIn": "{s}秒",
       info_leverage: "关于杠杆",
       info_stake: "关于投入",
       info_spread: "关于点差",

@@ -483,14 +483,13 @@ it("puts the lesson inside the chart's box, not in a panel across the page", () 
   expect(rule).toMatch(/right:/);
   expect(lessonCss, "the full-width fixed heights are gone").not.toMatch(/\.lesson \{ height: (196|220|360|472)px/);
 });
-it("shows a countdown for ten seconds, and does the step for the player when it ends", () => {
-  expect(lessonApp).toMatch(/const AUTO_S = 10;/);
+it("shows a countdown for five seconds, and does the step for the player when it ends", () => {
+  expect(lessonApp).toMatch(/const AUTO_S = 5;/);
   // the countdown is in the step's own words, beside the lit control, all the time
   expect(lessonApp).toMatch(/t\("autoIn", \{ s: autoLeft \}\)/);
   expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/hintFor\.words/);
   for (const lang of LANGS) {
     expect(T[lang].ui.autoIn, lang).toContain("{s}");
-    expect(T[lang].ui.autoNow, lang).toEqual(expect.stringMatching(/\S/));
   }
   expect(lessonApp).toMatch(/autoMove\(/);
   // the countdown restarts on a step, a slider move, a click or a key
@@ -527,4 +526,23 @@ it("shows the title and task, and the explanation only behind a Why? button", ()
   expect(lessonCss).toMatch(/\.lesson:not\(\.open\) #lesson-text \{ display: none; \}/);
   expect(lessonApp).toMatch(/classList\.toggle\("open"/);
   for (const lang of LANGS) for (const k of ["lessonWhy"]) expect(T[lang].ui[k], `${lang}.ui.${k}`).toEqual(expect.stringMatching(/\S/));
+});
+
+it("counts in bare seconds, can pause the hints, and can end the tutorial (ADR 0055)", () => {
+  for (const lang of LANGS) {
+    expect(T[lang].ui.autoIn, lang).toMatch(/^\{s\}\S{0,2}$/);
+    for (const k of ["hintsPause", "hintsResume", "endTutorial"]) {
+      expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      expect(T[lang].tips[k], `${lang} tip ${k}`).toEqual(expect.stringMatching(/\S/));
+    }
+  }
+  expect(lessonHtml).toMatch(/id="lesson-pause"[^>]*aria-pressed="false"/);
+  expect(lessonHtml).toMatch(/id="lesson-end"/);
+  expect(lessonApp).toMatch(/\$\("lesson-end"\)\.onclick = \(\) => watch\("replay"\)/);
+  // paused: no timer is armed and no countdown text is shown
+  expect(lessonApp.slice(lessonApp.indexOf("function armAuto"), lessonApp.indexOf("function tickAuto"))).toMatch(/autoPaused/);
+  expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/autoPaused/);
+});
+it("a click on the lesson card does not move a look step on", () => {
+  expect(lessonApp).toMatch(/closest\?\.\("#lesson"\) && nextLook\(\)/);
 });

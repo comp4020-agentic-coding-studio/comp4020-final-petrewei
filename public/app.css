@@ -607,6 +607,7 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
 .task span { display: block; font-size: 0.7rem; color: var(--pink); }
 .task strong { color: var(--ink); font-size: 0.84rem; }
 .lesson .row { display: flex; gap: 0.4rem; margin-top: 0.1rem; }
+.lesson .row + .row { margin-top: 0.4rem; }
 .lesson .row button { flex: 1 1 0; min-width: 0; height: 2rem; padding: 0 0.5rem; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lesson .row button.ghost { background: none; color: var(--soft); }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }

@@ -59,6 +59,7 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, 300_000) }));
+  pauseLabel();
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
@@ -420,6 +421,23 @@ function lobby(s) {
   $("start").hidden = counting;
 }
 $("restart").onclick = () => act("restart");
+// Hints can be paused, which stops the countdown and the helper's doing the
+// step; the lit control and its words stay (ADR 0055). The tutorial can be
+// ended from its card, which goes back to Replay.
+function pauseLabel() {
+  $("lesson-pause").textContent = t(autoPaused ? "hintsResume" : "hintsPause");
+  $("lesson-pause").setAttribute("aria-pressed", String(autoPaused));
+  $("lesson-pause").dataset.tip = autoPaused ? "hintsResume" : "hintsPause";
+  retip();
+}
+$("lesson-pause").onclick = () => {
+  autoPaused = !autoPaused;
+  pauseLabel();
+  if (autoPaused) clearInterval(autoTimer);
+  armAuto();
+  showCount();
+};
+$("lesson-end").onclick = () => watch("replay");
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
@@ -462,14 +480,15 @@ function currentStep(l) {
 // the step's words all that time, and any click, key or slider move starts it
 // again. It never runs while the page is hidden, a dialog is open, or the
 // price is moving.
-const AUTO_S = 10;
+const AUTO_S = 5;
+let autoPaused = false;
 let autoLeft = AUTO_S;
 let autoTimer = 0;
 let sliding = false;
 function armAuto() {
   clearInterval(autoTimer);
   autoLeft = AUTO_S;
-  if (!state?.lesson || state.lesson.finished || state.phase === "moving") return;
+  if (!state?.lesson || state.lesson.finished || state.phase === "moving" || autoPaused) return;
   showCount();
   autoTimer = setInterval(tickAuto, 1000);
 }
@@ -483,7 +502,7 @@ function tickAuto() {
 }
 function showCount() {
   if (hint.hidden || !hintFor) return;
-  const text = `${hintFor.words} · ${t("autoIn", { s: autoLeft })}`;
+  const text = autoPaused ? hintFor.words : `${hintFor.words} · ${t("autoIn", { s: autoLeft })}`;
   if (hint.textContent !== text) {
     hint.textContent = text;
     placeHint(hintFor.el, text);
@@ -493,7 +512,7 @@ function doForPlayer(l) {
   const step = currentStep(l);
   const move = step && autoMove(step, l.id, l.plan, choice);
   if (!move) return armAuto();
-  hint.textContent = `${hintFor?.words ?? ""} · ${t("autoNow")}`;
+  hint.textContent = `${hintFor?.words ?? ""} · ${t("autoIn", { s: 0 })}`;
   if (move.slide) slideTo(move.slide.slider, move.slide.value, armAuto);
   else if (move.look) {
     nextLook();
@@ -542,7 +561,10 @@ function nextLook() {
 // keys do something else, is left alone (ADR 0053).
 addEventListener("pointerdown", (e) => {
   if (e.target.closest?.("dialog[open], #name-box")) return;
-  if (!nextLook() && state?.lesson && !state.lesson.finished) armAuto();
+  // A click on the lesson card's own buttons (Why?, Pause, End) is not a
+  // click on the page: it must not move a look step on.
+  if (!e.target.closest?.("#lesson") && nextLook()) return;
+  if (state?.lesson && !state.lesson.finished && !autoPaused) armAuto();
 });
 addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !["Enter", " ", "ArrowRight"].includes(e.key)) return;
