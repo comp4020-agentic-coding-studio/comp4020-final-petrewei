@@ -226,14 +226,16 @@ body:not(.tutorial) .panel.folded > h2::after { transform: rotate(-45deg); }
 body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .ticket-body { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
-/* The quote line above the chart: pair, price and change, the clock at its end. */
-.quote { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0.1rem 0.9rem; padding: 0.6rem 0.9rem; overflow: hidden; }
-.chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; top: 0.4rem; max-width: calc(100% - 15rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
+/* The quote floats over the chart's top left (ADR 0062): pair, price and change, with
+   the round's controls and the clock beside them. It sits on a patch of the chart's
+   own colour so the candles beneath never fight it, and the plot leaves it headroom. */
+.quote { position: absolute; z-index: 3; left: 0.5rem; top: 0.35rem; right: 8.5rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.7rem; max-width: max-content; padding: 0.25rem 0.6rem; border-radius: 8px; background: color-mix(in srgb, var(--chart) 82%, transparent); pointer-events: none; }
+.quote > * { pointer-events: auto; }
+.chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; bottom: 6rem; max-width: calc(100% - 6rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
 .chart-box > .mode[hidden] { display: none; }
-.quote .round-ctl { grid-column: 4; grid-row: 1; align-self: center; }
-.quote .clock { grid-column: 5; grid-row: 1; justify-self: end; }
-.pair { font-weight: 800; font-size: 1.05rem; }
-.price { font: 600 1.9rem var(--mono); letter-spacing: -0.02em; }
+.quote .round-ctl { align-self: center; }
+.pair { font-weight: 800; font-size: 0.95rem; }
+.price { font: 600 1.45rem var(--mono); letter-spacing: -0.02em; }
 #change { font: 0.95rem var(--mono); }
 .mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock { flex: none; width: 10rem; text-align: center; font: 0.8rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -250,7 +252,7 @@ body.tutorial .studies { display: none; }
 /* The broker's warning across the top of the chart: amber on the way to
    a margin call, red and pulsing in one, with a button to close. It sits
    below the switches' row, over the chart, so nothing else moves. */
-.warn { position: absolute; z-index: 2; left: 0.6rem; right: 0.6rem; top: 2.1rem; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 0.7rem; padding: 0.45rem 0.6rem 0.45rem 0.8rem; border-radius: 10px; border: 2px solid var(--call); background: var(--panel); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.85rem; }
+.warn { position: absolute; z-index: 2; left: 0.6rem; right: 0.6rem; top: 3.4rem; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 0.7rem; padding: 0.45rem 0.6rem 0.45rem 0.8rem; border-radius: 10px; border: 2px solid var(--call); background: var(--panel); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25); font-size: 0.85rem; }
 .warn[hidden] { display: none; }
 .warn strong { color: var(--call); white-space: nowrap; }
 .warn span { color: var(--ink); min-width: 0; }
@@ -716,13 +718,13 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .whoami .av { margin-right: 0.2rem; }
   .whoami strong { margin-left: 0; }
   .whoami .pencil { display: none; }
-  /* Pair and price, then the clock, then the mode, each its own row. */
-  .quote { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.1rem 0.5rem; }
-  .quote .price { grid-column: 2; font-size: 1.6rem; min-width: 0; }
-  .quote .round-ctl { grid-column: 3; grid-row: 1; gap: 0.25rem; }
+  /* On a phone the quote is one smaller line, the clock under it. */
+  .quote { right: 0.5rem; gap: 0 0.4rem; }
+  .quote .price { font-size: 1.25rem; }
+  .quote .clock { width: auto; flex-basis: 100%; text-align: left; background: none; padding: 0; }
+  /* and the switches go under it, out of its way */
+  .studies { top: 4.1rem; right: 0.5rem; }
   .ctl { width: 28px; height: 28px; }
-  .quote #change { grid-column: 1; grid-row: 2; }
-  .quote .clock { grid-column: 2 / -1; grid-row: 2; width: auto; justify-self: stretch; }
   .tabs em { display: none; }
   .chart-box { min-height: 270px; }
   /* The warning: title and button on one row, the message under them. */
@@ -758,7 +760,6 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .info:hover, .info[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
 .info:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
 .info[hidden] { display: none; }
-.quote > .info { grid-column: 4; grid-row: 1; justify-self: end; align-self: center; width: 1.4rem; height: 1.4rem; margin: 0; }
 @media (pointer: coarse) { .info { width: 1.6rem; height: 1.6rem; font-size: 0.85rem; } }
 
 /* The step's words, beside the lit control (ADR 0052). */

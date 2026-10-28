@@ -2,7 +2,7 @@
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
-// 0010). A round is three minutes: Replay plays real days with the
+// 0010). A round is about two minutes: Replay plays real days with the
 // date hidden, Simulation simulates a random market from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -29,7 +29,7 @@ const CAREER_FILE = join(DATA_DIR, "career.json");
 const NAMES_FILE = join(DATA_DIR, "names.json");
 const FACES_FILE = join(DATA_DIR, "faces.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
-// Half a second a tick: forty days of nine ticks is three minutes.
+// Half a second a tick: thirty days of nine ticks is two minutes and fifteen seconds.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
@@ -513,7 +513,7 @@ class Market {
     this.count++;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, forty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
+    this.say(this.round.simulated ? `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, thirty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -755,6 +755,9 @@ class Market {
       steps: STEPS,
       start: START,
       from,
+      // The market's thirty days before the open, sent whole with the round's first
+      // message and whenever the page asks for everything (ADR 0062).
+      history: from === 0 ? round.history : undefined,
       prices: round.prices.slice(from, tick + 1),
       breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
       you: {
@@ -968,6 +971,7 @@ const PAGES: Record<string, [string, string]> = {
   "/tips.js": [read("public/tips.js"), "text/javascript; charset=utf-8"],
   "/clauses.js": [read("public/clauses.js"), "text/javascript; charset=utf-8"],
   "/plan.js": [read("public/plan.js"), "text/javascript; charset=utf-8"],
+  "/view.js": [read("public/view.js"), "text/javascript; charset=utf-8"],
   "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],

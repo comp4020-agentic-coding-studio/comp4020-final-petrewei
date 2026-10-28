@@ -6,6 +6,7 @@ import { LANGS, T, clueText, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
+import { place, windowed } from "/view.js";
 import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
@@ -859,7 +860,8 @@ for (const b of document.querySelectorAll("#studies button")) {
   };
 }
 
-function draw(s) {
+function draw(full) {
+  const s = windowed(full);
   const canvas = $("chart");
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
@@ -875,8 +877,10 @@ function draw(s) {
   // Indicators on each day's close, drawn at the day's centre; the bands
   // widen the price range so they stay on the chart.
   const tutorial = s.mode === "tutorial";
-  const days = closes(prices, k);
-  const bands = studies.bb && !tutorial ? bollinger(days, 20, 2) : [];
+  // Each indicator is worked out on every day there is, then cut to the days shown.
+  const cut = (values) => values.slice(s.skip ?? 0);
+  const days = closes(s.all ?? prices, k);
+  const bands = studies.bb && !tutorial ? cut(bollinger(days, 20, 2)) : [];
   const shown = bands.filter(Boolean);
   // The stop and the margin lines join the scale when they are near
   // (within 3%, as at 100× and up), so high leverage shows how close the
@@ -888,8 +892,12 @@ function draw(s) {
   const pad = (hi - lo) * 0.15 || hi * 0.002;
   const top = hi + pad;
   const bottom = lo - pad;
-  const x = (i) => (i / s.total) * (w - 70);
-  const y = (p) => h - ((p - bottom) / (top - bottom)) * h;
+  // The newest tick sits at the right edge and older ones count back from it; with no
+  // history (the tutorial) the round runs from the left as it always did.
+  const x = (i) => place(s, i) * (w - 70);
+  // The price scale leaves HEAD pixels at the top for the quote that floats there.
+  const HEAD = 66;
+  const y = (p) => h - ((p - bottom) / (top - bottom)) * (h - HEAD);
   // Day lines, and the price grid on the right.
   ctx.strokeStyle = css.getPropertyValue("--chart-grid");
   ctx.lineWidth = 1;
@@ -995,8 +1003,8 @@ function draw(s) {
   // Moving averages over the candles, and their legend top-left.
   const legend = [];
   if (studies.ma && !tutorial) {
-    const fast = sma(days, 5);
-    const slow = sma(days, 20);
+    const fast = cut(sma(days, 5));
+    const slow = cut(sma(days, 20));
     line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
     line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
     if (fast.at(-1)) legend.push([`MA5 ${fast.at(-1).toFixed(s.digits)}`, css.getPropertyValue("--ma-fast")]);
@@ -1008,7 +1016,7 @@ function draw(s) {
   let lx = 10;
   for (const [text, colour] of small ? [] : legend) {
     ctx.fillStyle = colour;
-    ctx.fillText(text, lx, 18);
+    ctx.fillText(text, lx, HEAD - 8);
     lx += ctx.measureText(text).width + 14;
   }
   // The RSI pane: the line, the 70 and 30 bands, and today's value.
@@ -1030,7 +1038,7 @@ function draw(s) {
       ctx.fillText(String(v), w - 66, ry(v) + 4);
     }
     ctx.setLineDash([]);
-    const r = rsi(days, 14);
+    const r = cut(rsi(days, 14));
     line(r.map((v) => v === null ? null : ry(v)), css.getPropertyValue("--rsi"));
     const now = r.at(-1);
     ctx.fillStyle = now === null ? css.getPropertyValue("--muted") : now >= 70 ? down : now <= 30 ? up : css.getPropertyValue("--rsi");
@@ -1155,12 +1163,18 @@ function effects(s, price) {
 // The server sends the full history on joining and each phase, and after
 // that only new prices. A gap (a missed message) asks for the whole state.
 let prices = [];
+// The market's thirty days before the round opened, kept across the updates
+// that carry only new prices (ADR 0062); the tutorial has none.
+let before = [];
 let roundNo = 0;
 let shown = null;
 async function receive(s) {
   // A message from the market this page just left is dropped.
   if (s.mode !== mode) return;
-  if (s.from === 0) prices = s.prices;
+  if (s.from === 0) {
+    prices = s.prices;
+    before = s.history ?? [];
+  }
   else if (s.mode === shown && s.round === roundNo && s.from <= prices.length) prices = prices.slice(0, s.from).concat(s.prices);
   else {
     const res = await fetch(`/api/state?mode=${mode}`);
@@ -1168,7 +1182,7 @@ async function receive(s) {
   }
   roundNo = s.round;
   shown = s.mode;
-  render({ ...s, prices });
+  render({ ...s, prices, history: before });
 }
 
 function render(s) {

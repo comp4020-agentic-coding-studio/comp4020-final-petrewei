@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DAYS, EVENTS, GAP, History, PAIRS, SCENARIOS, STEPS, path, random, replay, scenario } from "../src/market.ts";
+import { DAYS, EVENTS, GAP, History, LOOKBACK, PAIRS, SCENARIOS, STEPS, path, random, replay, scenario } from "../src/market.ts";
 
 const history = new History(readFileSync(join(import.meta.dirname, "..", "data", "ecb.csv"), "utf8"));
 
@@ -47,8 +47,9 @@ describe("a replay", () => {
       const round = replay(history, random(seed), 1);
       expect(round.days.length).toBe(DAYS + 1);
       const at = round.days.findIndex((d) => d === round.event!.date);
-      expect(at).toBeGreaterThanOrEqual(10);
-      expect(at).toBeLessThanOrEqual(DAYS - 6);
+      // the swan lands between day 11 and day 28 of the thirty
+      expect(at).toBeGreaterThanOrEqual(11);
+      expect(at).toBeLessThanOrEqual(DAYS - 2);
     }
   });
 
@@ -70,6 +71,9 @@ describe("a replay", () => {
 // its mark in the prices, over any seed, or the reveal is only a label.
 describe("a scenario round", () => {
   const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % STEPS === 0);
+  // Which way a run went is read on a day before any script's turn, which is day 13 at the
+  // earliest; the middle of a thirty-day round is already after it.
+  const GRIND = 10;
   const moves = (c: number[]) => c.slice(1).map((x, i) => Math.log(x / c[i]));
   const run = (id: string, seed: number) => scenario(history, "EUR/CHF", 1.08, random(seed), id);
   const seeds = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -107,7 +111,7 @@ describe("a scenario round", () => {
     for (const seed of seeds) {
       const raw = closes(run("carry", seed));
       // run either way up: read it on the grind's own side
-      const c = raw[Math.floor(DAYS / 2)] > raw[0] ? raw : raw.map((x) => 1 / x);
+      const c = raw[GRIND] > raw[0] ? raw : raw.map((x) => 1 / x);
       const top = c.indexOf(Math.max(...c));
       expect(top, `seed ${seed}`).toBeGreaterThan(DAYS * 0.4);
       expect(c[top] / c[0], `seed ${seed}`).toBeGreaterThan(1.02);
@@ -145,7 +149,7 @@ describe("a scenario round", () => {
   it("builds a bubble that then turns", () => {
     for (const seed of seeds) {
       const raw = closes(run("bubble", seed));
-      const c = raw[Math.floor(DAYS / 2)] > raw[0] ? raw : raw.map((x) => 1 / x);
+      const c = raw[GRIND] > raw[0] ? raw : raw.map((x) => 1 / x);
       const top = c.indexOf(Math.max(...c));
       expect(top, `seed ${seed}`).toBeGreaterThan(DAYS * 0.4);
       expect(c.at(-1)! < c[top], `seed ${seed}`).toBe(true);
@@ -212,5 +216,39 @@ describe("a replay's clues", () => {
         }
       }
     }
+  });
+});
+
+// ADR 0062: a round is thirty days, drawn after thirty days of the market before
+// it, so the chart opens full and the new price arrives at its right end. The
+// history is real for both tabs and ends on the open price, so nothing jumps.
+describe("the thirty days before a round", () => {
+  const ticks = LOOKBACK * STEPS + 1;
+  it("is thirty days of ticks that end on the open, in a replay and in a simulation", () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      for (const round of [replay(history, random(seed), 1), replay(history, random(seed), 0), scenario(history, "USD/JPY", 158.45, random(seed))]) {
+        expect(round.history.length, `seed ${seed}`).toBe(ticks);
+        expect(round.history.at(-1), `seed ${seed}: the history ends where the round opens`).toBeCloseTo(round.prices[0], 9);
+        for (const p of round.history) expect(Number.isFinite(p) && p > 0).toBe(true);
+      }
+    }
+  });
+  it("is the real market just before a replay's open, so a famous day is never inside it", () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const round = replay(history, random(seed), 1);
+      const series = history.series(round.pair);
+      const start = series.findIndex((d) => d.date === round.days[0]);
+      const real = series.slice(start - LOOKBACK, start + 1).map((d) => d.rate);
+      const closes = round.history.filter((_, i) => i % STEPS === 0);
+      real.forEach((rate, i) => expect(closes[i], `seed ${seed} day ${i}`).toBeCloseTo(rate, 9));
+      expect(real.length).toBe(LOOKBACK + 1);
+    }
+  });
+  it("is the pair's real last thirty days for a simulation, ending on today's rate", () => {
+    const series = history.series("EUR/USD");
+    const round = scenario(history, "EUR/USD", 1.2345, random(4));
+    const closes = round.history.filter((_, i) => i % STEPS === 0);
+    expect(closes.at(-1)).toBeCloseTo(1.2345, 9);
+    series.slice(-LOOKBACK).forEach((d, i) => expect(closes[i], `day ${i}`).toBeCloseTo(d.rate, 9));
   });
 });

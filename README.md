@@ -1,6 +1,6 @@
 # Losscut! Kurumi's FX Fantasy
 
-Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is three minutes of forty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Replay the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
+Two shared currency markets, chosen by tab, traded by everyone at once with play money. A round is about two minutes of thirty trading days, started by anyone on its tab, in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Replay the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 Good, defined.
 

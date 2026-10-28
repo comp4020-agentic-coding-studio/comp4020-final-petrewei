@@ -26,7 +26,11 @@ export type State = {
   pair: string;
   tick: number;
   total: number;
+  // Ticks in a day.
+  steps: number;
   from: number;
+  // The market's thirty days before the open, sent with a whole state (ADR 0062).
+  history?: number[];
   prices: number[];
   you: { name: string; draw: number | null; named: boolean; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
   traders: Trader[];

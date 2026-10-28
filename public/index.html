@@ -54,23 +54,6 @@
     <div class="col main-col">
     <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
       <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
-      <div class="quote">
-        <span class="pair" id="pair">—</span>
-        <strong class="price" id="price">—</strong>
-        <span id="change"></span>
-        <!-- A round's controls, between the price and the clock (ADRs 0022,
-             0024, 0039, 0060): pause, and, for whoever pressed Start, end it
-             for everyone. Icons, each named by its tip. -->
-        <div class="round-ctl" id="round-ctl">
-          <button id="pause" class="ctl" type="button" data-tip="pause" data-t-aria="pause" hidden>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-          </button>
-          <button id="finish" class="ctl danger" type="button" data-tip="finish" data-t-aria="finish" hidden>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
-          </button>
-        </div>
-        <span class="clock" id="clock"></span>
-      </div>
       <div class="chart-box">
         <!-- The broker's warning, while your margin level is low: red in a
              margin call, amber on the way there. -->
@@ -80,6 +63,25 @@
           <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
+        <!-- The price, its change, the round's controls and the clock float over the
+             chart's top, not above it, to give the chart the room (ADR 0062). -->
+        <div class="quote">
+          <span class="pair" id="pair">—</span>
+          <strong class="price" id="price">—</strong>
+          <span id="change"></span>
+          <!-- A round's controls, between the price and the clock (ADRs 0022,
+               0024, 0039, 0060): pause, and, for whoever pressed Start, end it
+               for everyone. Icons, each named by its tip. -->
+          <div class="round-ctl" id="round-ctl">
+            <button id="pause" class="ctl" type="button" data-tip="pause" data-t-aria="pause" hidden>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            </button>
+            <button id="finish" class="ctl danger" type="button" data-tip="finish" data-t-aria="finish" hidden>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <span class="clock" id="clock"></span>
+        </div>
         <!-- A Simulation's headline or a Replay's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
         <p class="mode headline" id="mode" hidden></p>
         <!-- The tutorial's lesson: a card across the bottom of the chart, clear

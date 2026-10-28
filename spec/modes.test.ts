@@ -72,3 +72,22 @@ it.skipIf(live)("counts who is on each tab", async () => {
     p.close();
   }
 });
+
+// ADR 0062: a round is thirty days, shown after thirty days of the market before it,
+// which a whole state carries once. A replay's history is real prices with no date
+// anywhere in it, so the hidden day stays hidden.
+it("sends the thirty days before a round with a whole state, ending where the round opens", async () => {
+  for (const mode of ["replay", "simulation"] as const) {
+    const s = await state(undefined, mode);
+    expect(s.total, mode).toBe(30 * s.steps);
+    expect(s.history, mode).toHaveLength(30 * s.steps + 1);
+    for (const p of s.history!) expect(Number.isFinite(p) && p > 0, mode).toBe(true);
+    if (s.tick === 0) expect(s.history!.at(-1), `${mode}: the history ends on the open`).toBeCloseTo(s.prices[0], 9);
+  }
+});
+
+it("keeps every date out of a replay's history and prices", async () => {
+  const s = await state(undefined, "replay");
+  expect(JSON.stringify({ h: s.history, p: s.prices })).not.toMatch(/(19|20)\d\d-\d\d-\d\d/);
+});
+

@@ -1,22 +1,28 @@
-// Where a round's prices come from. A replay plays forty real trading days
+// Where a round's prices come from. A replay plays thirty real trading days
 // of one pair from the ECB's daily reference rates (data/ecb.csv, source:
 // ECB; the crosses are derived), with the dates hidden until the round
 // ends. A Scenario round starts from today's rate and simulates a random
-// market for forty days.
+// market for thirty days.
 // Free sources give one rate a day, so between closes the price wanders
 // on a random bridge that always lands on the real close; a day that
 // moved a lot opens with a gap, as the market did, and stops slip.
 
 export const PAIRS = ["USD/JPY", "EUR/USD", "GBP/USD", "AUD/USD", "USD/CHF", "EUR/CHF", "USD/CNY", "AUD/JPY"] as const;
 export type Pair = (typeof PAIRS)[number];
-// Forty days a round, nine ticks a day.
-export const DAYS = 40;
+// Thirty days a round, nine ticks a day, and thirty more days of the market
+// before it, drawn to the left of the open so the chart is never empty and the
+// new price arrives at its right end (ADR 0062).
+export const DAYS = 30;
+export const LOOKBACK = 30;
 export const STEPS = 9;
 // A day that moved more than this opens with most of its move at once.
 export const GAP = 0.015;
 
 type Day = { date: string; rate: number };
-export type Round = { pair: Pair; days: string[]; prices: number[]; event: Episode | null; simulated: boolean; scenario?: string; headlines?: Headline[] };
+// `history` is the market in the thirty days before the open, as ticks ending at
+// the open price, so `prices[0]` follows it; it is part of the chart and of
+// nothing else: no order, score or clock reads it.
+export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; simulated: boolean; scenario?: string; headlines?: Headline[] };
 export type Episode = { pair: Pair; date: string; title: string; note: string };
 
 // The famous days a replay may hide. Each note is shown when the round
@@ -115,30 +121,34 @@ export function path(closes: number[], rnd: () => number): number[] {
   return prices;
 }
 
-// A replay round: with chance `eventChance` a window around a famous day,
-// placed so the room has ten days of calm first; otherwise any window.
+// A replay round: with chance `eventChance` a window around a famous day, placed
+// so the swan lands on day 11 to 28 of the thirty, with at least ten days to read
+// first and two after it; otherwise any window.
 export function replay(history: History, rnd: () => number, eventChance: number): Round {
   if (rnd() < eventChance) {
     const event = EVENTS[Math.floor(rnd() * EVENTS.length)];
     const series = history.series(event.pair);
     const at = series.findIndex((d) => d.date === event.date);
-    const start = at - (10 + Math.floor(rnd() * (DAYS - 15)));
-    return window(series.slice(start, start + DAYS + 1), event.pair, rnd, event);
+    const start = at - (11 + Math.floor(rnd() * 18));
+    return window(series, start, event.pair, rnd, event);
   }
   const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
   const series = history.series(pair);
-  const start = Math.floor(rnd() * (series.length - DAYS - 1));
-  return window(series.slice(start, start + DAYS + 1), pair, rnd, null);
+  const start = LOOKBACK + Math.floor(rnd() * (series.length - DAYS - 1 - LOOKBACK));
+  return window(series, start, pair, rnd, null);
 }
 
 // A replay that hides a famous day drips two clues before it (ADR 0030),
 // a third and two thirds of the way there; their words, in every
 // language, are in public/i18n-long.js under the day's date.
-function window(days: Day[], pair: Pair, rnd: () => number, event: Episode | null): Round {
+function window(series: Day[], start: number, pair: Pair, rnd: () => number, event: Episode | null): Round {
+  const days = series.slice(start, start + DAYS + 1);
+  // The thirty days before the open, ending on it, so the chart is continuous.
+  const before = series.slice(start - LOOKBACK, start + 1).map((d) => d.rate);
   const dates = days.map((d) => d.date);
   const at = event ? dates.indexOf(event.date) : -1;
   const headlines = at > 0 ? [{ day: Math.floor(at / 3) }, { day: Math.floor((2 * at) / 3) }] : [];
-  return { pair, days: dates, prices: path(days.map((d) => d.rate), rnd), event, simulated: false, headlines };
+  return { pair, days: dates, prices: path(days.map((d) => d.rate), rnd), history: path(before, rnd), event, simulated: false, headlines };
 }
 
 // The simulated tab, Scenario (ADR 0027): a round from today's real rate
@@ -225,7 +235,7 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-// A Scenario round from today's real rate: forty simulated days, each
+// A Scenario round from today's real rate: thirty simulated days, each
 // move drawn at the pair's real volatility over the past year and bent by
 // the scenario's plan. The day the scenario turns is drawn, so the turn
 // can't be timed by the calendar. `pick` forces a scenario, for checks.
@@ -235,7 +245,10 @@ export function scenario(history: History, pair: Pair, rate: number, rnd: () => 
   // A floor of 0.4% a day, so a pegged pair still moves enough to play.
   const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
   const script = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
-  const crash = 18 + Math.floor(rnd() * 12);
+  // The turn comes between day 13 and day 22: late enough for the story to have
+  // built, with twelve calm days to read, and early enough that eight are left
+  // for it to play out (a carry unwind falls for five).
+  const crash = 13 + Math.floor(rnd() * 10);
   // Each situation runs either way up, so no one can just sell every round: a
   // peg can break up as well as down, a carry trade unwind either way.
   const way = rnd() < 0.5 ? 1 : -1;
@@ -245,5 +258,8 @@ export function scenario(history: History, pair: Pair, rate: number, rnd: () => 
     closes.push(closes[d] * Math.exp((way * drift + normal(rnd) * wild) * vol));
   }
   const days = closes.map((_, d) => `day ${d}`);
-  return { pair, days, prices: path(closes, rnd), event: null, simulated: true, scenario: script.id, headlines: script.headlines };
+  // The pair's real last thirty days, then today's rate as the open, so what the
+  // chart shows before the round is real and the round starts where it ends.
+  const before = [...history.series(pair).slice(-LOOKBACK).map((d) => d.rate), rate];
+  return { pair, days, prices: path(closes, rnd), history: path(before, rnd), event: null, simulated: true, scenario: script.id, headlines: script.headlines };
 }
