@@ -98,7 +98,7 @@ describe("a lesson's plan", () => {
     }
   });
   it("has exactly one step to press in each lesson, naming the control that takes its action", () => {
-    const action: Record<string, string> = { welcome: "next", buy: "buy", "take-profit": "close", sell: "sell", "close-short": "close", leverage: "buy", "cut-loss": "close", "stop-buy": "buy", "stop-set": "stopthumb", gap: "buy", dad: "borrow" };
+    const action: Record<string, string> = { welcome: "next", buy: "buy", "take-profit": "close", sell: "sell", "close-short": "close", leverage: "buy", "cut-loss": "close", "stop-buy": "buy", "stop-set": "stopthumb", gap: "buy", dad: "borrow", thousand: "buy", warning: "next" };
     for (const l of LESSONS) {
       if (!action[l.id]) continue;
       const pressing = l.plan.filter((s) => s.until === "press");
@@ -124,6 +124,7 @@ describe("a lesson's plan", () => {
     expect(sets("leverage")).toEqual(["leverage=30", "stake=1"]);
     expect(sets("stop-buy")).toEqual(["leverage=10", "stake=1"]);
     expect(sets("gap")).toEqual(["leverage=30", "stake=1"]);
+    expect(sets("thousand")).toEqual(["leverage=1000", "stake=1"]);
   });
   it("matches the plan to what the lesson accepts: the leverage a plan sets is the leverage allowed", () => {
     for (const l of LESSONS) for (const s of l.plan) {
@@ -258,5 +259,42 @@ describe("what the tutorial does for a player who waits", () => {
       const move = m.kind === "buy" || m.kind === "sell" ? { kind: "order" as const, side: m.kind === "buy" ? (1 as const) : (-1 as const), leverage: m.leverage!, stake: m.stake } : m.kind === "stop" ? { kind: "stop" as const, pct: m.pct! } : ({ kind: m.kind } as { kind: "next" | "close" | "borrow" });
       expect(t.act(move as never), `${l.id}`).toBeNull();
     }
+  });
+});
+
+// The warning lesson: the highest leverage, and what it does within moments.
+describe("the 1000× warning", () => {
+  const play = (): Tutorial => {
+    const t = new Tutorial();
+    while (t.lesson().id !== "thousand") {
+      expect(t.act(t.lesson().solve(t))).toBeNull();
+      while (t.moving()) t.step();
+    }
+    return t;
+  };
+  it("comes after Dad's savings and before the last lesson", () => {
+    const ids = LESSONS.map((l) => l.id);
+    expect(ids.slice(-4)).toEqual(["dad", "thousand", "warning", "ready"]);
+  });
+  it("refuses any leverage but the highest, and the top of the menu is 1000×", () => {
+    const t = play();
+    expect(t.act({ kind: "order", side: 1, leverage: 500, stake: 1 })).toMatch(/1000/);
+    expect(t.desk.account("me").pos).toBeFalsy();
+  });
+  it("calls the margin and cuts the player out on tiny moves, so the warning's numbers hold", () => {
+    const t = play();
+    const start = t.price();
+    expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toBeNull();
+    let peak = start;
+    const kinds: string[] = [];
+    while (t.moving()) {
+      kinds.push(...t.step().map((e) => e.kind));
+      peak = Math.max(peak, t.price());
+    }
+    expect(peak / start - 1, "the rise stays under 0.05%").toBeLessThan(0.0005);
+    expect(kinds).toContain("call");
+    expect(kinds).toContain("stopout");
+    expect(t.lesson().id).toBe("warning");
+    expect(t.desk.account("me").balance, "about a tenth is left").toBeLessThan(150_000);
   });
 });

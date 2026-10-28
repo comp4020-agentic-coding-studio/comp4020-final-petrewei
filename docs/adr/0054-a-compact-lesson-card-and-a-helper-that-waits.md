@@ -19,6 +19,6 @@ Peter found that the lesson panel took too much space. It sat above the page, pu
 - The page starts at the market again, and the tutorial's explanation is one tap away.
 - A player who waits is taught by example, and one who does nothing still reaches the last lesson. The helper places trades and closes positions for them, on their private practice market.
 - The card can cover price action in later lessons, where the chart's bottom-right corner holds more of it. I measured 0% ink there in lessons 1–2 and 11–15% in the later ones.
-- `test/tutorial.test.ts` checks that the helper's move for every press in all twelve lessons is accepted by the real tutorial. `test/tips.test.ts` checks the card's place, the stacking, the Why? button in all languages, and the countdown and its pauses.
+- `test/tutorial.test.ts` checks that the helper's move for every press in every lesson is accepted by the real tutorial. `test/tips.test.ts` checks the card's place, the stacking, the Why? button in all languages, and the countdown and its pauses.
 - A browser check showed the card inside the chart box at 1280px and 390px wide, the countdown going 10 to 1 and starting again, Why? opening and closing the explanation, and lessons 1 and 2 finishing without input. Japanese and Chinese were not looked at in a browser.
 - The hint's placement does not yet avoid the card, so on a phone the words can sit over its top edge.
