@@ -1,6 +1,6 @@
 # ADR 0058: A Fee That Grows with Leverage, and a Scale for Every Rung
 
-Status: accepted, 29 October 2026. Adds to the broker's rules of [ADR 0009](0009-a-parody-fx-trading-floor.md) and changes the sliders of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md) and [ADR 0033](0033-one-track-for-both-exits.md); the 50× rung is gone and the rungs are even by [ADR 0059](0059-a-card-that-always-reads-and-a-ladder-with-even-rungs.md).
+Status: accepted, 29 October 2026. Adds to the broker's rules of [ADR 0009](0009-a-parody-fx-trading-floor.md) and changes the sliders of [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md) and [ADR 0033](0033-one-track-for-both-exits.md); the 50× rung is gone and the rungs are even by [ADR 0059](0059-a-card-that-always-reads-and-a-ladder-with-even-rungs.md); the page now reads the fee and the cap from the state, by [ADR 0063](0063-the-page-keeps-no-copy-of-the-desk.md).
 
 ## 1 Context
 
