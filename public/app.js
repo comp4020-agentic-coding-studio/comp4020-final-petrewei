@@ -83,8 +83,14 @@ let fame = "";
 // is said beside it, in the parody's voice.
 const choice = { leverage: 30, stake: 1 };
 let seated = false;
-let ladder = [1, 2, 5, 10, 30, 50, 100, 200, 500, 1000];
-const RISKY = 100;
+let ladder = [1, 2, 5, 10, 30, 100, 200, 500, 1000];
+// A slider's heat, 0 calm to 1 alarm: green up to Australia's 30× cap, amber at
+// it, then through orange to red as leverage climbs past it (ADR 0059). Stake
+// has no legal cap, so it runs its own range, calm at a quarter and alarming
+// when everything is in.
+const hue = (heat) => `hsl(${Math.round(140 - 140 * heat)} ${Math.round(65 + 25 * heat)}% ${Math.round(52 - 4 * heat)}%)`;
+const levHeat = (lev) => (lev <= CAP ? (0.35 * Math.log(lev)) / Math.log(CAP) : 0.35 + (0.65 * Math.log(lev / CAP)) / Math.log(1000 / CAP));
+const CAP = 30;
 // What the desk charges an open position each minute (two ticks a second):
 // its margin times FEE times the leverage squared, per tick (ADR 0058).
 const FEE = 1e-9;
@@ -104,15 +110,19 @@ function ticks(id, marks) {
 function sliders() {
   // Every rung of the ladder is marked on the track, the one chosen lit, so a
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
-  ticks("lev-ticks", ladder.map((v) => [levPos(v), `${v}`, `rung-${v}`]));
+  ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`]));
   ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
 }
 function mark() {
-  $("leverage").value = String(Math.round(levPos(choice.leverage) * 1000));
+  $("leverage").value = String(Math.round(levPos(choice.leverage, ladder) * 1000));
   $("stake").value = String(STAKES.indexOf(choice.stake));
   $("lev-out").textContent = `${choice.leverage}×`;
   $("stake-out").textContent = `${choice.stake * 100}%`;
-  $("leverage-box").classList.toggle("risky", choice.leverage >= RISKY);
+  // A leverage over the cap says so in the note's colour too, and the page
+  // marks the box, so a style can tell a legal choice from an offshore one.
+  $("leverage-box").style.setProperty("--heat", hue(levHeat(choice.leverage)));
+  $("leverage-box").classList.toggle("offshore", choice.leverage > CAP);
+  $("stake-box").style.setProperty("--heat", hue(0.1 + 0.55 * ((STAKES.indexOf(choice.stake) + 1) / STAKES.length)));
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
   $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
   $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
@@ -249,12 +259,6 @@ $("dad-no").onclick = () => {
   $("dad").close();
 };
 let dadAsked = false;
-// The explanation opens on Why?, and stays as the player left it (ADR 0054).
-$("lesson-why").onclick = () => {
-  const open = $("lesson").classList.toggle("open");
-  $("lesson-why").setAttribute("aria-expanded", String(open));
-  armAuto();
-};
 
 // Light or dark: the system's choice until the toggle is used, then the
 // toggle's, remembered in this browser. The chart reads its colours from
@@ -471,6 +475,10 @@ $("lesson-end").onclick = () => {
   act("restart");
 };
 $("lesson-skip").onclick = () => act("skip");
+$("lesson-back").onclick = () => {
+  looked = 0;
+  act("back");
+};
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
@@ -504,7 +512,7 @@ function currentStep(l) {
     lookedIn = l.id;
     looked = 0;
   }
-  return planStep(l.plan ?? [], { choice, looked, stage: l.stage }, (s) => onScreen($(TARGETS[s.target])));
+  return planStep(l.plan ?? [], { choice, looked, moves: l.moves }, (s) => onScreen($(TARGETS[s.target])));
 }
 // When a step has waited AUTO_S seconds with no input, the tutorial does it
 // for the player (ADR 0054): a slider slides, a button is pressed through the
@@ -512,7 +520,7 @@ function currentStep(l) {
 // the step's words all that time, and any click, key or slider move starts it
 // again. It never runs while the page is hidden, a dialog is open, or the
 // price is moving.
-const AUTO_S = 5;
+const AUTO_S = 9;
 let autoPaused = false;
 let autoLeft = AUTO_S;
 let autoTimer = 0;
@@ -534,7 +542,9 @@ function tickAuto() {
 }
 function showCount() {
   if (hint.hidden || !hintFor) return;
-  const text = autoPaused ? hintFor.words : `${hintFor.words} · ${t("autoIn", { s: autoLeft })}`;
+  // The countdown leads the tip, so it is the first thing read and a long tip
+  // can never cut it off (ADR 0059).
+  const text = autoPaused ? hintFor.words : `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`;
   if (hint.textContent !== text) {
     hint.textContent = text;
     placeHint(hintFor.el, text);
@@ -544,7 +554,7 @@ function doForPlayer(l) {
   const step = currentStep(l);
   const move = step && autoMove(step, l.id, l.plan, choice);
   if (!move) return armAuto();
-  hint.textContent = `${hintFor?.words ?? ""} · ${t("autoIn", { s: 0 })}`;
+  hint.textContent = `${t("autoIn", { s: 0 })} · ${hintFor?.words ?? ""}`;
   if (move.slide) slideTo(move.slide.slider, move.slide.value, armAuto);
   else if (move.look) {
     nextLook();
@@ -559,7 +569,7 @@ function doForPlayer(l) {
 // handler runs as usual. Reduced motion jumps there.
 function slideTo(which, value, done) {
   const input = $(which);
-  const target = which === "leverage" ? Math.round(levPos(value) * 1000) : STAKES.indexOf(value);
+  const target = which === "leverage" ? Math.round(levPos(value, ladder) * 1000) : STAKES.indexOf(value);
   const from = Number(input.value);
   const steps = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 24;
   let i = 0;
@@ -1201,7 +1211,7 @@ function render(s) {
     seated = true;
     ladder = s.leverages;
     sliders();
-    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? 25), ladder);
+    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? 30, ladder), ladder);
     mark();
   }
   const price = s.prices.at(-1);
@@ -1214,8 +1224,10 @@ function render(s) {
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
   const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
-  $("mode").textContent = head ? `📰 ${head}` : t(tutorial ? "modeTutorial" : s.simulated ? "modeSimulation" : "modeReplay");
-  $("mode").classList.toggle("headline", !!head);
+  // Only a clue or headline is shown here; the static label that said which
+  // mode this was is gone (ADR 0059), since the tab already says it.
+  $("mode").textContent = head ? `📰 ${head}` : "";
+  $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
   $("clock").textContent = tutorial
     ? t("clockTutorial")

@@ -6,14 +6,15 @@
 // What share of free money an order puts up: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
 
-// 1× at the left end and 1000× at the right, by the logarithm.
-const TOP = Math.log(1000);
-export const levPos = (lev) => Math.log(lev) / TOP;
-// The rung of the ladder nearest a slider position, measured on the same
-// log scale, so a drag lands where the eye expects.
+// The rungs of the leverage ladder sit evenly along the slider, however far
+// apart they are in leverage (ADR 0059): a rung's place is its number in the
+// ladder, over the last number. A leverage between two rungs sits at the nearer.
+const rung = (lev, ladder) => ladder.reduce((best, r, i) => (Math.abs(Math.log(r / lev)) < Math.abs(Math.log(ladder[best] / lev)) ? i : best), 0);
+export const levPos = (lev, ladder) => rung(lev, ladder) / (ladder.length - 1);
+// The rung nearest a slider position, so a drag lands where the eye expects.
 export function levAt(pos, ladder) {
   const p = Math.min(1, Math.max(0, pos));
-  return ladder.reduce((best, lev) => (Math.abs(levPos(lev) - p) < Math.abs(levPos(best) - p) ? lev : best));
+  return ladder[Math.round(p * (ladder.length - 1))];
 }
 
 // A change as a signed percentage: two places, or two significant figures

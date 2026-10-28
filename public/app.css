@@ -226,18 +226,16 @@ body:not(.tutorial) .panel.folded > h2::after { transform: rotate(-45deg); }
 body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .ticket-body { padding: 0.9rem; display: grid; gap: 0.8rem; }
 
-/* The quote line above the chart. */
-/* Pair, price and change on the first row, the clock at its end; the
-   mode line on a fixed second row, so its length moves nothing. */
-.quote { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0.1rem 0.9rem; padding: 0.6rem 0.9rem; height: 4.6rem; overflow: hidden; }
-.quote .mode { grid-column: 1 / -1; grid-row: 2; }
-.quote .mode.headline { color: var(--ink); font-style: italic; }
+/* The quote line above the chart: pair, price and change, the clock at its end. */
+.quote { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0.1rem 0.9rem; padding: 0.6rem 0.9rem; overflow: hidden; }
+.chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; top: 0.4rem; max-width: calc(100% - 15rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
+.chart-box > .mode[hidden] { display: none; }
 .quote .round-ctl { grid-column: 4; grid-row: 1; align-self: center; }
 .quote .clock { grid-column: 5; grid-row: 1; justify-self: end; }
 .pair { font-weight: 800; font-size: 1.05rem; }
 .price { font: 600 1.9rem var(--mono); letter-spacing: -0.02em; }
 #change { font: 0.95rem var(--mono); }
-.mode { min-width: 0; color: var(--muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock { flex: none; width: 10rem; text-align: center; font: 0.8rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-box { position: relative; }
 canvas { display: block; width: 100%; height: auto; background: var(--chart); }
@@ -323,12 +321,14 @@ body.tutorial .studies { display: none; }
 
 /* The order ticket. Sell sits left at the bid, buy right at the ask, as
    on every dealing screen; the spread sits between them. */
-.quotes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; height: 88px; }
-.side { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; padding: 0.6rem 0.75rem; border: none; border-radius: 10px; color: var(--on-fill); }
+.quotes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.4rem; }
+.side { display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; min-width: 0; padding: 0.6rem 0.75rem; border: none; border-radius: 10px; color: var(--on-fill); text-align: left; }
 .side span { font-weight: 800; font-size: 0.95rem; }
 .side strong { font: 600 1.25rem var(--mono); }
+/* One plain line on each button says what it earns on, for someone new (ADR 0059). */
+.side small { max-width: 100%; margin-top: 0.1rem; font-size: 0.7rem; font-weight: 700; line-height: 1.2; opacity: 0.92; text-align: inherit; }
 .side.sell { background: var(--down); }
-.side.buy { background: var(--up); align-items: flex-end; }
+.side.buy { background: var(--up); align-items: flex-end; text-align: right; }
 .side:active:not(:disabled) { transform: translateY(1px); }
 .spread { margin: -0.4rem 0 0; height: 1.1rem; text-align: center; font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .field { display: grid; gap: 0.35rem; }
@@ -339,17 +339,20 @@ body.tutorial .studies { display: none; }
 .slide .label { display: flex; align-items: baseline; gap: 0.35rem; }
 .slide .label .note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .slide output { font: 700 0.95rem var(--mono); color: var(--ink); }
-.slide.risky output { color: var(--pink); }
-input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(--soft); background: none; cursor: pointer; }
-.slide.risky input[type="range"] { accent-color: var(--pink); }
+/* The heat of a slider (ADR 0059): its value, track and lit tick take one
+   colour, set by the page from calm (green) through the legal cap (amber) to
+   alarm (red) as it rises. */
+.slide { --heat: var(--up); }
+.slide output { color: var(--heat); }
+input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(--heat, var(--soft)); background: none; cursor: pointer; }
 .ticks { position: relative; height: 0.95rem; margin: -0.3rem 0.45rem 0; font: 0.62rem var(--mono); color: var(--muted); }
 /* Every rung of the ladder is marked, the lit one in the brand colour. */
 .ticks span { padding-top: 0.12rem; }
 .ticks span::before { content: ""; position: absolute; left: 50%; top: -0.2rem; width: 1px; height: 0.2rem; background: var(--line); }
-.ticks span.on { color: var(--pink); font-weight: 800; }
-.ticks span.on::before { background: var(--pink); width: 2px; height: 0.3rem; top: -0.3rem; }
+.ticks span.on { color: var(--heat); font-weight: 800; }
+.ticks span.on::before { background: var(--heat); width: 2px; height: 0.3rem; top: -0.3rem; }
 .slide .fee { margin: 0.1rem 0 0; font-size: 0.7rem; line-height: 1.2; color: var(--muted); min-height: 0.85rem; }
-.slide.risky .fee { color: var(--pink); }
+.slide .fee { color: var(--heat); }
 .ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 /* The two caps sit close on a log scale: Japan's leans left, Australia's right. */
 /* Stop loss and take profit on the ticket (ADR 0032, 0034): a toggle for
@@ -438,7 +441,10 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .dad .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .dad .row .borrow { flex: 1 1 auto; }
 .pray { height: 2.25rem; background: none; border-style: dashed; color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.error { margin: 0; height: 2.6em; color: var(--down); font-size: 0.85rem; overflow: hidden; }
+/* A refusal takes room only while there is one, and it is the last line of the
+   ticket, so showing it moves nothing above it (ADR 0059). */
+.error { margin: 0; color: var(--down); font-size: 0.85rem; }
+.error:empty { display: none; }
 
 /* Your position, one row with its own close button, as on any platform. */
 table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
@@ -610,20 +616,15 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
    It is above a lit control (z-index 40, which the chart itself is in the
    first lesson) and below the pointer's words (45). */
 .lesson[hidden] { display: none; }
-.lesson { position: absolute; z-index: 42; left: 10px; bottom: 10px; right: 28%; max-height: calc(100% - 20px); overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem 0.9rem; align-items: start; padding: 0.6rem 0.85rem 0.7rem; border: 1px solid var(--pink); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 20px rgb(0 0 0 / 0.3), 0 0 0 4px var(--glow); }
-.lesson-side { display: grid; gap: 0.4rem; justify-items: stretch; width: 13rem; }
-.lesson-side .ghost { height: 2rem; padding: 0 0.5rem; font-size: 0.82rem; background: none; color: var(--soft); }
-/* The explanation opens on the Why? button; the card is short without it. */
-.lesson:not(.open) #lesson-text { display: none; }
-.lesson-n { margin: 0; font-size: 0.72rem; color: var(--pink); }
-.lesson h2 { margin: 0.05rem 0 0.2rem; padding: 0; border: none; font-size: 1rem; line-height: 1.25; color: var(--ink); }
-.lesson p { margin: 0 0 0.3rem; font-size: 0.82rem; line-height: 1.5; color: var(--soft); white-space: pre-line; }
-.lesson .lesson-n { white-space: normal; }
+.lesson { position: absolute; z-index: 42; left: 10px; bottom: 10px; right: 28%; max-height: calc(100% - 20px); overflow-y: auto; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0.5rem 1rem; align-items: start; padding: 0.6rem 0.85rem 0.7rem; border: 1px solid var(--pink); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 20px rgb(0 0 0 / 0.3), 0 0 0 4px var(--glow); }
+.lesson-n { margin: 0; font-size: 0.72rem; color: var(--pink); white-space: nowrap; }
+.lesson h2 { margin: 0 0 0.35rem; padding: 0; border: none; font-size: 1rem; line-height: 1.25; color: var(--ink); }
+.lesson p { margin: 0 0 0.3rem; font-size: 0.82rem; line-height: 1.5; color: var(--soft); }
 .task { margin: 0; padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--raise); border-left: 3px solid var(--pink); }
 .task span { display: block; font-size: 0.7rem; color: var(--pink); }
 .task strong { color: var(--ink); font-size: 0.84rem; }
-.lesson-head { display: flex; align-items: center; gap: 0.3rem; }
-.lesson-head .lesson-n { flex: 1; margin: 0; }
+.lesson-head { display: flex; align-items: center; justify-content: flex-end; gap: 0.3rem; margin-bottom: 0.35rem; }
+.lesson-head .lesson-n { flex: 1; }
 .lesson .icon { width: 1.7rem; height: 1.7rem; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--soft); font-size: 0.9rem; line-height: 1; }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }
 .ghost { background: none; }
@@ -693,8 +694,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   @media (max-width: 419px) { .sub { display: none; } }
   /* The lesson card keeps clear of the chart's right end, but its task and
      Why? button drop under its words, not beside them. */
-  .lesson { grid-template-columns: minmax(0, 1fr); right: 14%; }
-  .lesson-side { width: auto; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  /* On a phone the chart is too short to hold the card and the price, so the
+     card sits under it, in the page's flow, and covers nothing (ADR 0059). */
+  .lesson { position: static; grid-template-columns: minmax(0, 1fr); max-height: none; margin: 0.5rem 0.6rem 0.6rem; box-shadow: 0 0 0 3px var(--glow); }
   /* Tabs share the width, labels kept on one line; the chart is tall
      enough to hold the lobby and its Start button. */
   .tabs button { font-size: 0.8rem; padding-left: 0.25rem; padding-right: 0.25rem; }
@@ -718,13 +720,12 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .whoami strong { margin-left: 0; }
   .whoami .pencil { display: none; }
   /* Pair and price, then the clock, then the mode, each its own row. */
-  .quote { grid-template-columns: auto minmax(0, 1fr) auto; height: 6.6rem; gap: 0.1rem 0.5rem; }
+  .quote { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.1rem 0.5rem; }
   .quote .price { grid-column: 2; font-size: 1.6rem; min-width: 0; }
   .quote .round-ctl { grid-column: 3; grid-row: 1; gap: 0.25rem; }
   .ctl { width: 28px; height: 28px; }
   .quote #change { grid-column: 1; grid-row: 2; }
   .quote .clock { grid-column: 2 / -1; grid-row: 2; width: auto; justify-self: stretch; }
-  .quote .mode { grid-row: 3; white-space: normal; }
   .tabs em { display: none; }
   .chart-box { min-height: 270px; }
   /* The warning: title and button on one row, the message under them. */
@@ -760,10 +761,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .info:hover, .info[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
 .info:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
 .info[hidden] { display: none; }
-.studies-info { position: absolute; z-index: 1; right: 194px; top: 0.45rem; margin: 0; }
 .quote > .info { grid-column: 4; grid-row: 1; justify-self: end; align-self: center; width: 1.4rem; height: 1.4rem; margin: 0; }
 @media (pointer: coarse) { .info { width: 1.6rem; height: 1.6rem; font-size: 0.85rem; } }
 
 /* The step's words, beside the lit control (ADR 0052). */
-.step-hint { position: fixed; z-index: 45; max-width: min(20rem, calc(100vw - 16px)); padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--pink); color: var(--on-pink); font-weight: 700; font-size: 0.85rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35); pointer-events: none; }
+.step-hint { position: fixed; z-index: 45; max-width: calc(100vw - 16px); white-space: nowrap; padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--pink); color: var(--on-pink); font-weight: 700; font-size: 0.85rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35); pointer-events: none; }
 .step-hint[hidden] { display: none; }

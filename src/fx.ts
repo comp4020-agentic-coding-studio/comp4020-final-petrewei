@@ -11,7 +11,7 @@
 export const START = 1_000_000;
 // A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
 // Australia's 30× for major pairs is on it, offshore 1000× tops it.
-export const LEVERAGES = [1, 2, 5, 10, 30, 50, 100, 200, 500, 1000];
+export const LEVERAGES = [1, 2, 5, 10, 30, 100, 200, 500, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
@@ -22,6 +22,10 @@ export const STOP_OUT = 0.2;
 // 0057). It gets them back in the game, but the debt comes off their result.
 export const BORROW = 300_000;
 export const LOANS = 2;
+// A margin call is remembered this many ticks after it lifts, so Dad's savings
+// are still offered, and still taken, if a volatile position bounces back over
+// the call line before the player has pressed the button (ADR 0059).
+export const RECALL = 10;
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
 // the fee eats the account: over a round of 360 ticks, 0.03% of the margin at
@@ -56,7 +60,7 @@ export type Position = {
 // `left` that they walked out of it and only watch until the bell.
 // `caught` counts the loans Dad has found out about (ADR 0057); it equals the
 // loans once he has, and a caught player is grounded: out for the round.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; left: boolean; caught: number };
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; left: boolean; caught: number; recall: number };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -74,7 +78,7 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0 });
+    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0, recall: 0 });
   }
 
   // An independent copy, for the tutorial's way back to a lesson's start.
@@ -218,13 +222,15 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0 });
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, left: false, caught: 0, recall: 0 });
   }
 
   // Move the price and enforce the rules on every account, in join order.
   mark(price: number): Fill[] {
     this.price = price;
     const fills = [...this.accounts.keys()].flatMap((who) => this.enforce(who));
+    // A margin call is remembered a few ticks, then forgotten.
+    for (const account of this.accounts.values()) if (account.recall > 0) account.recall--;
     // The fee is charged after the rules have acted, so the call and cut
     // prices a page shows are the ones the next mark acts at.
     for (const account of this.accounts.values()) if (account.pos) account.pos.fees += account.pos.margin * feeRate(account.pos.leverage);
@@ -243,6 +249,7 @@ export class Desk {
     if (pos.take !== null && (pos.side === 1 ? price >= pos.take : price <= pos.take)) return [this.settleOne(who, "take")];
     const level = this.level(who);
     if (level <= STOP_OUT) return [this.settleOne(who, "stopout")];
+    if (level <= CALL) this.account(who).recall = RECALL;
     if (level <= CALL && !pos.called) {
       pos.called = true;
       return [{ kind: "call", who, price, pnl: this.pnl(who) }];
@@ -285,9 +292,12 @@ export class Desk {
     return fills;
   }
 
-  // Whether a margin call is on the player's position.
+  // Whether the player is under a margin call, for Dad's savings: the level is
+  // at or under the call line now, or was in the last few ticks, so that a
+  // position bouncing over the line does not take the offer away mid-press.
   called(who: string): boolean {
-    return !!this.account(who).pos?.called;
+    const account = this.account(who);
+    return !!account.pos && (this.level(who) <= CALL || account.recall > 0);
   }
 
   borrow(who: string): string | null {

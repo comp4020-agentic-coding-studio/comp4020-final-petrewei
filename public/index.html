@@ -73,7 +73,6 @@
           </button>
         </div>
         <button id="round-info" class="info" type="button" data-info="round" data-t-aria="info_round" aria-expanded="false" hidden>ⓘ</button>
-        <span class="mode" id="mode"></span>
         <span class="clock" id="clock"></span>
       </div>
       <div class="chart-box">
@@ -85,24 +84,27 @@
           <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
+        <!-- A Simulation's headline or a Replay's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
+        <p class="mode headline" id="mode" hidden></p>
         <!-- The tutorial's lesson: a card across the bottom of the chart, clear
-             of its right end where the price runs (ADR 0057). The task and the
-             Why? button sit at its right edge; the controls in its top row. -->
+             of its right end where the price runs (ADR 0057, 0059). The title and
+             the task are on the left; the head, with its buttons, is above the
+             lesson's text on the right, which is always shown. -->
         <section class="lesson" id="lesson" hidden aria-live="polite">
-          <div class="lesson-main">
+          <div class="lesson-task">
+            <h2 id="lesson-title"></h2>
+            <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
+          </div>
+          <div class="lesson-body">
             <div class="lesson-head">
               <p class="lesson-n" id="lesson-n"></p>
+              <button id="lesson-back" class="icon" type="button" data-t-aria="backLesson" data-tip="backLesson" data-tip-side="below">⏪&#xFE0E;</button>
               <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson" data-tip-side="below">⏩&#xFE0E;</button>
               <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause" data-tip-side="below">⏸&#xFE0E;</button>
               <button id="restart" class="icon" type="button" data-t-aria="restart" data-tip="restart" data-tip-side="below">↻&#xFE0E;</button>
               <button id="lesson-end" class="icon" type="button" data-t-aria="resetTutorial" data-tip="resetTutorial" data-tip-side="below">⏹&#xFE0E;</button>
             </div>
-            <h2 id="lesson-title"></h2>
             <p id="lesson-text"></p>
-          </div>
-          <div class="lesson-side">
-            <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
-            <button id="lesson-why" class="ghost" type="button" aria-expanded="false" aria-controls="lesson-text" data-t="lessonWhy" data-tip="lessonWhy" data-tip-side="below">Why?</button>
           </div>
         </section>
 
@@ -111,7 +113,6 @@
           <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-tip="bb">BB</button>
           <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-tip="rsi">RSI</button>
         </div>
-        <button class="info studies-info" type="button" data-info="indicators" data-t-aria="info_indicators" aria-expanded="false">ⓘ</button>
         <!-- A paused round, for everyone on the tab: anyone may resume. -->
         <div id="paused" class="paused" hidden>
           <span class="art" id="paused-art" aria-hidden="true"></span>
@@ -200,8 +201,8 @@
       <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span></h2>
       <div class="ticket-body">
       <div class="quotes">
-        <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong></button>
-        <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong></button>
+        <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong><small data-t="sellNote">Earns when the price falls</small></button>
+        <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong><small data-t="buyNote">Earns when the price rises</small></button>
       </div>
       <p class="spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></p>
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the

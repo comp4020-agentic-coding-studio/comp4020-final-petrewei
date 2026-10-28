@@ -861,7 +861,7 @@ function tutorialView(who: string) {
     tick: t.prices.length - 1,
     steps: 4,
     start: START,
-    lesson: { id: l.id, stage: t.stage, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
+    lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
     you: {
       name: nameOf(who),
       draw: drawOf(who),
@@ -1266,6 +1266,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       let error: string | null = null;
       if (kind === "restart") t.restart();
       else if (kind === "again") t.restartLesson();
+      else if (kind === "back") t.back();
       else if (kind === "skip") error = t.skip();
       else if (kind === "next") error = t.act({ kind: "next" });
       else if (action && action.kind !== "pray") error = t.act(action as Move);

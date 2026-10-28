@@ -359,23 +359,33 @@ it("never puts a replay's famous date on the wire before the bell, in a clue or 
 // ADR 0057: in a real market, a player who "borrows" from Dad's savings is
 // found out after a while, or at the bell if the round ends first, whichever
 // comes first: everything is closed, they are grounded, the room is told, and
-// the score is docked. The same rule as the tutorial's, in every mode.
-it("has Dad find out about a \"loan\" in a market round, and tells the room", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", DAD_TICKS: "6" });
-  const { visitor, page, act, until } = app();
+// the score is docked. The same rule as the tutorial's, in every mode. The
+// margin call is forced through the debug route (ADR 0019), so the check does
+// not depend on where a random price goes.
+const KEY = "test-key-rounds-0123456789abcdef";
+async function inACall(port: number, env: Record<string, string>) {
+  s = await server(port, { TICK_MS: "20", COUNTDOWN_TICKS: "2", STATS_KEY: KEY, ...env });
+  const { visitor, page, act, until, look } = app();
   const me = await visitor();
   const tab = await page(me, "simulation");
+  const set = (await fetch(`${s.base}/?debug=${KEY}`, { headers: { cookie: me }, redirect: "manual" })).headers.get("set-cookie") ?? "";
+  const cookie = `${me}; ${set.match(/dbg=[^;]+/)![0]}`;
+  const debug = (body: unknown) => fetch(`${s.base}/api/debug`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) });
+  await act(me, { kind: "start", mode: "simulation" });
+  await until(me, (x) => x.phase === "trade", 10_000, "simulation");
+  expect((await act(me, { kind: "buy", leverage: 1000, mode: "simulation" })).status).toBe(200);
+  expect((await debug({ kind: "call", mode: "simulation" })).status).toBe(200);
+  const lent = await act(me, { kind: "borrow", mode: "simulation" });
+  expect(lent.status, JSON.stringify(await lent.clone().json())).toBe(200);
+  return { me, tab, act, until, look };
+}
+
+it("has Dad find out about a \"loan\" in a market round, and tells the room", async () => {
+  const { me, tab, act, until, look } = await inACall(8096, { DAD_TICKS: "6" });
   try {
-    await act(me, { kind: "start", mode: "simulation" });
-    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
-    // a position at the top of the menu meets a margin call or a cut within moments
-    await act(me, { kind: "buy", leverage: 1000, mode: "simulation" });
-    const hurt = await until(me, (x) => x.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), 15_000, "simulation");
-    expect(hurt.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), "the 1000× position was hurt").toBe(true);
-    expect((await act(me, { kind: "borrow", mode: "simulation" })).status).toBe(200);
     const caught = await until(me, (x) => x.feed.some((f) => f.key === "caught"), 10_000, "simulation");
     expect(caught.feed.map((f) => f.key)).toContain("caught");
-    const after = (await app().look(me, "simulation")) as Seen & { you: { out: boolean; caught: number; pos: unknown } };
+    const after = (await look(me, "simulation")) as Seen & { you: { out: boolean; caught: number; pos: unknown } };
     expect(after.you.caught).toBe(1);
     expect(after.you.out).toBe(true);
     expect(after.you.pos).toBeNull();
@@ -390,22 +400,14 @@ it("has Dad find out about a \"loan\" in a market round, and tells the room", as
 
 it("has Dad find out at the bell if the round ends before he would have, and docks the score", async () => {
   // Dad's delay is far longer than the round, so only the bell can reveal it
-  s = await server(8096, { TICK_MS: "20", COUNTDOWN_TICKS: "2", DAD_TICKS: "100000" });
-  const { visitor, page, act, until, look } = app();
-  const me = await visitor();
-  const tab = await page(me, "simulation");
+  const { me, tab, until, look } = await inACall(8096, { DAD_TICKS: "100000" });
   try {
-    await act(me, { kind: "start", mode: "simulation" });
-    await until(me, (x) => x.phase === "trade", 10_000, "simulation");
-    await act(me, { kind: "buy", leverage: 1000, mode: "simulation" });
-    await until(me, (x) => x.feed.some((f) => ["call", "stopout", "zerocut"].includes(f.key)), 15_000, "simulation");
-    expect((await act(me, { kind: "borrow", mode: "simulation" })).status).toBe(200);
     expect(((await look(me, "simulation")) as Seen & { you: { caught: number } }).you.caught, "not found out yet").toBe(0);
     const bell = await until(me, (x) => x.phase === "break", 30_000, "simulation");
     expect(bell.feed.map((f) => f.key), "Dad found out at the bell").toContain("caught");
     const mine = bell.result!.ranking.find((r) => r.you)! as Row & { score: number };
-    // the loan, a forced cut or a wipe-out and Dad's punishment are all in the score
-    expect(mine.score).toBeLessThan(-20);
+    // the loan and Dad's punishment are both in the score
+    expect(mine.score).toBeLessThan(-14);
   } finally {
     tab.close();
   }

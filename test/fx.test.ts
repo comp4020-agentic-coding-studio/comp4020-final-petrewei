@@ -373,20 +373,20 @@ describe("rebase, for the debug console", () => {
   });
 });
 
-// ADR 0024, 0033: the leverage ladder. A log-scale slider snaps to these,
-// with Australia's retail cap for major pairs (30×) on it, and 500× where
-// 400× was. Japan's 25× was dropped.
+// ADR 0024, 0033, 0059: the leverage ladder. A slider snaps to these, evenly
+// spaced, with Australia's retail cap for major pairs (30×) on it. Japan's 25×
+// was dropped, and so was 50×.
 describe("the leverage ladder", () => {
   it("offers the ladder, both legal caps, and nothing between", async () => {
     const { LEVERAGES } = await import("../src/fx.ts");
-    expect(LEVERAGES).toEqual([1, 2, 5, 10, 30, 50, 100, 200, 500, 1000]);
+    expect(LEVERAGES).toEqual([1, 2, 5, 10, 30, 100, 200, 500, 1000]);
     const desk = new Desk(100);
     for (const lev of LEVERAGES) {
       desk.join(`p${lev}`);
       expect(desk.order(`p${lev}`, 1, lev, 0.75), String(lev)).toEqual([expect.objectContaining({ kind: "open", leverage: lev })]);
     }
     desk.join("x");
-    for (const lev of [3, 25, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
+    for (const lev of [3, 25, 50, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
   });
 });
 
@@ -480,6 +480,25 @@ describe("Dad's savings", () => {
     expect(desk.called("a")).toBe(true);
     expect(desk.borrow("a")).toBeNull();
     expect(desk.account("a").debt).toBe(BORROW);
+  });
+  it("keeps the offer for a few ticks after a margin call lifts, so a bouncing position can still take it", async () => {
+    const { Desk, RECALL } = await import("../src/fx.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 1000);
+    desk.mark(99.965);
+    expect(desk.called("a")).toBe(true);
+    // the price bounces back well over the call line
+    desk.mark(100.2);
+    expect(desk.level("a")).toBeGreaterThan(0.5);
+    for (let i = 0; i < RECALL - 2; i++) {
+      expect(desk.called("a"), `tick ${i}`).toBe(true);
+      desk.mark(100.2);
+    }
+    // and then it is forgotten
+    for (let i = 0; i < 4; i++) desk.mark(100.2);
+    expect(desk.called("a")).toBe(false);
+    expect(desk.borrow("a")).toMatch(/still have money/);
   });
   it("is found out: the position is closed, the player is grounded, and it counts once", async () => {
     const { Desk } = await import("../src/fx.ts");

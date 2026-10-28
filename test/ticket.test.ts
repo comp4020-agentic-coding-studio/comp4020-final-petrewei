@@ -7,23 +7,31 @@ import { STAKES, gauge, levAt, levPos, pct } from "../public/ticket.js";
 // the desk's ladder; the stake slider is even; percentages never round a
 // real move to zero; the meter is centred on the starting money.
 describe("the leverage slider", () => {
-  it("places the ladder by its logarithm, from 1× at 0 to 1000× at 1", () => {
-    expect(levPos(1)).toBe(0);
-    expect(levPos(1000)).toBe(1);
-    expect(levPos(10)).toBeCloseTo(1 / 3, 6);
-    expect(levPos(100)).toBeCloseTo(2 / 3, 6);
+  it("places the rungs evenly, whatever their leverage, from the first at 0 to the last at 1", () => {
+    expect(levPos(1, LEVERAGES)).toBe(0);
+    expect(levPos(1000, LEVERAGES)).toBe(1);
+    const gaps = LEVERAGES.slice(1).map((lev, i) => levPos(lev, LEVERAGES) - levPos(LEVERAGES[i], LEVERAGES));
+    for (const gap of gaps) expect(gap).toBeCloseTo(1 / (LEVERAGES.length - 1), 9);
   });
 
   it("snaps any position to the nearest rung, and every rung to itself", () => {
-    for (const lev of LEVERAGES) expect(levAt(levPos(lev), LEVERAGES), String(lev)).toBe(lev);
-    expect(levAt(0.5, LEVERAGES)).toBe(30);
-    // 25× is gone: Japan's cap is no longer a rung
+    for (const lev of LEVERAGES) expect(levAt(levPos(lev, LEVERAGES), LEVERAGES), String(lev)).toBe(lev);
     expect(LEVERAGES).not.toContain(25);
+    expect(LEVERAGES, "the 50× rung is gone").not.toContain(50);
     expect(levAt(-1, LEVERAGES)).toBe(1);
     expect(levAt(2, LEVERAGES)).toBe(1000);
-    // Australia's cap is a stop of its own
-    expect(levAt(levPos(30) - 0.005, LEVERAGES)).toBe(30);
-    expect(levAt(levPos(30) + 0.005, LEVERAGES)).toBe(30);
+    // Australia's cap has a rung of its own, and one step moves exactly one rung
+    const cap = levPos(30, LEVERAGES);
+    expect(levAt(cap - 0.01, LEVERAGES)).toBe(30);
+    expect(levAt(cap + 0.01, LEVERAGES)).toBe(30);
+    const step = 1 / (LEVERAGES.length - 1);
+    expect(levAt(cap + step, LEVERAGES)).toBe(LEVERAGES[LEVERAGES.indexOf(30) + 1]);
+  });
+
+  it("puts a leverage that is not a rung at the nearest one", () => {
+    // a position kept at 50× from before sits at 30×, the rung nearer in ratio (50/30 is less than 100/50)
+    expect(levPos(50, LEVERAGES)).toBe(levPos(30, LEVERAGES));
+    expect(levAt(levPos(25, LEVERAGES), LEVERAGES)).toBe(30);
   });
 });
 
