@@ -1,6 +1,6 @@
 # ADR 0013: A Private Tutorial
 
-Status: accepted, 15 October 2026; its lessons now point at one control at a time, by [ADR 0052](0052-a-tutorial-that-points.md).
+Status: accepted, 15 October 2026; its lessons now point at one control at a time, by [ADR 0052](0052-a-tutorial-that-points.md); now ten lessons, ending in a 1000× wipe-out, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 

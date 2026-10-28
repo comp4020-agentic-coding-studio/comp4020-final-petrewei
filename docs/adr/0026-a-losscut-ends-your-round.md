@@ -1,6 +1,6 @@
 # ADR 0026: A Losscut Ends Your Round
 
-Status: accepted, 26 October 2026. Changes the broker's rules of [ADR 0009](0009-a-parody-fx-trading-floor.md), kept in `src/fx.ts`.
+Status: accepted, 26 October 2026. Changes the broker's rules of [ADR 0009](0009-a-parody-fx-trading-floor.md), kept in `src/fx.ts`; the loan is "borrowed" and found out, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 

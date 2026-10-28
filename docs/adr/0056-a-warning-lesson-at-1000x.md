@@ -1,6 +1,6 @@
 # ADR 0056: A Warning Lesson at 1000×
 
-Status: accepted, 29 October 2026. Adds two lessons before the last one in [ADR 0013](0013-a-private-tutorial.md), and changes the card of [ADR 0055](0055-five-seconds-pause-and-end.md).
+Status: accepted, 29 October 2026. Adds two lessons before the last one in [ADR 0013](0013-a-private-tutorial.md), and changes the card of [ADR 0055](0055-five-seconds-pause-and-end.md); its two lessons were merged into one, and its warning moved into it, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 

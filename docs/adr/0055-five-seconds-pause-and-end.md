@@ -1,6 +1,6 @@
 # ADR 0055: Five Seconds, Pause and End
 
-Status: accepted, 28 October 2026. Changes the wait and the countdown of [ADR 0054](0054-a-compact-lesson-card-and-a-helper-that-waits.md).
+Status: accepted, 28 October 2026. Changes the wait and the countdown of [ADR 0054](0054-a-compact-lesson-card-and-a-helper-that-waits.md); its ⏹ button now resets the tutorial and ↻ restarts the lesson, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 

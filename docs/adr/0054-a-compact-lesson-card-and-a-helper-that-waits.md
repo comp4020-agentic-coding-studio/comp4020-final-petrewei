@@ -1,6 +1,6 @@
 # ADR 0054: A Compact Lesson Card and a Helper That Waits
 
-Status: accepted, 28 October 2026; its 10 seconds and wording changed by [ADR 0055](0055-five-seconds-pause-and-end.md). Moves the lesson panel of [ADR 0013](0013-a-private-tutorial.md) and adds to the pointer of [ADR 0053](0053-a-pointer-that-waits-and-does-not-dim.md).
+Status: accepted, 28 October 2026; its 10 seconds and wording changed by [ADR 0055](0055-five-seconds-pause-and-end.md). Moves the lesson panel of [ADR 0013](0013-a-private-tutorial.md) and adds to the pointer of [ADR 0053](0053-a-pointer-that-waits-and-does-not-dim.md); the card now spans the chart, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 

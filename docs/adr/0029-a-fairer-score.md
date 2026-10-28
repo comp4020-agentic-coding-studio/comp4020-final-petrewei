@@ -1,6 +1,6 @@
 # ADR 0029: A Fairer Score
 
-Status: accepted, 26 October 2026. Changes how the bell and the hall of fame rank, kept in `src/score.ts`.
+Status: accepted, 26 October 2026. Changes how the bell and the hall of fame rank, kept in `src/score.ts`; Dad finding out costs 10 more, by [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md).
 
 ## 1 Context
 
