@@ -1,6 +1,6 @@
 # ADR 0042: Headed and Foldable Chart and Position
 
-Status: accepted, 28 October 2026; its folded price line removed by [ADR 0043](0043-a-candlestick-icon-and-a-subtitle-at-the-side.md). Extends the folding of [ADR 0039](0039-a-tidier-page.md), and moves Ironman back below Start in the lobby of that ADR.
+Status: accepted, 28 October 2026; its folded price line removed by [ADR 0043](0043-a-candlestick-icon-and-a-subtitle-at-the-side.md). Extends the folding of [ADR 0039](0039-a-tidier-page.md), and moves Ironman back below Start in the lobby of that ADR; the quote moved over the chart by [ADR 0062](0062-thirty-day-rounds-and-a-chart-that-opens-full.md).
 
 ## 1 Context
 
