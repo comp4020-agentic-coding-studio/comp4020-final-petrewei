@@ -8,7 +8,8 @@ import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
-import { refresh as retip, useInfo, useWords } from "/tips.js";
+import { clauses } from "/clauses.js";
+import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
 // Chinese. The server has already written the page in it; the menu moves
@@ -30,6 +31,7 @@ const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : n
 // A tip in this language, by key (ADR 0025).
 const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", vars);
 useWords((k) => tip(k));
+useClauses(clauses);
 // What an info button explains (ADR 0049), in this language, by key.
 useInfo((k) => T[lang].info[k] ?? T.en.info[k] ?? "");
 // A tip that carries values, written only when it changes, since render

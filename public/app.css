@@ -176,8 +176,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 @keyframes ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-5deg); } }
 .losscut .art { margin-bottom: 0.4rem; animation: none; }
 /* The tip: one for the page, shown at once, in the page's colours. */
-.tip { position: fixed; inset: auto; margin: 0; z-index: 30; overflow: visible; max-width: min(22rem, calc(100vw - 8px)); padding: 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 18px rgb(0 0 0 / 0.35); font-size: 0.8rem; line-height: 1.4; pointer-events: none; text-wrap: pretty; animation: tip-in 0.12s ease-out; }
+.tip { position: fixed; inset: auto; margin: 0; z-index: 30; overflow: visible; width: max-content; max-width: min(36rem, calc(100vw - 8px)); padding: 0.4rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 6px 18px rgb(0 0 0 / 0.35); font-size: 0.8rem; line-height: 1.4; pointer-events: none; text-wrap: pretty; animation: tip-in 0.12s ease-out; }
 .tip[hidden] { display: none; }
+/* A tip breaks only between its clauses, after . or , and the like (ADR 0051),
+   so each clause stays whole, and the panel is wide enough for the longest. */
+.tip .clause { white-space: nowrap; }
 @keyframes tip-in { from { opacity: 0; transform: translateY(3px); } }
 [data-tip], [data-tip-text] { cursor: help; }
 button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[data-tip] { cursor: pointer; }

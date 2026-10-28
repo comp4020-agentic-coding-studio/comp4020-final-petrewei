@@ -4,6 +4,9 @@
 // in the page's language) or carries its text (data-tip-text, for tips
 // that change, such as your code). A screen reader hears it too.
 let words = () => "";
+// How a tip is cut into clauses (ADR 0051); the page passes its own, so this
+// module needs no imports. Until it does, a tip is one clause.
+let clauses = (text) => (text ? [text] : []);
 let infoWords = () => "";
 // A popover, so it sits in the top layer: over a dialog, not under it.
 const tip = Object.assign(document.createElement("div"), { id: "tip", className: "tip", role: "tooltip", hidden: true });
@@ -21,7 +24,10 @@ function show(el) {
   const text = textOf(el);
   if (!text) return hide();
   over = el;
-  tip.textContent = text;
+  // One unbreakable span a clause, so a line may end only between them.
+  // A space between clauses, except after a Japanese or Chinese mark, which
+  // is never spaced.
+  tip.replaceChildren(...clauses(text).flatMap((c, i, all) => [Object.assign(document.createElement("span"), { className: "clause", textContent: c }), ...(i < all.length - 1 && !/[。，、；：！？）」』]$/.test(c) ? [" "] : [])]));
   tip.hidden = false;
   if (!tip.matches(":popover-open")) tip.showPopover?.();
   el.setAttribute("aria-describedby", "tip");
@@ -98,6 +104,9 @@ export function useWords(lookup) {
 // The same for the explanations the info buttons carry.
 export function useInfo(lookup) {
   infoWords = lookup;
+}
+export function useClauses(split) {
+  clauses = split;
 }
 export function refresh() {
   if (over) show(over);

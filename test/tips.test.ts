@@ -350,3 +350,30 @@ it("keeps a hover tip short: one line of voice, never a definition", () => {
     expect([...tip].length, `${lang}.tips.${k}: ${tip}`).toBeLessThanOrEqual(limit[lang]);
   }
 });
+
+// ADR 0051: a tip or a definition breaks only between its clauses, after . , ;
+// : ! ? or 。，、；：！？, so each clause must fit one line of a phone's panel.
+// Measured in a browser at 360px, 331px of text holds about 53 average English
+// letters or 25 Japanese and Chinese characters; these limits are the earlier
+// warning, the browser measurement is the proof (see the ADR).
+it("keeps every clause of a tip or a definition short enough for one line on a phone", async () => {
+  const { clauses } = await import("../public/clauses.js");
+  const limit = { en: 58, ja: 24, zh: 24 };
+  for (const lang of LANGS) for (const group of ["tips", "info"] as const) for (const [k, text] of Object.entries(T[lang][group])) {
+    if (k.endsWith("Row")) continue;
+    for (const c of clauses(text)) expect([...c].length, `${lang}.${group}.${k}: ${c}`).toBeLessThanOrEqual(limit[lang]);
+  }
+});
+it("splits a tip only after its own punctuation, and loses no words doing so", async () => {
+  const { clauses } = await import("../public/clauses.js");
+  for (const lang of LANGS) for (const group of ["tips", "info"] as const) for (const [k, text] of Object.entries(T[lang][group])) {
+    const parts = clauses(text) as string[];
+    expect(parts.join("").replace(/\s/g, ""), `${lang}.${group}.${k}`).toBe(text.replace(/\s/g, ""));
+    for (const p of parts.slice(0, -1)) expect(p, `${lang}.${group}.${k}: ${p}`).toMatch(/[.,;:!?。，、；：！？]$/);
+  }
+});
+it("never breaks inside a clause: each is one unbreakable span", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  expect(css).toMatch(/\.tip \.clause \{ white-space: nowrap; \}/);
+  expect(readFileSync("public/tips.js", "utf8")).toMatch(/className: "clause"/);
+});

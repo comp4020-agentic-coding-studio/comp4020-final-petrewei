@@ -1,6 +1,6 @@
 # ADR 0049: Jokes on Hover, Definitions Behind an Info Button
 
-Status: accepted, 28 October 2026. Changes the tips of [ADR 0025](0025-tips-and-pictures.md), and the wording of those in [ADR 0046](0046-scenario-is-a-random-simulation.md) and [ADR 0047](0047-simulation-replaces-scenario.md).
+Status: accepted, 28 October 2026; its panels break only between clauses by [ADR 0051](0051-tips-break-only-between-clauses.md). Changes the tips of [ADR 0025](0025-tips-and-pictures.md), and the wording of those in [ADR 0046](0046-scenario-is-a-random-simulation.md) and [ADR 0047](0047-simulation-replaces-scenario.md).
 
 ## 1 Context
 
