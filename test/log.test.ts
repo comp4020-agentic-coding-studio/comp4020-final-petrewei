@@ -74,26 +74,12 @@ it("keeps the log and the hall of fame through a hard kill", async () => {
   expect((await fame()).find((c) => c.you)?.busts).toBeGreaterThanOrEqual(1);
 }, 30_000);
 
-// ADR 0010: the bell's ranking names everyone who traded, by trader name;
-// it must not carry their cookies, any more than the room does.
-it("keeps cookies out of the bell's ranking", async () => {
-  s = await server(8097, { TICK_MS: "10" });
-  const { visitor, act, open, state } = app();
-  const a = await visitor();
-  const b = await visitor();
-  await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
-  // b's own reading of the bell, taken in the same request that sees it
-  let bell = await state(b);
-  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(b);
-  expect(bell.phase).toBe("break");
-  expect(JSON.stringify(bell)).not.toContain(a.slice(2));
-}, 20_000);
-
-// The bell names everyone in the room when it rings: a person who sat
-// the round out with the tab open is ranked as sitting out, while one who
-// looked and left is not there at all. Neither gets a career.
-it("ranks everyone in the room at the bell, marking who sat out", async () => {
+// The bell names everyone in the room when it rings, and nothing in what it
+// sends is a cookie. A person who sat the round out with the tab open is ranked
+// as sitting out, one who looked and left is not there at all, and a career
+// starts with a trade, so neither gets a row in the hall of fame. One round
+// carries all of it.
+it("ranks the room at the bell, logs the round to stdout, and waits in the lobby after it", async () => {
   s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
   const { visitor, act, open, page, state } = app();
   const trader = await visitor();
@@ -108,6 +94,9 @@ it("ranks everyone in the room at the bell, marking who sat out", async () => {
     await act(trader, { kind: "buy", leverage: 5 });
     let bell = await state(watcher);
     for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(watcher);
+    expect(bell.phase).toBe("break");
+    // no cookie anywhere in what the bell sends
+    for (const c of [trader, watcher, passer]) expect(JSON.stringify(bell)).not.toContain(c.slice(2));
     type Row = { code: string; you: boolean; sat?: boolean };
     const ranking = (bell as unknown as { result: { ranking: Row[] } }).result.ranking;
     const mine = ranking.find((r) => r.you);
@@ -119,29 +108,35 @@ it("ranks everyone in the room at the bell, marking who sat out", async () => {
     expect(ranking.some((r) => r.code === passerCode)).toBe(false);
     // ranked first, everyone who traded; then, unranked, who sat out
     expect(ranking.findIndex((r) => r.sat)).toBe(ranking.length - 1);
+    // the hall lists the one who traded, and not the one who watched
     expect(bell.career.some((c) => c.you)).toBe(false);
+    const hall = (await state(trader)).career;
+    expect(hall.filter((c) => c.rounds > 0)).toHaveLength(1);
+    expect(hall[0].you).toBe(true);
+    // a person is shown the same face in the room, at the bell and in the hall
+    // (ADR 0021): a house trader's name or a plain face's number, nothing else
+    type Faced = { face: string; you: boolean };
+    const myFace = ((await state(trader)).you as unknown as Faced).face;
+    const traderRow = (await state(trader)) as unknown as { result: { ranking: Faced[] } };
+    expect(traderRow.result.ranking.find((r) => r.you)?.face).toBe(myFace);
+    expect((hall as unknown as Faced[]).find((c) => c.you)?.face).toBe(myFace);
+    for (const r of ranking as unknown as Faced[]) expect(r.face).toMatch(/^(bot:\w+|p\d+)$/);
+    // Crit 10 is narrated from `flyctl logs`, the server's stdout: people's actions
+    // and the round's end are printed, and the bots, who trade every few seconds and
+    // would bury two classmates' lines, print nothing.
+    expect(s.out.some((l) => / open who=[0-9a-f]{6} /.test(l))).toBe(true);
+    expect(s.out.some((l) => / end who=server /.test(l))).toBe(true);
+    expect(s.out.filter((l) => / who=bot:/.test(l))).toEqual([]);
+    // after the bell the market waits in the lobby, and does not start the next round by itself
+    let seen = await state(watcher);
+    for (const until = Date.now() + 15_000; seen.phase !== "lobby" && Date.now() < until; ) seen = await state(watcher);
+    expect(seen.phase).toBe("lobby");
+    await new Promise((r) => setTimeout(r, 500));
+    expect((await state(watcher)).phase).toBe("lobby");
   } finally {
     watching.close();
   }
-}, 20_000);
-
-// A career starts with a trade: someone who only watched a round gets no
-// row in the hall of fame, so it lists players, not passers-by.
-it("gives a career to traders, not watchers", async () => {
-  s = await server(8097, { TICK_MS: "10" });
-  const { visitor, act, open, page, state } = app();
-  const trader = await visitor();
-  const watcher = await visitor();
-  const watching = await page(watcher);
-  await open(30);
-  await act(trader, { kind: "buy", leverage: 5 });
-  let bell = await state(trader);
-  for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(trader);
-  watching.close();
-  expect(bell.career.filter((c) => c.rounds > 0)).toHaveLength(1);
-  expect(bell.career[0].you).toBe(true);
-  expect((await state(watcher)).career.some((c) => c.you)).toBe(false);
-}, 20_000);
+}, 40_000);
 
 // The hall of fame is for people. A bot never gets a row, after any number
 // of rounds, and a saved hall holding one (from an older version, or by
@@ -166,36 +161,6 @@ it("keeps the house traders out of the hall of fame", async () => {
   expect(bell.phase).toBe("break");
   for (const name of await names()) expect(bots, name).not.toContain(name);
 }, 20_000);
-
-// After the bell a market goes back to the lobby and waits, rather than
-// starting the next round by itself.
-it("returns to the lobby after the bell, and stays there", async () => {
-  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
-  const { open, state } = app();
-  expect((await state()).phase).toBe("lobby");
-  await open(30);
-  let seen = await state();
-  for (const until = Date.now() + 15_000; seen.phase !== "lobby" && Date.now() < until; ) seen = await state();
-  expect(seen.phase).toBe("lobby");
-  await new Promise((r) => setTimeout(r, 500));
-  expect((await state()).phase).toBe("lobby");
-}, 30_000);
-
-// Crit 10 is narrated from `flyctl logs`, the server's stdout. The bots
-// trade every few seconds and would bury two classmates' lines, so they
-// print nothing; their results still close each round's "end" line.
-it("prints people's actions and rounds to stdout, never the bots'", async () => {
-  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
-  const { visitor, act, open, state } = app();
-  const a = await visitor();
-  await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
-  let seen = await state();
-  for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state();
-  expect(s.out.some((l) => / open who=[0-9a-f]{6} /.test(l))).toBe(true);
-  expect(s.out.some((l) => / end who=server /.test(l))).toBe(true);
-  expect(s.out.filter((l) => / who=bot:/.test(l))).toEqual([]);
-}, 30_000);
 
 // Lecture 10: a request ID ties an event to the request that caused it.
 // stdout, which `flyctl logs` shows, prints one readable line per event,
@@ -245,22 +210,28 @@ it("starts one round when two people press Start at once", async () => {
 
 // Lecture 10: a visitor is the same person after a restart. The name and
 // code come from the cookie, so a hard kill changes neither, and the hall
-// of fame still marks their row as theirs.
-it("keeps a visitor's name, code and career through a hard kill", async () => {
+// of fame still marks their row as theirs. A chosen face is kept on the volume
+// too, so it outlives the kill, in the room and in the hall (ADR 0021).
+it("keeps a visitor's name, code, chosen face and career through a hard kill", async () => {
   s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" });
   const { visitor, act, open, state } = app();
+  type Me = { you: { name: string; code: string; face: string }; career: { you: boolean; rounds: number; face: string }[] };
   const a = await visitor();
+  const face = (await state(a) as unknown as Me).you.face === "p5" ? "p6" : "p5";
+  const chose = await fetch(`${s.base}/api/face`, { method: "POST", headers: { "content-type": "application/json", cookie: a }, body: JSON.stringify({ face }) });
+  expect(chose.status).toBe(200);
   await open(30);
   await act(a, { kind: "buy", leverage: 5 });
   let seen = await state(a);
   for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state(a);
-  const before = seen as unknown as { you: { name: string; code: string } };
+  const before = seen as unknown as Me;
+  expect(before.career.find((c) => c.you)?.face, "the hall shows the chosen face").toBe(face);
   s.proc.kill("SIGKILL");
   await new Promise((r) => s.proc.once("exit", r));
   await s.restart();
-  const after = (await state(a)) as unknown as { you: { name: string; code: string }; career: { you: boolean; rounds: number }[] };
-  expect(after.you).toMatchObject({ name: before.you.name, code: before.you.code });
-  expect(after.career.find((c) => c.you)?.rounds).toBe(1);
+  const after = (await state(a)) as unknown as Me;
+  expect(after.you).toMatchObject({ name: before.you.name, code: before.you.code, face });
+  expect(after.career.find((c) => c.you)).toMatchObject({ rounds: 1, face });
 }, 30_000);
 
 // ADR 0029: the bell gives each trader a score, and the hall ranks only
@@ -286,7 +257,7 @@ it("scores the bell, and ranks the hall by average score over enough rounds", as
   await act(a, { kind: "buy", leverage: 5 });
   let bell = await state(a);
   for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
-  const ranking = (bell as unknown as { result: { ranking: { score: number; sat: boolean; left: boolean }[] } }).result.ranking.filter((r) => !r.sat && !r.left);
+  const ranking = (bell as unknown as { result: { ranking: { score: number; sat: boolean }[] } }).result.ranking.filter((r) => !r.sat);
   for (const r of ranking) expect(r.score).toEqual(expect.any(Number));
   // ranked by score, best first
   for (let i = 1; i < ranking.length; i++) expect(ranking[i - 1].score).toBeGreaterThanOrEqual(ranking[i].score);

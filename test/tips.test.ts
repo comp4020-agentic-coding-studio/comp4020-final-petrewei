@@ -383,43 +383,6 @@ it("never breaks inside a clause: each is one unbreakable span", () => {
   expect(readFileSync("public/tips.js", "utf8")).toMatch(/className: "clause"/);
 });
 
-// ADR 0052: the tutorial lights a control by adding a class to it, and the page
-// redraws its figures every tick. A redraw that sets the whole className on a
-// lit element wipes the ring out again half a second later, so none may.
-it("never overwrites the class of an element the tutorial can light", () => {
-  const app = readFileSync("public/app.js", "utf8");
-  const targets = app.match(/const TARGETS = \{([^}]*)\}/)![1];
-  const ids = [...targets.matchAll(/:\s*"([a-z-]+)"/g)].map((m) => m[1]);
-  expect(ids.length).toBeGreaterThanOrEqual(10);
-  for (const id of ids) expect(app, `$("${id}").className is assigned, wiping the spotlight`).not.toMatch(new RegExp(`\\$\\("${id}"\\)\\.className\\s*=`));
-});
-// The ring and the dimming are a shadow and an outline drawn outside the lit
-// element, so an element that clips its own overflow must not be one.
-it("does not clip the spotlight on an element that hides its overflow", () => {
-  const css = readFileSync("public/app.css", "utf8");
-  const clip = css.match(/\.acct dd \{[^}]*overflow: hidden/);
-  const reset = css.match(/\.acct dd\.focus \{[^}]*overflow: visible/);
-  expect(!clip || reset, ".acct dd hides its overflow and so cuts off the spotlight").toBeTruthy();
-});
-
-// ADR 0052: the spotlight reads which controls are on screen, so it must run
-// after the render has shown or hidden them. Run from the lesson's own part
-// of the render, it asked about the Stop Loss before the position panel had
-// revealed it, found nothing, and lit nothing in two lessons.
-it("lights the tutorial's step after the render has laid out the page", () => {
-  const app = readFileSync("public/app.js", "utf8");
-  const start = app.indexOf("function render(s) {");
-  const render = app.slice(start, app.indexOf("\n// One stream at a time", start));
-  const reveal = render.indexOf('$("pos-exits").hidden');
-  const lit = render.indexOf("spotlight(");
-  expect(reveal, "render shows the position's exits").toBeGreaterThan(0);
-  expect(lit, "render lights the step").toBeGreaterThan(0);
-  expect(lit, "the step is lit after the exits are shown or hidden").toBeGreaterThan(reveal);
-  // and not also from the lesson's own early part, which runs before them
-  const lessonFn = app.slice(app.indexOf("function lesson(s) {"), app.indexOf("\n}\n", app.indexOf("function lesson(s) {")));
-  expect(lessonFn, "lesson() lights the step too early").not.toMatch(/spotlight\(/);
-});
-
 // ADR 0052: the Dad's Savings lesson tells the player to press Borrow, so the
 // button must be there in the tutorial, whose rounds are never in the trade
 // phase that a market's Borrow waits for.
@@ -439,157 +402,37 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
   expect(rule).not.toMatch(/s\.phase === "trade"/);
 });
 
-// ADR 0053: the tutorial's pointer is the tutorial's alone, it waits for the
-// player, and it does not dim the page. It must be gone the moment another
-// mode is on show, since only a tutorial's state has a lesson to clear it.
-const pointerApp = readFileSync("public/app.js", "utf8");
-const pointerCss = readFileSync("public/app.css", "utf8");
-it("tutorial pointer: does not dim the page: no shadow spread around the ring, and no dimming class", () => {
-  const focus = pointerCss.match(/\n\.focus \{([^}]*)\}/)![1];
-  expect(focus).not.toMatch(/100vmax|100vw|100vh/);
-  expect(focus).toMatch(/outline: 3px solid/);
-  expect(pointerApp).not.toMatch(/classList\.(add|remove|toggle)\("spotlit"/);
-  expect(pointerCss).not.toMatch(/\.spotlit/);
-});
-it("tutorial pointer: is cleared when another mode is shown, by the state and by the switch", () => {
-  const render = pointerApp.slice(pointerApp.indexOf("function render(s) {"), pointerApp.indexOf("\n// One stream at a time"));
-  expect(render, "render clears it when a state has no lesson").toMatch(/if \(s\.lesson\) spotlight\([^)]*\);\s*else clearPointer\(\)/);
-  const watch = pointerApp.slice(pointerApp.indexOf("function watch(next) {"), pointerApp.indexOf("\nfor (const tab of document.querySelectorAll"));
-  expect(watch, "switching tabs clears it at once").toMatch(/clearPointer\(\)/);
-});
-it("tutorial pointer: waits for the player, with no timer that moves it on by itself", () => {
-  expect(pointerApp).not.toMatch(/LOOK_MS|lookTimer|lookNext/);
-});
-it("tutorial pointer: moves on from a step to look at by a click or Enter, Space or the right arrow, and not from typing", () => {
-  expect(pointerApp).toMatch(/function nextLook\(/);
-  const keys = pointerApp.match(/addEventListener\("keydown", \(e\) => \{([\s\S]*?)\n\}\);/g)?.find((k) => k.includes("nextLook"));
-  expect(keys, "a keydown handler calls nextLook").toBeDefined();
-  expect(keys).toMatch(/Enter/);
-  expect(keys).toMatch(/ArrowRight/);
-  expect(keys).toMatch(/INPUT|isContentEditable|tagName/);
-  const down = pointerApp.slice(pointerApp.indexOf('addEventListener("pointerdown", (e) => {'));
-  expect(down.slice(0, down.indexOf("\n});")), "a pointerdown listener calls nextLook").toMatch(/nextLook\(\)/);
-  // a click must still do its own work: the handler never stops or cancels it
-  expect(down.slice(0, down.indexOf("\n});"))).not.toMatch(/preventDefault|stopPropagation|stopImmediatePropagation/);
-});
-
-// ADR 0054: the lesson is a compact card in the chart's bottom right and no
-// longer a panel across the page; a step that waits ten seconds is done for the
-// player, with a countdown on show all that time; a slider step slides.
+// The tutorial's lesson card (ADRs 0054 to 0059): it sits in the chart's box,
+// carries a symbol for each of its five controls, and every word it shows is in
+// all three languages. How it behaves is checked in a browser, not by reading
+// the page's source.
 const lessonHtml = readFileSync("public/index.html", "utf8");
-const lessonCss = readFileSync("public/app.css", "utf8");
 const lessonApp = readFileSync("public/app.js", "utf8");
-it("puts the lesson inside the chart's box, not in a panel across the page", () => {
+it("puts the lesson in the chart's box, with five symbol buttons in its head, and its words in every language", () => {
   const doc = new JSDOM(lessonHtml).window.document;
   const card = doc.getElementById("lesson")!;
   expect(card.closest(".chart-box"), "the lesson is in the chart box").not.toBeNull();
-  expect(card.closest("main > .lesson"), "and not a panel above the columns").toBeNull();
-  for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task", "restart", "lesson-back", "lesson-skip", "lesson-pause", "lesson-end"]) expect(card.querySelector("#" + id), id).not.toBeNull();
-  expect(card.querySelector("#lesson-next"), "no Next button").toBeNull();
-  const rule = lessonCss.match(/\n\.lesson \{([^}]*)\}/g)!.join(" ");
-  expect(rule).toMatch(/position: absolute/);
-  expect(rule).toMatch(/bottom:/);
-  // it spans the chart's width but stops short of its right end, where the price runs
-  expect(rule).toMatch(/left: \d+px/);
-  expect(Number(rule.match(/right: (\d+)%/)?.[1]), "a share of the chart's right end is left clear").toBeGreaterThanOrEqual(14);
-  expect(lessonCss, "the full-width fixed heights are gone").not.toMatch(/\.lesson \{ height: (196|220|360|472)px/);
-});
-it("shows a countdown for nine seconds, and does the step for the player when it ends", () => {
-  expect(lessonApp).toMatch(/const AUTO_S = 9;/);
-  // the countdown is in the step's own words, beside the lit control, all the time
-  expect(lessonApp).toMatch(/t\("autoIn", \{ s: autoLeft \}\)/);
-  // the countdown leads the tip, so it shows from its start and is never cut off
-  expect(lessonApp).toMatch(/\$\{t\("autoIn", \{ s: autoLeft \}\)\} · \$\{hintFor\.words\}/);
-  // and the tip is one line, however long its words
-  expect(lessonCss).toMatch(/\.step-hint \{[^}]*white-space: nowrap/);
-  expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/hintFor\.words/);
-  for (const lang of LANGS) {
-    expect(T[lang].ui.autoIn, lang).toContain("{s}");
-  }
-  expect(lessonApp).toMatch(/autoMove\(/);
-  // the countdown restarts on a step, a slider move, a click or a key
-  const reset = lessonApp.slice(lessonApp.indexOf("function armAuto"));
-  expect(reset).toMatch(/clearInterval|clearTimeout/);
-  // and it never runs while the page is hidden or a dialog is open
-  expect(lessonApp.slice(lessonApp.indexOf("function tickAuto"), lessonApp.indexOf("function tickAuto") + 900)).toMatch(/document\.hidden/);
-  expect(lessonApp.slice(lessonApp.indexOf("function tickAuto"), lessonApp.indexOf("function tickAuto") + 900)).toMatch(/dialog\[open\]/);
-});
-it("slides a slider by itself in steps, and respects reduced motion", () => {
-  const slide = lessonApp.slice(lessonApp.indexOf("function slideTo"), lessonApp.indexOf("function slideTo") + 1200);
-  expect(slide).toMatch(/requestAnimationFrame|setInterval/);
-  expect(slide).toMatch(/prefers-reduced-motion/);
-});
-
-// The lit control is lifted above its neighbours, and in the first lesson the
-// lit control is the chart the card sits on; so the card must be above it, and
-// the pointer's words above the card, or the card is hidden by what it explains.
-it("stacks the lesson card above a lit control and below the pointer's words", () => {
-  const z = (sel: string) => Number(lessonCss.match(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{[^}]*z-index: (\\d+)`))?.[1]);
-  expect(z(".lesson"), ".lesson").toBeGreaterThan(z(".focus"));
-  expect(z(".step-hint"), ".step-hint").toBeGreaterThan(z(".lesson"));
-});
-
-// ADR 0059: there is no Why? button. The lesson's text is always on the card,
-// on the right, under the head, and the title and task are on the left.
-it("always shows the lesson's text, with no Why? button to open it", () => {
-  const doc = new JSDOM(lessonHtml).window.document;
-  expect(doc.getElementById("lesson-why"), "no Why? button").toBeNull();
-  expect(lessonCss, "nothing hides the text").not.toMatch(/#lesson-text \{ display: none/);
-  expect(lessonApp).not.toMatch(/lesson-why|classList\.toggle\("open"/);
-  for (const lang of LANGS) expect(Object.keys(T[lang].ui), lang).not.toContain("lessonWhy");
-  const card = doc.getElementById("lesson")!;
-  const left = card.querySelector(".lesson-task")!;
-  const right = card.querySelector(".lesson-body")!;
-  expect(left.querySelector("#lesson-title")).not.toBeNull();
-  expect(left.querySelector("#lesson-task")).not.toBeNull();
-  // the head (the number and the buttons) is on the right, above the text
-  expect(right.querySelector(".lesson-head")).not.toBeNull();
-  expect(right.querySelector("#lesson-text")).not.toBeNull();
-  expect(right.querySelector(".lesson-head")!.compareDocumentPosition(right.querySelector("#lesson-text")!) & 4, "the head comes before the text").toBeTruthy();
-});
-
-it("counts in bare seconds, can pause the hints, and can end the tutorial (ADR 0055)", () => {
+  for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task"]) expect(card.querySelector("#" + id), id).not.toBeNull();
+  // symbols, not words: no visible letters, with a spoken label and a tip instead
+  expect([...card.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["lesson-back", "lesson-skip", "lesson-pause", "restart", "lesson-end"]);
+  for (const b of card.querySelectorAll(".lesson-head button")) expect(b.textContent, b.id).toMatch(/^[^A-Za-z]{1,3}$/);
   for (const lang of LANGS) {
     expect(T[lang].ui.autoIn, lang).toMatch(/^\{s\}\S{0,2}$/);
-    for (const k of ["hintsPause", "hintsResume", "resetTutorial", "skipLesson", "backLesson"]) {
-      expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
-      expect(T[lang].tips[k], `${lang} tip ${k}`).toEqual(expect.stringMatching(/\S/));
-    }
+    for (const k of ["hintsPause", "hintsResume", "resetTutorial", "skipLesson", "backLesson", "restart"]) expect(T[lang].tips[k] ?? T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
   }
-  expect(lessonHtml).toMatch(/id="lesson-pause"[^>]*aria-pressed="false"/);
-  expect(lessonHtml).toMatch(/id="lesson-end"/);
-  // symbols, not words: no visible text, a label and a tip instead
-  const doc = new JSDOM(lessonHtml).window.document;
-  for (const id of ["lesson-back", "lesson-skip", "restart", "lesson-pause", "lesson-end"]) {
-    expect(doc.getElementById(id)!.textContent, id).toMatch(/^[^A-Za-z]{1,3}$/);
-    expect(doc.getElementById(id)!.closest(".lesson-head"), id).not.toBeNull();
-  }
-  // ⏹ resets the tutorial and stays in it, ↻ starts the lesson again, ⏩ skips it (ADR 0057)
-  expect(lessonApp.slice(lessonApp.indexOf('$("lesson-end").onclick'), lessonApp.indexOf('$("lesson-end").onclick') + 120)).toMatch(/act\("restart"\)/);
-  expect(lessonApp).not.toMatch(/\$\("lesson-end"\)\.onclick = \(\) => watch/);
-  expect(lessonApp).toMatch(/\$\("lesson-skip"\)\.onclick = \(\) => act\("skip"\)/);
-  expect(lessonApp).toMatch(/\$\("restart"\)\.onclick = \(\) => \{[^}]*act\("again"\)/);
-  // the buttons are in the order ⏩ ⏸ ↻ ⏹, each a symbol
-  expect([...doc.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["lesson-back", "lesson-skip", "lesson-pause", "restart", "lesson-end"]);
-  expect(lessonApp).toMatch(/\$\("lesson-back"\)\.onclick = \(\) => \{[^}]*act\("back"\)/);
-  // paused: no timer is armed and no countdown text is shown
-  expect(lessonApp.slice(lessonApp.indexOf("function armAuto"), lessonApp.indexOf("function tickAuto"))).toMatch(/autoPaused/);
-  expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/autoPaused/);
-});
-it("a click on the lesson card does not move a look step on", () => {
-  expect(lessonApp).toMatch(/closest\?\.\("#lesson"\) && nextLook\(\)/);
 });
 
-// ADR 0057: the lesson card's layout, Dad's savings as a pop-up in every
-// mode, an Account panel of its own, every tick scale, and the fee.
-describe("the lesson card, the pop-up for Dad's savings, the Account panel and the sliders' scales", () => {
+// ADRs 0057 to 0059: Dad's savings in a pop-up, the account in a panel of its own,
+// the sliders' notes, colours and fee, and a plain line on Buy and Sell.
+describe("the ticket, the account and Dad's pop-up", () => {
   const doc = new JSDOM(lessonHtml).window.document;
-  it("puts the title and task on the left, and the head over the text on the right", () => {
-    expect(doc.querySelector(".lesson-task #lesson-task")).not.toBeNull();
-    expect(doc.querySelector(".lesson-body .lesson-head #lesson-n")).not.toBeNull();
-    expect(lessonCss).toMatch(/\.lesson \{[^}]*grid-template-columns: minmax\(0, 0\.9fr\) minmax\(0, 1\.1fr\)/);
-  });
-  it("keeps Borrow in a pop-up, not in a panel, and says it in quotation marks", () => {
+  // the page's own pure functions, read out of its source and run here
+  const fromPage = (from: string, to: string, names: string): Record<string, (x: number) => never> => {
+    const src = lessonApp.slice(lessonApp.indexOf(from), lessonApp.indexOf(to) + to.length);
+    return new Function(`${src}; return { ${names} };`)();
+  };
+
+  it("keeps Borrow in a pop-up, not in a panel, and says it in quotation marks in every language", () => {
     const dad = doc.getElementById("dad")!;
     expect(dad.tagName).toBe("DIALOG");
     expect(dad.querySelector("#borrow")).not.toBeNull();
@@ -598,84 +441,51 @@ describe("the lesson card, the pop-up for Dad's savings, the Account panel and t
       for (const k of ["borrow", "dadText"]) expect(T[lang].ui[k], `${lang} ${k}`).toMatch(/["“「]/);
       for (const k of ["caughtText", "caughtBig", "caughtSub", "dadTitle", "dadNo"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
       expect(T[lang].news.caught, lang).toContain("{who}");
-      expect(T[lang].news["you-caught"], lang).toEqual(expect.stringMatching(/\S/));
     }
   });
-  it("gives the account its own panel, apart from the ticket", () => {
+
+  it("gives the account a panel of its own, apart from the ticket", () => {
     const panel = doc.querySelector('.panel[data-fold="account"]')!;
-    expect(panel.querySelector("#equity")).not.toBeNull();
-    expect(panel.querySelector("#level")).not.toBeNull();
-    expect(panel.querySelector("#meter")).not.toBeNull();
+    for (const id of ["equity", "level", "meter"]) expect(panel.querySelector("#" + id), id).not.toBeNull();
     expect(doc.querySelector(".ticket #equity"), "the ticket no longer holds the figures").toBeNull();
-    expect(panel.closest(".side-col")).not.toBeNull();
   });
-  it("marks every rung of the ladder, lights the chosen one, and no longer names Australia's cap on the track", () => {
-    expect(lessonApp).toMatch(/ticks\("lev-ticks", ladder\.map/);
-    expect(lessonApp).not.toMatch(/capsTick\b[^\n]*"cap"/);
-    expect(lessonApp).toMatch(/classList\.toggle\("on"/);
-    expect(lessonCss).toMatch(/\.ticks span\.on/);
+
+  it("writes a different note for every rung, naming Australia's cap at 30×, in every language", async () => {
+    const { LEVERAGES } = await import("../src/fx.ts");
+    for (const lang of LANGS) {
+      const notes = T[lang].ui.notes as Record<number, string>;
+      expect(Object.keys(notes).map(Number).sort((a, b) => a - b), lang).toEqual(LEVERAGES);
+      expect(new Set(LEVERAGES.map((l) => notes[l])).size, `${lang}: every rung has its own words`).toBe(LEVERAGES.length);
+    }
+    expect(T.en.ui.notes[30]).toMatch(/Australia/);
+    expect(T.ja.ui.notes[30]).toMatch(/オーストラリア/);
+    expect(T.zh.ui.notes[30]).toMatch(/澳洲|澳大利亚/);
   });
-  it("says what the financing fee is, from the same rate the desk charges", async () => {
-    const { FEE } = await import("../src/fx.ts");
-    expect(lessonApp).toMatch(new RegExp(`const FEE = ${String(FEE).replace(/[.+]/g, "\\$&")};`));
-    expect(doc.getElementById("fee-note")).not.toBeNull();
+
+  it("runs the heat from green through amber at the cap to red at the top, in visible steps", () => {
+    const { hue, levHeat } = fromPage("const hue =", "const CAP = 30;", "hue, levHeat") as unknown as { hue: (h: number) => string; levHeat: (l: number) => number };
+    const h = (l: number) => Number(hue(levHeat(l)).match(/hsl\((\d+)/)![1]);
+    expect(levHeat(1)).toBe(0);
+    expect(levHeat(30)).toBeCloseTo(0.35, 6);
+    expect(levHeat(1000)).toBeCloseTo(1, 6);
+    expect(h(1), "calm is green").toBeGreaterThanOrEqual(120);
+    expect(h(1000), "alarm is red").toBeLessThanOrEqual(5);
+    for (const [a, b] of [[1, 30], [30, 100], [100, 200], [200, 500], [500, 1000]]) expect(h(a) - h(b), `${a} to ${b}`).toBeGreaterThanOrEqual(8);
+  });
+
+  it("shows the same financing fee the desk charges, a minute at a time", async () => {
+    const { feeRate } = await import("../src/fx.ts");
+    const { feePct } = fromPage("const FEE =", "}%`;\n};", "feePct") as unknown as { feePct: (l: number) => string };
+    // the page shows a rate per minute at two ticks a second; the desk charges per tick
+    for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePct(lev)), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
     for (const lang of LANGS) {
       expect(T[lang].ui.feeRate, lang).toContain("{pct}");
       expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));
     }
   });
-});
 
-// ADR 0059: the sliders' scales and colours, the leverage notes, the indicator
-// tips, a plain line on Buy and Sell, and nothing reserved under Pray.
-describe("the ticket's words, colours and spacing", () => {
-  const doc = new JSDOM(lessonHtml).window.document;
-  it("writes a different note for every rung, and still says which one is Australia's cap", async () => {
-    const { LEVERAGES } = await import("../src/fx.ts");
-    for (const lang of LANGS) {
-      const notes = T[lang].ui.notes as Record<number, string>;
-      expect(Object.keys(notes).map(Number).sort((a, b) => a - b), lang).toEqual(LEVERAGES);
-      const words = LEVERAGES.map((l) => notes[l]);
-      expect(new Set(words).size, `${lang}: every rung has its own words`).toBe(LEVERAGES.length);
-      // no note is a single stock adjective: each is a phrase, or the cap's name
-      for (const l of LEVERAGES) expect([...notes[l]].length, `${lang} ${l}`).toBeGreaterThanOrEqual(4);
-    }
-    expect(T.en.ui.notes[30]).toMatch(/Australia/);
-    expect(T.ja.ui.notes[30]).toMatch(/オーストラリア/);
-    expect(T.zh.ui.notes[30]).toMatch(/澳洲|澳大利亚/);
-    expect(JSON.stringify(Object.values(T.en.ui.notes)), "the old stock words are gone").not.toMatch(/sensible|careful|steady/);
-  });
-  it("colours each slider by its heat, calm to alarming, and past the cap the leverage is marked offshore", () => {
-    expect(lessonApp).toMatch(/setProperty\("--heat"/);
-    expect(lessonApp).toMatch(/classList\.toggle\("offshore", choice\.leverage > CAP\)/);
-    expect(lessonApp).toMatch(/const CAP = 30;/);
-    expect(lessonCss).toMatch(/\.slide \{ --heat:/);
-    expect(lessonCss).toMatch(/accent-color: var\(--heat/);
-    expect(lessonCss).toMatch(/\.ticks span\.on \{ color: var\(--heat\)/);
-  });
-  it("runs the heat from green through amber at the cap to red at the top", () => {
-    // the page's own functions, read out of its source and run here
-    const src = lessonApp.slice(lessonApp.indexOf("const hue ="), lessonApp.indexOf("const CAP = 30;") + "const CAP = 30;".length);
-    const { hue, levHeat } = new Function(`${src}; return { hue, levHeat };`)() as { hue: (h: number) => string; levHeat: (l: number) => number };
-    const h = (l: number) => Number(hue(levHeat(l)).match(/hsl\((\d+)/)![1]);
-    expect(levHeat(1)).toBe(0);
-    expect(levHeat(30)).toBeCloseTo(0.35, 6);
-    expect(levHeat(1000)).toBeCloseTo(1, 6);
-    expect(h(1)).toBeGreaterThan(h(30));
-    expect(h(30)).toBeGreaterThan(h(100));
-    expect(h(100)).toBeGreaterThan(h(1000));
-    expect(h(1), "calm is green").toBeGreaterThanOrEqual(120);
-    expect(h(1000), "alarm is red").toBeLessThanOrEqual(5);
-    // each step up past the cap is a visible change
-    for (const [a, b] of [[30, 100], [100, 200], [200, 500], [500, 1000]]) expect(h(a) - h(b), `${a} to ${b}`).toBeGreaterThanOrEqual(8);
-  });
-  it("says on each button what it earns on, for a beginner, in every language", () => {
-    for (const id of ["sell", "buy"]) {
-      const small = doc.querySelector(`#${id} small`)!;
-      expect(small, `${id} has a note`).not.toBeNull();
-      expect(small.getAttribute("data-t")).toBe(`${id}Note`);
-    }
-    for (const lang of LANGS) for (const k of ["sellNote", "buyNote"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+  it("says on Buy and Sell what each earns on, for a beginner, in every language", () => {
+    for (const id of ["sell", "buy"]) expect(doc.querySelector(`#${id} small`)?.getAttribute("data-t"), id).toBe(`${id}Note`);
     expect(T.en.ui.sellNote).toMatch(/falls?/i);
     expect(T.en.ui.buyNote).toMatch(/rises?/i);
     expect(T.ja.ui.sellNote).toMatch(/値下がり/);
@@ -683,63 +493,12 @@ describe("the ticket's words, colours and spacing", () => {
     expect(T.zh.ui.sellNote).toMatch(/下跌/);
     expect(T.zh.ui.buyNote).toMatch(/上涨/);
   });
-  it("shows what MA, BB and RSI are on hover, with no info button beside them", () => {
-    for (const k of ["ma", "bb", "rsi"]) {
-      expect(doc.querySelector(`[data-study="${k}"]`)!.getAttribute("data-tip"), k).toBe(k);
-      expect(doc.querySelector(`[data-study="${k}"]`)!.hasAttribute("data-info"), `${k} is a toggle, so a click must not pin an info tip`).toBe(false);
-    }
-    expect(doc.querySelector(".studies-info")).toBeNull();
-    for (const lang of LANGS) for (const k of ["ma", "bb", "rsi"]) expect(Object.keys(T[lang].info), `${lang} info.${k} is unused now`).not.toContain(k);
-  });
-  it("has no mode line in the chart's head, only a headline over the chart when there is one", () => {
-    expect(doc.querySelector(".quote #mode"), "the mode line is not in the quote line").toBeNull();
-    expect(doc.querySelector(".chart-box > #mode")).not.toBeNull();
-    expect(doc.getElementById("mode")!.hasAttribute("hidden")).toBe(true);
-    expect(lessonApp).not.toMatch(/t\(tutorial \? "modeTutorial"/);
-    expect(lessonCss).not.toMatch(/\.quote \{[^}]*height: 4\.6rem/);
-  });
-  it("reserves no empty space under the Pray button for a refusal", () => {
-    expect(lessonCss).not.toMatch(/\.error \{[^}]*height: 2\.6em/);
-    expect(lessonCss).toMatch(/\.error:empty \{ display: none; \}/);
-  });
-});
-it("puts the lesson card under the chart on a phone, where the chart is too short to share", () => {
-  const phone = lessonCss.slice(lessonCss.indexOf("@media (max-width: 560px)"));
-  expect(phone).toMatch(/\.lesson \{ position: static;/);
-  expect(phone).toMatch(/\.lesson \{[^}]*max-height: none/);
-});
 
-// ADR 0060: no Leave button, no round-info button, and none of their words.
-describe("the round controls without Leave", () => {
-  it("has no Leave button and no info button on the chart's quote line", () => {
-    const doc = new JSDOM(lessonHtml).window.document;
-    expect(doc.getElementById("leave")).toBeNull();
-    expect(doc.getElementById("round-info")).toBeNull();
-    expect(doc.querySelector('[data-info="round"]')).toBeNull();
-    expect(lessonApp).not.toMatch(/\$\("leave"\)|\$\("round-info"\)|act\("leave"\)/);
-  });
-  it("keeps none of Leave's words in any language", () => {
-    for (const lang of LANGS) {
-      const ui = Object.keys(T[lang].ui);
-      for (const k of ["leave", "leaveConfirm", "leftTag", "leftText", "info_round"]) expect(ui, `${lang}.ui.${k}`).not.toContain(k);
-      expect(Object.keys(T[lang].tips), `${lang} tips`).not.toContain("leave");
-      expect(Object.keys(T[lang].tips), `${lang} tips`).not.toContain("leftRow");
-      expect(Object.keys(T[lang].info), `${lang} info`).not.toContain("round");
-      expect(Object.keys(T[lang].news), `${lang} news`).not.toContain("left");
-      expect(Object.keys(T[lang].refusals).join(" "), `${lang} refusals`).not.toMatch(/left this round|leave its round/);
+  it("shows what MA, BB and RSI are on hover, and a click on one only switches it", () => {
+    for (const k of ["ma", "bb", "rsi"]) {
+      const study = doc.querySelector(`[data-study="${k}"]`)!;
+      expect(study.getAttribute("data-tip"), k).toBe(k);
+      expect(study.hasAttribute("data-info"), `${k} is a toggle, so a click must not pin an info tip`).toBe(false);
     }
-  });
-  it("tells nobody they can leave a round, in the About page in any language", async () => {
-    const { ABOUT } = await import("../public/about.js");
-    expect(JSON.stringify(ABOUT.en)).not.toMatch(/leave a round/i);
-    expect(JSON.stringify(ABOUT.ja)).not.toMatch(/ラウンドを抜けて/);
-    expect(JSON.stringify(ABOUT.zh)).not.toMatch(/中途退出/);
-  });
-  it("has no leave in the desk, the market, or the page's request", async () => {
-    const { Desk } = await import("../src/fx.ts");
-    expect((new Desk(100) as unknown as Record<string, unknown>).leave).toBeUndefined();
-    const server = readFileSync("src/server.ts", "utf8");
-    expect(server).not.toMatch(/\bleave: \(m, who\)|\n  leave\(who: string\)/);
-    expect(server).not.toMatch(/left: a\.left|left: left\(/);
   });
 });

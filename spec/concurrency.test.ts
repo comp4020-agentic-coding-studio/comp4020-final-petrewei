@@ -26,14 +26,3 @@ it.skipIf(live)("lands a double click as one order, then one add", async () => {
   expect(you.pos?.margin).toBeGreaterThan(you.balance * 0.7);
   expect(you.pos?.margin).toBeLessThan(you.balance * 0.8);
 });
-
-it.skipIf(live)("lands a double click as one order, then one add", async () => {
-  await open();
-  const me = await visitor();
-  const [one, two] = await Promise.all([act(me, { kind: "buy", leverage: 5, stake: 0.5 }), act(me, { kind: "buy", leverage: 5, stake: 0.5 })]);
-  expect([one.status, two.status]).toEqual([200, 200]);
-  const { you } = await state(me);
-  // half the money, then half of what was free: three quarters in all
-  expect(you.pos?.margin).toBeGreaterThan(you.balance * 0.7);
-  expect(you.pos?.margin).toBeLessThan(you.balance * 0.8);
-});
