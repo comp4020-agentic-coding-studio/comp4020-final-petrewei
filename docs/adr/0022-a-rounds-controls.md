@@ -1,6 +1,6 @@
 # ADR 0022: A Round's Controls
 
-Status: accepted, 21 October 2026; its controls moved by [ADR 0039](0039-a-tidier-page.md). Changes the lobby and bell of [ADR 0012](0012-history-and-live-as-tabs.md), section 5, and adds a row to [ADR 0010](0010-who-may-see-and-change-what.md).
+Status: accepted, 21 October 2026; its controls moved by [ADR 0039](0039-a-tidier-page.md). Changes the lobby and bell of [ADR 0012](0012-history-and-live-as-tabs.md), section 5, and adds a row to [ADR 0010](0010-who-may-see-and-change-what.md); its leave was removed by [ADR 0060](0060-no-leaving-a-round.md).
 
 ## 1 Context
 
