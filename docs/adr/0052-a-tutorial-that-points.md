@@ -1,6 +1,6 @@
 # ADR 0052: A Tutorial That Points
 
-Status: accepted, 28 October 2026; its dimming, its 3.5-second timer and where its pointer stayed changed by [ADR 0053](0053-a-pointer-that-waits-and-does-not-dim.md). Refines the tutorial of [ADR 0013](0013-a-private-tutorial.md) and the stop lesson of [ADR 0037](0037-sliders-on-the-position.md).
+Status: accepted, 28 October 2026; its lesson panel above the page moved into the chart by [ADR 0054](0054-a-compact-lesson-card-and-a-helper-that-waits.md); its dimming, its 3.5-second timer and where its pointer stayed changed by [ADR 0053](0053-a-pointer-that-waits-and-does-not-dim.md). Refines the tutorial of [ADR 0013](0013-a-private-tutorial.md) and the stop lesson of [ADR 0037](0037-sliders-on-the-position.md).
 
 ## 1 Context
 
