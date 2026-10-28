@@ -377,3 +377,56 @@ it("never breaks inside a clause: each is one unbreakable span", () => {
   expect(css).toMatch(/\.tip \.clause \{ white-space: nowrap; \}/);
   expect(readFileSync("public/tips.js", "utf8")).toMatch(/className: "clause"/);
 });
+
+// ADR 0052: the tutorial lights a control by adding a class to it, and the page
+// redraws its figures every tick. A redraw that sets the whole className on a
+// lit element wipes the ring out again half a second later, so none may.
+it("never overwrites the class of an element the tutorial can light", () => {
+  const app = readFileSync("public/app.js", "utf8");
+  const targets = app.match(/const TARGETS = \{([^}]*)\}/)![1];
+  const ids = [...targets.matchAll(/:\s*"([a-z-]+)"/g)].map((m) => m[1]);
+  expect(ids.length).toBeGreaterThanOrEqual(10);
+  for (const id of ids) expect(app, `$("${id}").className is assigned, wiping the spotlight`).not.toMatch(new RegExp(`\\$\\("${id}"\\)\\.className\\s*=`));
+});
+// The ring and the dimming are a shadow and an outline drawn outside the lit
+// element, so an element that clips its own overflow must not be one.
+it("does not clip the spotlight on an element that hides its overflow", () => {
+  const css = readFileSync("public/app.css", "utf8");
+  const clip = css.match(/\.acct dd \{[^}]*overflow: hidden/);
+  const reset = css.match(/\.acct dd\.focus \{[^}]*overflow: visible/);
+  expect(!clip || reset, ".acct dd hides its overflow and so cuts off the spotlight").toBeTruthy();
+});
+
+// ADR 0052: the spotlight reads which controls are on screen, so it must run
+// after the render has shown or hidden them. Run from the lesson's own part
+// of the render, it asked about the Stop Loss before the position panel had
+// revealed it, found nothing, and lit nothing in two lessons.
+it("lights the tutorial's step after the render has laid out the page", () => {
+  const app = readFileSync("public/app.js", "utf8");
+  const start = app.indexOf("function render(s) {");
+  const render = app.slice(start, app.indexOf("\n// One stream at a time", start));
+  const reveal = render.indexOf('$("pos-exits").hidden');
+  const lit = render.indexOf("spotlight(");
+  expect(reveal, "render shows the position's exits").toBeGreaterThan(0);
+  expect(lit, "render lights the step").toBeGreaterThan(0);
+  expect(lit, "the step is lit after the exits are shown or hidden").toBeGreaterThan(reveal);
+  // and not also from the lesson's own early part, which runs before them
+  const lessonFn = app.slice(app.indexOf("function lesson(s) {"), app.indexOf("\n}\n", app.indexOf("function lesson(s) {")));
+  expect(lessonFn, "lesson() lights the step too early").not.toMatch(/spotlight\(/);
+});
+
+// ADR 0052: the Dad's Savings lesson tells the player to press Borrow, so the
+// button must be there in the tutorial, whose rounds are never in the trade
+// phase that a market's Borrow waits for.
+it("shows Borrow in the tutorial when the player is broke, not only in a trading round", () => {
+  const app = readFileSync("public/app.js", "utf8");
+  // the rule says when lending is open, and Borrow shows when the player is broke with loans left and it is
+  const lending = app.match(/const lending = (.*);/)![1];
+  expect(lending, "a tutorial lends while the price stands still").toMatch(/tutorial \? s\.phase === "waiting"/);
+  expect(lending, "a market lends while it trades").toMatch(/s\.phase === "trade"/);
+  const rule = app.match(/\$\("borrow"\)\.hidden = (.*);/)![1];
+  expect(rule).toMatch(/y\.broke/);
+  expect(rule).toMatch(/loansLeft/);
+  expect(rule, "Borrow must follow the rule above, not a bare trade phase").toMatch(/\blending\b/);
+  expect(rule).not.toMatch(/s\.phase === "trade"/);
+});

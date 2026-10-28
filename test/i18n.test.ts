@@ -43,6 +43,18 @@ describe("the translations", () => {
     for (const lang of LANGS) for (const l of LESSONS) expect(T[lang].lessons[l.id], `${lang} ${l.id}`).toMatchObject({ title: expect.any(String), text: expect.any(String), task: expect.any(String) });
   });
 
+  // ADR 0052: each step of a lesson's plan has its words in every language,
+  // in the plan's order, and the English the server sends is the English table's.
+  it("translates every step of every lesson's plan, in the plan's order", () => {
+    for (const lang of LANGS) for (const l of LESSONS) {
+      const steps = (T[lang].lessons[l.id] as { steps?: string[] }).steps;
+      expect(steps, `${lang} ${l.id} steps`).toBeInstanceOf(Array);
+      expect(steps!.length, `${lang} ${l.id}`).toBe(l.plan.length);
+      for (const s of steps!) expect(s, `${lang} ${l.id}`).toEqual(expect.stringMatching(/\S{2}/));
+    }
+    for (const l of LESSONS) expect((T.en.lessons[l.id] as { steps?: string[] }).steps, l.id).toEqual(l.plan.map((s) => s.say));
+  });
+
   it("tells every famous day in every language", () => {
     for (const lang of LANGS) for (const e of EVENTS) expect(T[lang].events[e.date], `${lang} ${e.date}`).toMatchObject({ title: expect.any(String), note: expect.any(String) });
   });
@@ -56,6 +68,21 @@ describe("the translations", () => {
     sent.push(...[...src.matchAll(/error: "([A-Z][^"]+[.!?])", status:/g)].map((m) => m[1]));
     expect(sent.length).toBeGreaterThan(20);
     for (const text of sent) expect(Object.keys(T.en.refusals), text).toContain(text);
+  });
+
+  // ADR 0052: the stop lesson's hint names the stop that was chosen, so it is
+  // matched by its pattern, like the leverage hint, and translated with the value.
+  it("translates the stop lesson's hint with the chosen distance in it", async () => {
+    const { refusal } = await import("../public/i18n.js");
+    const english = "This lesson wants a Stop Loss at 1%, not 25%. Drag the thumb as close to the middle line as it goes.";
+    expect(refusal("en", english)).toBe(english);
+    for (const lang of ["ja", "zh"] as const) {
+      const text = refusal(lang, english);
+      expect(text, lang).not.toBe(english);
+      expect(text, lang).toContain("25%");
+      expect(text, lang).toContain("1%");
+      expect(text, lang).not.toMatch(/\{|\}/);
+    }
   });
 
   it("fills a template's values into each language", async () => {
@@ -133,4 +160,28 @@ it("keeps the clue table in the same order in every language, one entry per famo
   expect(clueDates("zh")).toEqual(clueDates("en"));
   expect([...clueDates("en")].sort()).toEqual(EVENTS.map((e) => e.date).sort());
   for (const lang of ["en", "ja", "zh"] as const) for (const d of clueDates(lang)) expect(T[lang].clues[d], `${lang} ${d}`).toHaveLength(2);
+});
+
+// A template's value is filled wherever the text names one, including the signed
+// amount {pnl+}: a pattern that only matches word characters left it as typed
+// in the tutorial's feed, in every language (found while checking ADR 0052).
+describe("a signed amount in a template", () => {
+  it("is filled in every language, with its sign", async () => {
+    const { news } = await import("../public/i18n.js");
+    for (const lang of ["en", "ja", "zh"] as const) {
+      for (const [key, pnl, sign] of [["you-closed", 4200, "+"], ["you-closed", -1500, ""], ["you-stopped", -800, ""], ["you-zerocut", -3000000, ""]] as const) {
+        const text = news(lang, { key, args: { pnl, price: "144.925" } }, () => "me");
+        expect(text, `${lang} ${key} ${pnl}`).not.toMatch(/\{|\}/);
+        expect(text, `${lang} ${key} ${pnl}`).toMatch(/[0-9]/);
+        if (sign === "+") expect(text, `${lang} ${key}`).toContain("+");
+      }
+    }
+  });
+  it("leaves no {placeholder} in any feed line the tutorial can send", async () => {
+    const { news, T } = await import("../public/i18n.js");
+    for (const lang of ["en", "ja", "zh"] as const) for (const key of Object.keys(T[lang].news).filter((k) => k.startsWith("you-"))) {
+      const text = news(lang, { key, args: { pnl: 1234, price: "150.000", who: "me", lev: 10, amount: 300000 } }, () => "me");
+      expect(text, `${lang} ${key}`).not.toMatch(/\{[^}]*\}/);
+    }
+  });
 });

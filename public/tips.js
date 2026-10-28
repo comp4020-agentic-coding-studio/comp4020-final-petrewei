@@ -31,16 +31,18 @@ function show(el) {
   tip.hidden = false;
   if (!tip.matches(":popover-open")) tip.showPopover?.();
   el.setAttribute("aria-describedby", "tip");
-  // Above the element if it fits, else below; never off either side.
   const r = el.getBoundingClientRect();
   const t = tip.getBoundingClientRect();
   const gap = 8;
   const above = r.top - t.height - gap;
-  const top = above >= 4 ? above : r.bottom + gap;
+  // Above the element if it fits, else below, unless it asks for below (the
+  // lesson card's buttons sit under the task, which a tip above would cover);
+  // never off either side.
+  const top = above >= 4 && el.dataset.tipSide !== "below" ? above : r.bottom + gap;
   const left = Math.min(innerWidth - t.width - 4, Math.max(4, r.left + r.width / 2 - t.width / 2));
   tip.style.top = `${top}px`;
   tip.style.left = `${left}px`;
-  tip.classList.toggle("below", above < 4);
+  tip.classList.toggle("below", top !== above);
 }
 function hide() {
   clearTimeout(timer);

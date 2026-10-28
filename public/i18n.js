@@ -21,7 +21,7 @@ export function money(lang, n) {
 
 // Fills {name} slots. A slot holding money is formatted for the language.
 function fill(lang, text, args, nameOf) {
-  return text.replace(/\{(\w+)\}/g, (_, k) => {
+  return text.replace(/\{(\w+\+?)\}/g, (_, k) => {
     if (k === "who") return nameOf(args.who);
     if (k === "pnl" || k === "amount") return money(lang, args[k]);
     if (k === "pnl+") return (args.pnl >= 0 ? "+" : "") + money(lang, args.pnl);
@@ -44,6 +44,8 @@ export function refusal(lang, english) {
   if (T[lang].refusals[english]) return T[lang].refusals[english];
   const m = english.match(/^This lesson wants a (Buy|Sell) at (\d+)×\. Set Leverage to \d+× first\.$/);
   if (m) return T[lang].wants[m[1] === "Buy" ? "buy" : "sell"].replaceAll("{lev}", m[2]);
+  const s = english.match(/^This lesson wants a Stop Loss at 1%, not ([\d.]+)%\. Drag the thumb as close to the middle line as it goes\.$/);
+  if (s) return T[lang].wants.stop.replaceAll("{pct}", s[1]);
   return english;
 }
 
@@ -346,7 +348,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "Press Close on your position to bank the profit.",
       "Press Close on your position.": "Press Close on your position.",
       "Press Close on your position to cut your loss.": "Press Close on your position to cut your loss.",
-      "Drag Stop Loss on your position to 1% away.": "Drag Stop Loss on your position to 1% away.",
+      "Drag the Stop Loss thumb to 1%, next to the middle line.": "Drag the Stop Loss thumb to 1%, next to the middle line.",
       "Press Next to walk away, or Borrow.": "Press Next to walk away, or Borrow.",
       "Press Next to finish.": "Press Next to finish.",
       "Praying isn't part of the tutorial. It does nothing anyway.": "Praying isn't part of the tutorial. It does nothing anyway.",
@@ -382,7 +384,7 @@ export const T = {
       "Someone already has that name.": "Someone already has that name.",
       "Too many names are taken. Try again later.": "Too many names are taken. Try again later.",
     },
-    wants: { buy: "This lesson wants a Buy at {lev}×. Set Leverage to {lev}× first.", sell: "This lesson wants a Sell at {lev}×. Set Leverage to {lev}× first." },
+    wants: { stop: "This lesson wants a Stop Loss at 1%, not {pct}%. Drag the thumb as close to the middle line as it goes.", buy: "This lesson wants a Buy at {lev}×. Set Leverage to {lev}× first.", sell: "This lesson wants a Sell at {lev}×. Set Leverage to {lev}× first." },
     bots: {
       "bot:kurumi": { name: "Kurumi", motto: "It's okay, I've got leverage~♪" },
       "bot:mochiko": { name: "Mochiko", motto: "A stable market is a trader's enemy." },
@@ -697,7 +699,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "ポジションの「決済」を押して利益を確定しましょう。",
       "Press Close on your position.": "ポジションの「決済」を押してください。",
       "Press Close on your position to cut your loss.": "ポジションの「決済」を押して損切りしましょう。",
-      "Drag Stop Loss on your position to 1% away.": "ポジションの損切りのつまみを1%までドラッグしてください。",
+      "Drag the Stop Loss thumb to 1%, next to the middle line.": "損切りのつまみを、真ん中の線の隣、1%までドラッグしてください。",
       "Press Next to walk away, or Borrow.": "「次へ」で手を引くか、借りてみてください。",
       "Press Next to finish.": "「次へ」を押して終わりましょう。",
       "Praying isn't part of the tutorial. It does nothing anyway.": "祈りはチュートリアルにありません。どのみち効果はありません。",
@@ -733,7 +735,7 @@ export const T = {
       "Someone already has that name.": "その名前はすでに使われています。",
       "Too many names are taken. Try again later.": "名前が多すぎます。あとでもう一度お試しください。",
     },
-    wants: { buy: "このレッスンは{lev}倍の買いです。先にレバレッジを{lev}倍にしてください。", sell: "このレッスンは{lev}倍の売りです。先にレバレッジを{lev}倍にしてください。" },
+    wants: { stop: "このレッスンの損切りは1%です。{pct}%ではありません。つまみを真ん中の線にできるだけ近づけてください。", buy: "このレッスンは{lev}倍の買いです。先にレバレッジを{lev}倍にしてください。", sell: "このレッスンは{lev}倍の売りです。先にレバレッジを{lev}倍にしてください。" },
     bots: {
       "bot:kurumi": { name: "くるみ", motto: "レバレッジあるから大丈夫ぅ♪" },
       "bot:mochiko": { name: "萌智子", motto: "安定した相場はトレーダーの敵。" },
@@ -1048,7 +1050,7 @@ export const T = {
       "Press Close on your position to bank the profit.": "按持仓上的“平仓”锁定利润。",
       "Press Close on your position.": "按持仓上的“平仓”。",
       "Press Close on your position to cut your loss.": "按持仓上的“平仓”止损。",
-      "Drag Stop Loss on your position to 1% away.": "把持仓上的止损滑块拖到1%。",
+      "Drag the Stop Loss thumb to 1%, next to the middle line.": "请把止损滑块拖到1%，紧挨着中间那条线。",
       "Press Next to walk away, or Borrow.": "按“下一步”收手，或者借钱试试。",
       "Press Next to finish.": "按“下一步”结束。",
       "Praying isn't part of the tutorial. It does nothing anyway.": "教程里没有祈祷这一步。反正也没用。",
@@ -1084,7 +1086,7 @@ export const T = {
       "Someone already has that name.": "这个名字已经有人用了。",
       "Too many names are taken. Try again later.": "名字太多了，请稍后再试。",
     },
-    wants: { buy: "本课要以{lev}倍买入。请先把杠杆设为{lev}倍。", sell: "本课要以{lev}倍卖出。请先把杠杆设为{lev}倍。" },
+    wants: { stop: "本课的止损是1%，不是{pct}%。请把滑块尽量拖到中间那条线旁。", buy: "本课要以{lev}倍买入。请先把杠杆设为{lev}倍。", sell: "本课要以{lev}倍卖出。请先把杠杆设为{lev}倍。" },
     bots: {
       "bot:kurumi": { name: "久留美", motto: "有杠杆就没问题♪" },
       "bot:mochiko": { name: "萌智子", motto: "稳定的行情是交易员的敌人。" },
@@ -1122,6 +1124,6 @@ for (const lang of LANGS) {
 export const clueDates = (lang) => Object.keys(T[lang].clues);
 export const clueText = (lang, clue, n) => T[lang].clues[clueDates(lang)[clue]]?.[n];
 export function english(lessons, events) {
-  for (const l of lessons) T.en.lessons[l.id] = { title: l.title, text: l.text, task: l.task };
+  for (const l of lessons) T.en.lessons[l.id] = { title: l.title, text: l.text, task: l.task, steps: l.plan.map((s) => s.say) };
   for (const e of events) T.en.events[e.date] = { title: e.title, note: e.note };
 }

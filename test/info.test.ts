@@ -98,3 +98,23 @@ it("joins English clauses with a space and Japanese ones with none", () => {
   expect(panel().textContent).toBe("数字が大きいほど、感情も大きい。");
   expect([...panel().querySelectorAll(".clause")].map((c) => c.textContent)).toEqual(["数字が大きいほど、", "感情も大きい。"]);
 });
+
+// ADR 0052: a tip normally sits above its control, but the lesson card's
+// buttons sit under the task, and a tip above them covers the instruction.
+// An element can ask for its tip below it, and the engine honours that.
+it("puts a tip below an element that asks for it, and above one that does not", () => {
+  const doc = dom.window.document;
+  const rect = (top: number) => ({ top, bottom: top + 30, left: 100, right: 200, width: 100, height: 30, x: 100, y: top, toJSON() {} });
+  for (const id of ["plain", "other"]) doc.getElementById(id)!.getBoundingClientRect = () => rect(300) as DOMRect;
+  doc.getElementById("other")!.setAttribute("data-tip", "close");
+  doc.getElementById("other")!.setAttribute("data-tip-side", "below");
+  panel().getBoundingClientRect = () => ({ top: 0, bottom: 20, left: 0, right: 120, width: 120, height: 20, x: 0, y: 0, toJSON() {} }) as DOMRect;
+  const focus = (id: string) => doc.getElementById(id)!.dispatchEvent(new dom.window.FocusEvent("focusin", { bubbles: true }));
+  for (const id of ["plain", "other"]) (doc.getElementById(id) as unknown as { matches: () => boolean }).matches = () => true;
+  focus("plain");
+  const above = Number.parseFloat(panel().style.top);
+  focus("other");
+  const below = Number.parseFloat(panel().style.top);
+  expect(above).toBeLessThan(300);
+  expect(below).toBeGreaterThan(300);
+});

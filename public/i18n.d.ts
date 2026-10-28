@@ -7,7 +7,7 @@ type Lang = {
   info: Table;
   news: Table;
   refusals: Table;
-  wants: { buy: string; sell: string };
+  wants: { buy: string; sell: string; stop: string };
   bots: Record<string, { name: string; motto: string }>;
   prayers: string[];
   pops: Record<string, string>;

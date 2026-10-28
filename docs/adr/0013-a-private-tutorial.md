@@ -1,6 +1,6 @@
 # ADR 0013: A Private Tutorial
 
-Status: accepted, 15 October 2026.
+Status: accepted, 15 October 2026; its lessons now point at one control at a time, by [ADR 0052](0052-a-tutorial-that-points.md).
 
 ## 1 Context
 

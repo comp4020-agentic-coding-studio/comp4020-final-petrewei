@@ -841,7 +841,7 @@ function tutorialView(who: string) {
     tick: t.prices.length - 1,
     steps: 4,
     start: START,
-    lesson: { id: l.id, next: l.allow({ kind: "next" }) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, focus: l.focus, finished: t.finished() },
+    lesson: { id: l.id, next: l.allow({ kind: "next" }) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
     you: {
       name: nameOf(who),
       draw: drawOf(who),
@@ -963,6 +963,7 @@ const PAGES: Record<string, [string, string]> = {
   "/art.js": [read("public/art.js"), "text/javascript; charset=utf-8"],
   "/tips.js": [read("public/tips.js"), "text/javascript; charset=utf-8"],
   "/clauses.js": [read("public/clauses.js"), "text/javascript; charset=utf-8"],
+  "/plan.js": [read("public/plan.js"), "text/javascript; charset=utf-8"],
   "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
   "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
   "/readme": [readme, HTML],

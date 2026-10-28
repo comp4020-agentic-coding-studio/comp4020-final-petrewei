@@ -402,6 +402,9 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .acct dd { margin: 0; height: 1.5rem; line-height: 1.5rem; font: 600 0.95rem/1.5rem var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The percentage under each amount: what a trader reads first. */
 .acct dd.rate { height: 1.2rem; font: 700 0.85rem/1.2rem var(--mono); color: var(--muted); }
+/* A figure the tutorial rings must show its ring and shadow, which a clipped
+   box would cut off (ADR 0052). */
+.acct dd.focus { overflow: visible; }
 .acct .up { color: var(--up); }
 .acct .down { color: var(--down); }
 /* Net worth against the start: a centre line at ±0, a red bar to the
@@ -605,12 +608,20 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .pray { display: none; }
 .task strong { color: var(--ink); }
 .lesson .row { display: flex; gap: 0.5rem; }
 .lesson .row button { width: 7.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.task { height: 4.6rem; overflow: hidden; }
+/* Tall enough for the longest task in three lines, and never cut off: a task
+   that needs more grows the box, and the lesson card grows with it. */
+.task { min-height: 5.6rem; }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }
 .next[hidden] { display: none; }
 .ghost { background: none; }
-.focus { outline: 2px solid var(--call); outline-offset: 3px; border-radius: 8px; animation: pulse 1.4s ease-in-out infinite; }
-@keyframes pulse { 50% { outline-color: transparent; } }
+/* The tutorial's spotlight (ADR 0052): the one control a step points at is
+   ringed in a solid colour with a halo, and everything else is dimmed by the
+   shadow around it, not an overlay, so the control stays clickable. The ring
+   pulses in width and never fades out. */
+.focus { position: relative; z-index: 40; outline: 3px solid var(--pink); outline-offset: 3px; border-radius: 8px; box-shadow: 0 0 0 6px var(--glow), 0 0 0 100vmax rgb(10 8 24 / 0.55); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { outline-width: 5px; outline-offset: 5px; } }
+/* A slider's own box is thin, so its ring sits around its whole row. */
+input.focus { outline-offset: 6px; }
 
 footer { padding: 0.6rem 1rem 1.6rem; color: var(--muted); font-size: 0.75rem; }
 
@@ -739,3 +750,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .studies-info { position: absolute; z-index: 1; right: 194px; top: 0.45rem; margin: 0; }
 .quote > .info { grid-column: 4; grid-row: 1; justify-self: end; align-self: center; width: 1.4rem; height: 1.4rem; margin: 0; }
 @media (pointer: coarse) { .info { width: 1.6rem; height: 1.6rem; font-size: 0.85rem; } }
+
+/* The step's words, beside the lit control (ADR 0052). */
+.step-hint { position: fixed; z-index: 45; max-width: min(20rem, calc(100vw - 16px)); padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--pink); color: var(--on-pink); font-weight: 700; font-size: 0.85rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35); pointer-events: none; }
+.step-hint[hidden] { display: none; }

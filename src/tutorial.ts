@@ -8,13 +8,16 @@ import { Desk, type Fill, type Side } from "./fx.ts";
 
 export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
 
+export type Step = { target: string; until: string; say: string };
 type Lesson = {
   id: string;
   title: string;
   text: string;
   task: string;
-  // The page elements the lesson is about, highlighted on the page.
-  focus: string[];
+  // The exact elements the lesson points at, one step at a time (ADR 0052):
+  // look at something, set a slider to a value the page checks, or press the
+  // control that takes the lesson's action, each with the words shown for it.
+  plan: Step[];
   // Whether the lesson starts from a fresh ¥1,000,000.
   fresh?: boolean;
   // Null if the move is the one this lesson teaches, else a hint.
@@ -44,9 +47,13 @@ export const LESSONS: Lesson[] = [
   {
     id: "welcome",
     title: "Welcome to the Trading Floor",
-    text: "Forex (FX) is trading one currency for another. This chart is USD/JPY: the price is how many yen one US dollar costs, so when it rises the dollar has grown stronger. You have ¥1,000,000 of practice money. Nothing here is real or saved, and nobody else is in this room. It takes about five minutes.",
-    task: "Press Next to begin.",
-    focus: ["chart", "equity"],
+    text: "Forex (FX) is trading one currency for another. This chart is USD/JPY: the price is how many yen one US dollar costs, so a rising price means a stronger dollar. You have ¥1,000,000 of practice money. Nothing here is real or saved. It takes about five minutes.",
+    task: "Look at the price and your Net Worth, then press Next.",
+    plan: [
+      { target: "chart", until: "look", say: "The price of one dollar, in yen." },
+      { target: "equity", until: "look", say: "Your practice money." },
+      { target: "next", until: "press", say: "Press Next to begin." },
+    ],
     allow: only("next", "Press Next to begin."),
     done: (t) => t.nexted,
     solve: () => ({ kind: "next" }),
@@ -54,9 +61,12 @@ export const LESSONS: Lesson[] = [
   {
     id: "buy",
     title: "Buy: Betting the Price Rises",
-    text: "To buy is to bet that the price will go up. Leverage is how many times your money you bet with; 1× means you borrow nothing. Stake is the share of your money you put in.",
-    task: "Set Leverage to 1×, then press Buy, and watch the chart.",
-    focus: ["leverage", "buy"],
+    text: "To buy is to bet the price will rise. Leverage is how many times your money you bet with: 1× borrows nothing. Stake is the share of your money you put in.",
+    task: "Slide Leverage to 1×, then press Buy.",
+    plan: [
+      { target: "leverage", until: "leverage=1", say: "Slide Leverage to 1×." },
+      { target: "buy", until: "press", say: "Now press Buy." },
+    ],
     fresh: true,
     allow: order(1, 1, false),
     path: [0.998, 1.001, 1.003, 1.002, 1.005, 1.007, 1.006, 1.009, 1.011, 1.01],
@@ -66,9 +76,12 @@ export const LESSONS: Lesson[] = [
   {
     id: "take-profit",
     title: "Taking Profit",
-    text: "The price rose about 1%, and so did your money. Open P&L is what you would make if you closed now: a profit is not yours until you close. You started slightly down because of the spread, the small gap between the buying and selling price that the broker keeps.",
-    task: "Press Close on your position to bank the profit.",
-    focus: ["pnl", "close"],
+    text: "The price rose about 1%, and so did your money. Open P&L is what you would make by closing now. A profit is not yours until you close. You started slightly down because of the spread, the small gap between the buying and selling price that the broker keeps.",
+    task: "Press Close to bank the profit.",
+    plan: [
+      { target: "pnl", until: "look", say: "Open P&L: your profit so far." },
+      { target: "close", until: "press", say: "Press Close to bank it." },
+    ],
     allow: only("close", "Press Close on your position to bank the profit."),
     done: flat,
     solve: () => ({ kind: "close" }),
@@ -76,9 +89,12 @@ export const LESSONS: Lesson[] = [
   {
     id: "sell",
     title: "Sell: Betting the Price Falls",
-    text: "To sell, or go short, is the opposite bet: you make money when the price falls. You don't need to own any dollars to sell them; the broker lends them to you.",
-    task: "Keep Leverage at 1× and press Sell.",
-    focus: ["sell"],
+    text: "To sell, or go short, is the opposite bet: you make money when the price falls. You don't need to own dollars to sell them. The broker lends them to you.",
+    task: "Keep Leverage at 1×, then press Sell.",
+    plan: [
+      { target: "leverage", until: "leverage=1", say: "Keep Leverage at 1×." },
+      { target: "sell", until: "press", say: "Now press Sell." },
+    ],
     allow: order(-1, 1, false),
     path: [1.002, 0.999, 0.997, 0.998, 0.995, 0.993, 0.994, 0.991, 0.989, 0.99],
     done: holding,
@@ -89,7 +105,9 @@ export const LESSONS: Lesson[] = [
     title: "Closing a Short",
     text: "The price fell, so your short made money: you sold dollars at the higher price and buy them back cheaper. Closing does the buying back.",
     task: "Press Close on your position.",
-    focus: ["close"],
+    plan: [
+      { target: "close", until: "press", say: "Press Close to buy them back." },
+    ],
     allow: only("close", "Press Close on your position."),
     done: flat,
     solve: () => ({ kind: "close" }),
@@ -97,9 +115,14 @@ export const LESSONS: Lesson[] = [
   {
     id: "leverage",
     title: "Leverage: The Magnifying Glass",
-    text: "At 30× leverage your ¥1,000,000 controls ¥30,000,000 of dollars, so a 1% move changes your money by 30%, either way. 30× is the legal limit for retail traders in Australia on major pairs; offshore brokers offer up to 1000×. Watch the Margin level bar: it is your money as a share of the deposit the broker holds against the bet.",
-    task: "Set Leverage to 30× and Stake to 100%, press Buy, then watch the margin level.",
-    focus: ["leverage", "stake", "buy", "level"],
+    text: "At 30× leverage your ¥1,000,000 controls ¥30,000,000 of dollars, so a 1% move changes your money by 30%, either way. 30× is the legal limit for retail traders in Australia on major pairs. Offshore brokers offer up to 1000×.",
+    task: "Set Leverage to 30× and Stake to 100%, press Buy, then watch Margin Level.",
+    plan: [
+      { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
+      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "buy", until: "press", say: "Press Buy." },
+      { target: "level", until: "look", say: "Margin Level: your money against the broker's deposit." },
+    ],
     fresh: true,
     allow: order(1, 30, true),
     path: [1.002, 1.004, 1.006, 1.003, 0.999, 0.994, 0.99, 0.985, 0.981, 0.978],
@@ -109,19 +132,26 @@ export const LESSONS: Lesson[] = [
   {
     id: "cut-loss",
     title: "Margin Call: Cut the Loss",
-    text: "A fall of about 2% has cost you around half your money, and your margin level is under 50%: a margin call, the broker's warning. If it reaches 20%, the broker closes your position for you, at whatever the price is then. That is a forced loss cut, 強制ロスカット. Hoping the price comes back is how accounts are lost; cutting a loss means closing a losing trade on purpose while you still have money left.",
-    task: "Press Close on your position to cut your loss.",
-    focus: ["close", "level"],
+    text: "A fall of about 2% has cost you around half your money. Margin Level is under 50%: a margin call, the broker's warning. At 20% the broker closes your position for you, at whatever the price is then: a forced loss cut, 強制ロスカット. Cutting a loss means closing a losing trade on purpose, while you still have money left.",
+    task: "Press Close to cut your loss.",
+    plan: [
+      { target: "level", until: "look", say: "Margin Level is under 50%: a margin call." },
+      { target: "close", until: "press", say: "Press Close to cut the loss." },
+    ],
     allow: only("close", "Press Close on your position to cut your loss."),
     done: flat,
     solve: () => ({ kind: "close" }),
   },
   {
     id: "stop-buy",
-    title: "A Stop-Loss Decides in Advance",
-    text: "A stop-loss closes your position by itself if the price moves against you by a set amount. You decide how much you can afford to lose before the trade, not in a panic during it. Your account is back to ¥1,000,000.",
+    title: "A Stop Loss Decides in Advance",
+    text: "A Stop Loss closes your position by itself if the price moves against you by a set amount. You decide what you can afford to lose before the trade, not in a panic during it. Your account is back to ¥1,000,000.",
     task: "Set Leverage to 10× and Stake to 100%, then press Buy.",
-    focus: ["leverage", "stake", "buy"],
+    plan: [
+      { target: "leverage", until: "leverage=10", say: "Slide Leverage to 10×." },
+      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "buy", until: "press", say: "Press Buy." },
+    ],
     fresh: true,
     allow: order(1, 10, true),
     done: holding,
@@ -130,10 +160,18 @@ export const LESSONS: Lesson[] = [
   {
     id: "stop-set",
     title: "Setting the Stop",
-    text: "A stop 1% below the price will sell if the price falls that far. At 10× leverage that keeps your loss to about 10% of your money.",
-    task: "Drag Stop Loss on your position to 1% away, then watch.",
-    focus: ["stop"],
-    allow: (m) => (m.kind === "stop" && m.pct !== null ? null : "Drag Stop Loss on your position to 1% away."),
+    text: "A Stop Loss 1% below the price sells if the price falls that far. At 10× leverage that keeps your loss to about 10% of your money.",
+    task: "Drag the Stop Loss thumb to 1%, beside the middle line.",
+    plan: [
+      { target: "stop", until: "look", say: "Your position's Stop Loss and Take Profit." },
+      { target: "stopthumb", until: "press", say: "Drag the red thumb next to the middle line: 1%." },
+    ],
+    allow: (m) => {
+      if (m.kind !== "stop" || m.pct === null) return "Drag the Stop Loss thumb to 1%, next to the middle line.";
+      // 1% is the first rung of the thumb; just past it still teaches the idea
+      if (m.pct < 1 || m.pct > 1.5) return `This lesson wants a Stop Loss at 1%, not ${m.pct}%. Drag the thumb as close to the middle line as it goes.`;
+      return null;
+    },
     path: [0.998, 0.996, 0.993, 0.991, 0.988, 0.985, 0.983],
     done: flat,
     solve: () => ({ kind: "stop", pct: 1 }),
@@ -141,9 +179,13 @@ export const LESSONS: Lesson[] = [
   {
     id: "gap",
     title: "When a Stop Can't Save You",
-    text: "Your stop filled a little past −1%: a stop closes at the next price there is, not exactly at its level. Usually that is close. On 15 January 2015 the Swiss central bank dropped its cap on the franc, and the price jumped about 15% in minutes with almost no prices in between. Stops filled far past their levels, and many traders lost more than they had.",
-    task: "Set Leverage to 30× and Stake to 100%, then press Buy. A stop 1% below is set for you.",
-    focus: ["leverage", "stake", "buy"],
+    text: "Your stop filled a little past −1%. A stop closes at the next price there is, not exactly at its level. Usually that is close. On 15 January 2015 the Swiss central bank dropped its cap on the franc, and the price jumped about 15% in minutes. Stops filled far past their levels, and many traders lost more than they had.",
+    task: "Set Leverage to 30× and Stake to 100%, then press Buy.",
+    plan: [
+      { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
+      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "buy", until: "press", say: "Press Buy. A 1% stop is set for you." },
+    ],
     fresh: true,
     allow: order(1, 30, true),
     after: (t) => t.desk.stopAway(ME, 1),
@@ -154,9 +196,11 @@ export const LESSONS: Lesson[] = [
   {
     id: "dad",
     title: "Dad's Savings",
-    text: "Wiped out: the price jumped straight past your stop, and your loss was several times your money. This broker has a zero-cut, so you owe nothing and your account is simply ¥0; brokers in Japan can bill you for the rest. In the game you may now borrow from Dad's savings, twice a round, and the debt counts against your result. Borrowing to win back what you lost is the trap the comic is about.",
+    text: "Wiped out: the price jumped straight past your stop, and your loss was several times your money. This broker has a zero-cut, so you owe nothing and your account is ¥0. Brokers in Japan can bill you for the rest. In the game you may borrow from Dad's savings, twice a round, and the debt counts against your result. Borrowing to win back a loss is the trap the comic is about.",
     task: "Press Next to walk away, or Borrow to see how it works.",
-    focus: ["borrow"],
+    plan: [
+      { target: "borrow", until: "press", say: "Borrow from Dad's savings, or press Next." },
+    ],
     allow: (m) => (m.kind === "next" || m.kind === "borrow" ? null : "Press Next to walk away, or Borrow."),
     done: (t) => t.nexted || t.desk.account(ME).debt > 0,
     solve: () => ({ kind: "next" }),
@@ -164,9 +208,9 @@ export const LESSONS: Lesson[] = [
   {
     id: "ready",
     title: "You're Ready",
-    text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch your margin level, cut losses early, use a stop, and remember gaps. In real life most retail traders using leverage lose money; here it is free. Try Replay for real crashes with the date hidden, or Simulation for a random market from today's rate.",
+    text: "Buy if you think the price will rise, sell if you think it will fall. Leverage multiplies both wins and losses. Watch Margin Level, cut losses early, use a Stop Loss, and remember gaps. Most retail traders who use leverage lose money, but here it is free. Try Replay for real crashes with the date hidden, or Simulation for a random market from today's rate.",
     task: "Press Next to finish, then choose a tab above.",
-    focus: [],
+    plan: [],
     allow: only("next", "Press Next to finish."),
     done: (t) => t.nexted,
     solve: () => ({ kind: "next" }),

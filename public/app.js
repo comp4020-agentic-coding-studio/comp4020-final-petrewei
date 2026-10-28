@@ -9,6 +9,7 @@ import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
+import { currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
@@ -104,6 +105,8 @@ function mark() {
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
   $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
   $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
+  // The lit step moves on the moment a slider reaches the value it was asked for.
+  if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
 $("leverage").oninput = () => {
   choice.leverage = levAt(Number($("leverage").value) / 1000, ladder);
@@ -414,7 +417,10 @@ $("restart").onclick = () => act("restart");
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
-const FOCUS = { chart: "chart", equity: "equity", pnl: "pnl-box", level: "level-box", leverage: "leverage-box", stake: "stake-box", buy: "buy", sell: "sell", close: "close", stop: "pexits", borrow: "borrow" };
+// The exact element each step of a lesson points at (ADR 0052): the slider
+// and not its whole block, the one button, the one figure. A step is lit while
+// the page can see it is still to do.
+const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", stake: "stake", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow", next: "lesson-next" };
 function lesson(s) {
   $("lesson").hidden = !s.lesson;
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
@@ -428,8 +434,124 @@ function lesson(s) {
   $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
   $("lesson-task").textContent = l.finished ? t("doneTask") : moving ? t("watch") : own.task;
   $("lesson-next").hidden = l.finished || moving || !l.next;
-  if (!l.finished && !moving) for (const f of l.focus) $(FOCUS[f])?.classList.add("focus");
 }
+// How many of the lesson's looks the player has had, and when the one on show
+// began: a look stays lit for a few seconds, then the next step is lit, and a
+// new lesson starts again (ADR 0052). Pure choosing is in /plan.js.
+const LOOK_MS = 3500;
+let looked = 0;
+let lookedIn = null;
+let lookTimer = 0;
+// A step whose control is not on screen yet (Close before there is a position,
+// Borrow before a wipe-out) is passed over, not dimmed to: pointing at nothing
+// would darken the page for no reason.
+const onScreen = (el) => !!el && el.getClientRects().length > 0;
+function currentStep(l) {
+  if (lookedIn !== l.id) {
+    lookedIn = l.id;
+    looked = 0;
+    clearTimeout(lookTimer);
+  }
+  return planStep(l.plan ?? [], { choice, looked }, (s) => onScreen($(TARGETS[s.target])));
+}
+// When a look is on show, the next is lit after a pause, unless the lesson has
+// moved on by then.
+function lookNext(l, step) {
+  clearTimeout(lookTimer);
+  if (step?.until !== "look") return;
+  lookTimer = setTimeout(() => {
+    if (lookedIn !== l.id || document.hidden) return;
+    looked++;
+    if (state?.lesson?.id === l.id) spotlight(state.lesson, state.phase === "moving");
+  }, LOOK_MS);
+}
+// The step's words, in this language, kept beside the lit control: a small
+// label that follows it, so the instruction is where the eye already is.
+const hint = Object.assign(document.createElement("div"), { id: "step-hint", className: "step-hint", hidden: true });
+document.body.append(hint);
+function placeHint(el, text) {
+  hint.textContent = text;
+  hint.hidden = false;
+  const r = el.getBoundingClientRect();
+  const h = hint.getBoundingClientRect();
+  const gap = 14;
+  // A big target (the chart) has no outside to speak of: the words go inside
+  // it, at its top left, where nothing else is.
+  if (r.width > innerWidth * 0.5) {
+    hint.style.left = `${r.left + 12}px`;
+    hint.style.top = `${r.top + 12}px`;
+    hint.dataset.side = "inside";
+    return;
+  }
+  // Try each side and keep the one that covers the fewest other controls and
+  // labels, and stays on the page: the words go where they hide least.
+  const center = { x: r.left + r.width / 2 - h.width / 2, y: r.top + r.height / 2 - h.height / 2 };
+  const sides = {
+    left: { x: r.left - h.width - gap, y: center.y },
+    right: { x: r.right + gap, y: center.y },
+    below: { x: center.x, y: r.bottom + gap },
+    above: { x: center.x, y: r.top - h.height - gap },
+  };
+  const others = [...document.querySelectorAll("button, input, label, dt, dd, output, h2, .task, .lesson-body p")].filter((e) => e !== el && !el.contains(e) && !e.contains(el) && !e.closest("#step-hint") && e.getClientRects().length);
+  // Above and below slide sideways to stay on the page, so only running off
+  // the top or bottom, or off the side for left and right, counts against them.
+  const fit = (p) => ({ x: Math.max(4, Math.min(innerWidth - h.width - 4, p.x)), y: p.y });
+  for (const s of ["below", "above"]) sides[s] = fit(sides[s]);
+  const score = (p) => {
+    const box = { left: p.x, top: p.y, right: p.x + h.width, bottom: p.y + h.height };
+    const off = box.left < 4 || box.top < 4 || box.right > innerWidth - 4 || box.bottom > innerHeight - 4;
+    // What it hides matters: a button or a slider costs most, a figure or a
+    // label less, a heading or a paragraph least.
+    const cost = (e) => (e.matches("button, input") ? 10 : e.matches("dt, dd, output, label") ? 3 : 1);
+    const hit = others.filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.right > box.left && b.left < box.right && b.bottom > box.top && b.top < box.bottom; }).reduce((n, e) => n + cost(e), 0);
+    return (off ? 1000 : 0) + hit;
+  };
+  let best = "left";
+  for (const s of ["left", "right", "below", "above"]) if (score(sides[s]) < score(sides[best])) best = s;
+  hint.style.left = `${Math.max(4, Math.min(innerWidth - h.width - 4, sides[best].x))}px`;
+  hint.style.top = `${Math.max(4, Math.min(innerHeight - h.height - 4, sides[best].y))}px`;
+  hint.dataset.side = best;
+}
+let scrolledTo = null;
+function spotlight(l, moving) {
+  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
+  document.body.classList.remove("spotlit");
+  hint.hidden = true;
+  hintFor = null;
+  if (l.finished || moving) return;
+  const step = currentStep(l);
+  if (!step) return;
+  const el = $(TARGETS[step.target]);
+  // A control below the fold is brought into view, once per step, or the ring
+  // would be on something the player cannot see.
+  const key = `${l.id}:${l.plan.indexOf(step)}`;
+  if (scrolledTo !== key) {
+    scrolledTo = key;
+    const r = el.getBoundingClientRect();
+    // Not merely on screen but with room around it for its words: within the
+    // middle of the viewport, else it is brought to the centre.
+    if (r.top < innerHeight * 0.15 || r.bottom > innerHeight * 0.8) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  el.classList.add("focus");
+  document.body.classList.add("spotlit");
+  const i = l.plan.indexOf(step);
+  const says = T[lang].lessons[l.id]?.steps?.[i] ?? step.say;
+  const words = `${l.plan.length > 1 ? `${i + 1}/${l.plan.length} ` : ""}${says}`;
+  placeHint(el, words);
+  // The words are placed against where the control is now, so when the page
+  // is scrolling to it, they are placed again as it settles, and as the player
+  // scrolls or resizes afterwards.
+  hintFor = { el, words };
+  lookNext(l, step);
+}
+let hintFor = null;
+let settle = 0;
+const replace = () => {
+  clearTimeout(settle);
+  settle = setTimeout(() => hintFor && !hint.hidden && placeHint(hintFor.el, hintFor.words), 60);
+};
+addEventListener("scroll", replace, { passive: true });
+addEventListener("resize", replace);
 // The ticket's two toggles and one joined track (ADR 0034): the stop loss
 // toggle on the left and the take profit toggle on the right, a thumb each,
 // held to its own half so the two never cross. Each shows its percentage
@@ -968,7 +1090,9 @@ function render(s) {
   $("equity-pct").textContent = pct(worth / s.start - 1);
   $("equity-pct").className = `rate ${tone(worth - s.start)}`;
   $("pnl").textContent = yen(y.pnl);
-  $("pnl").className = tone(y.pnl);
+  // Toggled, not assigned: the tutorial may have a ring on this figure (ADR 0052).
+  $("pnl").classList.toggle("up", y.pnl > 0);
+  $("pnl").classList.toggle("down", y.pnl < 0);
   $("pnl-pct").textContent = y.pos ? pct(y.pnl / y.pos.margin) : "";
   $("pnl-pct").className = `rate ${tone(y.pnl)}`;
   $("level").textContent = y.level === null ? "—" : `${y.level}%`;
@@ -989,7 +1113,11 @@ function render(s) {
     // Level is equity over margin, so at a level the equity is that share of it.
     if (show) $(id).style.left = `${gauge((share * y.pos.margin - y.debt) / s.start) * 100}%`;
   }
-  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && s.phase === "trade" && !y.left);
+  // A round lends while it trades; the tutorial has no trading phase, so it
+  // lends whenever the price is standing still (ADR 0052), which the Dad's
+  // Savings lesson needs to ask the player to press it.
+  const lending = tutorial ? s.phase === "waiting" : s.phase === "trade";
+  $("borrow").hidden = !(y.broke && y.loansLeft > 0 && lending && !y.left);
   warn(s, open);
   // Your position: one row with its own close and stop, as on any
   // platform, or a line saying what to do when there is none.
@@ -1135,6 +1263,9 @@ function render(s) {
       }),
     );
   }
+  // Last, once every panel has shown or hidden what it will: the step looks at
+  // what is on screen (ADR 0052).
+  if (s.lesson) spotlight(s.lesson, s.phase === "moving");
 }
 
 // One stream at a time, on the chosen market. Switching tabs closes it and
