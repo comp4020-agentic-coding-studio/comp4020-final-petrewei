@@ -1,6 +1,6 @@
 # ADR 0057: Dad's Savings Are Taken, Not Borrowed
 
-Status: accepted, 29 October 2026. Changes the loan of [ADR 0009](0009-a-parody-fx-trading-floor.md) and [ADR 0026](0026-a-losscut-ends-your-round.md), the score of [ADR 0029](0029-a-fairer-score.md), and the tutorial of [ADR 0013](0013-a-private-tutorial.md), [ADR 0054](0054-a-compact-lesson-card-and-a-helper-that-waits.md), [ADR 0055](0055-five-seconds-pause-and-end.md) and [ADR 0056](0056-a-warning-lesson-at-1000x.md).
+Status: accepted, 29 October 2026. Changes the loan of [ADR 0009](0009-a-parody-fx-trading-floor.md) and [ADR 0026](0026-a-losscut-ends-your-round.md), the score of [ADR 0029](0029-a-fairer-score.md), and the tutorial of [ADR 0013](0013-a-private-tutorial.md), [ADR 0054](0054-a-compact-lesson-card-and-a-helper-that-waits.md), [ADR 0055](0055-five-seconds-pause-and-end.md) and [ADR 0056](0056-a-warning-lesson-at-1000x.md); its last lesson became three, and the card changed by [ADR 0059](0059-a-card-that-always-reads-and-a-ladder-with-even-rungs.md).
 
 ## 1 Context
 
