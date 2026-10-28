@@ -51,23 +51,6 @@
   </header>
 
   <main>
-    <section class="panel lesson" id="lesson" hidden aria-live="polite">
-      <div class="lesson-body">
-        <div>
-          <p class="lesson-n" id="lesson-n"></p>
-          <h2 id="lesson-title"></h2>
-          <p id="lesson-text"></p>
-        </div>
-        <div class="lesson-do">
-          <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
-          <div class="row">
-            <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext" data-tip-side="below">Next</button>
-            <button id="restart" class="ghost" data-t="restart" data-tip="restart" data-tip-side="below">Start again</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <div class="col main-col">
     <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
       <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
@@ -102,6 +85,20 @@
           <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
+        <!-- The tutorial's lesson: a compact card over the chart's empty bottom
+             right, not a panel across the page (ADR 0054). It folds to one line. -->
+        <section class="lesson" id="lesson" hidden aria-live="polite">
+          <p class="lesson-n" id="lesson-n"></p>
+          <h2 id="lesson-title"></h2>
+          <p id="lesson-text"></p>
+          <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
+          <div class="row">
+            <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext" data-tip-side="below">Next</button>
+            <button id="lesson-why" class="ghost" type="button" aria-expanded="false" aria-controls="lesson-text" data-t="lessonWhy" data-tip="lessonWhy" data-tip-side="below">Why?</button>
+            <button id="restart" class="ghost" data-t="restart" data-tip="restart" data-tip-side="below">Start again</button>
+          </div>
+        </section>
+
         <div class="studies" id="studies" role="group" data-t-aria="indicators">
           <button type="button" data-study="ma" aria-pressed="true" style="--c: var(--ma-fast)" data-tip="ma">MA</button>
           <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-tip="bb">BB</button>

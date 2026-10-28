@@ -9,7 +9,7 @@ import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, fillSpan, gauge, levAt, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { currentStep as planStep } from "/plan.js";
+import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
@@ -225,6 +225,12 @@ $("pray").onclick = () => {
 };
 $("borrow").onclick = () => act("borrow");
 $("lesson-next").onclick = () => act("next");
+// The explanation opens on Why?, and stays as the player left it (ADR 0054).
+$("lesson-why").onclick = () => {
+  const open = $("lesson").classList.toggle("open");
+  $("lesson-why").setAttribute("aria-expanded", String(open));
+  armAuto();
+};
 
 // Light or dark: the system's choice until the toggle is used, then the
 // toggle's, remembered in this browser. The chart reads its colours from
@@ -450,6 +456,77 @@ function currentStep(l) {
   }
   return planStep(l.plan ?? [], { choice, looked }, (s) => onScreen($(TARGETS[s.target])));
 }
+// When a step has waited AUTO_S seconds with no input, the tutorial does it
+// for the player (ADR 0054): a slider slides, a button is pressed through the
+// same server rules as a player's press, a look moves on. A countdown shows in
+// the step's words all that time, and any click, key or slider move starts it
+// again. It never runs while the page is hidden, a dialog is open, or the
+// price is moving.
+const AUTO_S = 10;
+let autoLeft = AUTO_S;
+let autoTimer = 0;
+let sliding = false;
+function armAuto() {
+  clearInterval(autoTimer);
+  autoLeft = AUTO_S;
+  if (!state?.lesson || state.lesson.finished || state.phase === "moving") return;
+  showCount();
+  autoTimer = setInterval(tickAuto, 1000);
+}
+function tickAuto() {
+  const l = state?.lesson;
+  if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
+  if (document.hidden || document.querySelector("dialog[open]") || sliding) return;
+  if (--autoLeft > 0) return showCount();
+  clearInterval(autoTimer);
+  doForPlayer(l);
+}
+function showCount() {
+  if (hint.hidden || !hintFor) return;
+  const text = `${hintFor.words} · ${t("autoIn", { s: autoLeft })}`;
+  if (hint.textContent !== text) {
+    hint.textContent = text;
+    placeHint(hintFor.el, text);
+  }
+}
+function doForPlayer(l) {
+  const step = currentStep(l);
+  const move = step && autoMove(step, l.id, l.plan, choice);
+  if (!move) return armAuto();
+  hint.textContent = `${hintFor?.words ?? ""} · ${t("autoNow")}`;
+  if (move.slide) slideTo(move.slide.slider, move.slide.value, armAuto);
+  else if (move.look) {
+    nextLook();
+    armAuto();
+  } else {
+    act(move.act.kind, move.act);
+    armAuto();
+  }
+}
+// A slider moves to the value a step asks for, a few frames at a time, so the
+// player sees it go; it fires the same input events a hand would, so every
+// handler runs as usual. Reduced motion jumps there.
+function slideTo(which, value, done) {
+  const input = $(which);
+  const target = which === "leverage" ? Math.round(levPos(value) * 1000) : STAKES.indexOf(value);
+  const from = Number(input.value);
+  const steps = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 24;
+  let i = 0;
+  sliding = true;
+  const frame = () => {
+    i++;
+    input.value = String(Math.round(from + ((target - from) * i) / steps));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (i < steps) requestAnimationFrame(frame);
+    else {
+      input.value = String(target);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      sliding = false;
+      done();
+    }
+  };
+  requestAnimationFrame(frame);
+}
 // Move on from the step to look at that is on show, if one is. Returns whether
 // it did, so a click on a control still does its own work.
 function nextLook() {
@@ -465,7 +542,7 @@ function nextLook() {
 // keys do something else, is left alone (ADR 0053).
 addEventListener("pointerdown", (e) => {
   if (e.target.closest?.("dialog[open], #name-box")) return;
-  nextLook();
+  if (!nextLook() && state?.lesson && !state.lesson.finished) armAuto();
 });
 addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !["Enter", " ", "ArrowRight"].includes(e.key)) return;
@@ -473,6 +550,9 @@ addEventListener("keydown", (e) => {
   if (document.querySelector("dialog[open]") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
   if (nextLook()) e.preventDefault();
 });
+// A key or a slider move by the player starts the countdown again.
+addEventListener("keydown", () => state?.lesson && !sliding && armAuto(), true);
+for (const id of ["leverage", "stake"]) $(id).addEventListener("input", () => !sliding && state?.lesson && armAuto());
 // The step's words, in this language, kept beside the lit control: a small
 // label that follows it, so the instruction is where the eye already is.
 const hint = Object.assign(document.createElement("div"), { id: "step-hint", className: "step-hint", hidden: true });
@@ -526,6 +606,8 @@ function clearPointer() {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
   hint.hidden = true;
   hintFor = null;
+  armedFor = null;
+  clearInterval(autoTimer);
 }
 let scrolledTo = null;
 function spotlight(l, moving) {
@@ -555,7 +637,14 @@ function spotlight(l, moving) {
   // is scrolling to it, they are placed again as it settles, and as the player
   // scrolls or resizes afterwards.
   hintFor = { el, words };
+  // A new step starts the countdown afresh; a redraw of the same step does not.
+  const stepKey = `${l.id}:${i}:${looked}`;
+  if (stepKey !== armedFor) {
+    armedFor = stepKey;
+    armAuto();
+  } else showCount();
 }
+let armedFor = null;
 let hintFor = null;
 let settle = 0;
 const replace = () => {

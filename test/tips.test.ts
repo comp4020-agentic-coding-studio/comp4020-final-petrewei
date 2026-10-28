@@ -464,3 +464,67 @@ it("tutorial pointer: moves on from a step to look at by a click or Enter, Space
   // a click must still do its own work: the handler never stops or cancels it
   expect(down.slice(0, down.indexOf("\n});"))).not.toMatch(/preventDefault|stopPropagation|stopImmediatePropagation/);
 });
+
+// ADR 0054: the lesson is a compact card in the chart's bottom right and no
+// longer a panel across the page; a step that waits ten seconds is done for the
+// player, with a countdown on show all that time; a slider step slides.
+const lessonHtml = readFileSync("public/index.html", "utf8");
+const lessonCss = readFileSync("public/app.css", "utf8");
+const lessonApp = readFileSync("public/app.js", "utf8");
+it("puts the lesson inside the chart's box, not in a panel across the page", () => {
+  const doc = new JSDOM(lessonHtml).window.document;
+  const card = doc.getElementById("lesson")!;
+  expect(card.closest(".chart-box"), "the lesson is in the chart box").not.toBeNull();
+  expect(card.closest("main > .lesson"), "and not a panel above the columns").toBeNull();
+  for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task", "lesson-next", "restart", "lesson-why"]) expect(card.querySelector("#" + id), id).not.toBeNull();
+  const rule = lessonCss.match(/\n\.lesson \{([^}]*)\}/g)!.join(" ");
+  expect(rule).toMatch(/position: absolute/);
+  expect(rule).toMatch(/bottom:/);
+  expect(rule).toMatch(/right:/);
+  expect(lessonCss, "the full-width fixed heights are gone").not.toMatch(/\.lesson \{ height: (196|220|360|472)px/);
+});
+it("shows a countdown for ten seconds, and does the step for the player when it ends", () => {
+  expect(lessonApp).toMatch(/const AUTO_S = 10;/);
+  // the countdown is in the step's own words, beside the lit control, all the time
+  expect(lessonApp).toMatch(/t\("autoIn", \{ s: autoLeft \}\)/);
+  expect(lessonApp.slice(lessonApp.indexOf("function showCount"), lessonApp.indexOf("function doForPlayer"))).toMatch(/hintFor\.words/);
+  for (const lang of LANGS) {
+    expect(T[lang].ui.autoIn, lang).toContain("{s}");
+    expect(T[lang].ui.autoNow, lang).toEqual(expect.stringMatching(/\S/));
+  }
+  expect(lessonApp).toMatch(/autoMove\(/);
+  // the countdown restarts on a step, a slider move, a click or a key
+  const reset = lessonApp.slice(lessonApp.indexOf("function armAuto"));
+  expect(reset).toMatch(/clearInterval|clearTimeout/);
+  // and it never runs while the page is hidden or a dialog is open
+  expect(lessonApp.slice(lessonApp.indexOf("function tickAuto"), lessonApp.indexOf("function tickAuto") + 900)).toMatch(/document\.hidden/);
+  expect(lessonApp.slice(lessonApp.indexOf("function tickAuto"), lessonApp.indexOf("function tickAuto") + 900)).toMatch(/dialog\[open\]/);
+});
+it("slides a slider by itself in steps, and respects reduced motion", () => {
+  const slide = lessonApp.slice(lessonApp.indexOf("function slideTo"), lessonApp.indexOf("function slideTo") + 1200);
+  expect(slide).toMatch(/requestAnimationFrame|setInterval/);
+  expect(slide).toMatch(/prefers-reduced-motion/);
+});
+
+// The lit control is lifted above its neighbours, and in the first lesson the
+// lit control is the chart the card sits on; so the card must be above it, and
+// the pointer's words above the card, or the card is hidden by what it explains.
+it("stacks the lesson card above a lit control and below the pointer's words", () => {
+  const z = (sel: string) => Number(lessonCss.match(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{[^}]*z-index: (\\d+)`))?.[1]);
+  expect(z(".lesson"), ".lesson").toBeGreaterThan(z(".focus"));
+  expect(z(".step-hint"), ".step-hint").toBeGreaterThan(z(".lesson"));
+});
+
+// ADR 0054: the card shows the lesson's title and task, and the explanation
+// opens on a Why? button, so the card is short enough to leave the chart clear.
+it("shows the title and task, and the explanation only behind a Why? button", () => {
+  const doc = new JSDOM(lessonHtml).window.document;
+  const why = doc.getElementById("lesson-why");
+  expect(why, "a Why? button").not.toBeNull();
+  expect(why!.getAttribute("aria-expanded")).toBe("false");
+  expect(why!.getAttribute("aria-controls")).toBe("lesson-text");
+  // the card starts with the explanation out of view, and Why? brings it back
+  expect(lessonCss).toMatch(/\.lesson:not\(\.open\) #lesson-text \{ display: none; \}/);
+  expect(lessonApp).toMatch(/classList\.toggle\("open"/);
+  for (const lang of LANGS) for (const k of ["lessonWhy"]) expect(T[lang].ui[k], `${lang}.ui.${k}`).toEqual(expect.stringMatching(/\S/));
+});

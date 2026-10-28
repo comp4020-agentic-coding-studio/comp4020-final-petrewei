@@ -219,3 +219,44 @@ describe("which step a lesson points at", () => {
     expect(met({ target: "buy", until: "press", say: "x" }, 0, { choice: { leverage: 1, stake: 1 }, looked: 99 })).toBe(false);
   });
 });
+
+// ADR 0054: when a step has waited ten seconds the tutorial does it for the
+// player. What it does is decided from the plan alone, so it is checked here:
+// a slider step slides, a step to press sends the lesson's own move, and a step
+// to look at only moves on.
+describe("what the tutorial does for a player who waits", () => {
+  const plan = (id: string) => LESSONS.find((l) => l.id === id)!.plan;
+  const doing = async (id: string, step: number, choice = { leverage: 25, stake: 0.5 }) => {
+    const { autoMove } = await import("../public/plan.js");
+    return autoMove(plan(id)[step], id, plan(id), choice);
+  };
+  it("slides a slider to the value the step asks for", async () => {
+    expect(await doing("buy", 0)).toEqual({ slide: { slider: "leverage", value: 1 } });
+    expect(await doing("leverage", 0)).toEqual({ slide: { slider: "leverage", value: 30 } });
+    expect(await doing("leverage", 1)).toEqual({ slide: { slider: "stake", value: 1 } });
+  });
+  it("sends the lesson's own move for a step to press, and only that", async () => {
+    // the stake is whatever is chosen when the lesson does not ask for one
+    expect(await doing("buy", 1)).toEqual({ act: { kind: "buy", leverage: 1, stake: 0.5 } });
+    expect(await doing("leverage", 2)).toEqual({ act: { kind: "buy", leverage: 30, stake: 1 } });
+    expect(await doing("take-profit", 1)).toEqual({ act: { kind: "close" } });
+    expect(await doing("stop-set", 1)).toEqual({ act: { kind: "stop", pct: 1 } });
+    expect(await doing("welcome", 2)).toEqual({ act: { kind: "next" } });
+    expect(await doing("dad", 0)).toEqual({ act: { kind: "next" } });
+  });
+  it("only moves on from a step to look at", async () => {
+    expect(await doing("welcome", 0)).toEqual({ look: true });
+    expect(await doing("leverage", 3)).toEqual({ look: true });
+  });
+  it("sends a move the lesson accepts, for every press in every lesson", async () => {
+    const { autoMove } = await import("../public/plan.js");
+    for (const l of LESSONS) for (const s of l.plan) {
+      if (s.until !== "press") continue;
+      const m = (autoMove(s, l.id, l.plan, { leverage: 25, stake: 0.5 }) as { act: { kind: string; leverage?: number; stake?: number; pct?: number } }).act;
+      const t = new Tutorial();
+      while (t.lesson().id !== l.id) { expect(t.act(t.lesson().solve(t))).toBeNull(); while (t.moving()) t.step(); }
+      const move = m.kind === "buy" || m.kind === "sell" ? { kind: "order" as const, side: m.kind === "buy" ? (1 as const) : (-1 as const), leverage: m.leverage!, stake: m.stake } : m.kind === "stop" ? { kind: "stop" as const, pct: m.pct! } : ({ kind: m.kind } as { kind: "next" | "close" | "borrow" });
+      expect(t.act(move as never), `${l.id}`).toBeNull();
+    }
+  });
+});

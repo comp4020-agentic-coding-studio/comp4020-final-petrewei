@@ -54,6 +54,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "lessonWhy": "Why this matters, in a few words.",
       "tabReplay": "Could be a quiet Tuesday. Could be Lehman.",
       "tabSimulation": "Invented weather. Real consequences, in play money.",
       "tabTutorial": "A private practice room. Nobody sees you fall over.",
@@ -139,6 +140,9 @@ export const T = {
       "round": "Pause freezes the market for everyone, and it resumes itself after a minute. Leave closes your position at today's price. You watch the rest. End Round, for whoever pressed Start, rings the bell for everyone.",
     },
     ui: {
+      lessonWhy: "Why?",
+      "autoIn": "Doing it for you in {s}s",
+      "autoNow": "Doing it for you",
       info_leverage: "About Leverage",
       info_stake: "About Stake",
       info_spread: "About the spread",
@@ -405,6 +409,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "lessonWhy": "なぜ大事か、少しだけ。",
       "tabReplay": "静かな火曜日かも。リーマンかも。",
       "tabSimulation": "作り物の天気。結果は本物、ただし遊びのお金。",
       "tabTutorial": "ひとり用の練習部屋。転んでも誰にも見られません",
@@ -490,6 +495,9 @@ export const T = {
       "round": "一時停止は全員の相場を止め、1分で自動再開します。抜けるは今の価格で決済して残りを見学します。ラウンド終了は、開始した人が全員にベルを鳴らします。",
     },
     ui: {
+      lessonWhy: "なぜ？",
+      "autoIn": "あと{s}秒で代わりにやります",
+      "autoNow": "代わりにやっています",
       info_leverage: "レバレッジについて",
       info_stake: "投入額について",
       info_spread: "スプレッドについて",
@@ -755,6 +763,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "lessonWhy": "为什么要学这个，简单说。",
       "tabReplay": "可能是平静的周二，也可能是雷曼。",
       "tabSimulation": "虚构的天气，真实的后果，只是用虚拟资金。",
       "tabTutorial": "只属于你的练习室，摔倒了也没人看见",
@@ -840,6 +849,9 @@ export const T = {
       "round": "暂停会为所有人冻结行情，一分钟后自动恢复。退出按今天的价格平仓，然后旁观剩下的。结束本局由开局的人为所有人敲响收盘钟。",
     },
     ui: {
+      lessonWhy: "为什么？",
+      "autoIn": "{s}秒后替你操作",
+      "autoNow": "正在替你操作",
       info_leverage: "关于杠杆",
       info_stake: "关于投入",
       info_spread: "关于点差",
