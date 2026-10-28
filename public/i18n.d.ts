@@ -9,11 +9,14 @@ type Lang = {
   refusals: Table;
   wants: { buy: string; sell: string; stop: string };
   bots: Record<string, { name: string; motto: string }>;
-  prayers: string[];
+  // What a prayer says, for a rise and for a fall.
+  prayers: { rise: string[]; fall: string[] };
   pops: Record<string, string>;
   lessons: Record<string, { title: string; text: string; task: string }>;
   events: Record<string, { title: string; note: string }>;
   scenarios: Record<string, { name: string; note: string; headlines: string[] }>;
+  // News in a Simulation, by number; which way each pushes is kept on the server.
+  stories: string[];
   clues: Record<string, string[]>;
   lines: Record<string, Record<string, string[]>>;
 };

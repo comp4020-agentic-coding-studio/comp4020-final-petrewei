@@ -101,6 +101,7 @@ it("sends the desk's own numbers with every state, so a page keeps no copy", asy
     expect(s.desk, mode).toMatchObject({ cap: RULES.cap, fee: RULES.fee, borrow: RULES.borrow });
     expect(s.desk.ticksPerMinute, mode).toBeGreaterThan(0);
     expect(s.leverages, mode).toEqual(LEVERAGES);
+    expect(s.desk.distances, mode).toEqual(RULES.distances);
     expect(s.leverages, mode).toContain(s.desk.cap);
   }
 });

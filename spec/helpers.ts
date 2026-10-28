@@ -33,7 +33,7 @@ export type State = {
   history?: number[];
   // The desk's own numbers, so a page keeps no copy: the legal cap, the fee a tick, what Dad's
   // savings offer, and how many ticks make a minute.
-  desk: { cap: number; fee: number; borrow: number; ticksPerMinute: number };
+  desk: { cap: number; fee: number; borrow: number; ticksPerMinute: number; distances: number[] };
   leverages: number[];
   prices: number[];
   you: { name: string; draw: number | null; named: boolean; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };

@@ -11,7 +11,7 @@ export const ICONS = {
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "scenario-round": "📡", "replay-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
-    call: "📞", stopout: "💀", zerocut: "🕳️", prayed: "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
+    call: "📞", stopout: "💀", zerocut: "🕳️", "prayed-rise": "🙏", "prayed-fall": "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
   },
   pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷", caught: "🚨" },
 };

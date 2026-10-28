@@ -150,8 +150,8 @@ export const LESSONS: Lesson[] = [
     allow: (m, t) => {
       if (!holding(t)) return order(1, 10, true)(m);
       if (m.kind !== "stop" || m.pct === null) return "Drag the Stop Loss thumb to 1%, next to the middle line.";
-      // 1% is the first rung of the thumb; just past it still teaches the idea
-      if (m.pct < 1 || m.pct > 1.5) return `This lesson wants a Stop Loss at 1%, not ${m.pct}%. Drag the thumb as close to the middle line as it goes.`;
+      // 1% is the first rung of the thumb, the one nearest the middle line
+      if (m.pct !== 1) return `This lesson wants a Stop Loss at 1%, not ${m.pct}%. Drag the thumb as close to the middle line as it goes.`;
       return null;
     },
     // the buy moves nothing; the stop is hit on the way down

@@ -39,15 +39,14 @@ export function gauge(worth) {
   return unit(0.5 + Math.log10(worth) / 2);
 }
 
-// A stop loss or take profit's distance from the price (ADR 0032, 0033):
-// a log-scale ladder from 1% to 50%.
-export const DISTANCES = [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 30, 50];
-const LO = Math.log(DISTANCES[0]);
-const SPAN = Math.log(DISTANCES.at(-1)) - LO;
-export const distPos = (d) => (Math.log(d) - LO) / SPAN;
-export function distAt(pos) {
-  const p = unit(pos);
-  return DISTANCES.reduce((best, d) => (Math.abs(distPos(d) - p) < Math.abs(distPos(best) - p) ? d : best));
+// A stop loss or take profit's distance from the price (ADR 0032, 0033, 0064): a short
+// ladder the desk offers, 1%, 2%, 5%, 10%, 20% and 50%, its rungs evenly spaced along
+// the track so each has its number beneath it. A distance between two rungs sits at the
+// nearer, in ratio.
+const dist = (d, ladder) => ladder.reduce((best, r, i) => (Math.abs(Math.log(r / d)) < Math.abs(Math.log(ladder[best] / d)) ? i : best), 0);
+export const distPos = (d, ladder) => dist(d, ladder) / (ladder.length - 1);
+export function distAt(pos, ladder) {
+  return ladder[Math.round(unit(pos) * (ladder.length - 1))];
 }
 // What a move of `pct` percent makes or loses on a margin at a leverage.
 export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage * pct) / 100);
@@ -60,12 +59,12 @@ export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage 
 // right, so a position's exits never read as each other.
 const GAP = 0.02;
 const HALF = 0.5 - GAP;
-export const exitPos = ({ kind, dist }) => (kind === "sl" ? HALF - distPos(dist) * HALF : 0.5 + GAP + distPos(dist) * HALF);
-export function exitAt(pos) {
+export const exitPos = ({ kind, dist }, ladder) => (kind === "sl" ? HALF - distPos(dist, ladder) * HALF : 0.5 + GAP + distPos(dist, ladder) * HALF);
+export function exitAt(pos, ladder) {
   const p = unit(pos);
   const kind = p < 0.5 ? "sl" : "tp";
   const from = kind === "sl" ? HALF - Math.min(p, HALF) : Math.max(p - (0.5 + GAP), 0);
-  return { kind, dist: distAt(from / HALF) };
+  return { kind, dist: distAt(from / HALF, ladder) };
 }
 
 // The coloured fill of one thumb on the joined track (ADR 0034), as

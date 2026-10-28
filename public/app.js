@@ -7,7 +7,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { DISTANCES, STAKES, distAt, distPos, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
+import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
@@ -87,7 +87,7 @@ let seated = false;
 // The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
 // amount Dad's savings offer, so the page keeps no copy of them.
 let ladder = [];
-let broker = { cap: 1, fee: 0, borrow: 0, ticksPerMinute: 120 };
+let broker = { cap: 1, fee: 0, borrow: 0, ticksPerMinute: 120, distances: [1] };
 function ticks(id, marks) {
   $(id).replaceChildren(
     ...marks.map(([at, text, cls = ""]) => {
@@ -102,6 +102,11 @@ function sliders() {
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
   ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`]));
   ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
+  // The six distances, once for the stop loss on the left of the track and once for the
+  // take profit on the right, each rung's number under its place on the track (ADR 0064).
+  const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`]));
+  ticks("exit-ticks", marks);
+  ticks("pexit-ticks", marks);
 }
 function mark() {
   $("leverage").value = String(Math.round(levPos(choice.leverage, ladder) * 1000));
@@ -237,10 +242,13 @@ $("resume").onclick = () => act("resume");
 $("finish").onclick = () => confirm(t("finishConfirm")) && act("finish");
 $("hold").onclick = () => act("hold");
 $("dismiss").onclick = () => act("dismiss");
-$("pray").onclick = () => {
-  burst($("pray"), ["🙏", "✨", "🙏", "⛩️", "✨"]);
-  act("pray");
-};
+// Two prayers, for a rise and for a fall; neither does anything (ADR 0064).
+for (const [id, way, emoji] of [["pray-rise", 1, "🚀"], ["pray-fall", -1, "📉"]]) {
+  $(id).onclick = () => {
+    burst($(id), ["🙏", "✨", "🙏", emoji, "✨"]);
+    act("pray", { way });
+  };
+}
 // "Borrow" is taken from a pop-up, which closes once it is (ADR 0057).
 $("borrow").onclick = () => {
   act("borrow");
@@ -437,7 +445,19 @@ function lobby(s) {
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
   $("start").hidden = counting;
+  // The choice of round (ADR 0064). A select is filled once and only its value follows the
+  // state, since it is redrawn twice a second and a rebuilt one would shut its own menu.
+  $("plot-next").hidden = !s.plot;
+  if (s.plot) $("plot-next").textContent = t("plotNext", { n: s.plot.n, of: s.plot.of });
+  $("pair-pick").hidden = !s.pairs;
+  if (s.pairs) {
+    const pick = $("pair-select");
+    if (pick.options.length !== s.pairs.length) pick.replaceChildren(...s.pairs.map((p) => Object.assign(document.createElement("option"), { value: p, textContent: p })));
+    if (pick.value !== s.pair && document.activeElement !== pick) pick.value = s.pair;
+  }
 }
+$("plot-next").onclick = () => act("choose", { what: "next" });
+$("pair-select").onchange = (e) => act("choose", { what: e.target.value });
 $("restart").onclick = () => {
   looked = 0;
   act("again");
@@ -731,7 +751,7 @@ function paintExits() {
   }
 }
 function seatExits() {
-  for (const k of ["sl", "tp"]) $(`${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: exits[k].dist }) * 1000));
+  for (const k of ["sl", "tp"]) $(`${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: exits[k].dist }, broker.distances) * 1000));
   paintExits();
 }
 for (const k of ["sl", "tp"]) {
@@ -740,13 +760,12 @@ for (const k of ["sl", "tp"]) {
     paintExits();
   };
   $(`${k}-dist`).oninput = () => {
-    exits[k].dist = exitAt(Number($(`${k}-dist`).value) / 1000).dist;
+    exits[k].dist = exitAt(Number($(`${k}-dist`).value) / 1000, broker.distances).dist;
     // moving a thumb switches its own exit on: the point of moving it
     exits[k].on = true;
     paintExits();
   };
 }
-seatExits();
 // The position's own two toggles and track (ADR 0037), the ticket's control
 // bound to the open position: a toggle sets the exit at the distance shown or
 // removes it, and letting go of a thumb places it. A held distance is kept per
@@ -756,7 +775,7 @@ let grabbed = null;
 function paintHeld(on) {
   for (const k of ["sl", "tp"]) {
     const [min, max] = HALF[k];
-    if (grabbed !== k) $(`p${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: held[k] }) * 1000));
+    if (grabbed !== k) $(`p${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: held[k] }, broker.distances) * 1000));
     const { from, to } = fillSpan(k, Number($(`p${k}-dist`).value), min, max);
     const left = k === "sl" ? 0 : 52;
     $(`p${k}-fill`).style.left = `${left + from * 48}%`;
@@ -774,7 +793,7 @@ for (const k of ["sl", "tp"]) {
   };
   $(`p${k}-dist`).oninput = () => {
     grabbed = k;
-    held[k] = exitAt(Number($(`p${k}-dist`).value) / 1000).dist;
+    held[k] = exitAt(Number($(`p${k}-dist`).value) / 1000, broker.distances).dist;
     $(`p${k}-pct`).textContent = `${held[k]}%`;
     paintHeld({ sl: !!state?.you.pos?.stop, tp: !!state?.you.pos?.take });
   };
@@ -851,6 +870,19 @@ for (const b of document.querySelectorAll("#studies button")) {
   };
 }
 
+// A face as an image the chart can draw, made once from its pixel art and kept: a canvas
+// cannot draw the SVG string the rest of the page puts in the DOM.
+const faces = new Map();
+function faceImage(face) {
+  let img = faces.get(face);
+  if (!img) {
+    img = new Image();
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg(face, 16))}`;
+    img.onload = () => state && draw(state);
+    faces.set(face, img);
+  }
+  return img;
+}
 function draw(full) {
   const s = windowed(full);
   const canvas = $("chart");
@@ -1035,6 +1067,32 @@ function draw(full) {
     ctx.fillStyle = now === null ? css.getPropertyValue("--muted") : now >= 70 ? down : now <= 30 ? up : css.getPropertyValue("--rsi");
     if (!small) ctx.fillText(`RSI(14) ${now === null ? "—" : now.toFixed(1)}`, 10, h + 20);
   }
+  // A face at each moment a trader opened, added to, closed or was cut out of a position
+  // (ADR 0064), on the price of that tick, with an arrow for the way and a ring if it is mine.
+  for (const m of s.marks ?? []) {
+    const i = prices.length - 1 - (s.tick - m.tick);
+    if (i < 0 || i > prices.length - 1) continue;
+    const cx = x(i);
+    if (cx < 8 || cx > w - 78) continue;
+    const my = Math.max(HEAD + 8, Math.min(h - 8, y(prices[i])));
+    const img = faceImage(m.face);
+    ctx.globalAlpha = m.you ? 1 : 0.85;
+    if (img.complete && img.naturalWidth) ctx.drawImage(img, cx - 7, my - 7, 14, 14);
+    ctx.globalAlpha = 1;
+    if (m.you) {
+      ctx.strokeStyle = css.getPropertyValue("--pink");
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - 8, my - 8, 16, 16);
+      ctx.lineWidth = 1;
+    }
+    // The way, beside the face: a green arrow for a buy below it, a red one for a sell above
+    // it; a close or a cut is a small dot, or a cross when the broker did it, below it.
+    const opened = m.kind === "open" || m.kind === "add";
+    const glyph = opened ? (m.side === 1 ? "▲" : "▼") : m.kind === "stopout" || m.kind === "zerocut" ? "✕" : "●";
+    ctx.fillStyle = opened ? (m.side === 1 ? up : down) : css.getPropertyValue("--muted");
+    ctx.font = "9px 'JetBrains Mono', ui-monospace, monospace";
+    ctx.fillText(glyph, cx - 3, opened && m.side === -1 ? my - 10 : my + 19);
+  }
   const last = prices.at(-1);
   ctx.strokeStyle = css.getPropertyValue("--chart-line");
   ctx.beginPath();
@@ -1103,7 +1161,7 @@ const lastLine = new Map();
 function popText(p) {
   const said = botLine(p);
   if (said) return p.kind === "close" ? `${said} ${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}` : said;
-  if (p.kind === "pray") return pick(T[lang].prayers);
+  if (p.kind === "pray") return pick(T[lang].prayers[p.way === -1 ? "fall" : "rise"]);
   if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
   return `${ICONS.pops[p.kind] ?? ""} ${(T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""))}`.trim();
 }
@@ -1111,7 +1169,7 @@ function popText(p) {
 // over the control you used, since your row may be off screen.
 function popAt(p, s) {
   if (p.who === s.you.code) {
-    if (p.kind === "pray") return $("pray");
+    if (p.kind === "pray") return $(p.way === -1 ? "pray-fall" : "pray-rise");
     if (p.kind === "close") return $("pnl-box");
     if (p.kind === "call" || p.kind === "stopout" || p.kind === "zerocut") return $("level-box");
     if (p.kind === "borrow") return $("equity");
@@ -1215,6 +1273,7 @@ function render(s) {
     ladder = s.leverages;
     broker = s.desk;
     sliders();
+    seatExits();
     // a new visitor starts at the legal cap
     choice.leverage = levAt(levPos(s.you.pos?.leverage ?? broker.cap, ladder), ladder);
     mark();
@@ -1229,7 +1288,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && (s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
+  const head = s.headline && (s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
   // Only a clue or headline is shown here; the static label that said which
   // mode this was is gone (ADR 0059), since the tab already says it.
   $("mode").textContent = head ? `📰 ${head}` : "";
@@ -1319,7 +1378,7 @@ function render(s) {
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
     // An exit set elsewhere (an order's, a bot's) shows at its distance now.
     for (const [k, at] of [["sl", y.pos.stop], ["tp", y.pos.take]]) {
-      if (at && grabbed !== k) held[k] = exitAt(exitPos({ kind: k, dist: Math.abs((at / price - 1) * 100) })).dist;
+      if (at && grabbed !== k) held[k] = exitAt(exitPos({ kind: k, dist: Math.abs((at / price - 1) * 100) }, broker.distances), broker.distances).dist;
     }
     paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
   } else {
@@ -1328,7 +1387,7 @@ function render(s) {
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
   const closed = !open || y.out || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
-  $("pray").disabled = closed || s.phase === "countdown";
+  for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.

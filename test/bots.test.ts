@@ -19,12 +19,14 @@ describe("Kurumi", () => {
     expect(result).toMatchObject([{ kind: "add" }]);
   });
 
-  it("prays when there is nothing left to add", () => {
-    const desk = new Desk(100);
-    desk.join(hana.id);
-    desk.order(hana.id, 1, 100);
-    desk.mark(99.6);
-    expect(hana.act(desk, hana.id, [100, 99.6], always)).toEqual({ kind: "pray" });
+  it("prays when there is nothing left to add, for the way her own bet needs", () => {
+    for (const side of [1, -1] as const) {
+      const desk = new Desk(100);
+      desk.join(hana.id);
+      desk.order(hana.id, side, 100);
+      desk.mark(100 - side * 0.4);
+      expect(hana.act(desk, hana.id, [100, 100 - side * 0.4], always), side === 1 ? "a long asks for a rise" : "a short asks for a fall").toEqual({ kind: "pray", way: side });
+    }
   });
 
   it("borrows from Dad once she is broke", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LEVERAGES } from "../src/fx.ts";
+import { DISTANCES, LEVERAGES } from "../src/fx.ts";
 import { STAKES, gauge, levAt, levPos, pct } from "../public/ticket.js";
 
 // ADR 0024: the order ticket's arithmetic, kept out of the page so it can
@@ -84,34 +84,38 @@ describe("the meter", () => {
 // snaps to a ladder of distances, and the ticket says what each would
 // make or lose: at L× on a margin M, a move of d% is M × L × d / 100.
 describe("the stop and take profit distances", () => {
-  // ADR 0033: one slider for both exits, from the stop loss at the left
-  // to the take profit at the right; each is 1% to 50% away.
-  it("run from 1% to 50%, the same ladder both ways", async () => {
-    const { DISTANCES, distAt, distPos } = await import("../public/ticket.js");
-    expect(DISTANCES[0]).toBe(1);
-    expect(DISTANCES.at(-1)).toBe(50);
-    expect(distPos(1)).toBe(0);
-    expect(distPos(50)).toBe(1);
-    for (const d of DISTANCES) expect(distAt(distPos(d)), String(d)).toBe(d);
-    expect(distAt(-1)).toBe(1);
-    expect(distAt(2)).toBe(50);
+  // ADR 0033, 0064: one slider for both exits, from the stop loss at the left to the take
+  // profit at the right; each is one of the desk's six distances away, evenly spaced.
+  it("run along the desk's six distances, evenly, the same ladder both ways", async () => {
+    const { distAt, distPos } = await import("../public/ticket.js");
+    expect(DISTANCES).toEqual([1, 2, 5, 10, 20, 50]);
+    expect(distPos(1, DISTANCES)).toBe(0);
+    expect(distPos(50, DISTANCES)).toBe(1);
+    for (const d of DISTANCES) expect(distAt(distPos(d, DISTANCES), DISTANCES), String(d)).toBe(d);
+    const gaps = DISTANCES.slice(1).map((d, i) => distPos(d, DISTANCES) - distPos(DISTANCES[i], DISTANCES));
+    for (const gap of gaps) expect(gap).toBeCloseTo(1 / (DISTANCES.length - 1), 9);
+    expect(distAt(-1, DISTANCES)).toBe(1);
+    expect(distAt(2, DISTANCES)).toBe(50);
+    // a distance that is not a rung sits at the nearer one, in ratio
+    expect(distAt(distPos(3, DISTANCES), DISTANCES)).toBe(2);
+    expect(distAt(distPos(7, DISTANCES), DISTANCES)).toBe(5);
   });
 
   it("place the stop loss left of the middle and the take profit right of it, as one track", async () => {
-    const { DISTANCES, exitAt, exitPos } = await import("../public/ticket.js");
+    const { exitAt, exitPos } = await import("../public/ticket.js");
     // the track runs stop loss 50% ... 1% | 1% ... 50% take profit
-    expect(exitPos({ kind: "sl", dist: 50 })).toBeCloseTo(0, 9);
-    expect(exitPos({ kind: "tp", dist: 50 })).toBeCloseTo(1, 9);
+    expect(exitPos({ kind: "sl", dist: 50 }, DISTANCES)).toBeCloseTo(0, 9);
+    expect(exitPos({ kind: "tp", dist: 50 }, DISTANCES)).toBeCloseTo(1, 9);
     // the nearest of each sits either side of the middle, never on it
-    expect(exitPos({ kind: "sl", dist: 1 })).toBeLessThan(0.5);
-    expect(exitPos({ kind: "tp", dist: 1 })).toBeGreaterThan(0.5);
+    expect(exitPos({ kind: "sl", dist: 1 }, DISTANCES)).toBeLessThan(0.5);
+    expect(exitPos({ kind: "tp", dist: 1 }, DISTANCES)).toBeGreaterThan(0.5);
     for (const d of DISTANCES) {
-      expect(exitAt(exitPos({ kind: "sl", dist: d })), `sl ${d}`).toEqual({ kind: "sl", dist: d });
-      expect(exitAt(exitPos({ kind: "tp", dist: d })), `tp ${d}`).toEqual({ kind: "tp", dist: d });
+      expect(exitAt(exitPos({ kind: "sl", dist: d }, DISTANCES), DISTANCES), `sl ${d}`).toEqual({ kind: "sl", dist: d });
+      expect(exitAt(exitPos({ kind: "tp", dist: d }, DISTANCES), DISTANCES), `tp ${d}`).toEqual({ kind: "tp", dist: d });
     }
     // left of the middle is always a stop loss, right of it a take profit
-    expect(exitAt(0.1).kind).toBe("sl");
-    expect(exitAt(0.9).kind).toBe("tp");
+    expect(exitAt(0.1, DISTANCES).kind).toBe("sl");
+    expect(exitAt(0.9, DISTANCES).kind).toBe("tp");
   });
 
   it("say what a move of that distance makes or loses", async () => {
@@ -132,16 +136,16 @@ describe("the ticket's exits match the desk", async () => {
 
   it("places each exit exactly as far as the thumb reads, at every position", () => {
     for (let pos = 0; pos <= 1000; pos += 20) {
-      const { kind, dist } = exitAt(pos / 1000);
+      const { kind, dist } = exitAt(pos / 1000, DISTANCES);
       const desk = new Desk(100);
       desk.join("a");
       const exit = kind === "sl" ? { sl: dist } : { tp: dist };
-      desk.order("a", 1, 10, 1, exit);
+      // whatever the thumb reads, the desk takes it, and places the exit exactly there
+      expect(desk.order("a", 1, 10, 1, exit), `thumb ${pos} reads ${dist}%`).toEqual([expect.objectContaining({ kind: "open" })]);
       const p = desk.account("a").pos!;
       if (kind === "sl") expect((1 - p.stop! / 100) * 100, `thumb ${pos}`).toBeCloseTo(dist, 6);
       else expect((p.take! / 100 - 1) * 100, `thumb ${pos}`).toBeCloseTo(dist, 6);
-      expect(dist).toBeGreaterThanOrEqual(1);
-      expect(dist).toBeLessThanOrEqual(50);
+      expect(DISTANCES).toContain(dist);
     }
   });
 
@@ -177,9 +181,9 @@ describe("the joined track's fill", () => {
   });
 
   it("is longer the further the distance, for both, and empty at 1%", async () => {
-    const { DISTANCES, exitPos, fillSpan } = await import("../public/ticket.js");
+    const { exitPos, fillSpan } = await import("../public/ticket.js");
     const len = (kind: "sl" | "tp", dist: number) => {
-      const v = Math.round(exitPos({ kind, dist }) * 1000);
+      const v = Math.round(exitPos({ kind, dist }, DISTANCES) * 1000);
       const { from, to } = kind === "sl" ? fillSpan("sl", v, 0, 480) : fillSpan("tp", v, 520, 1000);
       return to - from;
     };

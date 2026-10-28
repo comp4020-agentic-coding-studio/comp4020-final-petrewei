@@ -84,6 +84,12 @@
         </div>
         <!-- A Simulation's headline or a Replay's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
         <p class="mode headline" id="mode" hidden></p>
+        <!-- Two prayers, one for a rise and one for a fall, over the chart's lower left, where
+             the newest prices are not (ADR 0064). Neither does anything. -->
+        <div class="prayers" id="prayers">
+          <button id="pray-rise" class="pray" type="button" data-tip="prayRise"><span aria-hidden="true">🙏↗</span><span class="sr-only" data-t="prayRise">Pray: Rise</span></button>
+          <button id="pray-fall" class="pray" type="button" data-tip="prayFall"><span aria-hidden="true">🙏↘</span><span class="sr-only" data-t="prayFall">Pray: Fall</span></button>
+        </div>
         <!-- The tutorial's lesson: a card across the bottom of the chart, clear
              of its right end where the price runs (ADR 0057, 0059). The title and
              the task are on the left; the head, with its buttons, is above the
@@ -120,6 +126,15 @@
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
+          <!-- What the next round is (ADR 0064): Replay moves on to its next plot, by number only,
+               and Simulation takes a pair; the chart behind shows the choice at once. -->
+          <div class="lobby-pick" id="lobby-pick">
+            <button id="plot-next" class="ghost" type="button" data-tip="plotNext" hidden></button>
+            <label class="pair-pick" id="pair-pick" hidden>
+              <span data-t="pairLabel">Currency pair</span>
+              <select id="pair-select" data-tip="pairPick"></select>
+            </label>
+          </div>
           <div class="lobby-go">
             <button id="start" class="start" data-t="start" data-tip="start">Start Round</button>
             <!-- Ironman: nobody may pause this round (ADR 0024). -->
@@ -168,6 +183,7 @@
           <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
           <div class="exit-line" aria-hidden="true"></div>
         </div>
+        <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
       </div>
       </div>
     </section>
@@ -233,9 +249,9 @@
           <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
           <div class="exit-line" aria-hidden="true"></div>
         </div>
+        <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
-      <button id="pray" class="pray" data-t="pray" data-tip="pray">Pray to the chart</button>
       <!-- Name that year (ADR 0030): in a replay's second half, a private
            guess at the year it is from, scored at the bell. -->
       <form class="guess" id="guess" hidden>

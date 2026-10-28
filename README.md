@@ -11,7 +11,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 ## What good means here
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the European Central Bank's daily rates since 1999; most rounds hide a famous day, like Lehman Brothers, revealed at the bell. Simulation draws a random market from today's rate, shaped by a hidden situation.
+- **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays the ECB's daily rates since 1999; each round is one of thirteen days the market broke, like Lehman, named at the bell. Simulation draws a random market from today's rate, shaped by a hidden situation.
 - **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you "borrow". Fees grow with leverage. A gap can wipe you out.
 - **Losing is public.** Stop-outs hit the feed. Dad's savings are "borrowed" twice, and he finds out.
 - **There's always someone to trade against.** Seven comic traders play.

@@ -26,11 +26,15 @@ describe("the translations", () => {
     }
   });
 
-  it("has the same number of prayers in every language", () => {
+  it("has the same prayers for a rise and for a fall in every language", () => {
     for (const lang of LANGS) {
-      expect(T[lang].prayers.length, lang).toBe(T.en.prayers.length);
-      expect(T[lang].prayers.length, lang).toBeGreaterThanOrEqual(6);
-      for (const p of T[lang].prayers) expect(p, lang).not.toBe("");
+      for (const way of ["rise", "fall"] as const) {
+        expect(T[lang].prayers[way].length, `${lang} ${way}`).toBe(T.en.prayers[way].length);
+        expect(T[lang].prayers[way].length, `${lang} ${way}`).toBeGreaterThanOrEqual(6);
+        for (const p of T[lang].prayers[way]) expect(p, `${lang} ${way}`).not.toBe("");
+      }
+      // the two sides are different words, or a prayer for a fall would read as one for a rise
+      expect(T[lang].prayers.fall, lang).not.toEqual(T[lang].prayers.rise);
       expect(keys(T[lang].pops), lang).toEqual(keys(T.en.pops));
     }
   });
@@ -112,7 +116,7 @@ it("keeps every slot of every template in every language", () => {
 // Chinese character counts as two. The budgets were measured in a browser
 // against the slots in public/app.css (see PROCESS.md).
 const width = (text: string): number => [...text].reduce((n, ch) => n + (/[⺀-鿿＀-￯　-〿]/.test(ch) ? 2 : 1), 0);
-const BUDGET: Record<string, number> = { warnClose: 16, logo: 12, replay: 16, simulation: 16, tutorial: 16, sub: 30, spread: 34, leverage: 18, stake: 18, stakeNote: 28, netWorth: 14, pnl: 14, level: 14, meterKey: 50, pray: 34, start: 16, next: 14, restart: 14, clockLobby: 20, clockClosed: 20, clockTutorial: 20 };
+const BUDGET: Record<string, number> = { warnClose: 16, logo: 12, replay: 16, simulation: 16, tutorial: 16, sub: 30, spread: 34, leverage: 18, stake: 18, stakeNote: 28, netWorth: 14, pnl: 14, level: 14, meterKey: 50, start: 16, next: 14, restart: 14, clockLobby: 20, clockClosed: 20, clockTutorial: 20 };
 
 it("keeps every fixed-width label inside its slot in every language", () => {
   for (const lang of LANGS) {

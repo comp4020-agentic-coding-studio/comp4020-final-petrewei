@@ -59,7 +59,7 @@ it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone el
   await act(a, { kind: "sell", leverage: 5, stake: 0.5 });
   // the page asks for each a percentage away; the server sets the level
   expect((await act(a, { kind: "stop", pct: 5 })).status).toBe(200);
-  expect((await act(a, { kind: "take", pct: 3 })).status).toBe(200);
+  expect((await act(a, { kind: "take", pct: 2 })).status).toBe(200);
   const pos = (await state(a)).you.pos as unknown as { stop: number; take: number };
   const price = (await state(a)).prices.at(-1)!;
   expect(pos.stop).toBeGreaterThan(price);
@@ -75,7 +75,7 @@ it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone el
 it.skipIf(live)("attaches a stop loss and take profit sent with an order", async () => {
   const a = await visitor();
   await open();
-  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5, sl: 2, tp: 4 })).status).toBe(200);
+  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5, sl: 2, tp: 5 })).status).toBe(200);
   const s = await state(a);
   const pos = s.you.pos as unknown as { stop: number; take: number; entry: number };
   expect(pos.stop).toBeLessThan(pos.entry);

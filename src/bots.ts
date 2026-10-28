@@ -6,7 +6,7 @@
 // its own account and the recent prices and returns at most one action.
 import type { Desk, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; stake?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray" } | { kind: "borrow" };
+export type Action = { kind: "order"; side: Side; leverage: number; stake?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" };
 export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);
@@ -24,7 +24,8 @@ export const BOTS: Bot[] = [
       if (!pos) return rnd() < 0.15 ? { kind: "order", side: trend(prices, 9) < 0 ? 1 : -1, leverage: rnd() < 0.5 ? 500 : 1000, stake: 0.5 } : null;
       if (desk.pnl(me) >= 0) return null;
       if (desk.free(me) > 0) return rnd() < 0.3 ? { kind: "order", side: pos.side, leverage: pos.leverage, stake: 1 } : null;
-      if (desk.level(me) < 0.8) return { kind: "pray" };
+      // she prays for the way her own bet needs: a long for a rise, a short for a fall
+      if (desk.level(me) < 0.8) return { kind: "pray", way: pos.side };
       return null;
     },
   },
@@ -42,7 +43,7 @@ export const BOTS: Bot[] = [
         // Never without both exits (ADR 0032, 0033): the tightest stop the
         // broker allows, 1%, and a take profit at 3%, at 10× a tenth of her
         // margin lost or three tenths made.
-        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6, sl: 1, tp: 3 };
+        return { kind: "order", side: t > 0 ? 1 : -1, leverage: 10, stake: 0.6, sl: 1, tp: 5 };
       }
       // A position from before both rode on the order still gets its stop.
       if (pos.stop === null) return { kind: "stop", pct: 1 };

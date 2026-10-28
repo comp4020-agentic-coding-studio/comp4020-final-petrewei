@@ -200,7 +200,7 @@ describe("the trading desk", () => {
     desk.order("a", -1, 5);
     expect(desk.stopAway("a", 2)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeCloseTo(102);
-    expect(desk.stopAway("a", 80)).toBe("A Stop Loss must be between 1% and 50% away.");
+    expect(desk.stopAway("a", 80)).toBe("A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.");
     expect(desk.stopAway("a", null)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeNull();
   });
@@ -428,7 +428,7 @@ describe("stop loss and take profit", () => {
     expect(desk.takeAway("a", 1)).toBe("Open a position first.");
     desk.order("a", 1, 10);
     expect(desk.take("a", 99)).toBe("A long's Take Profit must be above the price.");
-    for (const bad of [0, 0.5, 0.99, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A Take Profit must be between 1% and 50% away.");
+    for (const bad of [0, 0.5, 0.99, -1, 51]) expect(desk.takeAway("a", bad), String(bad)).toBe("A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.");
     expect(desk.takeAway("a", 1)).toBeNull();
     expect(desk.takeAway("a", 50)).toBeNull();
     expect(desk.takeAway("a", null)).toBeNull();
@@ -452,9 +452,9 @@ describe("stop loss and take profit", () => {
   it("refuses an order whose attached distances are out of range, opening nothing", () => {
     const desk = new Desk(100);
     desk.join("a");
-    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A Stop Loss must be between 1% and 50% away.");
-    expect(desk.order("a", 1, 10, 1, { sl: 0.5 })).toBe("A Stop Loss must be between 1% and 50% away.");
-    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A Take Profit must be between 1% and 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 60 })).toBe("A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.");
+    expect(desk.order("a", 1, 10, 1, { sl: 0.5 })).toBe("A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.");
+    expect(desk.order("a", 1, 10, 1, { tp: 0 })).toBe("A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.");
     expect(desk.account("a").pos).toBeNull();
   });
 
@@ -552,3 +552,27 @@ describe("the financing fee", () => {
     expect(d.level("a")).toBeCloseTo(0.5, 9);
   });
 });
+
+// ADR 0064: a stop loss or take profit is one of six distances, and the desk, not the
+// page, holds that to them: a distance that used to be allowed is turned away.
+describe("the six distances", () => {
+  it("accepts 1%, 2%, 5%, 10%, 20% and 50% and nothing between them", async () => {
+    const { Desk, DISTANCES } = await import("../src/fx.ts");
+    expect(DISTANCES).toEqual([1, 2, 5, 10, 20, 50]);
+    for (const d of DISTANCES) {
+      const desk = new Desk(100);
+      desk.join("a");
+      expect(desk.order("a", 1, 10, 1, { sl: d, tp: d }), `${d}%`).toEqual([expect.objectContaining({ kind: "open" })]);
+      expect(desk.stopAway("a", d), `stop ${d}%`).toBeNull();
+      expect(desk.takeAway("a", d), `take ${d}%`).toBeNull();
+    }
+    for (const bad of [0, 0.5, 1.5, 3, 4, 7.5, 15, 30, 51, -5]) {
+      const desk = new Desk(100);
+      desk.join("a");
+      expect(desk.order("a", 1, 10, 1, { sl: bad }), `sl ${bad}`).toMatch(/must be 1%, 2%, 5%, 10%, 20% or 50% away/);
+      expect(desk.order("a", 1, 10, 1, { tp: bad }), `tp ${bad}`).toMatch(/must be 1%, 2%, 5%, 10%, 20% or 50% away/);
+      expect(desk.account("a").pos, `nothing opens at ${bad}%`).toBeNull();
+    }
+  });
+});
+

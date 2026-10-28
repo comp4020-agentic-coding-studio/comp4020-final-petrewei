@@ -19,7 +19,7 @@ import { yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
-import { History, PAIRS, STEPS, random, replay, scenario, type Pair, type Round } from "./market.ts";
+import { EVENTS, History, PAIRS, STEPS, random, replay, scenario, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -34,6 +34,10 @@ const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
 const POPS_MAX = 40;
+// The chart marks a trader's fills, as many as the window can show before they crowd it.
+const MARKS_MAX = 120;
+// Which fills get a face on the chart: a trader's own decisions and the broker's cut, not a margin call.
+const MARKED = new Set(["open", "add", "close", "stop", "take", "stopout", "zerocut"]);
 // The bell shows for twenty seconds; anyone on the tab may close it or
 // hold it thirty more, up to five minutes in all (ADR 0022).
 const BREAK_TICKS = 40;
@@ -335,6 +339,7 @@ const CONTROLS: Record<string, (m: Market, who: string, input: Record<string, un
   hold: (m, who) => m.bell(who, true),
   dismiss: (m, who) => m.bell(who, false),
   guess: (m, who, input) => m.guess(who, input.year as number),
+  choose: (m, who, input) => m.choose(who, input.what),
 };
 // The first year of the ECB's rates, so the first a replay can be from.
 const FIRST_YEAR = 1999;
@@ -365,7 +370,7 @@ class Market {
   startedBy: string | null = null;
   ironman = false;
   // The latest Simulation headline, pinned under the price until the next.
-  headline: { scenario: string; n: number } | { clue: number; n: number } | null = null;
+  headline: { scenario: string; n: number } | { clue: number; n: number } | { story: number } | null = null;
   // Each trader's guess at a replay's year, private until the bell.
   guesses = new Map<string, number>();
   // Ticks left in a pause, or 0 when the market runs.
@@ -385,9 +390,9 @@ class Market {
   // a banked result, a margin call, a cut, a loan. Numbered so a page
   // shows each once; only the last few seconds are kept, and each names
   // the trader by short code.
-  pops: { n: number; at: number; who: string; kind: string; lev?: number; pnl?: number }[] = [];
+  pops: { n: number; at: number; who: string; kind: string; lev?: number; pnl?: number; way?: number }[] = [];
   popCount = 0;
-  pop(who: string, kind: string, extra: { lev?: number; pnl?: number } = {}): void {
+  pop(who: string, kind: string, extra: { lev?: number; pnl?: number; way?: number } = {}): void {
     this.pops.push({ n: ++this.popCount, at: this.tick, who: short(who), kind, ...extra });
     this.pops = this.pops.filter((p) => this.tick - p.at <= POP_TICKS).slice(-POPS_MAX);
   }
@@ -396,17 +401,49 @@ class Market {
     this.mode = mode;
   }
 
+  // The moments of this round that the chart marks with a trader's face (ADR 0064): who
+  // opened, added, closed or was cut out, on which tick, and which way. They are what the
+  // feed already says in words, and no more: never a stop, a take profit or a cookie.
+  marks: { tick: number; who: string; face: string; kind: string; side: number; key: string }[] = [];
+
+  // What the lobby chose for the next round: a plot's id in Replay, a pair in
+  // Simulation, or nothing, which is drawn at random (ADR 0064).
+  pick: string | null = null;
+
+  // Someone on the tab changes what the next round is, in the lobby only: Replay moves to
+  // the next plot, or a named one; Simulation takes a pair. The round behind the lobby is
+  // drawn again at once, so everyone's chart shows the new choice.
+  choose(who: string, what: unknown): string | null {
+    if (this.phase !== "lobby") return "The round is already about to start.";
+    if (!this.listeners().some((l) => l.who === who)) return "Open this tab to choose its round.";
+    if (this.mode === "simulation") {
+      if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
+      this.pick = what as string;
+    } else {
+      // "next" walks the plots in their order, from the one on show
+      const ids = EVENTS.map((e) => e.id);
+      const at = ids.indexOf(this.round.event?.id ?? "");
+      const next = what === "next" ? ids[(at + 1) % ids.length] : ids.find((id) => id === what);
+      if (!next) return "No such plot.";
+      this.pick = next;
+    }
+    log(who, "choose", { mode: this.mode });
+    this.ready();
+    this.broadcast(true);
+    return null;
+  }
+
   // Draws the next round and parks it, its price still, in the lobby.
   ready(): void {
     if (this.mode === "simulation") {
-      const pair = PAIRS[Math.floor(rnd() * PAIRS.length)];
+      const pair = PAIRS.find((p) => p === this.pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
       this.round = scenario(history, pair, now.rate, rnd);
       const story = T.en.scenarios[this.round.scenario!];
       this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
       this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
     } else {
-      const round = replay(history, rnd, EVENT_CHANCE);
+      const round = replay(history, rnd, this.pick ?? undefined);
       this.round = round;
       this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
       this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
@@ -424,6 +461,7 @@ class Market {
     this.prays.clear();
     this.dad.clear();
     this.pops = [];
+    this.marks = [];
   }
 
   // Someone on the tab asks to play: the countdown begins.
@@ -560,6 +598,9 @@ class Market {
         const c = record(e.who);
         if (c) c.busts++;
       }
+      // `key` joins a mark to its trader in a state, as `you` does in the room; the page never
+      // sees it (view() swaps it for a flag), and it is never a cookie.
+      if (MARKED.has(e.kind)) this.marks = [...this.marks, { tick: this.tick, who: short(e.who), face: faceOf(e.who), kind: e.kind, side: e.side ?? 0, key: key(e.who) }].slice(-MARKS_MAX);
       log(e.who, e.kind, { mode: this.mode, pair: this.round.pair, price: Number(this.fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
     }
   }
@@ -658,6 +699,15 @@ class Market {
         this.say(words[i], "news", scenario ? "headline" : "clue", at);
         this.headline = scenario ? { scenario, n: i } : { clue, n: i };
       });
+      // A Simulation's own news (ADR 0064): a story on its day, which the prices then follow,
+      // or do not. It goes in the feed and is pinned over the chart like a headline. Which way
+      // it pushes is never sent: the words are the hint, and the page cannot read the effect.
+      for (const n of this.round.news ?? []) {
+        if (n.day !== day) continue;
+        const story = storyOf(n);
+        this.say(T.en.stories[story], "news", "story", { n: story });
+        this.headline = { story };
+      }
     }
     const seen = this.round.prices.slice(0, this.tick + 1);
     for (const b of BOTS) {
@@ -681,11 +731,15 @@ class Market {
     const desk = this.desk;
     desk.join(who);
     if (action.kind === "pray") {
-      const n = (this.prays.get(who) ?? 0) + 1;
-      this.prays.set(who, n);
-      log(who, "pray", { mode: this.mode, times: n });
-      this.pop(who, "pray");
-      if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying to the chart (×${n}). It does nothing.`, "pray", "prayed", { who: short(who), n });
+      // Which way, for a rise or for a fall, changes the words and nothing else: the
+      // chart never hears it (ADR 0064). Each way is counted on its own, so the first
+      // prayer of each is told, whichever came first.
+      const way = action.way === -1 ? -1 : 1;
+      const n = (this.prays.get(`${who}|${way}`) ?? 0) + 1;
+      this.prays.set(`${who}|${way}`, n);
+      log(who, "pray", { mode: this.mode, times: n, way: way === 1 ? "rise" : "fall" });
+      this.pop(who, "pray", { way });
+      if (n === 1 || n % 10 === 0) this.say(`${nameOf(who)} is praying for the chart to ${way === 1 ? "rise" : "fall"} (×${n}). It does nothing.`, "pray", way === 1 ? "prayed-rise" : "prayed-fall", { who: short(who), n });
       return null;
     }
     if (action.kind === "stop" || action.kind === "take") {
@@ -748,6 +802,11 @@ class Market {
       startedDraw: this.startedBy && drawOf(this.startedBy),
       round: this.count,
       pair: round.pair,
+      // Replay's plots, by number and no more: which plot is on show, of how many. What a
+      // plot is, and when, stays secret until the bell. Simulation has none.
+      plot: this.mode === "replay" ? { n: EVENTS.findIndex((e) => e.id === round.event?.id) + 1, of: EVENTS.length } : null,
+      // Every pair a Simulation may start from, for its lobby's choice.
+      pairs: this.mode === "simulation" ? PAIRS : null,
       digits: this.digits(),
       simulated: round.simulated,
       tick,
@@ -783,6 +842,7 @@ class Market {
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
       feed: this.feed,
       pops: this.pops.map(({ at: _at, ...p }) => p),
+      marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
@@ -1242,7 +1302,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       // (ADR 0032); anything but a number means none.
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
       action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake, sl: dist(input.sl), tp: dist(input.tp) };
-    } else if (kind === "close" || kind === "pray" || kind === "borrow") action = { kind };
+    } else if (kind === "pray") action = { kind, way: input.way === -1 ? -1 : 1 };
+    else if (kind === "close" || kind === "borrow") action = { kind };
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.
     else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };

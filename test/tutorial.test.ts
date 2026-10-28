@@ -236,9 +236,9 @@ describe("the stop lesson", () => {
     }
     expect(t.desk.account("me").pos?.stop ?? null).toBeNull();
   });
-  it("refuses removing the stop, and accepts a stop at 1% or just past it", () => {
+  it("refuses removing the stop, and accepts a stop at 1%", () => {
     expect(atStop().act({ kind: "stop", pct: null })).toMatch(/1%/);
-    for (const pct of [1, 1.5]) expect(atStop().act({ kind: "stop", pct }), `${pct}%`).toBeNull();
+    expect(atStop().act({ kind: "stop", pct: 1 })).toBeNull();
   });
 });
 
@@ -248,8 +248,9 @@ describe("the stop lesson", () => {
 describe("the stop lesson's directions", () => {
   it("point at the middle line, where 1% is, and never at an end of the track", async () => {
     const { exitPos } = await import("../public/ticket.js");
-    expect(exitPos({ kind: "sl", dist: 1 })).toBeGreaterThan(exitPos({ kind: "sl", dist: 50 }));
-    expect(exitPos({ kind: "sl", dist: 1 })).toBeGreaterThan(0.4);
+    const { DISTANCES } = await import("../src/fx.ts");
+    expect(exitPos({ kind: "sl", dist: 1 }, DISTANCES)).toBeGreaterThan(exitPos({ kind: "sl", dist: 50 }, DISTANCES));
+    expect(exitPos({ kind: "sl", dist: 1 }, DISTANCES)).toBeGreaterThan(0.4);
     const lesson = LESSONS.find((l) => l.id === "stop")!;
     const words = [lesson.task, ...lesson.plan.map((s) => s.say), String(lesson.allow({ kind: "stop", pct: 25 }, new Tutorial())), String(lesson.allow({ kind: "stop", pct: null }, new Tutorial()))].join(" ");
     expect(words).toMatch(/middle line/);
