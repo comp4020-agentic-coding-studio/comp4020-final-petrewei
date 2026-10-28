@@ -39,6 +39,9 @@
 - **Write the sensor before a change worth holding to.** A check outlives the edit and rejects later drift on its own.
 - **Tests that change shared state skip the live app.** Real visitors share it; CI runs those tests against a throwaway copy.
 - **Treat a red check as correct until proven otherwise.** Never weaken one to fit output you did not intend.
+- **Check what a player feels or a rule promises, not how the code is written.** A test that greps source text breaks on a harmless refactor and proves nothing a browser would not; behaviour that only a browser can show is checked in one, and said so.
+- **Share a round between checks that only read different things from it.** Playing a round to the bell takes seconds, so one round carries every check that reads its result.
+- **A removed feature needs no test of its own** unless it left a promise behind, such as a refusal an old page can still trigger.
 
 ## 6 Git and CI
 
