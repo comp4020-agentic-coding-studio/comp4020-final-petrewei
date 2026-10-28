@@ -1,6 +1,6 @@
 # ADR 0064: Thirteen Plots and a Lobby That Chooses
 
-Status: accepted, 29 October 2026; stage two of the market changes of [ADR 0062](0062-thirty-day-rounds-and-a-chart-that-opens-full.md). Changes the replays of [ADR 0030](0030-replay-clues-and-name-that-year.md) and the lobby of [ADR 0022](0022-a-rounds-controls.md).
+Status: accepted, 29 October 2026; stage two of the market changes of [ADR 0062](0062-thirty-day-rounds-and-a-chart-that-opens-full.md). Changes the replays of [ADR 0030](0030-replay-clues-and-name-that-year.md) and the lobby of [ADR 0022](0022-a-rounds-controls.md); a choice lasts one round by [ADR 0066](0066-a-choice-is-for-one-round.md).
 
 ## 1 Context
 

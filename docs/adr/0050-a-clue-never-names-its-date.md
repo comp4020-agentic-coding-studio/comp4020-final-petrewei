@@ -1,6 +1,6 @@
 # ADR 0050: A Clue Never Names Its Date
 
-Status: accepted, 28 October 2026. Corrects [ADR 0030](0030-replay-clues-and-name-that-year.md), whose clues were told to a page by the date they lead to.
+Status: accepted, 28 October 2026. Corrects [ADR 0030](0030-replay-clues-and-name-that-year.md), whose clues were told to a page by the date they lead to; its EVENT_CHANCE setting is gone, since every replay is a plot, by [ADR 0066](0066-a-choice-is-for-one-round.md).
 
 ## 1 Context
 
