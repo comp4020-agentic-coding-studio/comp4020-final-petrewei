@@ -538,6 +538,12 @@ it("counts in bare seconds, can pause the hints, and can end the tutorial (ADR 0
   }
   expect(lessonHtml).toMatch(/id="lesson-pause"[^>]*aria-pressed="false"/);
   expect(lessonHtml).toMatch(/id="lesson-end"/);
+  // symbols, not words: no visible text, a label and a tip instead
+  const doc = new JSDOM(lessonHtml).window.document;
+  for (const id of ["lesson-pause", "lesson-end"]) {
+    expect(doc.getElementById(id)!.textContent, id).toMatch(/^[^A-Za-z]{1,3}$/);
+    expect(doc.getElementById(id)!.closest(".lesson-head"), id).not.toBeNull();
+  }
   expect(lessonApp).toMatch(/\$\("lesson-end"\)\.onclick = \(\) => watch\("replay"\)/);
   // paused: no timer is armed and no countdown text is shown
   expect(lessonApp.slice(lessonApp.indexOf("function armAuto"), lessonApp.indexOf("function tickAuto"))).toMatch(/autoPaused/);

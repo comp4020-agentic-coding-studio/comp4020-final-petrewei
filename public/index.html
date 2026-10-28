@@ -88,7 +88,11 @@
         <!-- The tutorial's lesson: a compact card over the chart's empty bottom
              right, not a panel across the page (ADR 0054). It folds to one line. -->
         <section class="lesson" id="lesson" hidden aria-live="polite">
-          <p class="lesson-n" id="lesson-n"></p>
+          <div class="lesson-head">
+            <p class="lesson-n" id="lesson-n"></p>
+            <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause" data-tip-side="below">⏸&#xFE0E;</button>
+            <button id="lesson-end" class="icon" type="button" data-t-aria="endTutorial" data-tip="endTutorial" data-tip-side="below">⏹&#xFE0E;</button>
+          </div>
           <h2 id="lesson-title"></h2>
           <p id="lesson-text"></p>
           <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
@@ -96,10 +100,6 @@
             <button id="lesson-next" class="next" data-t="next" data-tip="lessonNext" data-tip-side="below">Next</button>
             <button id="lesson-why" class="ghost" type="button" aria-expanded="false" aria-controls="lesson-text" data-t="lessonWhy" data-tip="lessonWhy" data-tip-side="below">Why?</button>
             <button id="restart" class="ghost" data-t="restart" data-tip="restart" data-tip-side="below">Start again</button>
-          </div>
-          <div class="row">
-            <button id="lesson-pause" class="ghost" type="button" aria-pressed="false" data-t="hintsPause" data-tip="hintsPause" data-tip-side="below">Pause hints</button>
-            <button id="lesson-end" class="ghost" type="button" data-t="endTutorial" data-tip="endTutorial" data-tip-side="below">End tutorial</button>
           </div>
         </section>
 

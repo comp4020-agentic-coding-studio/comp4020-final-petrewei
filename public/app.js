@@ -425,7 +425,8 @@ $("restart").onclick = () => act("restart");
 // step; the lit control and its words stay (ADR 0055). The tutorial can be
 // ended from its card, which goes back to Replay.
 function pauseLabel() {
-  $("lesson-pause").textContent = t(autoPaused ? "hintsResume" : "hintsPause");
+  $("lesson-pause").textContent = autoPaused ? "▶\uFE0E" : "⏸\uFE0E";
+  $("lesson-pause").setAttribute("aria-label", t(autoPaused ? "hintsResume" : "hintsPause"));
   $("lesson-pause").setAttribute("aria-pressed", String(autoPaused));
   $("lesson-pause").dataset.tip = autoPaused ? "hintsResume" : "hintsPause";
   retip();
