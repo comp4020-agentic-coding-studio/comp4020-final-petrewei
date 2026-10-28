@@ -170,6 +170,8 @@ export type Headline = { day: number };
 // two days and brings it back over three, and `none` is a rumour that moves nothing. The text
 // is only a hint: it says what the market is worried about, never what it will do. `n` picks
 // the words, from the table for its effect in public/i18n-long.js.
+// How many headlines the table has for each effect, so a draw can name one that exists.
+export const NEWS_WORDS = 3;
 export const EFFECTS = ["rise", "fall", "vshape", "none"] as const;
 export type Effect = (typeof EFFECTS)[number];
 export type News = { day: number; effect: Effect; n: number };
@@ -179,8 +181,7 @@ export const storyOf = (news: News): number => EFFECTS.indexOf(news.effect) * NE
 // about half a percent on a major pair, a move a careful trader can see coming. Measured: at 3 it
 // blurred a carry trade's unwind in a quarter of rounds, at 2 the unwind still shows in four in five.
 export const NEWS_SIZE = 2;
-// How many headlines the table has for each effect, so a draw can name one that exists.
-export const NEWS_WORDS = 3;
+
 export type Scenario = {
   id: string;
   // The day's drift (in daily volatilities, signed) and wildness, given the

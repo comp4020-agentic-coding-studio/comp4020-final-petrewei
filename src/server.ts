@@ -34,6 +34,12 @@ const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
 const POPS_MAX = 40;
+// The broker's numbers a page is told with every state, and which never change while it runs.
+const DESK = { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) };
+// The plots in the order the lobby walks them.
+const PLOT_IDS = EVENTS.map((e) => e.id);
+// The least time between one person's choices of round in the lobby.
+const CHOOSE_MS = Number(process.env.CHOOSE_MS ?? 250);
 // The chart marks a trader's fills, as many as the window can show before they crowd it.
 const MARKS_MAX = 120;
 // Which fills get a face on the chart: a trader's own decisions and the broker's cut, not a margin call.
@@ -50,7 +56,6 @@ const BREAK_MAX = Math.round(300_000 / TICK_MS);
 const DAD_TICKS = Number(process.env.DAD_TICKS ?? Math.round(30_000 / TICK_MS));
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
 // How often a Replay hides a famous day: six rounds in ten, unless a check sets it.
-const EVENT_CHANCE = Number(process.env.EVENT_CHANCE ?? 0.6);
 // A pause halts the price and the orders for everyone; anyone on the tab
 // may pause or resume, and a pause ends by itself after a minute so
 // nobody can hold a room (ADR 0024). An ironman round cannot pause.
@@ -406,9 +411,13 @@ class Market {
   // feed already says in words, and no more: never a stop, a take profit or a cookie.
   marks: { tick: number; who: string; face: string; kind: string; side: number; key: string }[] = [];
 
-  // What the lobby chose for the next round: a plot's id in Replay, a pair in
-  // Simulation, or nothing, which is drawn at random (ADR 0064).
+  // What the lobby chose for the round it shows: a plot's id in Replay, a pair in Simulation,
+  // or nothing, which is drawn at random (ADR 0064). A choice is for that round only: when it
+  // starts, the next is drawn at random again, or the lobby would replay one plot for ever.
   pick: string | null = null;
+  // When each person last chose, so one pressing "next" over and over cannot make every viewer
+  // take a whole new round and a full state each time.
+  private chose = new Map<string, number>();
 
   // Someone on the tab changes what the next round is, in the lobby only: Replay moves to
   // the next plot, or a named one; Simulation takes a pair. The round behind the lobby is
@@ -416,18 +425,22 @@ class Market {
   choose(who: string, what: unknown): string | null {
     if (this.phase !== "lobby") return "The round is already about to start.";
     if (!this.listeners().some((l) => l.who === who)) return "Open this tab to choose its round.";
+    if (Date.now() - (this.chose.get(who) ?? 0) < CHOOSE_MS) return "Slow down. Choose again in a moment.";
+    this.chose.set(who, Date.now());
     if (this.mode === "simulation") {
       if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
       this.pick = what as string;
     } else {
       // "next" walks the plots in their order, from the one on show
-      const ids = EVENTS.map((e) => e.id);
+      const ids = PLOT_IDS;
       const at = ids.indexOf(this.round.event?.id ?? "");
       const next = what === "next" ? ids[(at + 1) % ids.length] : ids.find((id) => id === what);
       if (!next) return "No such plot.";
       this.pick = next;
     }
     log(who, "choose", { mode: this.mode });
+    // choosing what is already on show changes nothing, so the room is not sent it all again
+    if (this.mode === "simulation" ? this.round.pair === this.pick : this.round.event?.id === this.pick) return null;
     this.ready();
     this.broadcast(true);
     return null;
@@ -549,6 +562,7 @@ class Market {
 
   start(): void {
     this.count++;
+    this.pick = null;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
     this.say(this.round.simulated ? `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, thirty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
@@ -600,7 +614,10 @@ class Market {
       }
       // `key` joins a mark to its trader in a state, as `you` does in the room; the page never
       // sees it (view() swaps it for a flag), and it is never a cookie.
-      if (MARKED.has(e.kind)) this.marks = [...this.marks, { tick: this.tick, who: short(e.who), face: faceOf(e.who), kind: e.kind, side: e.side ?? 0, key: key(e.who) }].slice(-MARKS_MAX);
+      if (MARKED.has(e.kind)) {
+        this.marks.push({ tick: this.tick, who: short(e.who), face: faceOf(e.who), kind: e.kind, side: e.side ?? 0, key: key(e.who) });
+        if (this.marks.length > MARKS_MAX) this.marks.shift();
+      }
       log(e.who, e.kind, { mode: this.mode, pair: this.round.pair, price: Number(this.fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
     }
   }
@@ -846,7 +863,7 @@ class Market {
       result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
-      desk: { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) },
+      desk: DESK,
       minRounds: MIN_ROUNDS,
       ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
@@ -930,7 +947,7 @@ function tutorialView(who: string) {
     result: null,
     career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
     leverages: LEVERAGES,
-      desk: { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) },
+      desk: DESK,
     ...quote(t.price()),
     here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
   };

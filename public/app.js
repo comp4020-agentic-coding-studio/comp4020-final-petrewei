@@ -878,7 +878,7 @@ function faceImage(face) {
   if (!img) {
     img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg(face, 16))}`;
-    img.onload = () => state && draw(state);
+    img.onload = () => requestAnimationFrame(() => state && draw(state));
     faces.set(face, img);
   }
   return img;
@@ -1069,6 +1069,9 @@ function draw(full) {
   }
   // A face at each moment a trader opened, added to, closed or was cut out of a position
   // (ADR 0064), on the price of that tick, with an arrow for the way and a ring if it is mine.
+  const pink = css.getPropertyValue("--pink");
+  const muted = css.getPropertyValue("--muted");
+  ctx.font = "9px 'JetBrains Mono', ui-monospace, monospace";
   for (const m of s.marks ?? []) {
     const i = prices.length - 1 - (s.tick - m.tick);
     if (i < 0 || i > prices.length - 1) continue;
@@ -1080,7 +1083,7 @@ function draw(full) {
     if (img.complete && img.naturalWidth) ctx.drawImage(img, cx - 7, my - 7, 14, 14);
     ctx.globalAlpha = 1;
     if (m.you) {
-      ctx.strokeStyle = css.getPropertyValue("--pink");
+      ctx.strokeStyle = pink;
       ctx.lineWidth = 2;
       ctx.strokeRect(cx - 8, my - 8, 16, 16);
       ctx.lineWidth = 1;
@@ -1089,10 +1092,11 @@ function draw(full) {
     // it; a close or a cut is a small dot, or a cross when the broker did it, below it.
     const opened = m.kind === "open" || m.kind === "add";
     const glyph = opened ? (m.side === 1 ? "▲" : "▼") : m.kind === "stopout" || m.kind === "zerocut" ? "✕" : "●";
-    ctx.fillStyle = opened ? (m.side === 1 ? up : down) : css.getPropertyValue("--muted");
-    ctx.font = "9px 'JetBrains Mono', ui-monospace, monospace";
+    ctx.fillStyle = opened ? (m.side === 1 ? up : down) : muted;
     ctx.fillText(glyph, cx - 3, opened && m.side === -1 ? my - 10 : my + 19);
   }
+  // the marks' small type must not carry on to the price tag below
+  ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
   const last = prices.at(-1);
   ctx.strokeStyle = css.getPropertyValue("--chart-line");
   ctx.beginPath();

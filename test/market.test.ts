@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DAYS, EFFECTS, EVENTS, GAP, History, LOOKBACK, NEWS_SIZE, NEWS_WORDS, PAIRS, SCENARIOS, STEPS, drawNews, newsDrift, path, random, replay, scenario } from "../src/market.ts";
+import { DAYS, EFFECTS, EVENTS, GAP, History, LOOKBACK, NEWS_SIZE, NEWS_WORDS, PAIRS, SCENARIOS, STEPS, drawNews, newsDrift, path, random, replay, scenario, storyOf } from "../src/market.ts";
 
 const history = new History(readFileSync(join(import.meta.dirname, "..", "data", "ecb.csv"), "utf8"));
 
@@ -293,6 +293,21 @@ describe("news in a simulation", () => {
         if (i) expect(n.day - news[i - 1].day, `seed ${seed}`).toBeGreaterThanOrEqual(3);
       }
     }
+  });
+
+  it("has the words for every story in every language, in the order the numbers expect", async () => {
+    const { LANGS, T } = await import("../public/i18n.js");
+    for (const lang of LANGS) {
+      expect(T[lang].stories, lang).toHaveLength(EFFECTS.length * NEWS_WORDS);
+      for (const [i, text] of T[lang].stories.entries()) {
+        expect(text, `${lang} ${i}`).toEqual(expect.stringMatching(/\S{4}/));
+        // a story is a hint: it says what the market fears, and never what the price will do
+        expect(text, `${lang} ${i}`).not.toMatch(/\b(will|going to) (rise|fall|drop|jump|surge|crash)\b/i);
+      }
+    }
+    // a story's number is its effect's place and its own, so the first of each effect is 0, 3, 6, 9
+    expect(EFFECTS.map((effect) => storyOf({ day: 5, effect, n: 0 }))).toEqual([0, 3, 6, 9]);
+    expect(storyOf({ day: 5, effect: "none", n: 2 })).toBe(EFFECTS.length * NEWS_WORDS - 1);
   });
 
   it("makes every effect come up, a rumour that does nothing among them", () => {

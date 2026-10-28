@@ -10,7 +10,7 @@ let s: Server;
 afterEach(() => s.stop());
 
 type Row = { code: string; you: boolean; sat?: boolean; balance: number; guess?: number | null; bonus?: number };
-type Seen = { phase: string; countdown: number; startedCode: string | null; breakLeft: number; you: { code: string; pos: unknown; equity: number }; result: { ranking: Row[] } | null; career: { you: boolean; rounds: number; profit: number }[]; feed: { key: string }[] };
+type Seen = { round: number; phase: string; countdown: number; startedCode: string | null; breakLeft: number; you: { code: string; pos: unknown; equity: number }; result: { ranking: Row[] } | null; career: { you: boolean; rounds: number; profit: number }[]; feed: { key: string }[] };
 const app = () => {
   const c = client(s.base);
   const look = async (cookie?: string, mode: Mode = "replay"): Promise<Seen> => (await c.state(cookie, mode)) as unknown as Seen;
@@ -131,7 +131,7 @@ it("lets a starter who has left be replaced: anyone on the tab may end it", asyn
 // leads to, which is the answer to Name That Year. Rounds are random and only
 // some hide a day, so several are played and every state and feed line is read.
 it("never puts a replay's famous date on the wire before the bell, in a clue or the pinned headline", async () => {
-  s = await server(8095, { TICK_MS: "4", COUNTDOWN_TICKS: "2", EVENT_CHANCE: "1" });
+  s = await server(8095, { TICK_MS: "4", COUNTDOWN_TICKS: "2" });
   const { visitor, page, act, look } = app();
   const me = await visitor();
   let tab = await page(me);
@@ -251,7 +251,7 @@ it("no longer lets anyone leave a round, and an old page that asks is refused", 
 // only; Simulation takes a pair. Only someone on the tab may, only in the lobby, and what a
 // plot is stays secret: the room is told its number and its pair, never its name or day.
 it("lets the lobby move Replay on to its next plot, telling the room its number and no more", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "40" });
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "40", CHOOSE_MS: "0" });
   const { visitor, page, act, look, attempt } = app();
   const me = await visitor();
   const tab = await page(me);
@@ -286,7 +286,7 @@ it("lets the lobby move Replay on to its next plot, telling the room its number 
 }, 30_000);
 
 it("lets the lobby give a Simulation its pair, which the round then starts from", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", CHOOSE_MS: "0" });
   const { visitor, page, act, look, until, attempt } = app();
   const me = await visitor();
   const tab = await page(me, "simulation");
@@ -414,3 +414,43 @@ it("tells a Simulation's news on its day by number, and never sends which way it
     tab.close();
   }
 }, 40_000);
+
+// ADR 0064: a choice is for the round on show, and no more. One person cannot press it faster
+// than the throttle, choosing what is already there changes nothing, and once a round starts
+// the lobby goes back to drawing at random, or it would play one plot for ever.
+it("keeps a choice to one round, throttles it, and does nothing for what is already chosen", async () => {
+  s = await server(8096, { TICK_MS: "8", COUNTDOWN_TICKS: "2", CHOOSE_MS: "400" });
+  const { visitor, page, act, look, until } = app();
+  const me = await visitor();
+  const tab = await page(me, "simulation");
+  try {
+    type Lobby = Seen & { pair: string };
+    expect((await act(me, { kind: "choose", what: "GBP/JPY", mode: "simulation" })).status).toBe(200);
+    const again = await act(me, { kind: "choose", what: "EUR/AUD", mode: "simulation" });
+    expect(again.status, "a second choice at once is turned away").toBe(409);
+    expect((await again.json()).error).toMatch(/Slow down/);
+    expect(((await look(me, "simulation")) as Lobby).pair, "and changes nothing").toBe("GBP/JPY");
+    await new Promise((r) => setTimeout(r, 450));
+    const round = (await look(me, "simulation")).round;
+    expect((await act(me, { kind: "choose", what: "GBP/JPY", mode: "simulation" })).status).toBe(200);
+    expect((await look(me, "simulation")).round, "choosing what is chosen draws nothing new").toBe(round);
+    // the round that was chosen is the one played
+    await act(me, { kind: "start", mode: "simulation" });
+    expect(((await until(me, (x) => x.phase === "trade", 10_000, "simulation")) as Lobby).pair).toBe("GBP/JPY");
+    // and a choice is spent: the next lobby shows a pair drawn at random, which over a few
+    // draws is not always the one chosen (fourteen pairs, so a draw of the same one is rare)
+    const next = new Set<string>();
+    for (let draw = 0; draw < 12; draw++) {
+      await act(me, { kind: "finish", mode: "simulation" });
+      await until(me, (x) => x.phase === "lobby", 30_000, "simulation");
+      next.add(((await look(me, "simulation")) as Lobby).pair);
+      if (next.size > 1) break;
+      await act(me, { kind: "start", mode: "simulation" });
+      await until(me, (x) => x.phase === "trade", 10_000, "simulation");
+    }
+    expect(next.size, "the lobby is back to drawing at random").toBeGreaterThan(1);
+  } finally {
+    tab.close();
+  }
+}, 120_000);
+
