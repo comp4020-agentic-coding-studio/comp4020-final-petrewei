@@ -28,8 +28,8 @@ export type Round = { pair: Pair; days: string[]; prices: number[]; history: num
 
 // The plots of a replay: thirteen real days on which the market broke, each with the
 // pair it broke on. A round is placed so the day lands between day 11 and day 28 of the
-// thirty, with at least ten days to read first; the plain windows of the first version
-// are gone. Each note is shown when the round ends, so the room learns what it just
+// thirty, with at least ten days to read first.
+// Each note is shown when the round ends, so the room learns what it just
 // traded through, and its clues, in every language, are in public/i18n-long.js.
 export type Episode = { id: string; pair: Pair; date: string; title: string; note: string };
 export const EVENTS: Episode[] = [
@@ -141,7 +141,7 @@ export function replay(history: History, rnd: () => number, pick?: string): Roun
   return window(series, start, event.pair, rnd, event);
 }
 
-// A replay that hides a famous day drips two clues before it (ADR 0030),
+// A replay drips two clues before it (ADR 0030),
 // a third and two thirds of the way there; their words, in every
 // language, are in public/i18n-long.js under the day's date.
 function window(series: Day[], start: number, pair: Pair, rnd: () => number, event: Episode): Round {

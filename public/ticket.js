@@ -43,11 +43,8 @@ export function gauge(worth) {
 // ladder the desk offers, 1%, 2%, 5%, 10%, 20% and 50%, its rungs evenly spaced along
 // the track so each has its number beneath it. A distance between two rungs sits at the
 // nearer, in ratio.
-const dist = (d, ladder) => ladder.reduce((best, r, i) => (Math.abs(Math.log(r / d)) < Math.abs(Math.log(ladder[best] / d)) ? i : best), 0);
-export const distPos = (d, ladder) => dist(d, ladder) / (ladder.length - 1);
-export function distAt(pos, ladder) {
-  return ladder[Math.round(unit(pos) * (ladder.length - 1))];
-}
+export const distPos = levPos;
+export const distAt = levAt;
 // What a move of `pct` percent makes or loses on a margin at a leverage.
 export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage * pct) / 100);
 

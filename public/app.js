@@ -451,9 +451,9 @@ function lobby(s) {
   if (s.plot) $("plot-next").textContent = t("plotNext", { n: s.plot.n, of: s.plot.of });
   $("pair-pick").hidden = !s.pairs;
   if (s.pairs) {
-    const pick = $("pair-select");
-    if (pick.options.length !== s.pairs.length) pick.replaceChildren(...s.pairs.map((p) => Object.assign(document.createElement("option"), { value: p, textContent: p })));
-    if (pick.value !== s.pair && document.activeElement !== pick) pick.value = s.pair;
+    const sel = $("pair-select");
+    if (sel.options.length !== s.pairs.length) sel.replaceChildren(...s.pairs.map((p) => Object.assign(document.createElement("option"), { value: p, textContent: p })));
+    if (sel.value !== s.pair && document.activeElement !== sel) sel.value = s.pair;
   }
 }
 $("plot-next").onclick = () => act("choose", { what: "next" });

@@ -21,7 +21,7 @@ function say(l) {
     case "stopout": return `was stopped out on ${l.pair} at ${l.price}: ${yen(l.pnl)}`;
     case "zerocut": return `was wiped out on ${l.pair} at ${l.price}: ${yen(l.pnl)}`;
     case "borrow": return `borrowed from Dad, owing ${yen(l.debt)}`;
-    case "pray": return `prayed to the chart (×${l.times})`;
+    case "pray": return `prayed for a ${l.way} (×${l.times})`;
     case "refused": return `tried to ${l.action}; refused: ${l.why}`;
     case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.simulated ? " (simulation)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
     case "end": return `${l.mode ?? ""} round ended: ${l.ranking.map(([w, n]) => `${w} ${yen(n)}`).join(", ")}`;

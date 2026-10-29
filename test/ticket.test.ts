@@ -202,4 +202,4 @@ describe("the joined track's fill", () => {
 // ADR 0035: the stop loss and take profit on an open position are dragged on
 // the chart, not set in the position panel. A pointer's height on the canvas
 // is turned back into a price, then into the distance the desk is asked for,
-// held to the same 1% to 50% and to the right side of the price.
+// held to the six distances and to the right side of the price.

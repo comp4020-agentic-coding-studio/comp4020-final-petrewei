@@ -55,7 +55,6 @@ const BREAK_MAX = Math.round(300_000 / TICK_MS);
 // the round ends first (ADR 0057).
 const DAD_TICKS = Number(process.env.DAD_TICKS ?? Math.round(30_000 / TICK_MS));
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
-// How often a Replay hides a famous day: six rounds in ten, unless a check sets it.
 // A pause halts the price and the orders for everyone; anyone on the tab
 // may pause or resume, and a pause ends by itself after a minute so
 // nobody can hold a room (ADR 0024). An ironman round cannot pause.
@@ -432,9 +431,8 @@ class Market {
       this.pick = what as string;
     } else {
       // "next" walks the plots in their order, from the one on show
-      const ids = PLOT_IDS;
-      const at = ids.indexOf(this.round.event?.id ?? "");
-      const next = what === "next" ? ids[(at + 1) % ids.length] : ids.find((id) => id === what);
+      const at = PLOT_IDS.indexOf(this.round.event?.id ?? "");
+      const next = what === "next" ? PLOT_IDS[(at + 1) % PLOT_IDS.length] : PLOT_IDS.find((id) => id === what);
       if (!next) return "No such plot.";
       this.pick = next;
     }
@@ -633,9 +631,8 @@ class Market {
     // Each trader's score: the % result less the cost of each forced cut
     // and each loan from Dad (ADR 0029); the bell ranks by it.
     // A replay's year, named right before the bell, adds its bonus.
-    // The year a replay is "from": its famous day's, or its middle day's.
-    const when = this.round.event?.date ?? this.round.days[Math.floor(this.round.days.length / 2)];
-    const year = this.mode === "replay" ? Number(when.slice(0, 4)) : 0;
+    // The year a replay is "from": its plot's.
+    const year = this.mode === "replay" ? Number(this.round.event!.date.slice(0, 4)) : 0;
     const bonus = (who: string): number => (year ? guessBonus(this.guesses.get(who) ?? null, year) : 0);
     const points = (who: string): number => {
       const a = desk.account(who);
@@ -751,7 +748,7 @@ class Market {
       // Which way, for a rise or for a fall, changes the words and nothing else: the
       // chart never hears it (ADR 0064). Each way is counted on its own, so the first
       // prayer of each is told, whichever came first.
-      const way = action.way === -1 ? -1 : 1;
+      const way = action.way;
       const n = (this.prays.get(`${who}|${way}`) ?? 0) + 1;
       this.prays.set(`${who}|${way}`, n);
       log(who, "pray", { mode: this.mode, times: n, way: way === 1 ? "rise" : "fall" });
