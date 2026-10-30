@@ -144,11 +144,12 @@ function rename(who: string, input: unknown): { name: string; draw: Draw | null 
   if (RESERVED.has(same(name))) return { error: "That name belongs to a house trader.", status: 400 };
   const draw = DRAWS.get(same(name)) ?? null;
   const id = identity(name, draw);
-  if (taken(id, who)) return { error: "Someone already has that name.", status: 409 };
   const k = key(who);
-  if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
   const before = nameOf(who);
+  // A dealt namesake may be present, but cannot displace this name's owner.
   if (k in chosen && id === identityOf(who) && (draw !== null || name === before)) return { name: before, draw };
+  if (taken(id, who)) return { error: "Someone already has that name.", status: 409 };
+  if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
   chosen[k] = draw ?? name;
   try {
     writeFileSync(`${NAMES_FILE}.tmp`, JSON.stringify(chosen));

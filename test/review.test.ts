@@ -1,4 +1,6 @@
+import { createHash, randomUUID } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
+import { drawn, GIVEN } from "../public/names.js";
 import { client } from "../spec/helpers.ts";
 import { type Server, server } from "./server.ts";
 
@@ -8,6 +10,35 @@ afterEach(() => s?.stop());
 // Preload only the disposable child: keep HTTP clients real while controlling
 // its external rates or clock, without adding test switches to the application.
 const preload = (code: string) => ({ NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(code).replaceAll("'", "%27")}` });
+
+it("lets a name's owner save it when a newcomer is dealt the same name, without letting the newcomer claim it", async () => {
+  s = await server(8190);
+  const c = client(s.base);
+  const owner = await c.visitor();
+  const mine = (await c.state(owner)).you;
+  const rename = (cookie: string, name: string) => fetch(`${s.base}/api/name`, { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ name }) });
+  expect((await rename(owner, mine.name)).status).toBe(200);
+  // Pick another visitor who is dealt that draw, then check the public API
+  // really shows the collision before attempting the owner's profile save.
+  let id: string;
+  do {
+    id = randomUUID();
+  } while (createHash("sha256").update(id).digest()[1] % GIVEN.length !== mine.draw);
+  const newcomer = `v=${id}`;
+  const tab = await c.page(newcomer);
+  try {
+    expect((await c.state(newcomer)).you).toMatchObject({ name: mine.name, named: false });
+    for (const lang of ["en", "ja", "zh"] as const) {
+      const res = await rename(owner, drawn(lang, mine.draw!));
+      expect(res.status, lang).toBe(200);
+      expect(await res.json()).toEqual({ name: mine.name, draw: mine.draw });
+    }
+    expect((await rename(newcomer, mine.name)).status).toBe(409);
+    expect((await c.state(newcomer)).you.named).toBe(false);
+  } finally {
+    tab.close();
+  }
+});
 
 it("refuses malformed dispatch values without stopping the server or exposing a round", async () => {
   s = await server(8190);

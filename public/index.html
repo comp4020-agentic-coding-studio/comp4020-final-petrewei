@@ -179,8 +179,8 @@
         <div class="exit-track" data-sl="false" data-tp="false">
           <span class="fill sl" id="psl-fill" aria-hidden="true"></span>
           <span class="fill tp" id="ptp-fill" aria-hidden="true"></span>
-          <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-label="slFull" data-tip="slDist">
-          <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
+          <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
+          <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
           <div class="exit-line" aria-hidden="true"></div>
         </div>
         <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
@@ -223,13 +223,13 @@
            legal caps marked; stake on an even one (ADR 0024). -->
       <div class="field slide" id="leverage-box">
         <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button> <span id="lev-note" class="note"></span><output id="lev-out" for="leverage"></output></p>
-        <input id="leverage" type="range" min="0" max="1000" step="1" data-t-label="leverage" data-tip="leverage">
+        <input id="leverage" type="range" min="0" max="0" step="1" disabled data-t-aria="leverage" data-tip="leverage">
         <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
         <p class="fee" id="fee-note" data-tip="fee"></p>
       </div>
       <div class="field slide" id="stake-box">
         <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
-        <input id="stake" type="range" min="0" max="3" step="1" data-t-label="stake" data-tip="stake">
+        <input id="stake" type="range" min="0" max="3" step="1" data-t-aria="stake" data-tip="stake">
         <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
       </div>
       <!-- A stop loss and a take profit that ride on the order (ADR 0032,
@@ -245,8 +245,8 @@
         <div class="exit-track" data-sl="false" data-tp="false">
           <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
           <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
-          <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-label="slFull" data-tip="slDist">
-          <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-label="tpFull" data-tip="tpDist">
+          <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
+          <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
           <div class="exit-line" aria-hidden="true"></div>
         </div>
         <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>

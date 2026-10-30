@@ -12,9 +12,10 @@ import * as art from "../public/art.js";
 import * as clauses from "../public/clauses.js";
 import { autoMove, currentStep } from "../public/plan.js";
 
-it("shows new speech bubbles after switching between markets with independent event counters", async () => {
+async function app(lang: "en" | "ja" | "zh" = "en") {
   const dom = new JSDOM(readFileSync("public/index.html", "utf8"), { url: "http://localhost/", runScripts: "outside-only", pretendToBeVisual: true });
   const w = dom.window;
+  w.document.documentElement.dataset.lang = lang;
   const streams: { onmessage?: (e: { data: string }) => Promise<void> }[] = [];
   class Stream {
     onmessage?: (e: { data: string }) => Promise<void>;
@@ -32,13 +33,19 @@ it("shows new speech bubbles after switching between markets with independent ev
     matchMedia: () => ({ matches: false, addEventListener() {} }),
     retip() {}, useClauses() {}, useInfo() {}, useWords() {},
   });
+  // Supply the imports in this window's realm; execute the shipped page,
+  // without exporting or reaching into its private state for the check.
+  w.eval(readFileSync("public/app.js", "utf8").replace(/^import .*$/gm, ""));
+  const base = await state();
+  const emit = async (extra = {}) => streams.at(-1)!.onmessage!({ data: JSON.stringify({ ...base, phase: "trade", you: { ...base.you, named: true }, ...extra }) });
+  return { dom, w, base, emit };
+}
+
+it("shows new speech bubbles after switching between markets with independent event counters", async () => {
+  const { dom, w, base, emit: send } = await app();
   try {
-    // Supply the imports in this window's realm; execute the shipped page,
-    // without exporting or reaching into its private state for the check.
-    w.eval(readFileSync("public/app.js", "utf8").replace(/^import .*$/gm, ""));
-    const base = await state();
     const pop = (n: number) => ({ n, who: base.you.code, kind: "wild", lev: 200 });
-    const emit = async (mode: string, n: number) => streams.at(-1)!.onmessage!({ data: JSON.stringify({ ...base, mode, phase: "trade", you: { ...base.you, named: true }, pops: [pop(n)] }) });
+    const emit = (mode: string, n: number) => send({ mode, pops: [pop(n)] });
     await emit("replay", 100);
     (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
     await emit("simulation", 20);
@@ -51,6 +58,50 @@ it("shows new speech bubbles after switching between markets with independent ev
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(0);
     await emit("replay", 102);
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(1);
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("moves leverage one offered rung per native slider step and stops at each end", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    await emit();
+    const slider = w.document.getElementById("leverage") as HTMLInputElement;
+    const output = () => w.document.getElementById("lev-out")!.textContent;
+    const input = () => slider.dispatchEvent(new w.Event("input", { bubbles: true }));
+    const step = (direction: "stepUp" | "stepDown") => {
+      slider[direction]();
+      input();
+    };
+    // stepUp/stepDown are the native steps an arrow key takes in a browser.
+    const cap = base.leverages.indexOf(base.desk.cap);
+    step("stepUp");
+    expect(output()).toBe(`${base.leverages[cap + 1]}×`);
+    step("stepDown");
+    expect(output()).toBe(`${base.desk.cap}×`);
+    slider.value = slider.min;
+    input();
+    step("stepDown");
+    expect(output()).toBe(`${base.leverages[0]}×`);
+    for (const lev of base.leverages.slice(1)) {
+      step("stepUp");
+      expect(output()).toBe(`${lev}×`);
+    }
+    step("stepUp");
+    expect(output()).toBe(`${base.leverages.at(-1)}×`);
+  } finally {
+    dom.window.close();
+  }
+});
+
+it.each(["en", "ja", "zh"] as const)("names every trading slider in %s", async (lang) => {
+  const { dom, w, emit } = await app(lang);
+  try {
+    await emit();
+    for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"], ["sl-dist", "slFull"], ["tp-dist", "tpFull"], ["psl-dist", "slFull"], ["ptp-dist", "tpFull"]]) {
+      expect(w.document.getElementById(id)!.getAttribute("aria-label"), id).toBe(i18n.T[lang].ui[key]);
+    }
   } finally {
     dom.window.close();
   }

@@ -98,6 +98,9 @@ function ticks(id, marks) {
   );
 }
 function sliders() {
+  // A native step is one offered rung, for both pointer and keyboard input.
+  $("leverage").max = String(ladder.length - 1);
+  $("leverage").disabled = ladder.length < 2;
   // Every rung of the ladder is marked on the track, the one chosen lit, so a
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
   ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`]));
@@ -109,7 +112,7 @@ function sliders() {
   ticks("pexit-ticks", marks);
 }
 function mark() {
-  $("leverage").value = String(Math.round(levPos(choice.leverage, ladder) * 1000));
+  $("leverage").value = String(ladder.indexOf(choice.leverage));
   $("stake").value = String(STAKES.indexOf(choice.stake));
   $("lev-out").textContent = `${choice.leverage}×`;
   $("stake-out").textContent = `${choice.stake * 100}%`;
@@ -129,7 +132,7 @@ function mark() {
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
 $("leverage").oninput = () => {
-  choice.leverage = levAt(Number($("leverage").value) / 1000, ladder);
+  choice.leverage = ladder[Number($("leverage").value)];
   mark();
   if (state) ticket(state);
 };
@@ -580,7 +583,7 @@ function doForPlayer(l) {
 // handler runs as usual. Reduced motion jumps there.
 function slideTo(which, value, done) {
   const input = $(which);
-  const target = which === "leverage" ? Math.round(levPos(value, ladder) * 1000) : STAKES.indexOf(value);
+  const target = which === "leverage" ? ladder.indexOf(value) : STAKES.indexOf(value);
   const from = Number(input.value);
   const steps = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 24;
   let i = 0;
