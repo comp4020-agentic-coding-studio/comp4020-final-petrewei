@@ -337,6 +337,7 @@ export const T = {
       "you-caught": "Dad found the money gone from the dresser. You are grounded.",
     },
     refusals: {
+      "Internal server error.": "Internal server error.",
       "A long's Stop Loss must be below the price.": "A long's Stop Loss must be below the price.",
       "A round is already running.": "A round is already running.",
       "A short's Stop Loss must be above the price.": "A short's Stop Loss must be above the price.",
@@ -701,6 +702,7 @@ export const T = {
       "you-caught": "パパがタンスのお金が減っているのに気づきました。外出禁止です。",
     },
     refusals: {
+      "Internal server error.": "サーバーでエラーが発生しました。",
       "A long's Stop Loss must be below the price.": "買いの逆指値は現在値より下に置いてください。",
       "A round is already running.": "ラウンドはすでに進行中です。",
       "A short's Stop Loss must be above the price.": "売りの逆指値は現在値より上に置いてください。",
@@ -1065,6 +1067,7 @@ export const T = {
       "you-caught": "老爹发现柜子里的钱少了。你被禁足了。",
     },
     refusals: {
+      "Internal server error.": "服务器发生错误。",
       "A long's Stop Loss must be below the price.": "多单的止损必须低于现价。",
       "A round is already running.": "已经有一局在进行。",
       "A short's Stop Loss must be above the price.": "空单的止损必须高于现价。",

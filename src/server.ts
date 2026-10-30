@@ -292,17 +292,23 @@ const rnd = random(seed);
 // back to the newest ECB row in the bundled history.
 let today: { date: string; rates: Record<string, number> } | null = null;
 let fetched = 0;
-async function refreshToday(): Promise<void> {
-  if (Date.now() - fetched < 3_600_000) return;
+let refreshing: Promise<void> | null = null;
+function refreshToday(): Promise<void> {
+  if (refreshing) return refreshing;
+  if (Date.now() - fetched < 3_600_000) return Promise.resolve();
   fetched = Date.now();
-  try {
-    const res = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY,GBP,CHF,AUD,CNY", { signal: AbortSignal.timeout(5_000) });
-    const data = (await res.json()) as { date: string; rates: Record<string, number> };
-    today = { date: data.date, rates: { EUR: 1, ...data.rates } };
-    log(null, "rates", { date: data.date });
-  } catch (error) {
-    console.error("could not fetch today's rates:", error);
-  }
+  refreshing = (async () => {
+    try {
+      const res = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY,GBP,CHF,AUD,CNY", { signal: AbortSignal.timeout(5_000) });
+      if (!res.ok) throw new Error(`rates returned HTTP ${res.status}`);
+      const data = (await res.json()) as { date: string; rates: Record<string, number> };
+      today = { date: data.date, rates: { EUR: 1, ...data.rates } };
+      log(null, "rates", { date: data.date });
+    } catch (error) {
+      console.error("could not fetch today's rates:", error);
+    }
+  })().finally(() => { refreshing = null; });
+  return refreshing;
 }
 function todayRate(pair: Pair): { rate: number; date: string; source: string } {
   const [base, quote] = pair.split("/");
@@ -370,6 +376,7 @@ class Market {
   // to the lobby. Nothing moves while nobody has asked to play.
   phase: "lobby" | "countdown" | "trade" | "break" = "lobby";
   breakLeft = 0;
+  breakElapsed = 0;
   countdown = 0;
   startedBy: string | null = null;
   ironman = false;
@@ -445,16 +452,16 @@ class Market {
   }
 
   // Draws the next round and parks it, its price still, in the lobby.
-  ready(): void {
+  ready(pick = this.pick): void {
     if (this.mode === "simulation") {
-      const pair = PAIRS.find((p) => p === this.pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
+      const pair = PAIRS.find((p) => p === pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
       this.round = scenario(history, pair, now.rate, rnd);
       const story = T.en.scenarios[this.round.scenario!];
       this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
       this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
     } else {
-      const round = replay(history, rnd, this.pick ?? undefined);
+      const round = replay(history, rnd, pick ?? undefined);
       this.round = round;
       this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
       this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
@@ -473,6 +480,17 @@ class Market {
     this.dad.clear();
     this.pops = [];
     this.marks = [];
+  }
+
+  // Wait for fresh rates before orders are accepted. Keep the lobby's pair,
+  // including any choice made while the fetch was pending; never redraw a
+  // round another request has already started.
+  async refreshLobby(): Promise<void> {
+    if (this.mode !== "simulation" || this.phase !== "lobby") return;
+    await refreshToday();
+    if (this.phase !== "lobby") return;
+    const now = todayRate(this.round.pair);
+    if (this.round.prices[0] !== now.rate || this.facts.from !== now.date || this.facts.source !== now.source) this.ready(this.round.pair);
   }
 
   // Someone on the tab asks to play: the countdown begins.
@@ -552,7 +570,7 @@ class Market {
   bell(who: string, hold: boolean): string | null {
     if (this.phase !== "break") return "The bell isn't showing.";
     if (!this.listeners().some((l) => l.who === who)) return "Open this tab to change its bell.";
-    if (hold) this.breakLeft = Math.min(BREAK_MAX, this.breakLeft + HOLD_TICKS);
+    if (hold) this.breakLeft = Math.min(BREAK_MAX - this.breakElapsed, this.breakLeft + HOLD_TICKS);
     else this.ready();
     log(who, hold ? "hold" : "dismiss", { mode: this.mode });
     return null;
@@ -662,6 +680,7 @@ class Market {
     log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
     this.phase = "break";
     this.breakLeft = BREAK_TICKS;
+    this.breakElapsed = 0;
   }
 
   // Each tick moves the price, lets the bots act, enforces the rules and
@@ -674,6 +693,7 @@ class Market {
       return this.broadcast(go);
     }
     if (this.phase === "break") {
+      this.breakElapsed++;
       const over = --this.breakLeft <= 0;
       if (over) this.ready();
       return this.broadcast(over);
@@ -871,10 +891,10 @@ class Market {
   // The room is worked out once per broadcast and shared by every view.
   // During the break nothing moves but the clock, so after the bell's full
   // message the pages are sent only an empty price list.
-  broadcast(full = false): void {
+  broadcast(full = false, except?: Listener): void {
     const shared = this.room();
     const from = full ? 0 : this.phase === "break" ? this.tick + 1 : this.tick;
-    for (const l of this.listeners()) l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared))}\n\n`);
+    for (const l of this.listeners()) if (l !== except) l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared))}\n\n`);
   }
 }
 
@@ -882,7 +902,7 @@ const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Reco
 // The tabs' old names still lead to them: History and Live (ADRs 0027, 0028),
 // then Scenario (ADR 0047).
 const OLD: Record<string, Mode> = { history: "replay", live: "simulation", scenario: "simulation" };
-const modeOf = (value: unknown): Mode => OLD[value as string] ?? (MODES.includes(value as Mode) ? (value as Mode) : "replay");
+const modeOf = (value: unknown): Mode => typeof value === "string" && Object.hasOwn(OLD, value) ? OLD[value] : MODES.includes(value as Mode) ? (value as Mode) : "replay";
 
 // The Tutorial tab: each visitor's own private market (src/tutorial.ts),
 // kept in memory, seen by nobody else and never in the hall of fame. One
@@ -924,6 +944,7 @@ function tutorialView(who: string) {
       name: nameOf(who),
       draw: drawOf(who),
       named: named(who),
+      face: faceOf(who),
       code: short(who),
       balance: a.balance,
       equity: Math.round(t.desk.equity("me")),
@@ -942,16 +963,25 @@ function tutorialView(who: string) {
     feed: t.feed,
     pops: [],
     result: null,
-    career: fame.map(({ key: k, ...c }) => ({ ...c, you: k === key(who) })),
+    career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === key(who) })),
     leverages: LEVERAGES,
-      desk: DESK,
+    desk: DESK,
+    minRounds: MIN_ROUNDS,
     ...quote(t.price()),
     here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
   };
 }
-function sendTutorial(who: string): void {
+function sendTutorial(who: string, except?: Listener): void {
   const text = `data: ${JSON.stringify(tutorialView(who))}\n\n`;
-  for (const l of listeners) if (l.mode === "tutorial" && l.who === who) l.res.write(text);
+  for (const l of listeners) if (l !== except && l.mode === "tutorial" && l.who === who) l.res.write(text);
+}
+
+// Lobby prices stand still, but presence and the right to end a round can
+// change at any time. Tell idle pages on every tab as well as trading ones.
+function broadcastPresence(except?: Listener): void {
+  for (const m of MODES) markets[m].broadcast(false, except);
+  const watching = new Set([...listeners].filter((l) => l.mode === "tutorial").map((l) => l.who));
+  for (const who of watching) sendTutorial(who, except);
 }
 
 setInterval(() => {
@@ -1062,7 +1092,7 @@ const DEBUG_JS: [string, string] = [read("public/debug.js"), "text/javascript; c
 // What the debug console can do. Each acts on the server, where the
 // rules live, and changes only what it names: the hall, a round's phase,
 // or the debugger's own account. It is logged with the debugger's code.
-function debugAction(who: string, kind: string, mode: Mode): { ok?: true; error?: string; status?: unknown } {
+async function debugAction(who: string, kind: string, mode: Mode): Promise<{ ok?: true; error?: string; status?: unknown }> {
   const market = markets[mode];
   const desk = market.desk;
   switch (kind) {
@@ -1075,10 +1105,11 @@ function debugAction(who: string, kind: string, mode: Mode): { ok?: true; error?
       for (const m of MODES) markets[m].broadcast();
       return { ok: true };
     case "start":
+      if (market.phase === "break") market.ready();
+      await market.refreshLobby();
       if (market.phase === "trade") return { error: "Already trading." };
       market.result = null;
       market.feed = [];
-      if (market.phase === "break") market.ready();
       market.start();
       market.broadcast(true);
       return { ok: true };
@@ -1201,8 +1232,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     } catch {
       return json(res, 400, { error: "Send JSON." });
     }
-    const out = debugAction(who, String(input.kind), modeOf(input.mode));
-    log(who, "debug", { action: String(input.kind), mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
+    if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown debug action." });
+    const out = await debugAction(who, input.kind, modeOf(input.mode));
+    log(who, "debug", { action: input.kind, mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
     return json(res, out.error ? 409 : 200, out);
   }
   if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);
@@ -1232,7 +1264,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     req.on("close", () => {
       listeners.delete(listener);
       if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
+      broadcastPresence();
     });
+    broadcastPresence(listener);
     return;
   }
   if (req.method === "GET" && path === "/api/events") {
@@ -1254,7 +1288,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     req.on("close", () => {
       listeners.delete(listener);
       if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
+      broadcastPresence();
     });
+    broadcastPresence(listener);
     return;
   }
 
@@ -1298,6 +1334,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return json(res, result.status, { error: result.error });
     }
     for (const m of MODES) markets[m].broadcast();
+    sendTutorial(who);
     return json(res, 200, result);
   }
 
@@ -1308,6 +1345,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     } catch {
       return json(res, 400, { error: "Send JSON." });
     }
+    if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown action." });
     const kind = input.kind;
     let action: Action | null = null;
     if (kind === "buy" || kind === "sell") {
@@ -1339,7 +1377,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     // A round's controls (ADR 0022): cancel the countdown, end the round,
     // leave it, and close or hold the bell. The market checks who may.
-    const control = CONTROLS[kind as string];
+    const control = Object.hasOwn(CONTROLS, kind) ? CONTROLS[kind] : null;
     if (control) {
       // a year must be a whole number the data could hold
       if (kind === "guess" && !(Number.isInteger(input.year) && (input.year as number) >= FIRST_YEAR && (input.year as number) <= new Date().getFullYear())) return json(res, 400, { error: "Name a year from 1999 to now." });
@@ -1354,6 +1392,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     if (kind === "start" && input.mode !== "tutorial") {
       const market = markets[modeOf(input.mode)];
+      // A rejected Start must not redraw the lobby. The request checks
+      // membership again after the fetch in case the starter has left.
+      if (market.listeners().some((l) => l.who === who)) await market.refreshLobby();
       const error = market.request(who, input.ironman === true);
       if (error) return json(res, 409, { error });
       market.broadcast(true);
@@ -1384,7 +1425,11 @@ createServer((req, res) => {
       console.log(`[${id}] ${req.method} ${req.url?.split("?")[0]} ${res.statusCode} ${Math.round(performance.now() - began)}ms${who ? ` who=${short(who)}` : ""}`);
     });
   }
-  requests.run(id, () => void handle(req, res));
+  requests.run(id, () => void handle(req, res).catch((error: unknown) => {
+    console.error("request failed:", error instanceof Error ? error.message : "unknown error");
+    if (!res.headersSent) json(res, 500, { error: "Internal server error." });
+    else res.destroy();
+  }));
 }).listen(PORT, "0.0.0.0", () => console.log(`losscut on :${PORT}, seed ${seed}`));
 
 for (const m of MODES) markets[m].ready();

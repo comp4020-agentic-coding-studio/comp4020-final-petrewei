@@ -1542,6 +1542,7 @@ function watch(next) {
   shown = null;
   cuts = null;
   caught = null;
+  popped = null;
   dadAsked = false;
   $("error").textContent = "";
   events = new EventSource(`/api/events?mode=${mode}`);
