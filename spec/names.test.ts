@@ -102,10 +102,18 @@ it.skipIf(live)("says a newcomer is not yet named, until they choose a name", as
   expect((await state(me)).you.named).toBe(true);
 });
 it("saves the name a newcomer keeps from the box, even their dealt one", async () => {
-  const me = await visitor();
-  const dealt = (await state(me)).you.name;
   if (live) return;
-  expect((await post(me, { name: dealt })).status).toBe(200);
-  expect((await state(me)).you.named).toBe(true);
-  expect((await state(me)).you.name).toBe(dealt);
+  // A dealt name is one of a few hundred, so another visitor on this server may already
+  // hold it, and the server rightly refuses; the next visitor is dealt another.
+  for (let tries = 0; tries < 30; tries++) {
+    const me = await visitor();
+    const dealt = (await state(me)).you.name;
+    const res = await post(me, { name: dealt });
+    if (res.status === 409) continue;
+    expect(res.status).toBe(200);
+    expect((await state(me)).you.named).toBe(true);
+    expect((await state(me)).you.name).toBe(dealt);
+    return;
+  }
+  throw new Error("every dealt name was already held");
 });

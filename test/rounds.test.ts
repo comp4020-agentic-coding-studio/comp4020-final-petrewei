@@ -184,8 +184,10 @@ async function inACall(port: number, env: Record<string, string>) {
   const debug = (body: unknown) => fetch(`${s.base}/api/debug`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) });
   await act(me, { kind: "start", mode: "simulation" });
   await until(me, (x) => x.phase === "trade", 10_000, "simulation");
-  expect((await act(me, { kind: "buy", leverage: 1000, mode: "simulation" })).status).toBe(200);
-  expect((await debug({ kind: "call", mode: "simulation" })).status).toBe(200);
+  const bought = await act(me, { kind: "buy", leverage: 1, mode: "simulation" });
+  expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
+  const called = await debug({ kind: "call", mode: "simulation" });
+  expect(called.status, JSON.stringify(await called.clone().json())).toBe(200);
   const lent = await act(me, { kind: "borrow", mode: "simulation" });
   expect(lent.status, JSON.stringify(await lent.clone().json())).toBe(200);
   return { me, tab, act, until, look };
