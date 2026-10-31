@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSy
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
-import { MIN_ROUNDS, guessBonus, hall, score } from "./score.ts";
+import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts";
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, RULES, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
@@ -364,6 +364,7 @@ type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
 type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; scenario?: string };
+type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; balance: number; debt: number; net: number; cuts: number; loans: number; caught: number; bonus: number; score: number };
 const listeners = new Set<Listener>();
 
 class Market {
@@ -388,6 +389,7 @@ class Market {
   // Ticks left in a pause, or 0 when the market runs.
   paused = 0;
   result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean }[]; reveal: string; facts: Facts } | null = null;
+  private debriefs = new Map<string, Debrief>();
   // The bell's facts, for a page to tell in its own language.
   facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
   // What the bell will say, decided when the round starts.
@@ -504,6 +506,7 @@ class Market {
     this.startedBy = who;
     this.ironman = ironman;
     this.result = null;
+    this.debriefs.clear();
     this.feed = [];
     const secs = Math.max(1, Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000));
     this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info", "started", { who: short(who), secs });
@@ -578,6 +581,7 @@ class Market {
   }
 
   start(): void {
+    this.debriefs.clear();
     this.count++;
     this.pick = null;
     this.phase = "trade";
@@ -660,6 +664,17 @@ class Market {
     ranking.sort((a, b) => points(b.who) - points(a.who));
     const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
     for (const r of humans) {
+      const a = desk.account(r.who);
+      const financing = Math.round(a.financing);
+      const loans = a.debt / BORROW;
+      this.debriefs.set(key(r.who), {
+        // The result before financing includes spread and zero-cut protection.
+        // Use whole yen consistently so the displayed money reconciles exactly.
+        beforeFees: r.net - START + financing, financing,
+        balance: a.balance, debt: a.debt, net: r.net, cuts: a.cuts, loans, caught: a.caught,
+        ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts, loans, caught: a.caught }),
+        bonus: bonus(r.who), score: Math.round(points(r.who) * 10) / 10,
+      });
       const c = record(r.who)!;
       c.rounds++;
       c.profit += r.net - START;
@@ -878,7 +893,7 @@ class Market {
       feed: this.feed,
       pops: this.pops.map(({ at: _at, ...p }) => p),
       marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
-      result: this.result && { ...this.result, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
+      result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
       career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
       desk: DESK,
@@ -1437,7 +1452,9 @@ for (const m of MODES) markets[m].ready();
 // Every page is pinged every 5s so dead connections are found and dropped.
 setInterval(() => {
   for (const l of [...listeners]) {
-    const ok = l.res.write(": ping\n\n");
+    // A named event keeps the page's liveness clock going even in an idle
+    // lobby or tutorial. It carries no market or private account data.
+    const ok = l.res.write("event: heartbeat\ndata: {}\n\n");
     if (!ok && l.res.writableLength > 64_000) l.res.destroy();
   }
 }, 5_000).unref();

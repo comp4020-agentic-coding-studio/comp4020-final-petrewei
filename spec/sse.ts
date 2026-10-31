@@ -29,7 +29,11 @@ export function listen(body: ReadableStream<Uint8Array>): Listener {
         buffer += decoder.decode(value, { stream: true });
         let end;
         while ((end = buffer.indexOf("\n\n")) !== -1) {
-          const line = buffer.slice(0, end).split("\n").find((l) => l.startsWith("data: "));
+          const frame = buffer.slice(0, end).split("\n");
+          // Like EventSource.onmessage, read only unnamed/message events;
+          // the named heartbeat keeps browsers alive but is not a state.
+          const named = frame.find((l) => l.startsWith("event: "));
+          const line = !named || named === "event: message" ? frame.find((l) => l.startsWith("data: ")) : undefined;
           buffer = buffer.slice(end + 2);
           if (line) queue.push(JSON.parse(line.slice(6)) as Event);
         }

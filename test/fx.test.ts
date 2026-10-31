@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { BORROW, BROKE, Desk, LOANS, SPREAD, START } from "../src/fx.ts";
 
+it("keeps financing paid across closes, adds and cloned tutorial checkpoints, then resets for a fresh account", () => {
+  const desk = new Desk(100);
+  desk.join("a");
+  desk.order("a", 1, 100, 0.5);
+  desk.mark(100);
+  const first = desk.account("a").pos!.fees;
+  desk.order("a", 1, 30, 0.5);
+  desk.mark(100);
+  const paid = desk.account("a").pos!.fees;
+  expect(paid).toBeGreaterThan(first);
+  desk.close("a");
+  expect(desk.account("a").financing).toBeCloseTo(paid);
+  desk.order("a", -1, 30);
+  desk.mark(100);
+  const second = desk.account("a").pos!.fees;
+  desk.settle();
+  expect(desk.account("a").financing).toBeCloseTo(paid + second);
+  expect(desk.clone().account("a").financing).toBeCloseTo(paid + second);
+  desk.reset("a");
+  expect(desk.account("a").financing).toBe(0);
+});
+
 const half = SPREAD / 2;
 
 describe("the trading desk", () => {

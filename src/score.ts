@@ -21,8 +21,20 @@ export function guessBonus(guess: number | null, year: number): number {
   return guess === year ? YEAR_BONUS : Math.abs(guess - year) === 1 ? NEAR_BONUS : 0;
 }
 
-export function score(r: { start: number; net: number; cuts: number; loans: number; caught?: number }): number {
-  return ((r.net - r.start) / r.start) * 100 - r.cuts * CUT_COST - r.loans * LOAN_COST - (r.caught ?? 0) * CAUGHT_COST;
+type Result = { start: number; net: number; cuts: number; loans: number; caught?: number };
+
+export function scoreBreakdown(r: Result) {
+  return {
+    returnPct: ((r.net - r.start) / r.start) * 100,
+    cutPenalty: r.cuts * CUT_COST,
+    loanPenalty: r.loans * LOAN_COST,
+    caughtPenalty: (r.caught ?? 0) * CAUGHT_COST,
+  };
+}
+
+export function score(r: Result): number {
+  const b = scoreBreakdown(r);
+  return b.returnPct - b.cutPenalty - b.loanPenalty - b.caughtPenalty;
 }
 
 // The hall: players with enough rounds, best average first, then the rest,

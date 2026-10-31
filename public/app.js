@@ -69,6 +69,30 @@ function translate() {
 for (const id of ["lang", "n-lang"]) $(id).onchange = () => location.assign(home($(id).value));
 
 let state = null;
+let fresh = false;
+let connectionStatus = "connectionConnecting";
+let heardAt = Date.now();
+let restoredTimer = null;
+const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "plot-next", "pair-select", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
+function blockStaleControls() {
+  if (!fresh) {
+    for (const id of marketControls) $(id).disabled = true;
+    $("guess").querySelector("button[type=submit]").disabled = true;
+  }
+}
+function connection(status) {
+  clearTimeout(restoredTimer);
+  connectionStatus = status;
+  fresh = status === "connectionRestored";
+  $("connection").textContent = t(status);
+  $("connection").hidden = false;
+  $("connection").classList.toggle("restored", fresh);
+  if (fresh) {
+    // Phase-specific restrictions are applied immediately by render().
+    for (const id of marketControls) $(id).disabled = false;
+    restoredTimer = setTimeout(() => ($("connection").hidden = true), 4000);
+  } else blockStaleControls();
+}
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
 // Loans Dad has found out about, as last seen; null before the first state.
@@ -188,13 +212,25 @@ if (new URLSearchParams(location.search).has("debug")) history.replaceState(null
 // A JSON post, answered with the response and what it said; a refusal's words are
 // the server's English, which `refusal` puts in this page's language.
 async function post(url, body) {
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const out = await res.json().catch(() => ({}));
-  return { ok: res.ok, out, why: res.ok ? "" : refusal(lang, out.error ?? "Refused.") };
+  try {
+    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const out = await res.json();
+    return { ok: res.ok, out, why: res.ok ? "" : refusal(lang, out.error ?? "Refused.") };
+  } catch {
+    // The server may have received the action even if its reply was lost.
+    // Never repeat it automatically: the next state shows what landed.
+    return { ok: false, out: {}, why: t("requestUncertain") };
+  }
 }
 async function act(kind, extra = {}) {
+  if (!fresh) {
+    $("error").textContent = t(connectionStatus);
+    return;
+  }
   $("error").textContent = "";
-  $("error").textContent = (await post("/api/act", { kind, mode, ...extra })).why;
+  const source = events;
+  const reply = await post("/api/act", { kind, mode, ...extra });
+  if (source === events) $("error").textContent = reply.why;
 }
 // A stop loss and a take profit each ride on the order when their own
 // toggle is on (ADR 0032, 0034); off, each is still shown, grey, and not sent.
@@ -203,6 +239,7 @@ const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choi
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
+$("mobile-close").onclick = () => act("close");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
@@ -549,7 +586,7 @@ function armAuto() {
 function tickAuto() {
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
-  if (document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
+  if (!fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
   if (--autoLeft > 0) return showCount();
   clearInterval(autoTimer);
   doForPlayer(l);
@@ -1224,9 +1261,14 @@ let prices = [];
 let before = [];
 let roundNo = 0;
 let shown = null;
-async function receive(s) {
+async function receive(s, source = events) {
   // A message from the market this page just left is dropped.
-  if (s.mode !== mode) return;
+  if (source !== events || s.mode !== mode || navigator.onLine === false) return;
+  if (!fresh && s.from !== 0) {
+    const res = await fetch(`/api/state?mode=${mode}`);
+    if (!res.ok) throw new Error("state unavailable");
+    return receive(await res.json(), source);
+  }
   if (s.from === 0) {
     prices = [...s.prices];
     before = s.history ?? [];
@@ -1236,10 +1278,13 @@ async function receive(s) {
     prices.push(...s.prices);
   } else {
     const res = await fetch(`/api/state?mode=${mode}`);
-    return receive(await res.json());
+    if (!res.ok) throw new Error("state unavailable");
+    return receive(await res.json(), source);
   }
   roundNo = s.round;
   shown = s.mode;
+  heardAt = Date.now();
+  if (!fresh) connection("connectionRestored");
   render({ ...s, prices, history: before });
 }
 
@@ -1260,6 +1305,7 @@ function render(s) {
   const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2;
   $("guess").hidden = !guessing;
   $("guess").classList.toggle("made", s.you.guess !== null);
+  $("guess").querySelector("button[type=submit]").disabled = !guessing;
   if (guessing && s.you.guess !== null && document.activeElement !== $("guess-year")) $("guess-year").value = String(s.you.guess);
   if (!guessing && s.phase !== "trade") $("guess-year").value = "";
   $("paused").hidden = tutorial || !s.paused;
@@ -1395,7 +1441,12 @@ function render(s) {
   const closed = !open || y.out || !!s.paused;
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
-  for (const id of ["close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
+  for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
+  $("position-bar").hidden = !y.pos;
+  document.body.classList.toggle("has-position", !!y.pos);
+  $("mobile-pnl").textContent = yen(y.pnl);
+  $("mobile-pnl").className = tone(y.pnl);
+  $("mobile-level").textContent = y.level === null ? "—" : `${y.level}%`;
 
   // The forced loss cut: a new stop-out or wipe-out takes the screen.
   if (cuts !== null && y.cuts > cuts) {
@@ -1494,11 +1545,38 @@ function render(s) {
 
   // After the bell the result stands in for the ticket, at its height.
   const bell = s.phase === "break" && !!s.result;
-  if (bell && $("bell").hidden) $("bell").style.height = `${document.querySelector(".ticket").offsetHeight}px`;
+  if (bell && $("bell").hidden) {
+    $("bell").style.height = `${document.querySelector(".ticket").offsetHeight}px`;
+    $("debrief").open = false;
+  }
   $("bell").hidden = !bell;
   document.body.classList.toggle("bell-up", bell);
   if (s.result) {
     $("reveal").textContent = reveal(s.result);
+    const d = s.result.debrief;
+    const details = $("debrief");
+    details.hidden = !d;
+    if (d) {
+      $("debrief-score").textContent = pts(d.score);
+      const lines = [
+        [t("startingFunds"), yen(s.start)],
+        [t("resultBeforeFees"), yen(d.beforeFees)],
+        [t("financingPaid"), yen(-d.financing)],
+        [t("netWorth"), yen(d.net)],
+        [t("loansOwed"), yen(d.debt)],
+        [t("returnPoints"), pts(d.returnPct)],
+        ...(d.cuts ? [[t("cutPenalty", { n: d.cuts }), pts(-d.cutPenalty)]] : []),
+        ...(d.loans ? [[t("loanPenalty", { n: d.loans }), pts(-d.loanPenalty)]] : []),
+        ...(d.caught ? [[t("caughtPenalty", { n: d.caught }), pts(-d.caughtPenalty)]] : []),
+        ...(d.bonus ? [[t("yearBonus"), pts(d.bonus)]] : []),
+        [t("finalScore"), pts(d.score)],
+      ];
+      $("debrief-lines").replaceChildren(...lines.map(([label, value]) => {
+        const row = document.createElement("div");
+        row.append(Object.assign(document.createElement("dt"), { textContent: label }), Object.assign(document.createElement("dd"), { textContent: value }));
+        return row;
+      }));
+    }
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {
@@ -1527,6 +1605,7 @@ function render(s) {
   // what is on screen (ADR 0052).
   if (s.lesson) spotlight(s.lesson, s.phase === "moving");
   else clearPointer();
+  blockStaleControls();
 }
 
 // One stream at a time, on the chosen market. Switching tabs closes it and
@@ -1541,6 +1620,8 @@ function watch(next) {
   }
   for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   events?.close();
+  connection(navigator.onLine === false ? "connectionOffline" : state ? "connectionReconnecting" : "connectionConnecting");
+  heardAt = Date.now();
   clearPointer();
   shown = null;
   cuts = null;
@@ -1548,9 +1629,32 @@ function watch(next) {
   popped = null;
   dadAsked = false;
   $("error").textContent = "";
-  events = new EventSource(`/api/events?mode=${mode}`);
-  events.onmessage = (e) => receive(JSON.parse(e.data));
+  const source = events = new EventSource(`/api/events?mode=${mode}`);
+  source.onmessage = async (e) => {
+    if (source !== events) return;
+    try {
+      await receive(JSON.parse(e.data), source);
+    } catch {
+      if (source === events) connection("connectionReconnecting");
+    }
+  };
+  source.onerror = () => {
+    if (source === events) connection(navigator.onLine === false ? "connectionOffline" : "connectionReconnecting");
+  };
+  source.addEventListener("heartbeat", () => {
+    if (source === events) heardAt = Date.now();
+  });
 }
+// A stream can hang without raising an error. Heartbeats arrive every five
+// seconds, including idle rooms; three missed beats open a fresh stream.
+setInterval(() => {
+  if (Date.now() - heardAt > 15_000) watch(mode);
+}, 1000);
+addEventListener("offline", () => {
+  events?.close();
+  connection("connectionOffline");
+});
+addEventListener("online", () => watch(mode));
 for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
 translate();
 label();

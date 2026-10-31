@@ -513,7 +513,21 @@ th:first-child, td:first-child { text-align: left; }
 .bell[hidden], .losscut[hidden] { display: none; }
 .bell h2 { margin: 0; font-size: 1.3rem; color: var(--pink); }
 .bell #reveal { margin: 0; font-size: 0.88rem; }
-.bell #ranking { flex: 1; min-height: 0; margin: 0; overflow-y: auto; }
+.bell-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.bell #ranking { margin: 0; }
+.debrief { margin: 0.6rem 0; padding: 0.6rem; border: 1px solid var(--line); border-radius: 8px; font-size: 0.8rem; }
+.debrief[hidden] { display: none; }
+.debrief summary { cursor: pointer; color: var(--pink); }
+.debrief summary strong { float: right; font-family: var(--mono); }
+.debrief dl { margin: 0.6rem 0; }
+.debrief dl div { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.15rem 0; }
+.debrief dd { margin: 0; white-space: nowrap; font-family: var(--mono); }
+.debrief dl div:last-child { border-top: 1px solid var(--line); margin-top: 0.3rem; padding-top: 0.3rem; font-weight: 700; }
+.debrief p { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.5; }
+.connection { position: sticky; top: 0; z-index: 9; margin: 0; padding: 0.5rem 0.8rem; background: var(--panel); color: var(--call); border-bottom: 1px solid currentColor; text-align: center; font-size: 0.85rem; }
+.connection.restored { color: var(--up); }
+.connection[hidden] { display: none; }
+.position-bar { display: none; }
 .bell .bell-next { margin: 0; }
 body.bell-up .ticket { display: none; }
 .card { width: 100%; max-width: 34rem; padding: 1.2rem 1.4rem; border-radius: 14px; background: var(--panel); border: 1px solid var(--pink); box-shadow: 0 0 0 4px var(--glow); }
@@ -697,6 +711,12 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* On a phone the position row becomes a card, each figure labelled, and
    Close spans the width: it must never scroll out of reach. */
 @media (max-width: 560px) {
+  body.has-position { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .position-bar:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.5rem; align-items: center; position: fixed; z-index: 7; bottom: 0; left: 0; right: 0; padding: 0.6rem 0.8rem calc(0.6rem + env(safe-area-inset-bottom)); background: var(--panel); border-top: 2px solid var(--line); box-shadow: 0 -3px 15px rgb(0 0 0 / 0.15); }
+  .position-bar div { display: grid; min-width: 0; gap: 0.2rem; }
+  .position-bar span { color: var(--muted); font-size: 0.7rem; }
+  .position-bar strong { font: 700 0.85rem var(--mono); overflow-wrap: anywhere; }
+  .position-bar button { min-height: 44px; padding: 0.5rem 0.8rem; }
   @media (max-width: 419px) { .sub { display: none; } }
   /* The chart is short here, and the quote and switches take its top: the lobby centres in
      what is left, with tighter gaps, and the play-money note, which the footer repeats, goes. */

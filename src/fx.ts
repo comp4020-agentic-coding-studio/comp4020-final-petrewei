@@ -64,7 +64,7 @@ export type Position = {
 // `traded` says whether the player placed an order this round at all.
 // `caught` counts the loans Dad has found out about (ADR 0057); it equals the
 // loans once he has, and a caught player is grounded: out for the round.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number };
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number; financing: number };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -82,7 +82,7 @@ export class Desk {
   }
 
   join(who: string): void {
-    if (!this.accounts.has(who)) this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0 });
+    if (!this.accounts.has(who)) this.reset(who);
   }
 
   // An independent copy, for the tutorial's way back to a lesson's start.
@@ -225,7 +225,7 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0 });
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0, financing: 0 });
   }
 
   // Move the price and enforce the rules on every account, in join order.
@@ -236,7 +236,13 @@ export class Desk {
     for (const account of this.accounts.values()) if (account.recall > 0) account.recall--;
     // The fee is charged after the rules have acted, so the call and cut
     // prices a page shows are the ones the next mark acts at.
-    for (const account of this.accounts.values()) if (account.pos) account.pos.fees += account.pos.margin * feeRate(account.pos.leverage);
+    for (const account of this.accounts.values()) if (account.pos) {
+      const fee = account.pos.margin * feeRate(account.pos.leverage);
+      account.pos.fees += fee;
+      // The position's fees disappear on closing; the round's total survives
+      // every close and reopen for the player's own bell debrief.
+      account.financing += fee;
+    }
     return fills;
   }
 
