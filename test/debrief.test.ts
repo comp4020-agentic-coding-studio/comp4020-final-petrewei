@@ -22,13 +22,18 @@ it("gives each player a private bell breakdown that reconciles money, fees, loan
     const bought = await c.act(me, { kind: "buy", leverage: 30 });
     expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
     expect(await tabs[0].next((e) => Number(e.tick) >= 5, 5000), "five ticks pass while the position is open").not.toBeNull();
+    // A replay opens on a day the market broke, so the price may already have cut this position
+    // (a 30x one in a few ticks): the market's verdict is a way the round can go, and the
+    // breakdown must reconcile either way. Only a refusal that is not "nothing to close" is wrong.
     const closed = await c.act(me, { kind: "close" });
-    expect(closed.status, JSON.stringify(await closed.clone().json())).toBe(200);
+    if (closed.status !== 200) expect((await closed.json()).error, "close was refused for another reason").toBe("Nothing to close.");
     expect((await c.act(me, { kind: "finish" })).status).toBe(200);
     const bell = await c.state(me) as unknown as Bell;
     const d = bell.result.debrief!;
     expect(d).toBeTruthy();
-    expect(d.financing).toBeGreaterThan(0);
+    // financing is charged each tick the position is open, so it is there unless the market cut
+    // the position before its first whole yen
+    if (d.cuts === 0) expect(d.financing).toBeGreaterThan(0);
     expect(d.balance - d.debt).toBe(d.net);
     expect(START + d.beforeFees - d.financing).toBe(d.net);
     expect(d.returnPct).toBeCloseTo((d.net / START - 1) * 100);
