@@ -10,6 +10,7 @@ import * as view from "../public/view.js";
 import * as ticket from "../public/ticket.js";
 import * as art from "../public/art.js";
 import * as clauses from "../public/clauses.js";
+import * as format from "../public/format.js";
 import { autoMove, currentStep } from "../public/plan.js";
 
 async function app(lang: "en" | "ja" | "zh" = "en") {
@@ -38,7 +39,7 @@ async function app(lang: "en" | "ja" | "zh" = "en") {
     if (typeof callback === "function" && ms === 1000) intervals.push(callback as () => void);
     return setInterval(callback, ms);
   });
-  Object.assign(w, i18n, names, avatars, indicators, view, ticket, art, clauses, {
+  Object.assign(w, i18n, names, avatars, indicators, view, ticket, art, clauses, format, {
     autoMove, planStep: currentStep, EventSource: Stream,
     fetch,
     CSS: { escape: (s: string) => s },

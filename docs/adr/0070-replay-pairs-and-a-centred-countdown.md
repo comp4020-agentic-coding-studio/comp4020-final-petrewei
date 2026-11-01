@@ -22,7 +22,7 @@ Replay plays the European Central Bank's recorded daily rates, with the other pa
 
 ## 5 Display and Space
 
-The dropdowns are as wide as their text: three letters for a currency, seven characters for a pair. The quote shows five significant digits, for display only; the desk, the fills and the position table keep the pair's own decimals.
+The dropdowns are as wide as their text: three letters for a currency, seven characters for a pair. Every price the player reads has five significant digits, in one helper: the quote, bid and ask, the chart's tags and moving averages, the position's entry and now, the room's and the tutorial's feed, and the operator's log. A yen pair shows 158.45 and a euro pair 1.2013, so none looks more exact than another. The desk, the fills and the stored numbers keep their full precision; only what is written changes, and the spread in pips still uses the pair's pip.
 
 ## 6 What Was Left Out
 

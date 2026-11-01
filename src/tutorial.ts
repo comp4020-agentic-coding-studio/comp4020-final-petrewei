@@ -4,6 +4,7 @@
 // price stands still until the action is taken, then moves along the
 // lesson's script, so a profit, a margin call, a stop or a gap happens on
 // cue. The same desk and broker rules as the real markets apply.
+import { quoted } from "../public/format.js";
 import { Desk, type Fill, type Side } from "./fx.ts";
 
 export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
@@ -360,17 +361,17 @@ export class Tutorial {
   describe(events: Fill[]): void {
     const yen = (n: number): string => `${n < 0 ? "−" : "+"}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
     for (const e of events) {
-      const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: e.price.toFixed(3) };
+      const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
       const say = (text: string, kind: string, key: string): void => {
         this.feed.unshift({ text, kind, key, args });
         this.feed.splice(10);
       };
       if (e.kind === "open") say(`You ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×.`, "trade", e.side === 1 ? "you-bought" : "you-sold");
       else if (e.kind === "close") say(`You closed: ${yen(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
-      else if (e.kind === "stop") say(`Your stop filled at ${e.price.toFixed(3)}: ${yen(e.pnl)}.`, "loss", "you-stopped");
+      else if (e.kind === "stop") say(`Your stop filled at ${quoted(e.price)}: ${yen(e.pnl)}.`, "loss", "you-stopped");
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
       else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}. You are out until you borrow.`, "bust", "you-stopout");
-      else if (e.kind === "zerocut") say(`Wiped out at ${e.price.toFixed(3)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
+      else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
       else if (e.kind === "caught") say("Dad found the money gone from the dresser. You are grounded.", "bust", "you-caught");
     }
   }

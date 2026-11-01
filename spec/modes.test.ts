@@ -46,8 +46,9 @@ it.skipIf(live)("keeps a trade on one tab off the other", async () => {
   const onSimulation = await page(await visitor(), "simulation");
   const onReplay = await page(await visitor(), "replay");
   const own = await page(trader, "simulation");
-  const me = (await own.next(() => true, 2000)) as { you: { name: string } };
-  const shows = (e: Record<string, unknown>): boolean => (e.traders as { name: string; side: number }[]).some((t) => t.name === me.you.name && t.side === 1);
+  const me = (await own.next(() => true, 2000)) as { you: { code: string } };
+  // by short code, which is unique; a dealt name can be shared by two visitors
+  const shows = (e: Record<string, unknown>): boolean => (e.traders as { id: string; side: number }[]).some((t) => t.id === me.you.code && t.side === 1);
   try {
     await open(8, "simulation");
     const seenLive = onSimulation.next(shows, 1000);

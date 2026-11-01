@@ -15,7 +15,7 @@ import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts"
 import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, RULES, START } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
-import { yen } from "../public/format.js";
+import { quoted, yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
@@ -599,12 +599,9 @@ class Market {
     this.feed.splice(14);
   }
 
+  // The pip's size, for the spread; prices themselves are shown to five significant digits.
   digits(): number {
     return this.round.pair.endsWith("JPY") ? 3 : 5;
-  }
-
-  fmt(p: number): string {
-    return p.toFixed(this.digits());
   }
 
   // Turn the desk's events into the room's feed. A stop-out is everyone's
@@ -614,12 +611,12 @@ class Market {
       const name = nameOf(e.who);
       // `who` is the short code, so a page can put each trader's name in
       // its own language; `pnl` stays a number for the page to format.
-      const a = { who: short(e.who), pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: this.fmt(e.price) };
+      const a = { who: short(e.who), pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
       if (e.kind === "open") this.say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= WILD ? "wild" : "trade", e.side === 1 ? "bought" : "sold", a);
       else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild", "added", a);
       else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "closed", a);
-      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${this.fmt(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
-      else if (e.kind === "take") this.say(`${name} took profit at ${this.fmt(e.price)}: ${yen(e.pnl)}`, "win", "took", a);
+      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${quoted(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
+      else if (e.kind === "take") this.say(`${name} took profit at ${quoted(e.price)}: ${yen(e.pnl)}`, "win", "took", a);
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
       else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}. Out of the round.`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
@@ -638,7 +635,7 @@ class Market {
         this.marks.push({ tick: this.tick, who: short(e.who), face: faceOf(e.who), kind: e.kind, side: e.side ?? 0, key: key(e.who) });
         if (this.marks.length > MARKS_MAX) this.marks.shift();
       }
-      log(e.who, e.kind, { mode: this.mode, pair: this.round.pair, price: Number(this.fmt(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
+      log(e.who, e.kind, { mode: this.mode, pair: this.round.pair, price: Number(quoted(e.price)), pnl: Math.round(e.pnl), ...(e.side ? { side: e.side === 1 ? "buy" : "sell", leverage: e.leverage } : {}) });
     }
   }
 
@@ -795,7 +792,7 @@ class Market {
       const refused = action.kind === "stop" ? desk.stopAway(who, action.pct) : desk.takeAway(who, action.pct);
       const pos = desk.account(who).pos;
       const at = (action.kind === "stop" ? pos?.stop : pos?.take) ?? null;
-      if (!refused) log(who, `${action.kind}-set`, { mode: this.mode, at: at === null ? null : Number(this.fmt(at)) });
+      if (!refused) log(who, `${action.kind}-set`, { mode: this.mode, at: at === null ? null : Number(quoted(at)) });
       return refused;
     }
     if (action.kind === "borrow") {

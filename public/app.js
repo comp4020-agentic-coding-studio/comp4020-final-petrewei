@@ -10,6 +10,7 @@ import { place, windowed } from "/view.js";
 import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
+import { quoted } from "/format.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -875,8 +876,8 @@ for (const k of ["sl", "tp"]) {
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
 function ticket(s) {
-  $("bid").textContent = s.bid.toFixed(s.digits);
-  $("ask").textContent = s.ask.toFixed(s.digits);
+  $("bid").textContent = quoted(s.bid);
+  $("ask").textContent = quoted(s.ask);
   $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
   const free = Math.max(0, s.you.equity - (s.you.pos?.margin ?? 0));
   const margin = Math.floor(free * choice.stake);
@@ -1027,7 +1028,7 @@ function draw(full) {
     ctx.lineTo(w - 70, y(p));
     ctx.stroke();
     // Grid labels that would sit under the last-price tag are skipped.
-    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(p.toFixed(s.digits), w - 66, Math.min(h - (pane ? 8 : 4), Math.max(14, y(p) + 4)));
+    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(quoted(p), w - 66, Math.min(h - (pane ? 8 : 4), Math.max(14, y(p) + 4)));
   }
   // The bands, under everything that follows.
   if (shown.length) {
@@ -1065,7 +1066,7 @@ function draw(full) {
       ctx.stroke();
       ctx.setLineDash([]);
       labels.push({ at: y(p) - 4, colour, text });
-    } else labels.push({ at: p >= top ? 0 : h, colour, text: `${p >= top ? "▲" : "▼"} ${text} ${p.toFixed(s.digits)}` });
+    } else labels.push({ at: p >= top ? 0 : h, colour, text: `${p >= top ? "▲" : "▼"} ${text} ${quoted(p)}` });
   }
   // Each label on a patch of the chart's colour, so a line that runs
   // under a pushed-down label never strikes through it.
@@ -1099,8 +1100,8 @@ function draw(full) {
     const slow = cut(sma(days, 20));
     line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
     line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
-    if (fast.at(-1)) legend.push([`MA5 ${fast.at(-1).toFixed(s.digits)}`, css.getPropertyValue("--ma-fast")]);
-    if (slow.at(-1)) legend.push([`MA20 ${slow.at(-1).toFixed(s.digits)}`, css.getPropertyValue("--ma-slow")]);
+    if (fast.at(-1)) legend.push([`MA5 ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
+    if (slow.at(-1)) legend.push([`MA20 ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
   }
   if (shown.length) legend.push([`BB(20,2)`, css.getPropertyValue("--band")]);
   // On a phone the canvas is shrunk to a third, too small for a legend.
@@ -1175,7 +1176,7 @@ function draw(full) {
   ctx.fillStyle = css.getPropertyValue("--chart-line");
   ctx.fillRect(w - 70, y(last) - 9, 70, 18);
   ctx.fillStyle = css.getPropertyValue("--chart");
-  ctx.fillText(last.toFixed(s.digits), w - 66, y(last) + 4);
+  ctx.fillText(quoted(last), w - 66, y(last) + 4);
 }
 
 // Effects: speech bubbles over a trader when the room should notice
@@ -1365,7 +1366,7 @@ function render(s) {
   const price = s.prices.at(-1);
   const first = s.prices[0];
   $("pair").textContent = s.pair;
-  $("price").textContent = price.toPrecision(5);
+  $("price").textContent = quoted(price);
   const ch = (price / first - 1) * 100;
   $("change").textContent = pct(ch / 100);
   $("change").className = ch >= 0 ? "up" : "down";
@@ -1452,8 +1453,8 @@ function render(s) {
   if (y.pos) {
     const side = Object.assign(document.createElement("span"), { className: `tag ${y.pos.side === 1 ? "long" : "short"}`, textContent: y.pos.side === 1 ? t("long") : t("short") });
     $("pos-side").replaceChildren(side, ` ${s.pair} ${y.pos.leverage}×`);
-    $("pos-entry").textContent = y.pos.entry.toFixed(s.digits);
-    $("pos-now").textContent = price.toFixed(s.digits);
+    $("pos-entry").textContent = quoted(y.pos.entry);
+    $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
     $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
