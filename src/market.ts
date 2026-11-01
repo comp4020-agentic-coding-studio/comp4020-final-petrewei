@@ -115,7 +115,9 @@ export function path(closes: number[], rnd: () => number): number[] {
     const to = Math.log(closes[d]);
     const move = to - from;
     const gap = Math.abs(move) > GAP ? move * 0.8 : 0;
-    const sigma = Math.max(Math.abs(move), 0.002) / Math.sqrt(STEPS);
+    // Daily reference rates do not establish intraday highs/lows. Do not
+    // invent a volatility floor for flat or pegged periods.
+    const sigma = Math.abs(move) / Math.sqrt(STEPS);
     // A walk of STEPS steps, then bent so it ends where the day closed.
     const walk = [0];
     for (let s = 1; s <= STEPS; s++) walk.push(walk[s - 1] + normal(rnd) * sigma * (gap ? 0.3 : 1));
@@ -123,7 +125,7 @@ export function path(closes: number[], rnd: () => number): number[] {
       const t = s / STEPS;
       const pinned = walk[s] - t * walk[STEPS];
       const drift = gap ? gap + (move - gap) * t : move * t;
-      prices.push(s === STEPS ? closes[d] : Math.exp(from + drift + pinned));
+      prices.push(s === STEPS || move === 0 ? closes[d] : Math.exp(from + drift + pinned));
     }
   }
   return prices;

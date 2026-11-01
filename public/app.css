@@ -229,10 +229,10 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
    own colour so the candles beneath never fight it, and the plot leaves it headroom. */
 .quote { position: absolute; z-index: 3; left: 0.5rem; top: 0.35rem; right: 8.5rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.7rem; max-width: max-content; padding: 0.25rem 0.6rem; border-radius: 8px; background: color-mix(in srgb, var(--chart) 82%, transparent); pointer-events: none; }
 .quote > * { pointer-events: auto; }
-.pair-tools, .plot-controls, .pair-controls { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
-.plot-controls[hidden], .pair-controls[hidden], .pair[hidden] { display: none; }
-.plot-controls .ctl { font-size: 1.2rem; }
+.pair-tools, .pair-controls { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.replay-pair[hidden], .pair-controls[hidden], .pair[hidden] { display: none; }
 .pair-controls select { width: 4.3rem; height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
+.replay-pair { width: 7rem; height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
 .chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; bottom: 6rem; max-width: calc(100% - 6rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
 .chart-box > .mode[hidden] { display: none; }
 .quote .round-ctl { align-self: center; }
@@ -798,3 +798,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* The step's words, beside the lit control (ADR 0052). */
 .step-hint { position: fixed; z-index: 45; max-width: calc(100vw - 16px); white-space: nowrap; padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--pink); color: var(--on-pink); font-weight: 700; font-size: 0.85rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35); pointer-events: none; }
 .step-hint[hidden] { display: none; }
+
+/* The countdown is a card centred on the chart. */
+.lobby.counting { inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(22rem, calc(100% - 2rem)); flex-direction: column; flex-wrap: nowrap; gap: 0.6rem; padding: 1rem; border: 1px solid var(--pink); border-radius: 14px; background: var(--panel); box-shadow: 0 6px 24px rgb(0 0 0 / 0.25); z-index: 4; }
+.lobby.counting .lobby-title { font: 800 3rem var(--mono); }
+.lobby.counting p { white-space: normal; }
+.lobby.counting .lobby-go { display: none; }

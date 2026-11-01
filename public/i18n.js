@@ -55,12 +55,10 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "plotPrevious": "Previous plot. Its event and date stay secret.",
-      "plotRefresh": "Draw another plot. Its event and date stay secret.",
+      "pairPick": "Choose a pair for this replay.",
       "baseCurrency": "The currency you are pricing.",
       "quoteCurrency": "The currency you price it in.",
       "hintsPause": "Stop the countdown. The lit control stays.",
-      "plotNext": "Another plot. Which one it is stays secret.",
       "prayRise": "Beg the chart to go up. It will not listen.",
       "prayFall": "Beg the chart to go down. It will not listen.",
       "hintsResume": "Start the countdown again.",
@@ -144,9 +142,7 @@ export const T = {
       "exits": "Stop Loss: closes the trade if the price goes this far against you. Take Profit: banks the win if it goes this far your way. Each is a distance from the price: 1, 2, 5, 10, 20 or 50%. Switch it on, or drag its thumb.",
     },
     ui: {
-      plotPrevious: "Previous plot",
-      plotRefresh: "Refresh plot",
-      plotPosition: "Plot {n}/{of}",
+      pairLabel: "Currency pair",
       baseCurrency: "Base currency",
       quoteCurrency: "Quote currency",
       clockDayShort: "{d}/{of}",
@@ -174,7 +170,6 @@ export const T = {
       hintsPause: "Pause hints",
       prayRise: "Pray: Rise",
       prayFall: "Pray: Fall",
-      plotNext: "Next plot",
       hintsResume: "Resume hints",
       resetTutorial: "Reset tutorial",
       skipLesson: "Skip this lesson",
@@ -296,7 +291,6 @@ export const T = {
       clockClosed: "market closed",
       lobbyReplay: "Replay Is Waiting",
       lobbySimulation: "Simulation Is Waiting",
-      lobbyOpens: "Trading Opens in {s}s",
       lobbyReplayText: "30 real days. The date stays secret.",
       lobbySimulationText: "30 simulated days, random each time.",
       start: "Start Round",
@@ -449,12 +443,10 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "plotPrevious": "前のプロットへ。中身は秘密。",
-      "plotRefresh": "別のプロットを引き直す。中身は秘密。",
+      "pairPick": "リプレイの通貨ペアを選びます。",
       "baseCurrency": "値段を知りたい通貨。",
       "quoteCurrency": "値段を表す側の通貨。",
       "hintsPause": "カウントダウンを止めます。光る場所はそのままです。",
-      "plotNext": "別のプロットに替えます。中身は秘密のまま。",
       "prayRise": "上がれと頼む。聞いてはくれません。",
       "prayFall": "下がれと頼む。聞いてはくれません。",
       "hintsResume": "カウントダウンを再開します。",
@@ -538,9 +530,7 @@ export const T = {
       "exits": "損切りは、この幅だけ逆行したら決済、利確は、この幅だけ順行したら利益確定です。どちらも現在値からの幅で、1・2・5・10・20・50%から選びます。オンにするか、つまみを動かして決めます。",
     },
     ui: {
-      plotPrevious: "前のプロット",
-      plotRefresh: "プロットを引き直す",
-      plotPosition: "プロット{n}/{of}",
+      pairLabel: "通貨ペア",
       baseCurrency: "基軸通貨",
       quoteCurrency: "決済通貨",
       clockDayShort: "{d}/{of}",
@@ -568,7 +558,6 @@ export const T = {
       hintsPause: "ヒントを止める",
       prayRise: "上がれと祈る",
       prayFall: "下がれと祈る",
-      plotNext: "次のプロット",
       hintsResume: "ヒントを再開",
       resetTutorial: "チュートリアルをリセット",
       skipLesson: "このレッスンを飛ばす",
@@ -690,7 +679,6 @@ export const T = {
       clockClosed: "取引終了",
       lobbyReplay: "リプレイは待機中",
       lobbySimulation: "シナリオは待機中",
-      lobbyOpens: "あと{s}秒で取引開始",
       lobbyReplayText: "実在の30営業日。時期は秘密。",
       lobbySimulationText: "30日分のシミュレーション。毎回ランダム。",
       start: "ラウンド開始",
@@ -842,12 +830,10 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "plotPrevious": "上一个剧情，内容保密。",
-      "plotRefresh": "随机换一个剧情，内容保密。",
+      "pairPick": "选择回放的货币对。",
       "baseCurrency": "你想知道价格的货币。",
       "quoteCurrency": "用来表示价格的货币。",
       "hintsPause": "停止倒计时，高亮保持不变。",
-      "plotNext": "换一个剧情，具体是哪个仍然保密。",
       "prayRise": "求K线上涨。它听不见。",
       "prayFall": "求K线下跌。它听不见。",
       "hintsResume": "重新开始倒计时。",
@@ -931,9 +917,7 @@ export const T = {
       "exits": "止损：反向走到这个幅度就平仓；止盈：顺向走到这个幅度就锁定盈利。两者都是离现价的幅度（1、2、5、10、20或50%），打开开关或拖动滑块即可设置。",
     },
     ui: {
-      plotPrevious: "上一个剧情",
-      plotRefresh: "随机更换剧情",
-      plotPosition: "剧情{n}/{of}",
+      pairLabel: "货币对",
       baseCurrency: "基础货币",
       quoteCurrency: "报价货币",
       clockDayShort: "{d}/{of}",
@@ -961,7 +945,6 @@ export const T = {
       hintsPause: "暂停提示",
       prayRise: "祈祷上涨",
       prayFall: "祈祷下跌",
-      plotNext: "下一个剧情",
       hintsResume: "继续提示",
       resetTutorial: "重置教程",
       skipLesson: "跳过这一课",
@@ -1084,7 +1067,6 @@ export const T = {
       clockClosed: "已收盘",
       lobbyReplay: "回放模式等待中",
       lobbySimulation: "模拟模式等待中",
-      lobbyOpens: "{s}秒后开盘",
       lobbyReplayText: "30个真实交易日，收盘铃响才揭晓日期。",
       lobbySimulationText: "30天随机模拟，每局不同。",
       start: "开始一局",

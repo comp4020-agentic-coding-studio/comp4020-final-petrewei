@@ -73,7 +73,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "plot-previous", "plot-refresh", "plot-next", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
+const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -483,7 +483,7 @@ function lobby(s) {
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
   $("ironman").hidden = counting;
-  $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
+  $("lobby-title").textContent = counting ? String(s.countdown) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
   $("start").hidden = counting;
 }
@@ -498,21 +498,22 @@ function options(id, values, selected) {
 }
 function pairChoices(s) {
   const simulation = s.mode === "simulation";
-  $("pair").hidden = simulation;
+  $("pair").hidden = simulation || s.mode === "replay";
   $("pair-controls").hidden = !simulation;
-  $("plot-controls").hidden = !s.plot;
+  $("replay-pair").hidden = s.mode !== "replay";
   const closed = s.phase !== "lobby" || !fresh;
-  for (const id of ["plot-previous", "plot-refresh", "plot-next", "pair-base", "pair-quote"]) $(id).disabled = closed;
-  if (s.plot) setTip($("plot-refresh"), `${tip("plotRefresh")} · ${t("plotPosition", s.plot)}`);
+  for (const id of ["replay-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
+  if (s.replayPairs) options("replay-pair", s.replayPairs, s.pair);
   if (simulation && s.pairs) {
     const [base, quote] = s.pair.split("/");
     options("pair-base", [...new Set(s.pairs.map((p) => p.split("/")[0]))], base);
     options("pair-quote", s.pairs.filter((p) => p.startsWith(`${base}/`)).map((p) => p.split("/")[1]), quote);
   }
 }
-$("plot-previous").onclick = () => act("choose", { what: "previous" });
-$("plot-refresh").onclick = () => act("choose", { what: "random" });
-$("plot-next").onclick = () => act("choose", { what: "next" });
+$("replay-pair").onchange = async () => {
+  await act("choose", { what: $("replay-pair").value });
+  if (state) pairChoices(state);
+};
 async function choosePair() {
   const offered = state?.pairs?.filter((p) => p.startsWith(`${$("pair-base").value}/`)) ?? [];
   const pair = offered.find((p) => p.endsWith(`/${$("pair-quote").value}`)) ?? offered[0];

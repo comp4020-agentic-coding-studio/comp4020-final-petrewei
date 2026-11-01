@@ -23,6 +23,12 @@ describe("the price history", () => {
 });
 
 describe("a round's path", () => {
+  it("keeps unchanged closes flat and scales small-day bridges to the actual move", () => {
+    expect(path([8.28, 8.28, 8.28], random(1))).toEqual(Array(2 * STEPS + 1).fill(8.28));
+    const prices = path([1.2, 1.200001], random(2));
+    expect(Math.max(...prices) - Math.min(...prices)).toBeLessThan(0.00001);
+  });
+
   it("passes through every day's close at the day's end", () => {
     const closes = [100, 100.5, 99.8, 100.2];
     const prices = path(closes, random(1));
@@ -74,6 +80,17 @@ describe("a replay", () => {
     expect(new Set(EVENTS.map((e) => e.id)).size).toBe(EVENTS.length);
     expect(new Set(EVENTS.map((e) => e.date)).size, "clues and notes are keyed by date").toBe(EVENTS.length);
     for (const event of EVENTS) expect(history.series(event.pair).some((d) => d.date === event.date), event.id).toBe(true);
+  });
+
+  it("plays the recorded ECB close at every day's start and end, for every plot", () => {
+    // Replay is real data: between closes the ticks are bridged, but each day's rate is the record
+    for (const event of EVENTS) {
+      for (let seed = 1; seed <= 5; seed++) {
+        const round = replay(history, random(seed), event.id);
+        const series = history.series(event.pair);
+        round.days.forEach((date, i) => expect(round.prices[i * STEPS], `${event.id} ${date}`).toBe(series.find((d) => d.date === date)!.rate));
+      }
+    }
   });
 
   it("makes each plot's day stand out: the move around it is a real one", () => {

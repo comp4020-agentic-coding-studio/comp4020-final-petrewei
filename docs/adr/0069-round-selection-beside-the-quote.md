@@ -1,6 +1,6 @@
 # ADR 0069: Round Selection Beside the Quote
 
-Status: accepted, 1 November 2026. Changes the controls in [ADR 0064](0064-thirteen-plots-and-a-lobby-that-chooses.md).
+Status: accepted, 1 November 2026. Replay's arrows were replaced by a pair menu in [ADR 0070](0070-replay-pairs-and-a-centred-countdown.md). Changes the controls in [ADR 0064](0064-thirteen-plots-and-a-lobby-that-chooses.md).
 
 ## 1 Context
 

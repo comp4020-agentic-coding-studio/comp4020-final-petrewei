@@ -64,24 +64,14 @@ test("two independent players see orders, recover from offline and receive their
     await join(observer, lang);
     // Round selection lives beside the quote and is shared by both people.
     const state = async () => (await (await page.request.get(`${baseURL}/api/state`)).json());
-    const initial = await state();
-    const choose = async (id: string) => {
-      // Keep the real server's short choice throttle between deliberate steps.
+    const replayPair = page.locator(".quote #replay-pair");
+    await expect(replayPair).toBeVisible();
+    for (const pair of ["EUR/CHF", "USD/CNY"]) {
       await page.waitForTimeout(300);
-      const done = page.waitForResponse((r) => r.url().endsWith("/api/act") && r.request().postDataJSON()?.kind === "choose");
-      await page.locator(id).click();
-      expect((await done).status()).toBe(200);
-    };
-    await expect(page.locator(".quote #plot-previous")).toBeVisible();
-    await expect(page.locator(".quote #plot-refresh")).toBeVisible();
-    await expect(page.locator(".quote #plot-next")).toBeVisible();
-    await choose("#plot-next");
-    expect((await state()).plot.n).toBe(initial.plot.n % initial.plot.of + 1);
-    await choose("#plot-previous");
-    expect((await state()).plot.n).toBe(initial.plot.n);
-    await choose("#plot-refresh");
-    expect((await state()).plot.n).not.toBe(initial.plot.n);
-    await expect(observer.locator("#pair")).toHaveText((await state()).pair);
+      await replayPair.selectOption(pair);
+      await expect.poll(async () => (await state()).pair).toBe(pair);
+      await expect(observer.locator("#replay-pair")).toHaveValue(pair);
+    }
     const clock = page.locator("#clock");
     expect((await clock.boundingBox())!.width).toBeLessThan(90);
     await page.locator('[data-mode="simulation"]').click();
@@ -102,7 +92,11 @@ test("two independent players see orders, recover from offline and receive their
     await observer.locator('[data-mode="replay"]').click();
     await page.locator("#start").click();
     await expect(page.locator("#buy")).toBeEnabled();
-    await expect(page.locator("#plot-next")).toBeDisabled();
+    await expect(replayPair).toBeDisabled();
+    await expect(page.locator("#lobby")).toHaveClass(/counting/);
+    const popup = await page.locator("#lobby").boundingBox();
+    const chart = await page.locator("#chart").boundingBox();
+    expect(Math.abs(popup!.y + popup!.height / 2 - chart!.y - chart!.height / 2)).toBeLessThan(3);
     await expect(clock).toHaveAttribute("aria-label", /.+/);
     await page.locator("#leverage").press("Home");
     await page.locator("#buy").click();

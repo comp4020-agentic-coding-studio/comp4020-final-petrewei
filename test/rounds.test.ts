@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from "vitest";
 import { client, type Mode } from "../spec/helpers.ts";
+import { EVENTS } from "../src/market.ts";
 import { type Server, server } from "./server.ts";
 
 // ADR 0022: a round's controls. The countdown is five seconds, and orders
@@ -249,53 +250,43 @@ it("no longer lets anyone leave a round, and an old page that asks is refused", 
   }
 });
 
-// ADR 0064: the lobby chooses the next round. Replay moves to its next plot, by number
+// ADR 0064, ADR 0070: the lobby chooses the next round. Replay takes a pair its plots broke on
 // only; Simulation takes a pair. Only someone on the tab may, only in the lobby, and what a
-// plot is stays secret: the room is told its number and its pair, never its name or day.
-it("lets the lobby move Replay on to its next plot, telling the room its number and no more", async () => {
+// plot is stays secret: the room is told its pair, never its name or day.
+it("lets the lobby give Replay a pair its plots broke on, telling the room the pair and no more", async () => {
   s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "40", CHOOSE_MS: "0" });
   const { visitor, page, act, look, attempt } = app();
   const me = await visitor();
   const tab = await page(me);
   try {
-    type Lobby = Seen & { plot: { n: number; of: number } | null; pair: string; pairs: string[] | null };
+    type Lobby = Seen & { pair: string; pairs: string[] | null; replayPairs: string[] | null };
     const first = (await look(me)) as Lobby;
     expect(first.phase).toBe("lobby");
-    expect(first.plot?.of).toBe(13);
-    expect(first.pairs, "Replay has no pair to choose").toBeNull();
-    const seen = [first.plot!.n];
-    for (let i = 0; i < 13; i++) {
-      expect((await act(me, { kind: "choose", what: "next", mode: "replay" })).status).toBe(200);
+    expect(first.pairs, "Replay has no free pair to choose").toBeNull();
+    expect(first.replayPairs).toEqual([...new Set(EVENTS.map((e) => e.pair))]);
+    for (const pair of first.replayPairs!) {
+      expect((await act(me, { kind: "choose", what: pair, mode: "replay" })).status, pair).toBe(200);
       const x = (await look(me)) as Lobby;
-      seen.push(x.plot!.n);
-      // the room learns a number and a pair, and nothing that says what happened or when
-      expect(JSON.stringify({ ...x, prices: 0, history: 0 }), `plot ${x.plot!.n}`).not.toMatch(/(19|20)\d\d-\d\d-\d\d|Lehman|Brexit|COVID|Francogeddon/);
+      expect(x.pair).toBe(pair);
+      // the room learns a pair, and nothing that says what happened or when
+      expect(JSON.stringify({ ...x, prices: 0, history: 0 }), pair).not.toMatch(/(19|20)\d\d-\d\d-\d\d|Lehman|Brexit|COVID|Francogeddon/);
     }
-    // thirteen steps from any plot go round the whole list and back to where it began
-    expect(new Set(seen).size).toBe(13);
-    expect(seen.at(-1)).toBe(seen[0]);
-    // The arrows work in both directions, including at the ends; refresh
-    // draws a different plot without revealing its title or date.
-    for (let i = 0; i < 13; i++) {
-      expect((await act(me, { kind: "choose", what: "previous", mode: "replay" })).status).toBe(200);
-      const x = (await look(me)) as Lobby;
-      expect(x.plot!.n).toBe(((first.plot!.n - 2 - i + 13) % 13) + 1);
+    // a pair with several plots draws any of them: USD/CNY stood near 8.2 at its 2005 unpegging
+    // and near 6.2 at its 2015 devaluation, so the level of the open says which was drawn
+    const levels = new Set<string>();
+    for (let i = 0; i < 40 && levels.size < 2; i++) {
+      await act(me, { kind: "choose", what: "EUR/CHF", mode: "replay" });
+      await act(me, { kind: "choose", what: "USD/CNY", mode: "replay" });
+      levels.add(((await look(me)) as Lobby & { prices: number[] }).prices[0] > 7 ? "2005" : "2015");
     }
-    expect(((await look(me)) as Lobby).plot!.n).toBe(first.plot!.n);
-    // many draws, so a refresh that could repeat the plot on show would be seen
-    for (let i = 0; i < 60; i++) {
-      const before = ((await look(me)) as Lobby).plot!.n;
-      expect((await act(me, { kind: "choose", what: "random", mode: "replay" })).status).toBe(200);
-      const x = (await look(me)) as Lobby;
-      expect(x.plot!.n).not.toBe(before);
-      expect(JSON.stringify({ ...x, prices: 0, history: 0 })).not.toMatch(/(19|20)\d\d-\d\d-\d\d|Lehman|Brexit|COVID|Francogeddon/);
-    }
-    // a visitor with no tab open may not choose, and nobody may name a plot that is not there
-    expect((await attempt({ kind: "choose", what: "next", mode: "replay" }, await visitor())).status).toBe(409);
+    expect([...levels].sort(), "a pair draws each of its plots").toEqual(["2005", "2015"]);
+    // a visitor with no tab open may not choose, and nobody may name a pair that has no plot
+    expect((await attempt({ kind: "choose", what: "EUR/CHF", mode: "replay" }, await visitor())).status).toBe(409);
     expect((await act(me, { kind: "choose", what: "nonsense", mode: "replay" })).status).toBe(409);
+    expect((await act(me, { kind: "choose", what: "EUR/GBP", mode: "replay" })).status, "a Simulation pair with no plot").toBe(409);
     // and once the countdown has begun, the round is fixed
     await act(me, { kind: "start", mode: "replay" });
-    const refused = await act(me, { kind: "choose", what: "next", mode: "replay" });
+    const refused = await act(me, { kind: "choose", what: "EUR/CHF", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/about to start/);
   } finally {
@@ -309,10 +300,10 @@ it("lets the lobby give a Simulation its pair, which the round then starts from"
   const me = await visitor();
   const tab = await page(me, "simulation");
   try {
-    type Lobby = Seen & { pair: string; pairs: string[] | null; plot: unknown };
+    type Lobby = Seen & { pair: string; pairs: string[] | null; replayPairs: string[] | null };
     const lobby = (await look(me, "simulation")) as Lobby;
     expect(lobby.pairs!.length).toBeGreaterThanOrEqual(12);
-    expect(lobby.plot, "Simulation has no plots").toBeNull();
+    expect(lobby.replayPairs, "Simulation has no Replay pairs").toBeNull();
     for (const pair of ["EUR/JPY", "GBP/CHF", "USD/CNY"]) {
       expect((await act(me, { kind: "choose", what: pair, mode: "simulation" })).status, pair).toBe(200);
       expect(((await look(me, "simulation")) as Lobby).pair).toBe(pair);
