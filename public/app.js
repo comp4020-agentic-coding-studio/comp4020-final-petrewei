@@ -1411,7 +1411,7 @@ function render(s) {
   // Your code tells you apart from a namesake; it lives in the tip, so
   // the line keeps its room for the name.
   $("whoami").replaceChildren(avatar(s.you.face, 18), strong(me), Object.assign(document.createElement("span"), { className: "pencil", textContent: "✎", ariaHidden: "true" }));
-  setTip($("whoami"), tip("whoami", { code: s.you.code }));
+  setTip($("whoami"), tip("whoami", { name: me, code: s.you.code }));
   if (!s.you.named && !welcomed) {
     welcomed = true;
     openNames(true);

@@ -195,19 +195,10 @@ it("translates the lobby's line, note and the ticket's title in every language, 
   }
 });
 
-// ADR 0040, 0043: on a narrow screen who you are shares the first row with
-// the logo and the tools; the subtitle sits at the logo's right where it
-// fits, and goes on a narrow phone so the name always shows.
-it("keeps who you are on the first header row on a narrow screen, with the subtitle at the logo's right", () => {
-  const css = readFileSync("public/app.css", "utf8");
-  const narrow = css.slice(css.indexOf("@media (max-width: 900px)"), css.indexOf("@media (max-width: 560px)"));
-  expect(narrow).toMatch(/\.top \{ grid-template-columns: minmax\(0, 1fr\) auto auto;/);
-  expect(narrow).not.toMatch(/\.brand \{[^}]*flex-direction: column/);
-  expect(narrow).toMatch(/\.whoami \{ grid-column: 2; grid-row: 1;/);
-  expect(narrow).toMatch(/\.tools \{ grid-column: 3; grid-row: 1; \}/);
-  expect(narrow).not.toMatch(/\.whoami \{[^}]*grid-row: 3/);
-  expect(css).toMatch(/@media \(max-width: 419px\) \{ \.sub \{ display: none; \} \}/);
-});
+// ADR 0040, 0043: on a narrow screen who you are shares the first row with the logo and the tools, the
+// tabs have the second, and the subtitle goes on a narrow phone so the name always shows. Where things
+// land on a screen is measured in a browser: see "keeps who you are on the first row of a phone" in
+// e2e/game.spec.ts.
 it("folds the chart's price line with the chart", () => {
   expect(readFileSync("public/app.css", "utf8")).not.toMatch(/chart-panel\.folded > \.quote/);
 });

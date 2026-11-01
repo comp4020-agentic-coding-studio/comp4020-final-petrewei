@@ -205,8 +205,9 @@ test("two independent players see orders, recover from offline and receive their
 
 // The header has to hold at every zoom: 100% on a 1920 screen is 1920 css px, 125% is 1536, 150% is 1280
 // and Edge's window at 150% is about 1263. Brand, tabs, who you are and the tools sit on one row, in that
-// order, from 1010px up; only below that do the tabs drop to a row of their own. The tabs never lose their
-// room, nothing runs over anything else, and a name too long for its place is cut with an ellipsis.
+// order, from 1010px up, the tabs in the exact middle of the header and who you are on the right, against
+// the tools; only below that do the tabs drop to a row of their own. The tabs never lose their room, nothing
+// runs over anything else, and a name too long for its place is cut with an ellipsis, in full on hover.
 test("keeps the header on one row in order until it cannot fit, with the longest name", async ({ page }, info) => {
   const lang = info.project.metadata.lang as Lang;
   if (info.project.name.endsWith("phone")) test.skip(true, "the phone has its own layout");
@@ -226,6 +227,9 @@ test("keeps the header on one row in order until it cannot fit, with the longest
       return {
         oneRow: tabs.top < brand.bottom,
         inOrder: brand.right <= tabs.left + 0.5 && tabs.right <= who.left + 0.5 && who.right <= tools.left + 0.5,
+        // the middle of the tabs is the middle of the window, and who you are ends where the tools begin
+        centred: Math.abs((tabs.left + tabs.right) / 2 - innerWidth / 2) <= 1,
+        whoAgainstTools: tools.left - who.right <= 20,
         overlap: [[brand, tabs], [tabs, who], [who, tools], [brand, tools]].some(([a, b]) => meets(a, b)),
         tabsCut: [...document.querySelectorAll(".tabs button")].some((b) => b.scrollWidth > b.clientWidth),
         logoCut: (document.querySelector(".logo") as HTMLElement).getBoundingClientRect().right > brand.right + 1,
@@ -239,6 +243,27 @@ test("keeps the header on one row in order until it cannot fit, with the longest
     if (width >= 1010) {
       expect(m.oneRow, `${width}: the tabs went to a row of their own with room for one row`).toBe(true);
       expect(m.inOrder, `${width}: the order is not brand, tabs, who you are, tools`).toBe(true);
+      expect(m.centred, `${width}: the tabs are not in the middle of the header`).toBe(true);
+      expect(m.whoAgainstTools, `${width}: who you are is not on the right, beside the tools`).toBe(true);
     } else expect(m.oneRow, `${width}: too narrow for one row, so the tabs go below`).toBe(false);
   }
+});
+
+// ADR 0040, 0043: on a phone who you are shares the first row with the logo and the tools, the tabs have the
+// second, and the subtitle goes on a narrow phone so the name always shows.
+test("keeps who you are on the first row of a phone, with the tabs below", async ({ page }, info) => {
+  if (!info.project.name.endsWith("phone")) test.skip(true, "the desktop has its own header");
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  const m = await page.evaluate(() => {
+    const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+    const brand = box(".brand"), who = box("#whoami"), tools = box(".tools"), tabs = box(".tabs");
+    const sub = document.querySelector(".sub") as HTMLElement;
+    return { sameRow: who.top < brand.bottom && tools.top < brand.bottom, tabsBelow: tabs.top >= Math.max(brand.bottom, who.bottom, tools.bottom) - 1, whoBeforeTools: who.right <= tools.left + 0.5, subShown: getComputedStyle(sub).display !== "none", wide: innerWidth, sideways: document.documentElement.scrollWidth > innerWidth };
+  });
+  expect(m.sameRow, "who you are and the tools share the logo's row").toBe(true);
+  expect(m.whoBeforeTools, "who you are is beside the tools, not over them").toBe(true);
+  expect(m.tabsBelow, "the tabs have the second row").toBe(true);
+  expect(m.sideways, "the page scrolls sideways").toBe(false);
+  if (m.wide <= 419) expect(m.subShown, "the subtitle goes on a narrow phone").toBe(false);
 });
