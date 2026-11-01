@@ -67,7 +67,19 @@
         <!-- The price, its change, the round's controls and the clock float over the
              chart's top, not above it, to give the chart the room (ADR 0062). -->
         <div class="quote">
-          <span class="pair" id="pair">—</span>
+          <div class="pair-tools">
+            <span class="pair" id="pair">—</span>
+            <div id="plot-controls" class="plot-controls" hidden>
+              <button id="plot-previous" class="ctl" type="button" data-tip="plotPrevious" data-t-aria="plotPrevious">‹</button>
+              <button id="plot-refresh" class="ctl" type="button" data-tip="plotRefresh" data-t-aria="plotRefresh">↻</button>
+              <button id="plot-next" class="ctl" type="button" data-tip="plotNext" data-t-aria="plotNext">›</button>
+            </div>
+            <div id="pair-controls" class="pair-controls" hidden>
+              <select id="pair-base" data-tip="baseCurrency" data-t-aria="baseCurrency"></select>
+              <span aria-hidden="true">/</span>
+              <select id="pair-quote" data-tip="quoteCurrency" data-t-aria="quoteCurrency"></select>
+            </div>
+          </div>
           <strong class="price" id="price">—</strong>
           <span id="change"></span>
           <!-- A round's controls, between the price and the clock (ADRs 0022,
@@ -81,7 +93,7 @@
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
             </button>
           </div>
-          <span class="clock" id="clock"></span>
+          <span class="clock" id="clock" role="timer"></span>
         </div>
         <!-- A Simulation's headline or a Replay's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
         <p class="mode headline" id="mode" hidden></p>
@@ -127,15 +139,6 @@
         <div id="lobby" class="lobby" hidden>
           <p id="lobby-title" class="lobby-title"></p>
           <p id="lobby-text"></p>
-          <!-- What the next round is (ADR 0064): Replay moves on to its next plot, by number only,
-               and Simulation takes a pair; the chart behind shows the choice at once. -->
-          <div class="lobby-pick">
-            <button id="plot-next" class="ghost" type="button" data-tip="plotNext" hidden></button>
-            <label class="pair-pick" id="pair-pick" hidden>
-              <span data-t="pairLabel">Currency pair</span>
-              <select id="pair-select" data-tip="pairPick"></select>
-            </label>
-          </div>
           <div class="lobby-go">
             <button id="start" class="start" data-t="start" data-tip="start">Start Round</button>
             <!-- Ironman: nobody may pause this round (ADR 0024). -->

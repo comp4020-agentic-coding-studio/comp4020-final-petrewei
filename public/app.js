@@ -73,7 +73,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "plot-next", "pair-select", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
+const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "plot-previous", "plot-refresh", "plot-next", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -486,19 +486,42 @@ function lobby(s) {
   $("lobby-title").textContent = counting ? t("lobbyOpens", { s: s.countdown }) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
   $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
   $("start").hidden = counting;
-  // The choice of round (ADR 0064). A select is filled once and only its value follows the
-  // state, since it is redrawn twice a second and a rebuilt one would shut its own menu.
-  $("plot-next").hidden = !s.plot;
-  if (s.plot) $("plot-next").textContent = t("plotNext", { n: s.plot.n, of: s.plot.of });
-  $("pair-pick").hidden = !s.pairs;
-  if (s.pairs) {
-    const sel = $("pair-select");
-    if (sel.options.length !== s.pairs.length) sel.replaceChildren(...s.pairs.map((p) => Object.assign(document.createElement("option"), { value: p, textContent: p })));
-    if (sel.value !== s.pair && document.activeElement !== sel) sel.value = s.pair;
+}
+// Round selection stays beside the quoted pair. Menus use only the pairs
+// the server offers, and a base change keeps the quote when it is supported.
+function options(id, values, selected) {
+  const sel = $(id);
+  const rebuilt = JSON.stringify([...sel.options].map((o) => o.value)) !== JSON.stringify(values);
+  if (rebuilt) sel.replaceChildren(...values.map((value) => Object.assign(document.createElement("option"), { value, textContent: value })));
+  // A menu being used keeps its value; the state catches up when it is let go.
+  if (rebuilt || document.activeElement !== sel) sel.value = selected;
+}
+function pairChoices(s) {
+  const simulation = s.mode === "simulation";
+  $("pair").hidden = simulation;
+  $("pair-controls").hidden = !simulation;
+  $("plot-controls").hidden = !s.plot;
+  const closed = s.phase !== "lobby" || !fresh;
+  for (const id of ["plot-previous", "plot-refresh", "plot-next", "pair-base", "pair-quote"]) $(id).disabled = closed;
+  if (s.plot) setTip($("plot-refresh"), `${tip("plotRefresh")} · ${t("plotPosition", s.plot)}`);
+  if (simulation && s.pairs) {
+    const [base, quote] = s.pair.split("/");
+    options("pair-base", [...new Set(s.pairs.map((p) => p.split("/")[0]))], base);
+    options("pair-quote", s.pairs.filter((p) => p.startsWith(`${base}/`)).map((p) => p.split("/")[1]), quote);
   }
 }
+$("plot-previous").onclick = () => act("choose", { what: "previous" });
+$("plot-refresh").onclick = () => act("choose", { what: "random" });
 $("plot-next").onclick = () => act("choose", { what: "next" });
-$("pair-select").onchange = (e) => act("choose", { what: e.target.value });
+async function choosePair() {
+  const offered = state?.pairs?.filter((p) => p.startsWith(`${$("pair-base").value}/`)) ?? [];
+  const pair = offered.find((p) => p.endsWith(`/${$("pair-quote").value}`)) ?? offered[0];
+  if (!pair) return;
+  options("pair-quote", offered.map((p) => p.split("/")[1]), pair.split("/")[1]);
+  await act("choose", { what: pair });
+  if (state) pairChoices(state);
+}
+$("pair-base").onchange = $("pair-quote").onchange = choosePair;
 $("restart").onclick = () => {
   looked = 0;
   act("again");
@@ -1314,6 +1337,7 @@ function render(s) {
   document.body.classList.toggle("tutorial", tutorial);
   lesson(s);
   lobby(s);
+  pairChoices(s);
   // The tab shows a head count as a bare number; its tooltip says what.
   for (const m of ["replay", "simulation"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
@@ -1348,13 +1372,11 @@ function render(s) {
   $("mode").textContent = head ? `📰 ${head}` : "";
   $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
-  $("clock").textContent = tutorial
-    ? t("clockTutorial")
-    : s.phase === "trade"
-      ? t("clockDay", { d: Math.max(1, Math.ceil(s.tick / s.steps)), of: s.total / s.steps })
-      : s.phase === "countdown"
-        ? t("clockOpens", { s: s.countdown })
-        : t(s.phase === "lobby" ? "clockLobby" : "clockClosed");
+  const clockKey = tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
+  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.steps)), of: s.total / s.steps, s: s.countdown };
+  $("clock").textContent = t(`${clockKey}Short`, clockValues);
+  $("clock").setAttribute("aria-label", t(clockKey, clockValues));
+  setTip($("clock"), t(clockKey, clockValues));
   // Built from text nodes: the name comes from the server, never as HTML.
   // A pencil says it can be changed.
   me = nameIn(s.you.name, s.you.draw);

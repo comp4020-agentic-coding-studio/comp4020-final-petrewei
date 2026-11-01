@@ -274,6 +274,22 @@ it("lets the lobby move Replay on to its next plot, telling the room its number 
     // thirteen steps from any plot go round the whole list and back to where it began
     expect(new Set(seen).size).toBe(13);
     expect(seen.at(-1)).toBe(seen[0]);
+    // The arrows work in both directions, including at the ends; refresh
+    // draws a different plot without revealing its title or date.
+    for (let i = 0; i < 13; i++) {
+      expect((await act(me, { kind: "choose", what: "previous", mode: "replay" })).status).toBe(200);
+      const x = (await look(me)) as Lobby;
+      expect(x.plot!.n).toBe(((first.plot!.n - 2 - i + 13) % 13) + 1);
+    }
+    expect(((await look(me)) as Lobby).plot!.n).toBe(first.plot!.n);
+    // many draws, so a refresh that could repeat the plot on show would be seen
+    for (let i = 0; i < 60; i++) {
+      const before = ((await look(me)) as Lobby).plot!.n;
+      expect((await act(me, { kind: "choose", what: "random", mode: "replay" })).status).toBe(200);
+      const x = (await look(me)) as Lobby;
+      expect(x.plot!.n).not.toBe(before);
+      expect(JSON.stringify({ ...x, prices: 0, history: 0 })).not.toMatch(/(19|20)\d\d-\d\d-\d\d|Lehman|Brexit|COVID|Francogeddon/);
+    }
     // a visitor with no tab open may not choose, and nobody may name a plot that is not there
     expect((await attempt({ kind: "choose", what: "next", mode: "replay" }, await visitor())).status).toBe(409);
     expect((await act(me, { kind: "choose", what: "nonsense", mode: "replay" })).status).toBe(409);

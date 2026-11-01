@@ -440,9 +440,14 @@ class Market {
       if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
       this.pick = what as string;
     } else {
-      // "next" walks the plots in their order, from the one on show
+      // The quote's arrows walk the plots from the one on show; refresh
+      // draws a different one. Only the opaque number leaves the server.
       const at = PLOT_IDS.indexOf(this.round.event?.id ?? "");
-      const next = what === "next" ? PLOT_IDS[(at + 1) % PLOT_IDS.length] : PLOT_IDS.find((id) => id === what);
+      const others = PLOT_IDS.filter((_, i) => i !== at);
+      const next = what === "next" ? PLOT_IDS[(at + 1) % PLOT_IDS.length]
+        : what === "previous" ? PLOT_IDS[(at - 1 + PLOT_IDS.length) % PLOT_IDS.length]
+          : what === "random" ? others[Math.floor(rnd() * others.length)]
+            : PLOT_IDS.find((id) => id === what);
       if (!next) return "No such plot.";
       this.pick = next;
     }

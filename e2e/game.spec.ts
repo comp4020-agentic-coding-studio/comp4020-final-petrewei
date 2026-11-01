@@ -62,8 +62,48 @@ test("two independent players see orders, recover from offline and receive their
     const observer = await other.newPage();
     observer.on("pageerror", (error) => errors.push(error.message));
     await join(observer, lang);
+    // Round selection lives beside the quote and is shared by both people.
+    const state = async () => (await (await page.request.get(`${baseURL}/api/state`)).json());
+    const initial = await state();
+    const choose = async (id: string) => {
+      // Keep the real server's short choice throttle between deliberate steps.
+      await page.waitForTimeout(300);
+      const done = page.waitForResponse((r) => r.url().endsWith("/api/act") && r.request().postDataJSON()?.kind === "choose");
+      await page.locator(id).click();
+      expect((await done).status()).toBe(200);
+    };
+    await expect(page.locator(".quote #plot-previous")).toBeVisible();
+    await expect(page.locator(".quote #plot-refresh")).toBeVisible();
+    await expect(page.locator(".quote #plot-next")).toBeVisible();
+    await choose("#plot-next");
+    expect((await state()).plot.n).toBe(initial.plot.n % initial.plot.of + 1);
+    await choose("#plot-previous");
+    expect((await state()).plot.n).toBe(initial.plot.n);
+    await choose("#plot-refresh");
+    expect((await state()).plot.n).not.toBe(initial.plot.n);
+    await expect(observer.locator("#pair")).toHaveText((await state()).pair);
+    const clock = page.locator("#clock");
+    expect((await clock.boundingBox())!.width).toBeLessThan(90);
+    await page.locator('[data-mode="simulation"]').click();
+    await observer.locator('[data-mode="simulation"]').click();
+    const base = page.locator(".quote #pair-base");
+    const quote = page.locator(".quote #pair-quote");
+    await expect(base).toBeVisible();
+    await expect(quote).toBeVisible();
+    for (const [currency, select] of [["GBP", base], ["CHF", quote]] as const) {
+      await page.waitForTimeout(300);
+      await select.selectOption(currency);
+      await expect.poll(async () => (await (await page.request.get(`${baseURL}/api/state?mode=simulation`)).json()).pair).toContain(currency);
+    }
+    await expect(observer.locator("#pair-base")).toHaveValue("GBP");
+    await expect(observer.locator("#pair-quote")).toHaveValue("CHF");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
+    await page.locator('[data-mode="replay"]').click();
+    await observer.locator('[data-mode="replay"]').click();
     await page.locator("#start").click();
     await expect(page.locator("#buy")).toBeEnabled();
+    await expect(page.locator("#plot-next")).toBeDisabled();
+    await expect(clock).toHaveAttribute("aria-label", /.+/);
     await page.locator("#leverage").press("Home");
     await page.locator("#buy").click();
     const row = observer.locator("#traders li").filter({ hasText: name });
