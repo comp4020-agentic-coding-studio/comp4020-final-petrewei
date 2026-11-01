@@ -19,6 +19,7 @@ import { quoted, yen } from "../public/format.js";
 import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
+import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
 import { EVENTS, History, PAIRS, STEPS, random, replay, scenario, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
@@ -952,6 +953,7 @@ function tutorialView(who: string) {
     tick: t.prices.length - 1,
     steps: 4,
     start: START,
+    transport: t.transport,
     lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
     you: {
       name: nameOf(who),
@@ -1031,48 +1033,12 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 
 const HTML = "text/html; charset=utf-8";
 
-// Each page in each language at its own address: English at /, Japanese
-// under /ja/, Chinese under /zh/ (ADR 0016). The market is the same page,
-// and the same rooms, in every language; only its words change, and the
-// server writes them in from the start, so the title, the html lang and a
-// link's preview are right before any script runs.
-const LANGS = ["en", "ja", "zh"] as const;
-type Lang = (typeof LANGS)[number];
-const HTMLLANG: Record<Lang, string> = { en: "en", ja: "ja", zh: "zh-CN" };
-const prefix = (lang: Lang): string => (lang === "en" ? "" : `/${lang}`);
-const escape = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const alternates = (page: "" | "about"): string =>
-  LANGS.map((l) => `  <link rel="alternate" hreflang="${HTMLLANG[l]}" href="${prefix(l)}/${page}">`).join("\n") +
-  `\n  <link rel="alternate" hreflang="x-default" href="/${page}">`;
-// The web fonts every page loads: JetBrains Mono for numbers, M PLUS
-// Rounded 1c for Latin and kana, and Noto Sans JP, SC and KR (OFL) for
-// every Chinese character and Hangul, so Windows and Linux never fall to
-// a mismatched system face. Google serves each in small slices by
-// character, so a page fetches only the glyphs it shows.
-const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&family=Noto+Sans+SC:wght@400;700;800&family=Noto+Sans+KR:wght@400;700;800&display=swap">`;
-const market = read("public/index.html");
-const marketIn = (lang: Lang): string => {
-  const ui = T[lang].ui;
-  const vars: Record<string, string> = {
-    htmllang: HTMLLANG[lang],
-    lang,
-    title: escape(`${ui.logo}${ui.titleJoin}${ui.sub}`),
-    alternates: alternates(""),
-    fonts: FONTS,
-    home: `${prefix(lang)}/`,
-    logo: escape(ui.logo),
-    sub: escape(ui.sub),
-    about: `${prefix(lang)}/about`,
-  };
-  return market.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k]);
-};
 const THEME = `<script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>`;
 const aboutIn = (lang: Lang): string => {
   const a = ABOUT[lang];
   const body = a.sections.map(([h, ps]) => `<h2>${escape(h)}</h2>${ps.map((p) => `<p>${escape(p)}</p>`).join("")}`).join("");
-  const header = marketIn(lang).match(/<header[\s\S]*?<\/header>/)![0].replace(/<nav class="tabs"[\s\S]*?<\/nav>/, "").replace(/<button id="whoami"[\s\S]*?<\/button>/, "");
   const others = LANGS.filter((l) => l !== lang).map((l) => `<a href="${prefix(l)}/about" hreflang="${HTMLLANG[l]}" lang="${HTMLLANG[l]}">${{ en: "English", ja: "日本語", zh: "简体中文" }[l]}</a>`).join(" · ");
-  return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about">${header}<main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main><footer>${escape(T[lang].ui.footer)}</footer><script type="module" src="/about-controls.js"></script></body></html>`;
+  return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about">${headerIn(lang, false)}<main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main><footer>${escape(T[lang].ui.footer)}</footer><script type="module" src="/about-controls.js"></script></body></html>`;
 };
 const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
 const PAGES: Record<string, [string, string]> = {
@@ -1378,16 +1344,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (input.mode === "tutorial") {
       const t = tutorialOf(who);
       let error: string | null = null;
-      if (kind === "pause-hints") t.paused = input.paused === true;
-      else if (kind === "restart") t.restart();
-      else if (kind === "again") t.restartLesson();
-      else if (kind === "back") t.back();
-      else if (kind === "skip") {
-        const paused = t.paused;
-        t.paused = false;
-        error = t.skip();
-        t.paused = paused;
-      }
+      // The transport, as on a disc player: play, pause, stop, and the track keys back and skip.
+      // Restart, from an older page, is a stop and a play; again starts this lesson over.
+      if (kind === "play") t.play();
+      else if (kind === "pause") t.pause();
+      else if (kind === "stop") t.stop();
+      else if (kind === "restart") (t.stop(), t.play());
+      else if (kind === "again") error = t.idle() ?? (t.restartLesson(), null);
+      else if (kind === "back") error = t.idle() ?? (t.back(), null);
+      else if (kind === "skip") error = t.skip();
       else if (kind === "next") error = t.act({ kind: "next" });
       else if (action && action.kind !== "pray") error = t.act(action as Move);
       else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";

@@ -1,3 +1,4 @@
+import { marketIn } from "../src/pages.ts";
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
@@ -9,7 +10,7 @@ import { LANGS, T } from "../public/i18n.js";
 // once rather than the browser's slow title; details such as your code
 // live in tips, not in the line; feed lines and pop-ups each wear an
 // icon; and a few pixel-art props, drawn like the faces, mark moments.
-const page = new JSDOM(readFileSync("public/index.html", "utf8")).window.document;
+const page = new JSDOM(marketIn("en")).window.document;
 const tips = [...page.querySelectorAll("[data-tip]")].map((el) => (el as HTMLElement).dataset.tip!);
 
 it("gives every control on the market a tip, in every language", () => {
@@ -301,19 +302,9 @@ it("never calls the tab Scenario to a player", () => {
   expect(T.en.tips).not.toHaveProperty("tabScenario");
 });
 
-// ADR 0048: the tab bar is wide enough for the longest tab with a player
-// count on it, Simulation 12, in every state: 460px, which the header holds
-// as a column from 1181px and as a row of its own from 901px down, where side
-// by side the tools overlapped it. No tab truncates with an ellipsis.
-it("gives the tab bar room for its widest tab, and its own row where the header is narrow", () => {
-  const css = readFileSync("public/app.css", "utf8");
-  expect(css).toMatch(/\.top \{ display: grid; grid-template-columns: 344px 460px minmax\(0, 1fr\) auto;/);
-  const band = css.slice(css.indexOf("@media (max-width: 1180px)"), css.indexOf("@media (max-width: 900px)"));
-  expect(band).toMatch(/\.tabs \{ grid-column: 1 \/ -1; grid-row: 2; justify-self: start; width: 460px; max-width: 100%; \}/);
-  expect(band).toMatch(/\.tools \{ grid-column: 2; grid-row: 1;/);
-  expect(band).toMatch(/\.whoami \{ grid-column: 1 \/ -1; grid-row: 3;/);
-  expect(band).not.toMatch(/\.tabs button \{[^}]*font-size/);
-});
+// ADR 0048: the tab bar is wide enough for the longest tab with a player count on it, Simulation 12,
+// in every state, and who you are never runs over it or the tools. That is a matter of where things
+// land on a screen, so it is measured in a browser, at each zoom, in e2e/game.spec.ts.
 
 // ADR 0049: a hover tip is a joke or a short name; a term that needs
 // explaining has a small info button (ⓘ) beside it, whose text is the
@@ -405,19 +396,35 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
 // carries a symbol for each of its five controls, and every word it shows is in
 // all three languages. How it behaves is checked in a browser, not by reading
 // the page's source.
-const lessonHtml = readFileSync("public/index.html", "utf8");
+const lessonHtml = marketIn("en");
 const lessonApp = readFileSync("public/app.js", "utf8");
-it("puts the lesson in the chart's box, with four symbol buttons in its head, and its words in every language", () => {
+it("puts the lesson in the chart's box, with the words on the left, and four transport keys drawn as shapes", () => {
   const doc = new JSDOM(lessonHtml).window.document;
   const card = doc.getElementById("lesson")!;
   expect(card.closest(".chart-box"), "the lesson is in the chart box").not.toBeNull();
   for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task"]) expect(card.querySelector("#" + id), id).not.toBeNull();
-  // symbols, not words: no visible letters, with a spoken label and a tip instead
-  expect([...card.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["restart", "lesson-back", "lesson-pause", "lesson-skip"]);
-  for (const b of card.querySelectorAll(".lesson-head button")) expect(b.textContent, b.id).toMatch(/^[^A-Za-z]{1,3}$/);
+  // the number, title and text are one block on the left; the keys and the task are the one on the right
+  const main = card.querySelector(".lesson-main")!;
+  for (const id of ["lesson-n", "lesson-title", "lesson-text"]) expect(main.querySelector("#" + id), `${id} is on the left`).not.toBeNull();
+  expect(card.querySelector(".lesson-side #lesson-task"), "the task is on the right").not.toBeNull();
+  // like a disc player's: previous, play and pause as one key, next, stop, each a drawn shape
+  const keys = [...card.querySelectorAll(".transport button")];
+  expect(keys.map((b) => b.id)).toEqual(["lesson-back", "lesson-play", "lesson-skip", "lesson-stop"]);
+  for (const b of keys) {
+    expect(b.querySelector("svg"), `${b.id} is a drawn shape`).not.toBeNull();
+    expect(b.textContent?.trim(), `${b.id} carries no letters or emoji`).toBe("");
+  }
+  expect(card.querySelectorAll("#lesson-play svg").length, "play and pause are one key with two shapes").toBe(2);
+  // each key names the keyboard key it answers to, and the page listens for exactly those
+  const bound = Object.fromEntries(keys.map((b) => [b.id, (b as HTMLElement).dataset.key]));
+  expect(bound).toEqual({ "lesson-back": "ArrowLeft", "lesson-play": "Space", "lesson-skip": "ArrowRight", "lesson-stop": "Escape" });
   for (const lang of LANGS) {
     expect(T[lang].ui.autoIn, lang).toMatch(/^\{s\}\S{0,2}$/);
-    for (const k of ["hintsPause", "hintsResume", "resetTutorial", "skipLesson", "backLesson", "restart"]) expect(T[lang].tips[k] ?? T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+    for (const k of ["tutorialPlay", "tutorialPause", "tutorialContinue", "stopTutorial", "skipLesson", "backLesson"]) {
+      expect(T[lang].tips[k], `${lang} tip ${k}`).toEqual(expect.stringMatching(/\S/));
+      expect(T[lang].ui[k], `${lang} label ${k}`).toEqual(expect.stringMatching(/\S/));
+    }
+    for (const k of ["transport", "pressPlay", "pausedTask"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
   }
 });
 
@@ -455,6 +462,34 @@ describe("the ticket, the account and Dad's pop-up", () => {
     expect(T.zh.ui.notes[30]).toMatch(/澳洲|澳大利亚/);
   });
 
+  // The ticks of leverage, stake, Stop Loss and Take Profit each carry a line of their own on hover. The
+  // lists the desk offers are the keys, so a rung added there with no joke here is caught, and two rungs
+  // never share a line, since a joke said twice is no joke. A tip is one line, within the length limit.
+  it("gives every tick of leverage, stake, Stop Loss and Take Profit its own line, in every language", async () => {
+    const { LEVERAGES, DISTANCES } = await import("../src/fx.ts");
+    const { STAKES } = await import("../public/ticket.js");
+    const limit = { en: 60, ja: 40, zh: 36 };
+    for (const lang of LANGS) {
+      const ui = T[lang].ui as Record<string, unknown>;
+      const scales: [string, string[]][] = [
+        ["leverage", LEVERAGES.map((l) => (ui.notes as Record<number, string>)[l])],
+        ["stake", STAKES.map((_, i) => (ui.stakeNotes as string[])[i])],
+        ["Stop Loss", DISTANCES.map((d) => (ui.slNotes as Record<number, string>)[d])],
+        ["Take Profit", DISTANCES.map((d) => (ui.tpNotes as Record<number, string>)[d])],
+      ];
+      for (const [name, lines] of scales) {
+        for (const line of lines) {
+          expect(line, `${lang} ${name} has a line for every tick`).toEqual(expect.stringMatching(/\S/));
+          expect([...line].length, `${lang} ${name}: ${line}`).toBeLessThanOrEqual(limit[lang]);
+        }
+        expect(new Set(lines).size, `${lang} ${name}: no two ticks share a line`).toBe(lines.length);
+      }
+      expect(Object.keys(ui.slNotes as object).map(Number).sort((a, b) => a - b), `${lang} slNotes has no stray rung`).toEqual([...DISTANCES]);
+      expect(Object.keys(ui.tpNotes as object).map(Number).sort((a, b) => a - b), `${lang} tpNotes has no stray rung`).toEqual([...DISTANCES]);
+      expect([...(ui.stakeNotes as string[])].length, lang).toBe(STAKES.length);
+    }
+  });
+
   it("runs the heat from green through amber at the cap to red at the top, in visible steps", async () => {
     const { hue, levHeat } = await import("../public/ticket.js");
     const { CAP, LEVERAGES } = await import("../src/fx.ts");
@@ -468,13 +503,13 @@ describe("the ticket, the account and Dad's pop-up", () => {
     for (const [a, b] of [[1, 30], [30, 100], [100, 200], [200, 500], [500, 1000]]) expect(h(a) - h(b), `${a} to ${b}`).toBeGreaterThanOrEqual(8);
   });
 
-  it("shows the financing fee a minute at a time, from the desk's own rate", async () => {
+  it("shows the holding cost a minute at a time, from the desk's own rate", async () => {
     const { feeRate, RULES } = await import("../src/fx.ts");
     const { feePerMinute } = await import("../public/ticket.js");
     // the desk charges per tick, and the page is told how many ticks make a minute
     for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePerMinute(RULES.fee, lev, 120)), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
     for (const lang of LANGS) {
-      expect(T[lang].ui.feeRate, lang).toContain("{pct}");
+      expect(T[lang].ui.carryRate, lang).toContain("{pct}");
       expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));
     }
   });

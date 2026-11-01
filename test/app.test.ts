@@ -1,3 +1,4 @@
+import { marketIn } from "../src/pages.ts";
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { expect, it, vi } from "vitest";
@@ -14,7 +15,7 @@ import * as format from "../public/format.js";
 import { autoMove, currentStep } from "../public/plan.js";
 
 async function app(lang: "en" | "ja" | "zh" = "en") {
-  const dom = new JSDOM(readFileSync("public/index.html", "utf8"), { url: "http://localhost/", runScripts: "outside-only", pretendToBeVisual: true });
+  const dom = new JSDOM(marketIn("en"), { url: "http://localhost/", runScripts: "outside-only", pretendToBeVisual: true });
   const w = dom.window;
   w.document.documentElement.dataset.lang = lang;
   const streams: Stream[] = [];

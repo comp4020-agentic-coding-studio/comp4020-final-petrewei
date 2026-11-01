@@ -5,13 +5,19 @@ import { LESSONS, Tutorial } from "../src/tutorial.ts";
 // The tutorial is one player's private market, run lesson by lesson. Each
 // lesson accepts only the action it teaches, and the price moves only
 // along the lesson's script, so every idea happens on cue.
+// A tutorial that is already playing: the lessons' own checks are about what each teaches.
+const playing = (): Tutorial => {
+  const t = new Tutorial();
+  t.play();
+  return t;
+};
 const run = (t: Tutorial): void => {
   while (t.moving()) t.step();
 };
 
 describe("the tutorial", () => {
   it("starts at the first lesson with a fresh account and a still price", () => {
-    const t = new Tutorial();
+    const t = playing();
     expect(t.lesson().id).toBe(LESSONS[0].id);
     const before = t.price();
     t.step();
@@ -19,13 +25,13 @@ describe("the tutorial", () => {
   });
 
   it("moves on from a lesson with only reading to do", () => {
-    const t = new Tutorial();
+    const t = playing();
     expect(t.act({ kind: "next" })).toBeNull();
     expect(t.lesson().id).toBe(LESSONS[1].id);
   });
 
   it("refuses an action the lesson does not teach, with a hint", () => {
-    const t = new Tutorial();
+    const t = playing();
     expect(t.act({ kind: "order", side: 1, leverage: 1 })).toMatch(/Click anywhere/);
     t.act({ kind: "next" });
     const refused = t.act({ kind: "order", side: -1, leverage: 1 });
@@ -34,7 +40,7 @@ describe("the tutorial", () => {
   });
 
   it("plays the lesson's price path after the right action, then waits", () => {
-    const t = new Tutorial();
+    const t = playing();
     t.act({ kind: "next" });
     const start = t.price();
     expect(t.act({ kind: "order", side: 1, leverage: 1 })).toBeNull();
@@ -45,7 +51,7 @@ describe("the tutorial", () => {
   });
 
   it("can be played from start to finish, every lesson in order", () => {
-    const t = new Tutorial();
+    const t = playing();
     const seen: string[] = [];
     for (let i = 0; i < 60 && !t.finished(); i++) {
       seen.push(t.lesson().id);
@@ -58,7 +64,7 @@ describe("the tutorial", () => {
   });
 
   it("shows a margin call, a stop that slips in a gap, and a stop-out along the way", () => {
-    const t = new Tutorial();
+    const t = playing();
     const kinds = new Set<string>();
     for (let i = 0; i < 60 && !t.finished(); i++) {
       t.act(t.lesson().solve(t));
@@ -71,7 +77,7 @@ describe("the tutorial", () => {
   });
 
   it("starts over on request", () => {
-    const t = new Tutorial();
+    const t = playing();
     t.act({ kind: "next" });
     t.restart();
     expect(t.lesson().id).toBe(LESSONS[0].id);
@@ -79,7 +85,7 @@ describe("the tutorial", () => {
   });
 
   it("starts the current lesson again, keeping the others passed", () => {
-    const t = new Tutorial();
+    const t = playing();
     // a lesson in which a position is opened: its money starts fresh, and
     // starting it again returns the account to what it began with
     while (t.lesson().id !== "leverage") { t.act(t.lesson().solve(t)); run(t); }
@@ -95,7 +101,7 @@ describe("the tutorial", () => {
   });
 
   it("skips a lesson by making its moves, and lands on the next", () => {
-    const t = new Tutorial();
+    const t = playing();
     for (let i = 0; i < LESSONS.length; i++) {
       const at = t.index;
       expect(t.skip(), LESSONS[i].id).toBeNull();
@@ -106,7 +112,7 @@ describe("the tutorial", () => {
   });
 
   it("goes back to the start of the lesson before, with that lesson's money and price", () => {
-    const t = new Tutorial();
+    const t = playing();
     while (t.lesson().id !== "take-profit") { t.act(t.lesson().solve(t)); run(t); }
     const worth = t.desk.account("me").balance;
     const price = t.price();
@@ -127,7 +133,7 @@ describe("the tutorial", () => {
   });
 
   it("goes back after the end, and restarts the last lesson, not nothing", () => {
-    const t = new Tutorial();
+    const t = playing();
     for (let i = 0; i < LESSONS.length; i++) t.skip();
     expect(t.finished()).toBe(true);
     t.restartLesson();
@@ -206,7 +212,7 @@ describe("a lesson's plan", () => {
     for (const l of LESSONS) for (const s of l.plan) {
       const m = s.until.match(/^leverage=(\d+)$/);
       if (!m) continue;
-      const solved = l.solve(new Tutorial());
+      const solved = l.solve(playing());
       if (solved.kind === "order") expect(solved.leverage, l.id).toBe(Number(m[1]));
     }
   });
@@ -216,7 +222,7 @@ describe("a lesson's plan", () => {
 // says what was chosen when it is not, not any stop at all.
 describe("the stop lesson", () => {
   const atStop = (): Tutorial => {
-    const t = new Tutorial();
+    const t = playing();
     while (t.lesson().id !== "stop") {
       expect(t.act(t.lesson().solve(t)), t.lesson().id).toBeNull();
       run(t);
@@ -252,7 +258,7 @@ describe("the stop lesson's directions", () => {
     expect(exitPos({ kind: "sl", dist: 1 }, DISTANCES)).toBeGreaterThan(exitPos({ kind: "sl", dist: 50 }, DISTANCES));
     expect(exitPos({ kind: "sl", dist: 1 }, DISTANCES)).toBeGreaterThan(0.4);
     const lesson = LESSONS.find((l) => l.id === "stop")!;
-    const words = [lesson.task, ...lesson.plan.map((s) => s.say), String(lesson.allow({ kind: "stop", pct: 25 }, new Tutorial())), String(lesson.allow({ kind: "stop", pct: null }, new Tutorial()))].join(" ");
+    const words = [lesson.task, ...lesson.plan.map((s) => s.say), String(lesson.allow({ kind: "stop", pct: 25 }, playing())), String(lesson.allow({ kind: "stop", pct: null }, playing()))].join(" ");
     expect(words).toMatch(/middle line/);
     expect(words).not.toMatch(/left end|right end|far left|far right/i);
   });
@@ -344,7 +350,7 @@ describe("what the tutorial does for a player who waits", () => {
       // the last lesson does not set the sliders: they stay where the lesson before left them
       const kept = l.id === "gap" ? { leverage: 1000, stake: 1 } : { leverage: 25, stake: 0.5 };
       const m = (autoMove(s, l.id, l.plan, kept) as { act: { kind: string; leverage?: number; stake?: number; pct?: number } }).act;
-      const t = new Tutorial();
+      const t = playing();
       while (t.lesson().id !== l.id) { expect(t.act(t.lesson().solve(t))).toBeNull(); while (t.moving()) t.step(); }
       // bring a lesson of several moves to the move this press belongs to
       for (let n = 0; n < (s.move ?? 0); n++) { expect(t.act(t.lesson().solve(t))).toBeNull(); while (t.moving()) t.step(); }
@@ -361,7 +367,7 @@ describe("what the tutorial does for a player who waits", () => {
 // out.
 describe("the last three lessons", () => {
   const at = (id: string): Tutorial => {
-    const t = new Tutorial();
+    const t = playing();
     while (t.lesson().id !== id) {
       expect(t.act(t.lesson().solve(t)), t.lesson().id).toBeNull();
       run(t);
@@ -413,15 +419,70 @@ describe("the last three lessons", () => {
   });
 });
 
-it("holds the private price animation while paused and resumes its queue", () => {
-  const t = new Tutorial();
-  t.skip();
-  t.act({ kind: "order", side: 1, leverage: 1 });
-  const before = [...t.prices];
-  t.paused = true;
-  t.step();
-  expect(t.prices).toEqual(before);
-  t.paused = false;
-  t.step();
-  expect(t.prices.length).toBeGreaterThan(before.length);
+// The tutorial is played like a disc or a tape: it rests stopped at lesson 1 until Play, Pause holds it
+// where it is, Play carries on, Stop goes back to lesson 1 and waits. One state, kept here, so a page
+// that reloads or a second tab can only agree with it.
+describe("the tutorial's transport", () => {
+  it("rests stopped at lesson 1, and does nothing until it is played", () => {
+    const t = new Tutorial();
+    expect(t.transport).toBe("stopped");
+    expect(t.act({ kind: "next" }), "a stopped tutorial takes no move").toMatch(/Press Play/);
+    expect(t.lesson().id).toBe(LESSONS[0].id);
+  });
+
+  it("plays, pauses where it is, and plays on, with the price held while it is not playing", () => {
+    const t = new Tutorial();
+    t.play();
+    expect(t.transport).toBe("playing");
+    t.skip();
+    t.act({ kind: "order", side: 1, leverage: 1 });
+    expect(t.moving()).toBe(true);
+    t.pause();
+    expect(t.transport).toBe("paused");
+    const held = [...t.prices];
+    t.step();
+    expect(t.prices, "the price is held while paused").toEqual(held);
+    expect(t.act({ kind: "close" }), "and no move is taken").toMatch(/Press Play/);
+    t.play();
+    t.step();
+    expect(t.prices.length, "playing carries on from where it was").toBeGreaterThan(held.length);
+  });
+
+  it("stops back to lesson 1 and waits, from any lesson and from a pause", () => {
+    const t = new Tutorial();
+    t.play();
+    t.skip();
+    t.skip();
+    t.pause();
+    t.stop();
+    expect(t.transport).toBe("stopped");
+    expect(t.lesson().id).toBe(LESSONS[0].id);
+    expect(t.moving()).toBe(false);
+    expect(t.act({ kind: "next" })).toMatch(/Press Play/);
+  });
+
+  it("goes back a lesson, or to the start of this one, and skips on, only while playing or paused", () => {
+    const t = new Tutorial();
+    expect(t.skip(), "a stopped tutorial cannot skip").toMatch(/Press Play/);
+    t.play();
+    t.skip();
+    t.skip();
+    const third = t.lesson().id;
+    t.back();
+    expect(t.lesson().id).toBe(LESSONS[1].id);
+    t.skip();
+    expect(t.lesson().id).toBe(third);
+    t.restartLesson();
+    expect(t.lesson().id, "starting this lesson again keeps the lesson").toBe(third);
+  });
+
+  it("is playing again after a restart-by-stop and a play, with a fresh run to draw", () => {
+    const t = new Tutorial();
+    t.play();
+    const before = t.runs;
+    t.stop();
+    t.play();
+    expect(t.transport).toBe("playing");
+    expect(t.runs, "the page redraws its chart").toBeGreaterThan(before);
+  });
 });

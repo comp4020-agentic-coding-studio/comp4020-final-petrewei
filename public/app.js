@@ -61,7 +61,7 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.borrow) }));
-  pauseLabel();
+  if (state?.lesson) lesson(state);
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
@@ -74,7 +74,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -114,11 +114,13 @@ let seated = false;
 // amount Dad's savings offer, so the page keeps no copy of them.
 let ladder = [];
 let broker = { cap: 1, fee: 0, borrow: 0, ticksPerMinute: 120, distances: [1] };
+// A scale's marks, each at its place on the track, with the joke it carries on hover.
 function ticks(id, marks) {
   $(id).replaceChildren(
-    ...marks.map(([at, text, cls = ""]) => {
+    ...marks.map(([at, text, cls = "", joke = ""]) => {
       const m = Object.assign(document.createElement("span"), { className: cls, textContent: text });
       m.style.left = `${at * 100}%`;
+      if (joke) m.dataset.tipText = joke;
       return m;
     }),
   );
@@ -129,11 +131,12 @@ function sliders() {
   $("leverage").disabled = ladder.length < 2;
   // Every rung of the ladder is marked on the track, the one chosen lit, so a
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
-  ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`]));
-  ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`]));
+  const ui = T[lang].ui;
+  ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`, ui.notes[v]]));
+  ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`, "", ui.stakeNotes[i]]));
   // The six distances, once for the stop loss on the left of the track and once for the
   // take profit on the right, each rung's number under its place on the track (ADR 0064).
-  const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`]));
+  const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`, "", ui[`${kind}Notes`][d]]));
   ticks("exit-ticks", marks);
   ticks("pexit-ticks", marks);
 }
@@ -152,8 +155,6 @@ function mark() {
 
   for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
   for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
-  for (const [i, tick] of [...$("lev-ticks").children].entries()) tick.dataset.tipText = (T[lang].ui.notes[ladder[i]] ?? "") + " · " + t("feeRate", { pct: feePerMinute(broker.fee, ladder[i], broker.ticksPerMinute) });
-  for (const [i, tick] of [...$("stake-ticks").children].entries()) tick.dataset.tipText = T[lang].ui.stakeNotes[i] + " · " + t("feeRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
   // The financing fee grows with the square of the leverage (ADR 0058).
   $("fee-note").textContent = t("carryRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
   // The lit step moves on the moment a slider reaches the value it was asked for.
@@ -227,7 +228,6 @@ async function post(url, body) {
   }
 }
 async function act(kind, extra = {}) {
-  if (mode === "tutorial" && !tutorialStarted) return;
   if (!fresh) {
     $("error").textContent = t(connectionStatus);
     return;
@@ -531,44 +531,41 @@ async function choosePair() {
   if (state) pairChoices(state);
 }
 $("pair-base").onchange = $("pair-quote").onchange = choosePair;
-$("restart").onclick = () => {
-  tutorialStarted = true;
+// The tutorial is played like a disc: it waits stopped until Play, Pause holds it where it is and Play
+// carries on, Stop goes back to lesson 1 and waits. The server keeps the state; these only ask for it.
+const transportOf = (kind) => () => {
+  looked = 0;
   armedFor = null;
-  autoPaused = false;
-  looked = 0;
-  $("restart").textContent = "↻";
-  $("restart").setAttribute("aria-label", t("restart"));
-  $("restart").dataset.tip = "resetTutorial";
-  pauseLabel();
-  act("restart");
-
+  return act(kind);
 };
-// Hints can be paused, which stops the countdown and the helper's doing the
-// step; the lit control and its words stay (ADR 0055). The tutorial can be
-// ended from its card, which goes back to Replay.
-function pauseLabel() {
-  $("lesson-pause").textContent = autoPaused ? "▶\uFE0E" : "⏸\uFE0E";
-  $("lesson-pause").setAttribute("aria-label", t(autoPaused ? "hintsResume" : "hintsPause"));
-  $("lesson-pause").setAttribute("aria-pressed", String(autoPaused));
-  $("lesson-pause").dataset.tip = autoPaused ? "hintsResume" : "hintsPause";
-  retip();
-}
-$("lesson-pause").onclick = () => {
-  if (!tutorialStarted) return;
-  autoPaused = !autoPaused;
-  act("pause-hints", { paused: autoPaused });
-  pauseLabel();
-  if (autoPaused) clearInterval(autoTimer);
-  if (!autoPaused) autoTimer = setInterval(tickAuto, 1000);
-  showCount();
-};
-// ⏹ resets the tutorial and stays in it; ↻ starts the lesson again; ⏩ does
-// the lesson's moves and goes on (ADR 0057).
+$("lesson-play").onclick = () => transportOf(playing() ? "pause" : "play")();
+$("lesson-stop").onclick = transportOf("stop");
 $("lesson-skip").onclick = () => act("skip");
+// Previous, as on a disc: once starts this lesson over, twice within two seconds goes to the one before.
+let lastBack = 0;
 $("lesson-back").onclick = () => {
+  const again = Date.now() - lastBack < 2000;
+  lastBack = again ? 0 : Date.now();
   looked = 0;
-  act("back");
+  armedFor = null;
+  act(again ? "back" : "again");
 };
+// The same keys on the keyboard, whichever control has focus: Space plays and pauses, the arrows go
+// back and skip, Escape stops. A key typed in a field, or on a button or slider that uses it, is left
+// to that control, and so is any key while a dialog is open or on any page but the tutorial.
+const TRANSPORT_KEYS = { " ": "lesson-play", ArrowLeft: "lesson-back", ArrowRight: "lesson-skip", Escape: "lesson-stop" };
+addEventListener("keydown", (e) => {
+  const id = TRANSPORT_KEYS[e.key];
+  if (!id || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || mode !== "tutorial" || !state?.lesson) return;
+  if (document.querySelector("dialog[open]")) return;
+  const target = e.target;
+  if (target?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|A)$/.test(target?.tagName ?? "")) return;
+  // a focused button does its own work on Space and Enter; the arrows and Escape are ours
+  if (target?.tagName === "BUTTON" && e.key === " ") return;
+  if ($(id).disabled) return;
+  e.preventDefault();
+  $(id).click();
+});
 
 // The tutorial names the controls a lesson is about; the page highlights
 // them.
@@ -581,14 +578,23 @@ function lesson(s) {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
   if (!s.lesson) return;
   const l = s.lesson;
-  for (const id of ["lesson-back", "lesson-pause", "lesson-skip"]) $(id).disabled = !tutorialStarted;
+  // The transport shows its state: Play is Pause while playing, and the track keys wait for Play.
+  const transport = s.transport ?? "playing";
+  $("lesson").dataset.transport = transport;
+  for (const id of ["lesson-back", "lesson-skip"]) $(id).disabled = transport === "stopped";
+  $("lesson-stop").disabled = transport === "stopped";
+  const verb = transport === "playing" ? "tutorialPause" : transport === "paused" ? "tutorialContinue" : "tutorialPlay";
+  $("lesson-play").dataset.tip = verb;
+  $("lesson-play").setAttribute("aria-label", t(verb));
+  $("lesson-play").setAttribute("aria-pressed", String(transport === "playing"));
   const moving = s.phase === "moving";
   // The lesson in this language; in English, as the server sent it.
   const own = T[lang].lessons[l.id] ?? l;
   $("lesson-n").textContent = l.finished ? t("lessonDone") : t("lessonN", { n: l.n, of: l.of });
   $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
   $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
-  $("lesson-task").textContent = l.finished ? t("doneTask") : moving ? t("watch") : own.task;
+  $("lesson-task").textContent = l.finished ? t("doneTask") : transport === "stopped" ? t("pressPlay") : transport === "paused" ? t("pausedTask") : moving ? t("watch") : own.task;
+  retip();
 }
 // How many of the lesson's looks the player has had (ADR 0052, 0053): a step
 // to look at waits for them, and they move on by a click or a key, or by
@@ -612,22 +618,25 @@ function currentStep(l) {
 // again. It never runs while the page is hidden, a dialog is open, or the
 // price is moving.
 const AUTO_S = 9;
-let tutorialStarted = false;
-let autoPaused = false;
+// Whether the tutorial is playing, from the server's own transport: stopped and paused both hold.
+const playing = () => state?.mode === "tutorial" && state.transport === "playing";
+// Stopped shows nothing, a blank screen that waits; paused keeps the frame, with the lit control and
+// the step's words and its seconds held; playing runs.
+const stopped = () => state?.mode === "tutorial" && state.transport === "stopped";
 let autoLeft = AUTO_S;
 let autoTimer = 0;
 let sliding = false;
 function armAuto() {
   clearInterval(autoTimer);
   autoLeft = AUTO_S;
-  if (!tutorialStarted || !state?.lesson || state.lesson.finished || state.phase === "moving" || autoPaused) return;
+  if (!playing() || !state?.lesson || state.lesson.finished || state.phase === "moving") return;
   showCount();
   autoTimer = setInterval(tickAuto, 1000);
 }
 function tickAuto() {
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
-  if (!tutorialStarted || autoPaused || !fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
+  if (!playing() || !fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
   if (--autoLeft > 0) return showCount();
   clearInterval(autoTimer);
   doForPlayer(l);
@@ -683,7 +692,7 @@ function slideTo(which, value, done) {
 // Move on from the step to look at that is on show, if one is. Returns whether
 // it did, so a click on a control still does its own work.
 function nextLook() {
-  if (!tutorialStarted || autoPaused) return false;
+  if (!playing()) return false;
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving" || currentStep(l)?.until !== "look") return false;
   looked++;
@@ -693,19 +702,19 @@ function nextLook() {
   spotlight(l, false);
   return true;
 }
-// Any click, or Enter, Space or the right arrow, moves on from a step to look
-// at. The click carries on to whatever it landed on, so pressing a control
-// still does its job; a key typed in a field or on a control, where the same
-// keys do something else, is left alone (ADR 0053).
+// Any click, or Enter, moves on from a step to look at. The click carries on to whatever it
+// landed on, so pressing a control still does its job; a key typed in a field or on a control,
+// where the same key does something else, is left alone (ADR 0053). Space and the arrows are
+// the transport's now, so each key has one meaning.
 addEventListener("pointerdown", (e) => {
   if (e.target.closest?.("dialog[open]:not(#dad), #name-box")) return;
-  // A click on the lesson card's own buttons (Why?, Pause, End) is not a
+  // A click on the lesson card's own buttons (the transport) is not a
   // click on the page: it must not move a look step on.
   if (!e.target.closest?.("#lesson") && nextLook()) return;
-  if (state?.lesson && !state.lesson.finished && !autoPaused) armAuto();
+  if (state?.lesson && !state.lesson.finished && playing()) armAuto();
 });
 addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || !["Enter", " ", "ArrowRight"].includes(e.key)) return;
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.key !== "Enter") return;
   const t = e.target;
   if (document.querySelector("dialog[open]:not(#dad)") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
   if (nextLook()) e.preventDefault();
@@ -774,7 +783,7 @@ function spotlight(l, moving) {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
   hint.hidden = true;
   hintFor = null;
-  if (!tutorialStarted || l.finished || moving) return;
+  if (stopped() || l.finished || moving) return;
   const step = currentStep(l);
   if (!step) return;
   const el = $(TARGETS[step.target]);
@@ -1479,7 +1488,7 @@ function render(s) {
     $("position").textContent = t(y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
-  const closed = !open || y.out || !!s.paused || (tutorial && (!tutorialStarted || autoPaused));
+  const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
@@ -1653,14 +1662,6 @@ function render(s) {
 // opens the other; the two markets keep running either way.
 let events = null;
 function watch(next) {
-  if (next === "tutorial" && mode !== next) {
-    tutorialStarted = false;
-    autoPaused = false;
-    clearInterval(autoTimer);
-    $("restart").textContent = "▶";
-    $("restart").setAttribute("aria-label", t("tutorialStart"));
-    $("restart").dataset.tip = "tutorialStart";
-  }
   mode = next;
   try {
     localStorage.setItem("tab", mode);

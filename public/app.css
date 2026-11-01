@@ -141,7 +141,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
    that cannot fit its slot is cut with an ellipsis, never wrapped. */
 /* Slot widths fit the longest language: the brand's Japanese subtitle,
    the tabs' longest label three times over. */
-.top { display: grid; grid-template-columns: 344px 460px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.top { display: grid; grid-template-columns: minmax(0, 344px) 460px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
 .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--soft); font-size: 0.85rem; }
 /* Each language has its own logo; it never wraps, so the bar keeps its height. */
@@ -155,7 +155,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .tabs button[aria-selected="true"] em { background: rgb(255 255 255 / 0.25); color: inherit; }
 /* Face, "You are", the name and a pencil: the name shrinks with an
    ellipsis before the pencil is ever cut off. */
-.whoami { display: inline-flex; align-items: center; min-width: 0; margin: 0; padding: 0.2rem 0.5rem; justify-self: end; max-width: 100%; border: 1px dashed transparent; background: none; border-radius: 8px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+.whoami { display: inline-flex; align-items: center; min-width: 0; margin: 0; padding: 0.2rem 0.5rem; justify-self: start; max-width: 100%; border: 1px dashed transparent; background: none; border-radius: 8px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
 .whoami strong { min-width: 0; margin-left: 0.3ch; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .whoami .pencil, .whoami .av { flex: none; }
 .whoami:hover { border-color: var(--line); }
@@ -635,16 +635,25 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .prayers { display: none
    It is above a lit control (z-index 40, which the chart itself is in the
    first lesson) and below the pointer's words (45). */
 .lesson[hidden] { display: none; }
-.lesson { position: absolute; z-index: 42; left: 10px; bottom: 10px; right: 28%; max-height: calc(100% - 20px); overflow-y: auto; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 0.5rem 1rem; align-items: start; padding: 0.6rem 0.85rem 0.7rem; border: 1px solid var(--pink); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 20px rgb(0 0 0 / 0.3), 0 0 0 4px var(--glow); }
-.lesson-n { margin: 0; font-size: 0.72rem; color: var(--pink); white-space: nowrap; }
+.lesson { position: absolute; z-index: 42; left: 10px; bottom: 10px; right: 28%; max-height: calc(100% - 20px); overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 0.5rem 1rem; align-items: start; text-align: left; padding: 0.6rem 0.85rem 0.7rem; border: 1px solid var(--pink); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 20px rgb(0 0 0 / 0.3), 0 0 0 4px var(--glow); }
+.lesson-main { min-width: 0; text-align: left; }
+.lesson-n { margin: 0 0 0.15rem; font-size: 0.72rem; color: var(--pink); white-space: nowrap; }
 .lesson h2 { margin: 0 0 0.35rem; padding: 0; border: none; font-size: 1rem; line-height: 1.25; color: var(--ink); }
 .lesson p { margin: 0 0 0.3rem; font-size: 0.82rem; line-height: 1.5; color: var(--soft); }
-.task { margin: 0; padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--raise); border-left: 3px solid var(--pink); }
+.lesson-side { display: grid; gap: 0.5rem; justify-items: end; min-width: 0; }
+.task { margin: 0; padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--raise); border-left: 3px solid var(--pink); text-align: left; justify-self: stretch; }
 .task span { display: block; font-size: 0.7rem; color: var(--pink); }
 .task strong { color: var(--ink); font-size: 0.84rem; }
-.lesson-head { display: flex; align-items: center; justify-content: flex-end; gap: 0.3rem; margin-bottom: 0.35rem; }
-.lesson-head .lesson-n { flex: 1; }
-.lesson .icon { width: 1.7rem; height: 1.7rem; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--soft); font-size: 0.9rem; line-height: 1; }
+/* The transport, like a remote's: four plain keys, play the largest, so it is the one that is found. */
+.transport { display: flex; align-items: center; gap: 0.3rem; }
+.lesson .icon { width: 1.9rem; height: 1.9rem; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--soft); line-height: 1; }
+.lesson .icon:hover:not(:disabled) { color: var(--ink); border-color: var(--muted); }
+.lesson .icon:disabled { opacity: 0.4; cursor: default; }
+.lesson .icon.play { width: 2.4rem; background: var(--pink); border-color: var(--pink); color: var(--on-pink); }
+.lesson .icon.play:hover:not(:disabled) { color: var(--on-pink); border-color: var(--pink); filter: brightness(1.08); }
+.lesson .play .i-pause, .lesson[data-transport="playing"] .play .i-play { display: none; }
+.lesson[data-transport="playing"] .play .i-pause { display: block; }
+.lesson svg { pointer-events: none; }
 .next { background: var(--pink); border-color: var(--pink); color: var(--on-pink); font-weight: 800; }
 .ghost { background: none; }
 /* The tutorial's pointer (ADR 0052, 0053): the one control a step names is
@@ -672,15 +681,15 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 
 /* Middle widths: who you are takes a row of its own beneath, so brand,
    tabs and tools keep their slots. */
-@media (max-width: 1180px) {
-  /* The brand and the tools share the first row, and the tabs take the
-     second at their full width, with room for a badge on each (ADR 0048),
-     where side by side the tools overlapped them. Who you are follows. */
-  .top { grid-template-columns: minmax(0, 1fr) auto; }
-  .brand { grid-column: 1; grid-row: 1; }
-  .tools { grid-column: 2; grid-row: 1; justify-self: end; }
-  .tabs { grid-column: 1 / -1; grid-row: 2; justify-self: start; width: 460px; max-width: 100%; }
-  .whoami { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+@media (max-width: 1279px) {
+  /* The brand and the tools share the first row. The tabs keep their full width on the
+     second, with room for a badge on each (ADR 0048), and who you are sits beside them,
+     taking what is left and cut with an ellipsis, so the header stays two rows tall. */
+  .top { grid-template-columns: 460px minmax(0, 1fr) auto; }
+  .brand { grid-column: 1 / 3; grid-row: 1; }
+  .tools { grid-column: 3; grid-row: 1; justify-self: end; }
+  .tabs { grid-column: 1; grid-row: 2; max-width: 100%; }
+  .whoami { grid-column: 2 / -1; grid-row: 2; justify-self: start; }
 }
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */
@@ -729,6 +738,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   /* On a phone the chart is too short to hold the card and the price, so the
      card sits under it, in the page's flow, and covers nothing (ADR 0059). */
   .lesson { position: static; grid-template-columns: minmax(0, 1fr); max-height: none; margin: 0.5rem 0.6rem 0.6rem; box-shadow: 0 0 0 3px var(--glow); }
+  .lesson-side { justify-items: stretch; }
+  .transport { justify-content: center; }
   /* Tabs share the width, labels kept on one line; the chart is tall
      enough to hold the lobby and its Start button. */
   .tabs button { font-size: 0.8rem; padding-left: 0.25rem; padding-right: 0.25rem; }
@@ -809,7 +820,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .paused { background: color-mix(in srgb, var(--panel) 55%, transparent); }
 .lobby.counting { background: color-mix(in srgb, var(--panel) 65%, transparent); }
 .step-hint { font-variant-numeric: tabular-nums; }
-#lev-ticks span, #stake-ticks span { pointer-events: auto; cursor: help; }
+.ticks span[data-tip-text] { pointer-events: auto; cursor: help; }
 #fee-note { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 
 .slide .label #fee-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

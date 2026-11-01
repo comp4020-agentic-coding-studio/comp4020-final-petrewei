@@ -232,10 +232,31 @@ export class Tutorial {
     this.restart();
   }
 
-  paused = false;
+  // Played like a disc or a tape: it rests stopped at lesson 1 until Play, Pause holds it where it
+  // is, Play carries on, and Stop goes back to lesson 1 and waits. One state, kept here, so a page
+  // that reloads or a second tab can only agree with it.
+  transport: "stopped" | "playing" | "paused" = "stopped";
+
+  play(): void {
+    if (this.transport === "stopped") this.restart();
+    this.transport = "playing";
+  }
+
+  pause(): void {
+    if (this.transport === "playing") this.transport = "paused";
+  }
+
+  stop(): void {
+    this.restart();
+    this.transport = "stopped";
+  }
+
+  // The refusal of every move while the tutorial is not playing.
+  idle(): string | null {
+    return this.transport === "playing" ? null : "Press Play to carry on with the tutorial.";
+  }
 
   restart(): void {
-    this.paused = false;
     this.runs++;
     this.index = 0;
     this.nexted = false;
@@ -281,6 +302,7 @@ export class Tutorial {
   // begin the next (the fast-forward button). Every lesson's own moves, as
   // `solve` gives them, are the ones the lesson accepts.
   skip(): string | null {
+    if (this.idle()) return this.idle();
     if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
     const at = this.index;
     for (let guard = 0; this.index === at && guard < 12; guard++) {
@@ -308,6 +330,7 @@ export class Tutorial {
   }
 
   act(m: Move): string | null {
+    if (this.idle()) return this.idle();
     if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
     if (this.moving()) return "Wait for the price to finish moving.";
     const lesson = this.lesson();
@@ -334,7 +357,7 @@ export class Tutorial {
 
   // One tick of the lesson's script, if it has one playing.
   step(): Fill[] {
-    if (this.paused) return [];
+    if (this.transport !== "playing") return [];
     const price = this.queue.shift();
     if (price === undefined) return [];
     const events = this.desk.mark(price);

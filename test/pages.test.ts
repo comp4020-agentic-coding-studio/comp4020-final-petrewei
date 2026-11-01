@@ -27,7 +27,8 @@ it("shows no file names or extensions on the page", () => {
 // makes $() return null and throws mid-render, which no server check sees.
 // Every id the script asks for must be on the page, or made by a script.
 it("finds every element the page script asks for by id", () => {
-  const html = readFileSync("public/index.html", "utf8");
+  // the page is its template and the header part it includes, with the market's tabs and name button
+  const html = ["public/index.html", "public/parts/header.html", "public/parts/tabs.html", "public/parts/whoami.html"].map((f) => readFileSync(f, "utf8")).join("\n");
   const scripts = ["public/app.js", "public/tips.js"].map((f) => readFileSync(f, "utf8")).join("\n");
   const asked = new Set([...readFileSync("public/app.js", "utf8").matchAll(/\$\("([\w-]+)"\)/g)].map((m) => m[1]));
   const made = new Set([...scripts.matchAll(/id: "([\w-]+)"/g)].map((m) => m[1]));

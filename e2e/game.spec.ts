@@ -21,18 +21,48 @@ test("a newcomer learns to buy with the keyboard and can reach Close on a phone"
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await join(page, lang, true);
-  await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, "welcome"));
-  await expect(page.locator("#step-hint")).not.toBeVisible();
-  await expect(page.locator(".lesson-head button")).toHaveCount(4);
-  await page.locator("#restart").click();
-  await expect(page.locator("#step-hint")).toContainText(/9s|9秒/);
   const hint = page.locator("#step-hint");
+  const play = page.locator("#lesson-play");
+  const lessonCard = page.locator("#lesson");
+  await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, "welcome"));
+  // Opened, the tutorial waits stopped: nothing counts down, and only Play and the shape of the card say so.
+  await expect(lessonCard).toHaveAttribute("data-transport", "stopped");
+  await expect(hint).not.toBeVisible();
+  await expect(page.locator("#lesson-task")).toHaveText(T[lang].ui.pressPlay);
+  await expect(page.locator("#lesson-back")).toBeDisabled();
+  await expect(page.locator("#lesson-skip")).toBeDisabled();
+  await expect(page.locator("#lesson-stop")).toBeDisabled();
+  await expect(play).toBeEnabled();
+  await expect(page.locator(".transport button")).toHaveCount(4);
+  // Play starts it, and the same key is now Pause, drawn differently
+  await play.click();
+  await expect(lessonCard).toHaveAttribute("data-transport", "playing");
+  await expect(hint).toContainText(/9s|9秒/);
+  await expect(play).toHaveAttribute("aria-label", T[lang].ui.tutorialPause);
+  await expect(page.locator("#lesson-play .i-pause")).toBeVisible();
+  await expect(page.locator("#lesson-play .i-play")).not.toBeVisible();
   const before = await hint.boundingBox();
-  await page.locator("#lesson-pause").click();
+  // Pause holds it, with the seconds still shown and the hint not moving
+  await play.click();
+  await expect(lessonCard).toHaveAttribute("data-transport", "paused");
   await expect(hint).toContainText(/\d+s|\d+秒/);
-  const after = await hint.boundingBox();
-  expect(after!.width).toBe(before!.width);
-  await page.locator("#lesson-pause").click();
+  expect((await hint.boundingBox())!.width).toBe(before!.width);
+  await expect(page.locator("#lesson-task")).toHaveText(T[lang].ui.pausedTask);
+  await expect(play).toHaveAttribute("aria-label", T[lang].ui.tutorialContinue);
+  // the count does not move while paused
+  const held = await hint.textContent();
+  await page.waitForTimeout(2500);
+  expect(await hint.textContent(), "the countdown is held while paused").toBe(held);
+  // the keyboard: Space plays on, Escape stops and waits, from the page and not only from a button
+  await page.locator("#chart").click({ position: { x: 5, y: 5 }, force: true });
+  await page.keyboard.press("Space");
+  await expect(lessonCard).toHaveAttribute("data-transport", "playing");
+  await page.keyboard.press("Escape");
+  await expect(lessonCard).toHaveAttribute("data-transport", "stopped");
+  await expect(hint).not.toBeVisible();
+  await expect(page.locator("#lesson-task")).toHaveText(T[lang].ui.pressPlay);
+  await page.keyboard.press("Space");
+  await expect(lessonCard).toHaveAttribute("data-transport", "playing");
   await page.locator("#lesson-skip").click();
   await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, "buy"));
   const leverage = page.getByRole("slider", { name: T[lang].ui.leverage, exact: true });
@@ -170,5 +200,33 @@ test("two independent players see orders, recover from offline and receive their
   } finally {
     await page.context().setOffline(false);
     await other.close();
+  }
+});
+
+// The header has to hold at every zoom: 125% on a 1920 screen is 1536 css px, 150% is 1280, 200% is 960.
+// The tabs never lose their room, who you are never runs over the tabs or the tools, and a name too long
+// for its place is cut with an ellipsis, so the header never grows a row of its own.
+test("keeps the header in order at every zoom, with the longest name", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  if (info.project.name.endsWith("phone")) test.skip(true, "the phone has its own layout");
+  const kana = "あいうえおかきくけこさしすせそたちつてと";
+  const longest = lang === "en" ? "W".repeat(18) + randomUUID().slice(0, 2) : lang === "ja" ? Array.from({ length: 10 }, () => kana[Math.floor(Math.random() * kana.length)]).join("") : "龙".repeat(9) + randomUUID().slice(0, 2);
+  await page.setViewportSize({ width: 1536, height: 800 });
+  await page.goto(`${baseURL}${lang === "en" ? "/" : `/${lang}/`}`);
+  await page.locator("#name-input").fill(longest);
+  await page.locator("#name-free").click();
+  await expect(page.locator("#name-box")).not.toBeVisible();
+  for (const width of [960, 1100, 1279, 1280, 1536, 1920]) {
+    await page.setViewportSize({ width, height: 800 });
+    const m = await page.evaluate(() => {
+      const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const meets = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const who = box("#whoami"), tabs = box(".tabs"), tools = box(".tools");
+      return { height: box("header.top").height, who: meets(who, tabs) || meets(who, tools), tabsCut: [...document.querySelectorAll(".tabs button")].some((b) => b.scrollWidth > b.clientWidth), page: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(m.who, `${width}: who you are meets the tabs or tools`).toBe(false);
+    expect(m.tabsCut, `${width}: a tab is cut short`).toBe(false);
+    expect(m.page, `${width}: the page scrolls sideways`).toBe(false);
+    expect(m.height, `${width}: the header grew a row`).toBeLessThanOrEqual(120);
   }
 });

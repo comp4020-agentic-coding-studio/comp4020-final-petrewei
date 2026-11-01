@@ -2,7 +2,8 @@
 // checks import.
 type Table = Record<string, string>;
 type Lang = {
-  ui: Record<string, string> & { notes: Record<number, string> };
+  // The page's words; the four tables are a line for each tick of a scale, keyed by rung or distance.
+  ui: Record<string, string> & { notes: Record<number, string>; slNotes: Record<number, string>; tpNotes: Record<number, string>; stakeNotes: string[] };
   tips: Table;
   info: Table;
   news: Table;

@@ -9,8 +9,8 @@ import { expect, it } from "vitest";
 // carry 円, 日元 and 秒. Each language puts its own Noto first, so a
 // character shared by the scripts is drawn in that language's form.
 const css = readFileSync("public/app.css", "utf8");
-const server = readFileSync("src/server.ts", "utf8");
-const page = readFileSync("public/index.html", "utf8");
+const server = readFileSync("src/pages.ts", "utf8");
+const page = readFileSync("public/index.html", "utf8") + readFileSync("public/parts/header.html", "utf8");
 const CJK = ["Noto Sans JP", "Noto Sans SC", "Noto Sans KR"];
 const stacks = (name: string): string[] => [...css.matchAll(new RegExp(`--${name}:\\s*([^;]+);`, "g"))].map((m) => m[1]);
 const families = (stack: string): string[] => stack.split(",").map((f) => f.trim().replace(/^"|"$/g, ""));

@@ -1,6 +1,6 @@
 # ADR 0071: Explicit Tutorial Controls and Short Tick Labels
 
-Status: accepted, 2 November 2026.
+Status: accepted, 2 November 2026. The tutorial's controls and the tick tooltips were redone by [ADR 0072](0072-the-tutorial-plays-like-a-disc.md).
 
 ## 1 Decision
 

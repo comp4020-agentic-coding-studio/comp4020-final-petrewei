@@ -13,8 +13,25 @@ it("starts a new visitor at the first lesson, alone", async () => {
   expect(s.traders).toEqual([]);
 });
 
+// The tutorial rests stopped until Play, as a disc does; these play it first. An older server has no
+// Play and refuses it as unknown, but is playing already, so the checks below hold on both.
+const play = async (cookie: string): Promise<void> => {
+  await attempt({ mode: "tutorial", kind: "play" }, cookie);
+};
+
+it("waits stopped for Play, and says so to a move made before it", async () => {
+  const me = await visitor();
+  const state0 = (await state(me, "tutorial")) as unknown as { transport?: string };
+  if (state0.transport === undefined) return; // a server from before the transport
+  expect(state0.transport).toBe("stopped");
+  const res = await attempt({ mode: "tutorial", kind: "next" }, me);
+  expect(res.status).toBe(409);
+  expect((await res.json()).error).toMatch(/Press Play/);
+});
+
 it("refuses a move the lesson does not teach, with a hint", async () => {
   const me = await visitor();
+  await play(me);
   const res = await attempt({ mode: "tutorial", kind: "sell", leverage: 1 }, me);
   expect(res.status).toBe(409);
   expect((await res.json()).error).toMatch(/Click anywhere/);
@@ -23,6 +40,8 @@ it("refuses a move the lesson does not teach, with a hint", async () => {
 it("keeps each visitor's lessons to themselves", async () => {
   const a = await visitor();
   const b = await visitor();
+  await play(a);
+  await play(b);
   expect((await attempt({ mode: "tutorial", kind: "next" }, a)).status).toBe(200);
   const lessonOf = async (c: string): Promise<number> => ((await state(c, "tutorial")) as unknown as { lesson: { n: number } }).lesson.n;
   expect(await lessonOf(a)).toBe(2);

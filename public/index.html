@@ -13,42 +13,7 @@
   <script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
-  <header class="top">
-    <a class="brand" href="{{home}}" aria-label="{{logo}}">
-      <span class="logo" data-t="logo">{{logo}}</span>
-      <span class="sub" data-t="sub">{{sub}}</span>
-    </a>
-    <nav class="tabs" role="tablist" aria-label="Market">
-      <button role="tab" data-mode="replay" aria-selected="true" data-tip="tabReplay"><span class="ico" aria-hidden="true">📼</span><span data-t="replay">Replay</span> <em id="here-replay"></em></button>
-      <button role="tab" data-mode="simulation" aria-selected="false" data-tip="tabSimulation"><span class="ico" aria-hidden="true">📡</span><span data-t="simulation">Simulation</span> <em id="here-simulation"></em></button>
-      <button role="tab" data-mode="tutorial" aria-selected="false" data-tip="tabTutorial"><span class="ico" aria-hidden="true">🎓</span><span data-t="tutorial">Tutorial</span></button>
-    </nav>
-    <button id="whoami" class="whoami" type="button" aria-haspopup="dialog" data-tip-text=""></button>
-    <div class="tools">
-      <label class="lang" data-tip="lang">
-        <span class="sr-only">Language</span>
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-        <select id="lang" aria-label="Language">
-          <option value="en" lang="en">English</option>
-          <option value="ja" lang="ja">日本語</option>
-          <option value="zh" lang="zh-CN">简体中文</option>
-        </select>
-      </label>
-      <!-- Optional music: off until a player turns it on; the track loads
-           only then (ADR 0020). -->
-      <button id="music" class="icon music" type="button" aria-pressed="false" data-tip="musicOn" data-t-aria="musicOn">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M9 17.5V5.5l10-2v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="17.5" r="2.5" fill="currentColor"/><circle cx="16.5" cy="15.5" r="2.5" fill="currentColor"/><path class="slash" d="M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-      <audio id="bgm" src="/audio/bgm.m4a" preload="none" loop></audio>
-      <button id="theme" class="icon" type="button" data-tip="toLight">
-        <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
-        <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
-      </button>
-      <a class="icon about" href="{{about}}" data-tip="about" data-t-aria="about">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>
-      </a>
-    </div>
-  </header>
+{{header}}
 
   <p id="connection" class="connection" role="status" data-t="connectionConnecting" hidden>Connecting…</p>
   <main>
@@ -104,19 +69,30 @@
              the task are on the left; the head, with its buttons, is above the
              lesson's text on the right, which is always shown. -->
         <section class="lesson" id="lesson" hidden aria-live="polite">
-          <div class="lesson-task">
+          <div class="lesson-main">
+            <p class="lesson-n" id="lesson-n"></p>
             <h2 id="lesson-title"></h2>
-            <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
-          </div>
-          <div class="lesson-body">
-            <div class="lesson-head">
-              <p class="lesson-n" id="lesson-n"></p>
-              <button id="restart" class="icon" type="button" data-t-aria="tutorialStart" data-tip="tutorialStart">▶</button>
-              <button id="lesson-back" class="icon" type="button" data-t-aria="backLesson" data-tip="backLesson">⏪</button>
-              <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause">⏸</button>
-              <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson">⏩</button>
-            </div>
             <p id="lesson-text"></p>
+          </div>
+          <div class="lesson-side">
+            <!-- The tutorial is played like a disc or a tape: previous, play or pause, next, and
+                 stop. Plain shapes drawn here, never emoji, so they take the page's colours. -->
+            <div class="transport" role="group" data-t-aria="transport">
+              <button id="lesson-back" class="icon" type="button" data-t-aria="backLesson" data-tip="backLesson" data-key="ArrowLeft">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M6 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M19 5.5v13L9 12z" fill="currentColor"/></svg>
+              </button>
+              <button id="lesson-play" class="icon play" type="button" data-tip="tutorialPlay" data-t-aria="tutorialPlay" data-key="Space">
+                <svg class="i-play" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg>
+                <svg class="i-pause" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M7 5h3.4v14H7zM13.6 5H17v14h-3.4z" fill="currentColor"/></svg>
+              </button>
+              <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson" data-key="ArrowRight">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M18 5v14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg>
+              </button>
+              <button id="lesson-stop" class="icon" type="button" data-t-aria="stopTutorial" data-tip="stopTutorial" data-key="Escape">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>
+              </button>
+            </div>
+            <p class="task"><span data-t="yourTurn">Your Turn</span> <strong id="lesson-task"></strong></p>
           </div>
         </section>
 
@@ -228,7 +204,7 @@
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
            legal caps marked; stake on an even one (ADR 0024). -->
       <div class="field slide" id="leverage-box">
-        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button> <span id="lev-note" class="note" hidden></span><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
+        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
         <input id="leverage" type="range" min="0" max="0" step="1" disabled data-t-aria="leverage" data-tip="leverage">
         <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
 
