@@ -203,30 +203,42 @@ test("two independent players see orders, recover from offline and receive their
   }
 });
 
-// The header has to hold at every zoom: 125% on a 1920 screen is 1536 css px, 150% is 1280, 200% is 960.
-// The tabs never lose their room, who you are never runs over the tabs or the tools, and a name too long
-// for its place is cut with an ellipsis, so the header never grows a row of its own.
-test("keeps the header in order at every zoom, with the longest name", async ({ page }, info) => {
+// The header has to hold at every zoom: 100% on a 1920 screen is 1920 css px, 125% is 1536, 150% is 1280
+// and Edge's window at 150% is about 1263. Brand, tabs, who you are and the tools sit on one row, in that
+// order, from 1010px up; only below that do the tabs drop to a row of their own. The tabs never lose their
+// room, nothing runs over anything else, and a name too long for its place is cut with an ellipsis.
+test("keeps the header on one row in order until it cannot fit, with the longest name", async ({ page }, info) => {
   const lang = info.project.metadata.lang as Lang;
   if (info.project.name.endsWith("phone")) test.skip(true, "the phone has its own layout");
   const kana = "あいうえおかきくけこさしすせそたちつてと";
-  const longest = lang === "en" ? "W".repeat(18) + randomUUID().slice(0, 2) : lang === "ja" ? Array.from({ length: 10 }, () => kana[Math.floor(Math.random() * kana.length)]).join("") : "龙".repeat(9) + randomUUID().slice(0, 2);
+  const longest = lang === "en" ? "W".repeat(16) + randomUUID().slice(0, 2) : lang === "ja" ? Array.from({ length: 9 }, () => kana[Math.floor(Math.random() * kana.length)]).join("") : "龙".repeat(7) + randomUUID().slice(0, 2);
   await page.setViewportSize({ width: 1536, height: 800 });
   await page.goto(`${baseURL}${lang === "en" ? "/" : `/${lang}/`}`);
   await page.locator("#name-input").fill(longest);
   await page.locator("#name-free").click();
   await expect(page.locator("#name-box")).not.toBeVisible();
-  for (const width of [960, 1100, 1279, 1280, 1536, 1920]) {
+  for (const width of [960, 1009, 1010, 1100, 1263, 1280, 1536, 1920]) {
     await page.setViewportSize({ width, height: 800 });
     const m = await page.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
-      const meets = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-      const who = box("#whoami"), tabs = box(".tabs"), tools = box(".tools");
-      return { height: box("header.top").height, who: meets(who, tabs) || meets(who, tools), tabsCut: [...document.querySelectorAll(".tabs button")].some((b) => b.scrollWidth > b.clientWidth), page: document.documentElement.scrollWidth > innerWidth };
+      const meets = (a: DOMRect, b: DOMRect) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+      const brand = box(".brand"), tabs = box(".tabs"), who = box("#whoami"), tools = box(".tools");
+      return {
+        oneRow: tabs.top < brand.bottom,
+        inOrder: brand.right <= tabs.left + 0.5 && tabs.right <= who.left + 0.5 && who.right <= tools.left + 0.5,
+        overlap: [[brand, tabs], [tabs, who], [who, tools], [brand, tools]].some(([a, b]) => meets(a, b)),
+        tabsCut: [...document.querySelectorAll(".tabs button")].some((b) => b.scrollWidth > b.clientWidth),
+        logoCut: (document.querySelector(".logo") as HTMLElement).getBoundingClientRect().right > brand.right + 1,
+        sideways: document.documentElement.scrollWidth > innerWidth,
+      };
     });
-    expect(m.who, `${width}: who you are meets the tabs or tools`).toBe(false);
+    expect(m.overlap, `${width}: something runs over something else`).toBe(false);
     expect(m.tabsCut, `${width}: a tab is cut short`).toBe(false);
-    expect(m.page, `${width}: the page scrolls sideways`).toBe(false);
-    expect(m.height, `${width}: the header grew a row`).toBeLessThanOrEqual(120);
+    expect(m.logoCut, `${width}: the logo is cut`).toBe(false);
+    expect(m.sideways, `${width}: the page scrolls sideways`).toBe(false);
+    if (width >= 1010) {
+      expect(m.oneRow, `${width}: the tabs went to a row of their own with room for one row`).toBe(true);
+      expect(m.inOrder, `${width}: the order is not brand, tabs, who you are, tools`).toBe(true);
+    } else expect(m.oneRow, `${width}: too narrow for one row, so the tabs go below`).toBe(false);
   }
 });

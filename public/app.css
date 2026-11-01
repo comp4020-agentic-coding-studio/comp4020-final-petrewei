@@ -141,7 +141,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
    that cannot fit its slot is cut with an ellipsis, never wrapped. */
 /* Slot widths fit the longest language: the brand's Japanese subtitle,
    the tabs' longest label three times over. */
-.top { display: grid; grid-template-columns: minmax(0, 344px) 460px minmax(0, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.top { display: grid; grid-template-columns: minmax(7rem, auto) 460px minmax(5rem, 1fr) auto; align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
 .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--soft); font-size: 0.85rem; }
 /* Each language has its own logo; it never wraps, so the bar keeps its height. */
@@ -679,12 +679,11 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .about-links { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 .about-langs { color: var(--muted); font-size: 0.9rem; }
 
-/* Middle widths: who you are takes a row of its own beneath, so brand,
-   tabs and tools keep their slots. */
-@media (max-width: 1279px) {
-  /* The brand and the tools share the first row. The tabs keep their full width on the
-     second, with room for a badge on each (ADR 0048), and who you are sits beside them,
-     taking what is left and cut with an ellipsis, so the header stays two rows tall. */
+/* The header is one row: the brand, the tabs, who you are, the tools, in that order, with who you are
+   taking what the others leave and cut with an ellipsis. Only when the brand, the tabs and the tools
+   no longer fit side by side, below 1010px, do the tabs go to a row of their own, with who you are
+   beside them. */
+@media (max-width: 1009px) {
   .top { grid-template-columns: 460px minmax(0, 1fr) auto; }
   .brand { grid-column: 1 / 3; grid-row: 1; }
   .tools { grid-column: 3; grid-row: 1; justify-self: end; }
