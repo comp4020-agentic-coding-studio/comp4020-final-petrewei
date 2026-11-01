@@ -231,8 +231,8 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .quote > * { pointer-events: auto; }
 .pair-tools, .pair-controls { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
 .replay-pair[hidden], .pair-controls[hidden], .pair[hidden] { display: none; }
-.pair-controls select { width: 4.3rem; height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
-.replay-pair { width: 7rem; height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
+.pair-controls select { width: calc(3ch + 1.8rem); height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
+.replay-pair { width: calc(7ch + 1.8rem); height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
 .chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; bottom: 6rem; max-width: calc(100% - 6rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
 .chart-box > .mode[hidden] { display: none; }
 .quote .round-ctl { align-self: center; }

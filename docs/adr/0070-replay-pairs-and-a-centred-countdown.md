@@ -1,10 +1,10 @@
-# ADR 0070: Replay Pairs and a Centred Countdown
+# ADR 0070: Numbered Replay Plots and a Centred Countdown
 
 Status: accepted, 1 November 2026. Replaces the arrows of [ADR 0069](0069-round-selection-beside-the-quote.md) for Replay, and changes the picker of [ADR 0064](0064-thirteen-plots-and-a-lobby-that-chooses.md).
 
 ## 1 Decision
 
-Replay uses one dropdown containing its available currency pairs. Choosing a pair draws one of that pair's plots on the server, at random, so a pair with several plots is not always the same one; titles and dates remain hidden until the bell. Simulation retains its separate base and quote menus.
+Replay uses one dropdown listing all thirteen plots, each labelled with its pair and an opaque number such as EUR/CHF · 01. A number selects exactly that plot, so two plots of one pair, such as USD/CNY's, can be told apart and chosen. Titles and dates stay hidden until the bell. Simulation keeps its separate base and quote menus.
 
 The start countdown is a compact card centred over the chart, displaying seconds and the existing cancel action for the starter. The order ticket stays usable during the countdown.
 
@@ -20,6 +20,10 @@ Data checks cover unchanged closes, tiny moves and preservation of real daily cl
 
 Replay plays the European Central Bank's recorded daily rates, with the other pairs worked out from them. Every day's opening and closing tick in a plot, and in the thirty days before it, is that recorded rate; a check compares them for all thirteen plots. Only the nine ticks between two closes are generated, and the page's About text says so. Making them quieter on still days, as above, means the chart no longer shows a wick the record does not support.
 
-## 5 What Was Left Out
+## 5 Display and Space
 
-The previous, refresh and next buttons of ADR 0069 and the plot's number are gone, with their strings and the server's walk through the plots. A pair with more than one plot cannot be told apart in the menu; that keeps the plots' dates hidden, which is the point of the game.
+The dropdowns are as wide as their text: three letters for a currency, seven characters for a pair. The quote shows five significant digits, for display only; the desk, the fills and the position table keep the pair's own decimals.
+
+## 6 What Was Left Out
+
+The previous, refresh and next buttons of [ADR 0069](0069-round-selection-beside-the-quote.md), the server's walk through the plots, and a choice by pair are gone. The server accepts only a plot's number.

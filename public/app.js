@@ -503,7 +503,11 @@ function pairChoices(s) {
   $("replay-pair").hidden = s.mode !== "replay";
   const closed = s.phase !== "lobby" || !fresh;
   for (const id of ["replay-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
-  if (s.replayPairs) options("replay-pair", s.replayPairs, s.pair);
+  if (s.replayPlots) {
+    const sel = $("replay-pair");
+    if (sel.options.length !== s.replayPlots.length) sel.replaceChildren(...s.replayPlots.map((p) => Object.assign(document.createElement("option"), { value: String(p.n), textContent: `${p.pair} · ${String(p.n).padStart(2, "0")}` })));
+    if (document.activeElement !== sel) sel.value = String(s.replayPlot);
+  }
   if (simulation && s.pairs) {
     const [base, quote] = s.pair.split("/");
     options("pair-base", [...new Set(s.pairs.map((p) => p.split("/")[0]))], base);
@@ -511,7 +515,7 @@ function pairChoices(s) {
   }
 }
 $("replay-pair").onchange = async () => {
-  await act("choose", { what: $("replay-pair").value });
+  await act("choose", { what: Number($("replay-pair").value) });
   if (state) pairChoices(state);
 };
 async function choosePair() {
@@ -1361,7 +1365,7 @@ function render(s) {
   const price = s.prices.at(-1);
   const first = s.prices[0];
   $("pair").textContent = s.pair;
-  $("price").textContent = price.toFixed(s.digits);
+  $("price").textContent = price.toPrecision(5);
   const ch = (price / first - 1) * 100;
   $("change").textContent = pct(ch / 100);
   $("change").className = ch >= 0 ? "up" : "down";

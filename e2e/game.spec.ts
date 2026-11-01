@@ -66,12 +66,18 @@ test("two independent players see orders, recover from offline and receive their
     const state = async () => (await (await page.request.get(`${baseURL}/api/state`)).json());
     const replayPair = page.locator(".quote #replay-pair");
     await expect(replayPair).toBeVisible();
-    for (const pair of ["EUR/CHF", "USD/CNY"]) {
+    const initial = await state();
+    expect(initial.replayPlots).toHaveLength(13);
+    await expect(replayPair.locator("option")).toHaveCount(13);
+    for (const plot of initial.replayPlots) {
       await page.waitForTimeout(300);
-      await replayPair.selectOption(pair);
-      await expect.poll(async () => (await state()).pair).toBe(pair);
-      await expect(observer.locator("#replay-pair")).toHaveValue(pair);
+      await replayPair.selectOption(String(plot.n));
+      await expect.poll(async () => (await state()).replayPlot).toBe(plot.n);
+      await expect(observer.locator("#replay-pair")).toHaveValue(String(plot.n));
     }
+    const raw = (await state()).prices.at(-1);
+    await expect(page.locator("#price")).toHaveText(raw.toPrecision(5));
+    expect((await replayPair.boundingBox())!.width).toBeLessThan(100);
     const clock = page.locator("#clock");
     expect((await clock.boundingBox())!.width).toBeLessThan(90);
     await page.locator('[data-mode="simulation"]').click();
@@ -79,6 +85,7 @@ test("two independent players see orders, recover from offline and receive their
     const base = page.locator(".quote #pair-base");
     const quote = page.locator(".quote #pair-quote");
     await expect(base).toBeVisible();
+    expect((await base.boundingBox())!.width).toBeLessThan(65);
     await expect(quote).toBeVisible();
     for (const [currency, select] of [["GBP", base], ["CHF", quote]] as const) {
       await page.waitForTimeout(300);

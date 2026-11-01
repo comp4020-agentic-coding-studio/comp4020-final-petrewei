@@ -36,8 +36,8 @@ const POP_TICKS = 8;
 const POPS_MAX = 40;
 // The broker's numbers a page is told with every state, and which never change while it runs.
 const DESK = { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) };
-// The pairs Replay's plots broke on, for its lobby's choice.
-const REPLAY_PAIRS = [...new Set(EVENTS.map((e) => e.pair))];
+// Replay's plots by number and pair, for its lobby's choice; the number is all that names one.
+const REPLAY_PLOTS = EVENTS.map((e, i) => ({ n: i + 1, pair: e.pair }));
 // The least time between one person's choices of round in the lobby.
 const CHOOSE_MS = Number(process.env.CHOOSE_MS ?? 250);
 // The chart marks a trader's fills, as many as the window can show before they crowd it.
@@ -429,7 +429,7 @@ class Market {
   private chose = new Map<string, number>();
 
   // Someone on the tab changes what the next round is, in the lobby only: Replay moves to
-  // a pair its plots broke on; Simulation takes a pair. The round behind the lobby is
+  // a plot by its number; Simulation takes a pair. The round behind the lobby is
   // drawn again at once, so everyone's chart shows the new choice.
   choose(who: string, what: unknown): string | null {
     if (this.phase !== "lobby") return "The round is already about to start.";
@@ -440,15 +440,14 @@ class Market {
       if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
       this.pick = what as string;
     } else {
-      // Replay offers the pairs its plots broke on; a pair picks one of its plots at random,
-      // and the title and date stay hidden until the bell.
-      const plots = EVENTS.filter((e) => e.pair === what);
-      if (!plots.length) return "No such currency pair.";
-      this.pick = plots[Math.floor(rnd() * plots.length)].id;
+      // A plot's number names its exact replay; its title and date stay hidden until the bell.
+      const plot = typeof what === "number" ? EVENTS[what - 1] : undefined;
+      if (!plot) return "No such plot.";
+      this.pick = plot.id;
     }
     log(who, "choose", { mode: this.mode });
-    // choosing the pair already on show changes nothing, so the room is not sent it all again
-    if (this.round.pair === what) return null;
+    // Choosing the same plot (or Simulation pair) changes nothing.
+    if (this.mode === "simulation" ? this.round.pair === this.pick : this.round.event?.id === this.pick) return null;
     this.ready();
     this.broadcast(true);
     return null;
@@ -856,7 +855,8 @@ class Market {
       // plot is, and when, stays secret until the bell. Simulation has none.
       // Every pair a Simulation may start from, for its lobby's choice.
       pairs: this.mode === "simulation" ? PAIRS : null,
-      replayPairs: this.mode === "replay" ? REPLAY_PAIRS : null,
+      replayPlots: this.mode === "replay" ? REPLAY_PLOTS : null,
+      replayPlot: this.mode === "replay" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
       digits: this.digits(),
       simulated: round.simulated,
       tick,
