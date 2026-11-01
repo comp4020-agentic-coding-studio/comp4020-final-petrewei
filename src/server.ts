@@ -641,6 +641,8 @@ class Market {
   }
 
   end(): void {
+    // The bell ends a pause as well as trading; Resume only belongs to a live round.
+    this.paused = 0;
     const desk = this.desk;
     // Dad finds out about every "loan" by the bell, whether the round lasted
     // long enough or not (ADR 0057), and the score counts it.

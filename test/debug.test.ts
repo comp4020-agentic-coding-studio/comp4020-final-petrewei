@@ -121,3 +121,24 @@ it("puts the debugger in a margin call or a losscut, to see the warnings", async
     tab.close();
   }
 });
+
+// The bell ends a pause as well as trading, from whichever way a round ends: the console's End is one,
+// the starter's Finish another (checked in rounds.test.ts). A pause left standing would show Resume in the bell.
+it("ends a paused round with no pause left standing", async () => {
+  s = await server(8098, { STATS_KEY: KEY, TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, state } = app();
+  const me = await visitor();
+  const tab = await page(me);
+  try {
+    const cookie = await debugCookie(me);
+    expect((await debug(cookie, { kind: "start", mode: "replay" })).status).toBe(200);
+    expect((await act(me, { kind: "pause", mode: "replay" })).status).toBe(200);
+    expect(((await state(me)) as unknown as { paused: number | null }).paused, "it is paused").toBeGreaterThan(0);
+    expect((await debug(cookie, { kind: "end", mode: "replay" })).status).toBe(200);
+    const bell = (await state(me)) as unknown as { phase: string; paused: number | null };
+    expect(bell.phase).toBe("break");
+    expect(bell.paused, "the bell must not remain paused").toBeNull();
+  } finally {
+    tab.close();
+  }
+});

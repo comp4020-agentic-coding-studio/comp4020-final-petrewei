@@ -467,3 +467,27 @@ it("keeps a choice to one round, throttles it, and does nothing for what is alre
   }
 }, 120_000);
 
+it.each(["replay", "simulation"] as const)("clears a paused %s round when its starter finishes it", async (mode) => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, look, until } = app();
+  const me = await visitor();
+  const tab = await page(me, mode);
+  try {
+    await act(me, { kind: "start", mode });
+    await until(me, (x) => x.phase === "trade", 10_000, mode);
+    expect((await act(me, { kind: "pause", mode })).status).toBe(200);
+    expect((await look(me, mode) as Seen & { paused: number | null }).paused).toBeGreaterThan(0);
+    expect((await act(me, { kind: "resume", mode })).status).toBe(200);
+    const resumed = await look(me, mode);
+    expect((resumed as Seen & { paused: number | null }).paused).toBeNull();
+    expect(resumed.phase).toBe("trade");
+    expect((await act(me, { kind: "pause", mode })).status).toBe(200);
+    expect((await act(me, { kind: "finish", mode })).status).toBe(200);
+    const ended = await look(me, mode);
+    expect(ended.phase).toBe("break");
+    expect((ended as Seen & { paused: number | null }).paused, "the bell must not remain paused").toBeNull();
+    expect(ended.result).not.toBeNull();
+  } finally {
+    tab.close();
+  }
+});

@@ -179,6 +179,17 @@ test("two independent players see orders, recover from offline and receive their
     const account = (await (await page.request.get(`${baseURL}/api/state`)).json()).you;
     expect(account.pos.leverage).toBe(1);
     expect(account.pos.margin).toBe(1_000_000);
+    // Pause holds the shared chart; Resume works for another visitor too.
+    await page.locator("#pause").click();
+    await expect(page.locator("#paused")).toBeVisible();
+    await expect(observer.locator("#paused")).toBeVisible();
+    await expect(page.locator("#buy")).toBeDisabled();
+    await observer.locator("#resume").click();
+    await expect(page.locator("#paused")).toBeHidden();
+    await expect(page.locator("#close")).toBeEnabled();
+    // Finishing while paused must remove the pause popup for both visitors.
+    await page.locator("#pause").click();
+    await expect(page.locator("#paused")).toBeVisible();
     await expect(page.locator("#finish")).toBeVisible();
     page.once("dialog", (dialog) => dialog.accept());
     await page.locator("#finish").click();
@@ -188,6 +199,8 @@ test("two independent players see orders, recover from offline and receive their
     await expect(page.locator("#debrief-lines")).toBeVisible();
     await expect(page.locator("#debrief-lines")).toContainText(T[lang].ui.financingPaid);
     await expect(observer.locator("#bell")).toBeVisible();
+    await expect(page.locator("#paused")).toBeHidden();
+    await expect(observer.locator("#paused")).toBeHidden();
     await expect(observer.locator("#debrief")).not.toBeVisible();
     const bell = (await (await page.request.get(`${baseURL}/api/state`)).json()).result;
     const mine = bell.ranking.find((r: { you: boolean }) => r.you);
