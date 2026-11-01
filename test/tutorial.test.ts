@@ -287,7 +287,7 @@ describe("which step a lesson points at", () => {
   it("sets a slider until it reads the value, and then passes it", async () => {
     expect(await now("buy", { choice: { leverage: 30, stake: 1 }, looked: 0 })).toBe("leverage");
     expect(await now("buy", { choice: { leverage: 1, stake: 1 }, looked: 0 })).toBe("buy");
-    expect(await now("leverage", { choice: { leverage: 5, stake: 0.5 }, looked: 0 })).toBe("leverage");
+    expect(await now("leverage", { choice: { leverage: 3, stake: 0.5 }, looked: 0 })).toBe("leverage");
     expect(await now("leverage", { choice: { leverage: 30, stake: 0.5 }, looked: 0 })).toBe("stake");
     expect(await now("leverage", { choice: { leverage: 30, stake: 1 }, looked: 0 })).toBe("buy");
   });
@@ -370,7 +370,7 @@ describe("the last three lessons", () => {
   };
   it("refuses any leverage but the highest", () => {
     const t = at("highest");
-    expect(t.act({ kind: "order", side: 1, leverage: 500, stake: 1 })).toMatch(/1000/);
+    expect(t.act({ kind: "order", side: 1, leverage: 300, stake: 1 })).toMatch(/1000/);
     expect(t.desk.account("me").pos).toBeFalsy();
   });
   it("calls the margin and cuts the player out on tiny moves", () => {
@@ -398,7 +398,7 @@ describe("the last three lessons", () => {
   });
   it("buys again on the same setting, gaps through everything, and Dad finds out", () => {
     const t = at("gap");
-    expect(t.act({ kind: "order", side: 1, leverage: 500, stake: 1 }), "the setting is the same").toMatch(/1000/);
+    expect(t.act({ kind: "order", side: 1, leverage: 300, stake: 1 }), "the setting is the same").toMatch(/1000/);
     expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toBeNull();
     const kinds: string[] = [];
     while (t.moving()) kinds.push(...t.step().map((e) => e.kind));
@@ -411,4 +411,17 @@ describe("the last three lessons", () => {
     expect(t.act({ kind: "next" })).toBeNull();
     expect(t.finished()).toBe(true);
   });
+});
+
+it("holds the private price animation while paused and resumes its queue", () => {
+  const t = new Tutorial();
+  t.skip();
+  t.act({ kind: "order", side: 1, leverage: 1 });
+  const before = [...t.prices];
+  t.paused = true;
+  t.step();
+  expect(t.prices).toEqual(before);
+  t.paused = false;
+  t.step();
+  expect(t.prices.length).toBeGreaterThan(before.length);
 });

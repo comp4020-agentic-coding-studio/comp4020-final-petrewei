@@ -101,7 +101,7 @@ describe("the trading desk", () => {
     expect(desk.account("a").pos).toBeNull();
     expect(desk.account("a").balance).toBeGreaterThan(0);
     expect(desk.account("a").out).toBe(true);
-    expect(desk.order("a", 1, 5)).toBe("You are out of the market until next round.");
+    expect(desk.order("a", 1, 3)).toBe("You are out of the market until next round.");
   });
 
   it("lets a stopped-out player back in only on Dad's money, and a second cut on it ends the round", () => {
@@ -153,12 +153,12 @@ describe("the trading desk", () => {
   it("fills a stop at the price that reached it, not at the stop's level", () => {
     const desk = new Desk(1.2);
     desk.join("a");
-    desk.order("a", 1, 5);
+    desk.order("a", 1, 3);
     desk.stop("a", 1.19);
     const events = desk.mark(1.03);
     expect(events.map((e) => e.kind)).toEqual(["stop"]);
     expect(events[0].price).toBe(1.03);
-    expect(desk.account("a").balance).toBeCloseTo(START + START * 5 * (1.03 * (1 - half) / (1.2 * (1 + half)) - 1), 0);
+    expect(desk.account("a").balance).toBeCloseTo(START + START * 3 * (1.03 * (1 - half) / (1.2 * (1 + half)) - 1), 0);
   });
 
   it("counts a stop that gaps past everything as a wipe-out, not a stop", () => {
@@ -192,7 +192,7 @@ describe("the trading desk", () => {
   it("triggers a short's stop when the price rises to it", () => {
     const desk = new Desk(100);
     desk.join("a");
-    desk.order("a", -1, 5);
+    desk.order("a", -1, 3);
     desk.stop("a", 101);
     expect(desk.mark(100.5)).toEqual([]);
     expect(desk.mark(101.2).map((e) => e.kind)).toEqual(["stop"]);
@@ -202,7 +202,7 @@ describe("the trading desk", () => {
     const desk = new Desk(100);
     desk.join("a");
     expect(desk.close("a")).toBe("Nothing to close.");
-    desk.order("a", -1, 5);
+    desk.order("a", -1, 3);
     expect(desk.close("a")).toMatchObject([{ kind: "close" }]);
     expect(desk.account("a").pos).toBeNull();
   });
@@ -219,7 +219,7 @@ describe("the trading desk", () => {
   it("sets a stop a percentage away on the losing side, from its own price", () => {
     const desk = new Desk(100);
     desk.join("a");
-    desk.order("a", -1, 5);
+    desk.order("a", -1, 3);
     expect(desk.stopAway("a", 2)).toBeNull();
     expect(desk.account("a").pos?.stop).toBeCloseTo(102);
     expect(desk.stopAway("a", 80)).toBe("A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.");
@@ -231,7 +231,7 @@ describe("the trading desk", () => {
     const desk = new Desk(100);
     desk.join("a");
     expect(desk.stop("a", 99)).toBe("Open a position first.");
-    desk.order("a", 1, 5);
+    desk.order("a", 1, 3);
     expect(desk.stop("a", 101)).toBe("A long's Stop Loss must be below the price.");
   });
 
@@ -239,15 +239,15 @@ describe("the trading desk", () => {
     const desk = new Desk(100);
     desk.join("a");
     expect(desk.order("a", 1, 7)).toBe("No such leverage.");
-    desk.order("a", 1, 5);
-    expect(desk.order("a", 1, 5)).toBe("No free margin left.");
+    desk.order("a", 1, 3);
+    expect(desk.order("a", 1, 3)).toBe("No free margin left.");
   });
 
   it("knows who traded this round and who only watched", () => {
     const desk = new Desk(100);
     desk.join("a");
     desk.join("b");
-    desk.order("a", 1, 5);
+    desk.order("a", 1, 3);
     expect(desk.account("a").traded).toBe(true);
     expect(desk.account("b").traded).toBe(false);
   });
@@ -401,14 +401,15 @@ describe("rebase, for the debug console", () => {
 describe("the leverage ladder", () => {
   it("offers the ladder, both legal caps, and nothing between", async () => {
     const { LEVERAGES } = await import("../src/fx.ts");
-    expect(LEVERAGES).toEqual([1, 2, 5, 10, 30, 100, 200, 500, 1000]);
+    expect(LEVERAGES).toEqual([1, 3, 10, 30, 100, 300, 1000]);
     const desk = new Desk(100);
     for (const lev of LEVERAGES) {
       desk.join(`p${lev}`);
       expect(desk.order(`p${lev}`, 1, lev, 0.75), String(lev)).toEqual([expect.objectContaining({ kind: "open", leverage: lev })]);
     }
     desk.join("x");
-    for (const lev of [3, 25, 50, 400, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
+    // including the rungs of the ladder before this one: the desk takes the page's ladder and no other
+    for (const lev of [2, 4, 5, 25, 50, 200, 400, 500, 999, 1001, 0]) expect(desk.order("x", 1, lev), String(lev)).toBe("No such leverage.");
   });
 });
 
@@ -553,11 +554,11 @@ describe("the financing fee", () => {
     const { Desk, feeRate } = await import("../src/fx.ts");
     const desk = new Desk(100);
     desk.join("a");
-    desk.order("a", 1, 500);
+    desk.order("a", 1, 300);
     const before = desk.pnl("a");
     for (let i = 0; i < 10; i++) desk.mark(100);
     const margin = desk.account("a").pos!.margin;
-    expect(before - desk.pnl("a")).toBeCloseTo(10 * margin * feeRate(500), 4);
+    expect(before - desk.pnl("a")).toBeCloseTo(10 * margin * feeRate(300), 4);
   });
   it("leaves the margin lines where the desk acts on them", async () => {
     const { Desk } = await import("../src/fx.ts");

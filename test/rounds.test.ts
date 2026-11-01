@@ -49,10 +49,10 @@ it("takes orders during the countdown, at the opening price", async () => {
   const tab = await page(me);
   try {
     await act(me, { kind: "start", mode: "replay" });
-    expect((await act(me, { kind: "buy", leverage: 5, mode: "replay" })).status).toBe(200);
+    expect((await act(me, { kind: "buy", leverage: 3, mode: "replay" })).status).toBe(200);
     const x = await look(me);
     expect(x.phase).toBe("countdown");
-    expect(x.you.pos).toMatchObject({ side: 1, leverage: 5 });
+    expect(x.you.pos).toMatchObject({ side: 1, leverage: 3 });
     // and may close it again before trading opens
     expect((await act(me, { kind: "close", mode: "replay" })).status).toBe(200);
   } finally {
@@ -68,7 +68,7 @@ it("lets only the starter cancel the countdown, back to the lobby, with no recor
   const tabs = [await page(me), await page(other)];
   try {
     await act(me, { kind: "start", mode: "replay" });
-    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
+    await act(other, { kind: "buy", leverage: 3, mode: "replay" });
     const refused = await act(other, { kind: "cancel", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/Only .* who pressed Start/);
@@ -94,7 +94,7 @@ it("lets the starter end the round early for everyone, ringing the bell", async 
   try {
     await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(other, { kind: "buy", leverage: 5, mode: "replay" });
+    await act(other, { kind: "buy", leverage: 3, mode: "replay" });
     const refused = await act(other, { kind: "finish", mode: "replay" });
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toMatch(/Only .* who pressed Start/);
@@ -238,12 +238,12 @@ it("no longer lets anyone leave a round, and an old page that asks is refused", 
   try {
     await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "buy", leverage: 5, stake: 0.5, mode: "replay" });
+    await act(me, { kind: "buy", leverage: 3, stake: 0.5, mode: "replay" });
     const res = await attempt({ kind: "leave", mode: "replay" }, me);
     expect(res.status).toBe(400);
     const x = await look(me);
     expect(x.you.pos, "the position is untouched").not.toBeNull();
-    expect((await act(me, { kind: "buy", leverage: 5, stake: 0.5, mode: "replay" })).status, "and orders are still taken").toBe(200);
+    expect((await act(me, { kind: "buy", leverage: 3, stake: 0.5, mode: "replay" })).status, "and orders are still taken").toBe(200);
     expect(JSON.stringify(x)).not.toMatch(/"left"/);
   } finally {
     tab.close();
@@ -367,8 +367,8 @@ it("marks each trader's open and close for the chart, by face and short code, ne
     type Marked = Seen & { marks: Mark[]; tick: number; you: { code: string } };
     await act(me, { kind: "start", mode: "replay" });
     await until(me, (x) => x.phase === "trade");
-    expect((await act(me, { kind: "buy", leverage: 5, stake: 0.5, sl: 5, tp: 10, mode: "replay" })).status).toBe(200);
-    expect((await act(other, { kind: "sell", leverage: 5, mode: "replay" })).status).toBe(200);
+    expect((await act(me, { kind: "buy", leverage: 3, stake: 0.5, sl: 5, tp: 10, mode: "replay" })).status).toBe(200);
+    expect((await act(other, { kind: "sell", leverage: 3, mode: "replay" })).status).toBe(200);
     await new Promise((r) => setTimeout(r, 200));
     expect((await act(me, { kind: "close", mode: "replay" })).status).toBe(200);
     const mine = (await look(me)) as Marked;

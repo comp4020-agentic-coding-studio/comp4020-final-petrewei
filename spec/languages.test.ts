@@ -53,6 +53,21 @@ it("serves a player's About page in each language, and keeps the course README",
   expect((await get("/readme/")).res.status).toBe(200);
 });
 
+// The About page carries the market's header tools and its footer, and none of what only the
+// market can do: its header is cut out of the market page, so a change there must not lose a
+// tool or let the tabs and the name button in.
+it("gives every About page the header tools and footer, but no tabs or name button", async () => {
+  for (const path of ["/about", "/ja/about", "/zh/about"]) {
+    const { doc } = await get(path);
+    for (const id of ["lang", "theme", "music", "bgm"]) expect(doc!.getElementById(id), `${path} #${id}`).not.toBeNull();
+    expect(doc!.querySelector("header.top"), path).not.toBeNull();
+    expect(doc!.querySelector("footer")?.textContent?.trim().length, `${path} footer`).toBeGreaterThan(10);
+    expect(doc!.querySelector("[role=tab]"), `${path} has no market tabs`).toBeNull();
+    expect(doc!.getElementById("whoami"), `${path} has no name button`).toBeNull();
+    expect(doc!.querySelector('script[src="/about-controls.js"]'), `${path} loads its controls`).not.toBeNull();
+  }
+});
+
 it("links each page to the same page in the other languages", async () => {
   const { doc } = await get("/ja/about");
   const hrefs = [...doc!.querySelectorAll('link[rel="alternate"]')].map((l) => `${l.getAttribute("hreflang")} ${l.getAttribute("href")}`);

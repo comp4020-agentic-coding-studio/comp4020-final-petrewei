@@ -58,7 +58,7 @@ it.skipIf(live)("keeps a trade on one tab off every other tab, in both direction
       const seenHere = onSame.next(shows, 1000);
       const seenElsewhere = onOther.next(shows, 1500);
       const seenInTutorial = onTutorial.next(shows, 1500);
-      expect((await act(trader, { kind: "buy", leverage: 5, stake: 0.25, mode: from })).status, from).toBe(200);
+      expect((await act(trader, { kind: "buy", leverage: 3, stake: 0.25, mode: from })).status, from).toBe(200);
       expect(await seenHere, `${from} page sees the trade`).not.toBeNull();
       expect(await seenElsewhere, `${other} page must not see a ${from} trade`).toBeNull();
       expect(await seenInTutorial, `a tutorial page must not see a ${from} trade`).toBeNull();

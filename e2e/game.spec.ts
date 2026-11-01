@@ -22,12 +22,23 @@ test("a newcomer learns to buy with the keyboard and can reach Close on a phone"
   page.on("pageerror", (error) => errors.push(error.message));
   await join(page, lang, true);
   await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, "welcome"));
+  await expect(page.locator("#step-hint")).not.toBeVisible();
+  await expect(page.locator(".lesson-head button")).toHaveCount(4);
+  await page.locator("#restart").click();
+  await expect(page.locator("#step-hint")).toContainText(/9s|9秒/);
+  const hint = page.locator("#step-hint");
+  const before = await hint.boundingBox();
+  await page.locator("#lesson-pause").click();
+  await expect(hint).toContainText(/\d+s|\d+秒/);
+  const after = await hint.boundingBox();
+  expect(after!.width).toBe(before!.width);
+  await page.locator("#lesson-pause").click();
   await page.locator("#lesson-skip").click();
   await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, "buy"));
   const leverage = page.getByRole("slider", { name: T[lang].ui.leverage, exact: true });
   await leverage.press("Home");
   await leverage.press("ArrowRight");
-  await expect(page.locator("#lev-out")).toHaveText("2×");
+  await expect(page.locator("#lev-out")).toHaveText("3×");
   await leverage.press("ArrowLeft");
   await expect(page.locator("#lev-out")).toHaveText("1×");
   await page.locator("#buy").click();
@@ -49,6 +60,12 @@ test("a newcomer learns to buy with the keyboard and can reach Close on a phone"
   await expect(page.locator("#pos-row")).not.toBeVisible();
   await expect(page.locator("#position-bar")).not.toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
+  await page.goto(baseURL + (lang === "en" ? "" : "/" + lang) + "/about");
+  await expect(page.locator("header.top")).toBeVisible();
+  await expect(page.locator("footer")).toBeVisible();
+  const themeBefore = await page.locator("html").getAttribute("data-theme");
+  await page.locator("#theme").click();
+  expect(await page.locator("html").getAttribute("data-theme")).not.toBe(themeBefore);
   expect(errors).toEqual([]);
 });
 

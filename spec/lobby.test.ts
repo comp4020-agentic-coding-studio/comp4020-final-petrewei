@@ -15,7 +15,7 @@ it("refuses a Start from someone without the tab open", async () => {
 it("refuses a trade while the market waits in the lobby", async () => {
   const s = await state(undefined, "replay");
   if (s.phase !== "lobby") return;
-  const res = await attempt({ kind: "buy", leverage: 5, mode: "replay" }, await visitor());
+  const res = await attempt({ kind: "buy", leverage: 3, mode: "replay" }, await visitor());
   expect(res.status).toBe(409);
   expect((await res.json()).error).toMatch(/Press Start/);
 });

@@ -55,6 +55,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      tutorialStart: "Begin the tutorial when you are ready.",
       "pairPick": "Choose a pair for this replay.",
       "baseCurrency": "The currency you are pricing.",
       "quoteCurrency": "The currency you price it in.",
@@ -142,6 +143,9 @@ export const T = {
       "exits": "Stop Loss: closes the trade if the price goes this far against you. Take Profit: banks the win if it goes this far your way. Each is a distance from the price: 1, 2, 5, 10, 20 or 50%. Switch it on, or drag its thumb.",
     },
     ui: {
+      tutorialStart: "Start tutorial",
+      carryRate: "Margin interest: {pct}/min",
+      stakeNotes: ["Quarter stake", "Half stake", "Large stake", "Full stake"],
       pairLabel: "Currency pair",
       baseCurrency: "Base currency",
       quoteCurrency: "Quote currency",
@@ -311,7 +315,7 @@ export const T = {
       doneText: "Well done. Choose Replay or Simulation above to trade against other people, or start the tutorial again.",
       doneTask: "Pick a tab above.",
       footer: "Prices: the ECB's euro reference rates, with other pairs worked out from them, and Frankfurter for today's rate. Simulation prices are generated at random. This is an unofficial fan parody of FX Fighter Kurumi-chan, with no link to its creators, KADOKAWA, the studio or any broker. It uses play money only. In real markets, most people who trade FX with leverage lose money. If gambling or debt is hurting you, in Australia call Gambling Help on 1800 858 858.",
-      notes: { 1: "Index-fund energy", 2: "Reads the terms and conditions", 5: "Sleeps fine", 10: "Checks the chart at dinner", 30: "Australia's legal cap", 100: "Offshore broker, no questions", 200: "Chart-sama, please", 500: "Dad must never know", 1000: "It's okay, I've got leverage~♪" },
+      notes: { 1: "No borrowing", 3: "Low leverage", 10: "Moderate leverage", 30: "Australia cap", 100: "High leverage", 300: "Very high", 1000: "Maximum leverage" },
       previewOpen1: "Puts in {margin} → controls {controls}",
       previewOpen2: "A {away} move against you loses it all",
       previewAdd1: "{same} adds {margin} at {lev}×",
@@ -443,6 +447,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      tutorialStart: "準備ができたら開始します。",
       "pairPick": "リプレイの通貨ペアを選びます。",
       "baseCurrency": "値段を知りたい通貨。",
       "quoteCurrency": "値段を表す側の通貨。",
@@ -530,6 +535,9 @@ export const T = {
       "exits": "損切りは、この幅だけ逆行したら決済、利確は、この幅だけ順行したら利益確定です。どちらも現在値からの幅で、1・2・5・10・20・50%から選びます。オンにするか、つまみを動かして決めます。",
     },
     ui: {
+      tutorialStart: "チュートリアル開始",
+      carryRate: "証拠金金利：{pct}/分",
+      stakeNotes: ["4分の1", "半分", "4分の3", "全額"],
       pairLabel: "通貨ペア",
       baseCurrency: "基軸通貨",
       quoteCurrency: "決済通貨",
@@ -699,7 +707,7 @@ export const T = {
       doneText: "おつかれさまでした。上のリプレイかシナリオを選んでほかの人とトレードするか、もう一度チュートリアルを。",
       doneTask: "上のタブを選んでください。",
       footer: "レートは欧州中央銀行（ECB）のユーロ参照レートと、そこから計算したクロスレート、今日のレートはFrankfurterによるものです。シナリオの値動きはシミュレーションです。本作は『FX戦士くるみちゃん』の非公式ファンパロディで、原作者、KADOKAWA、制作会社、FX業者とは関係ありません。お金はすべて仮想です。現実のFXでは、レバレッジをかけた個人トレーダーの多くが損をしています。ギャンブルや借金で悩んだら、ひとりで抱え込まずに相談を。オーストラリアではGambling Help（1800 858 858）が窓口です。",
-      notes: { 1: "積立投資のノリ", 2: "約款をちゃんと読む", 5: "夜は眠れる", 10: "夕食中もチャートを見る", 30: "オーストラリアの上限", 100: "海外業者、質問なし", 200: "チャート様、お願い", 500: "パパには内緒", 1000: "レバレッジあるから大丈夫ぅ♪" },
+      notes: { 1: "借入なし", 3: "低レバレッジ", 10: "中レバレッジ", 30: "オーストラリア上限", 100: "高レバレッジ", 300: "超高レバレッジ", 1000: "最大レバレッジ" },
       previewOpen1: "{margin}で{controls}分を動かす",
       previewOpen2: "{away}逆行すれば全額消える",
       previewAdd1: "{same}で{margin}を{lev}倍で買い増し",
@@ -830,6 +838,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      tutorialStart: "准备好后开始教程。",
       "pairPick": "选择回放的货币对。",
       "baseCurrency": "你想知道价格的货币。",
       "quoteCurrency": "用来表示价格的货币。",
@@ -917,6 +926,9 @@ export const T = {
       "exits": "止损：反向走到这个幅度就平仓；止盈：顺向走到这个幅度就锁定盈利。两者都是离现价的幅度（1、2、5、10、20或50%），打开开关或拖动滑块即可设置。",
     },
     ui: {
+      tutorialStart: "开始教程",
+      carryRate: "保证金利息：{pct}/分钟",
+      stakeNotes: ["四分之一", "一半", "四分之三", "全部"],
       pairLabel: "货币对",
       baseCurrency: "基础货币",
       quoteCurrency: "报价货币",
@@ -1087,7 +1099,7 @@ export const T = {
       doneText: "干得好。选择上方的回放或模拟与其他人交易，或者重新开始教程。",
       doneTask: "选择上方的标签页。",
       footer: "汇率数据：欧洲央行（ECB）欧元参考汇率，交叉汇率由此换算；今日汇率来自 Frankfurter。模拟模式的走势为随机生成的模拟。本站是《FX战士久留美》的非官方同人恶搞，与原作者、KADOKAWA、动画制作公司及任何外汇平台无关，全程只用虚拟币。现实中，用杠杆炒外汇的散户大多亏钱。如果赌博或债务正在困扰你，请及时向身边的人或专业机构求助；在澳大利亚可拨打 Gambling Help 热线 1800 858 858。",
-      notes: { 1: "定投的心态", 2: "认真看合同条款", 5: "睡得着觉", 10: "吃饭时也看盘", 30: "澳洲上限", 100: "海外平台，不问来历", 200: "图图大人，求你了", 500: "别让老爹知道", 1000: "有杠杆就没问题♪" },
+      notes: { 1: "无借款", 3: "低杠杆", 10: "中等杠杆", 30: "澳洲上限", 100: "高杠杆", 300: "极高杠杆", 1000: "最高杠杆" },
       previewOpen1: "投入{margin}，撬动{controls}",
       previewOpen2: "反向波动{away}就全部亏光",
       previewAdd1: "{same}：以{lev}倍加仓{margin}",

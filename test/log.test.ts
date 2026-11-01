@@ -36,10 +36,10 @@ it("tells two traders apart by short code and name, never by cookie", async () =
   const b = await visitor();
   await open(30);
   await act(a, { kind: "buy", leverage: 30 });
-  await act(b, { kind: "sell", leverage: 5 });
+  await act(b, { kind: "sell", leverage: 3 });
   const trades = (await log()).recent.filter((l) => l.ev === "open" && l.side);
   const buy = trades.find((l) => l.side === "buy" && l.leverage === 30)!;
-  const sell = trades.find((l) => l.side === "sell" && l.leverage === 5)!;
+  const sell = trades.find((l) => l.side === "sell" && l.leverage === 3)!;
   expect(buy.who).toMatch(/^[0-9a-f]{6}$/);
   expect(sell.who).toMatch(/^[0-9a-f]{6}$/);
   expect(buy.who).not.toBe(sell.who);
@@ -91,7 +91,7 @@ it("ranks the room at the bell, logs the round to stdout, and waits in the lobby
   const watching = await page(watcher);
   try {
     await open(30);
-    await act(trader, { kind: "buy", leverage: 5 });
+    await act(trader, { kind: "buy", leverage: 3 });
     let bell = await state(watcher);
     for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(watcher);
     expect(bell.phase).toBe("break");
@@ -155,7 +155,7 @@ it("keeps the house traders out of the hall of fame", async () => {
   expect(await names()).toEqual(["Hikari"]);
   const a = await visitor();
   await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "buy", leverage: 3 });
   let bell = await state(a);
   for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
   expect(bell.phase).toBe("break");
@@ -171,11 +171,11 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
   const { visitor, act, open } = app();
   const a = await visitor();
   await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "buy", leverage: 3 });
   await act(a, { kind: "sell", leverage: 7 });
   await new Promise((r) => setTimeout(r, 200));
   const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
-  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=replay .*side=buy leverage=5/);
+  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=replay .*side=buy leverage=3/);
   const id = opened!.slice(1, 7);
   expect(s.out).toContainEqual(expect.stringMatching(new RegExp(`^\\[${id}\\] POST /api/act 200 \\d+ms who=[0-9a-f]{6}$`)));
   expect(s.out).toContainEqual(expect.stringMatching(/^\[[0-9a-f]{6}\] refused .*why="No such leverage\."/));
@@ -221,7 +221,7 @@ it("keeps a visitor's name, code, chosen face and career through a hard kill", a
   const chose = await fetch(`${s.base}/api/face`, { method: "POST", headers: { "content-type": "application/json", cookie: a }, body: JSON.stringify({ face }) });
   expect(chose.status).toBe(200);
   await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "buy", leverage: 3 });
   let seen = await state(a);
   for (const until = Date.now() + 15_000; seen.phase !== "break" && seen.phase !== "lobby" && Date.now() < until; ) seen = await state(a);
   const before = seen as unknown as Me;
@@ -254,7 +254,7 @@ it("scores the bell, and ranks the hall by average score over enough rounds", as
   expect(hall.findIndex((c) => c.name === "Old Hand")).toBeLessThan(hall.findIndex((c) => c.name === "One Hit"));
   const a = await visitor();
   await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "buy", leverage: 3 });
   let bell = await state(a);
   for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
   const ranking = (bell as unknown as { result: { ranking: { score: number; sat: boolean }[] } }).result.ranking.filter((r) => !r.sat);

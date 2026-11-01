@@ -804,3 +804,13 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .lobby.counting .lobby-title { font: 800 3rem var(--mono); }
 .lobby.counting p { white-space: normal; }
 .lobby.counting .lobby-go { display: none; }
+
+/* Translucent chart overlays retain readable foreground text. */
+.paused { background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.lobby.counting { background: color-mix(in srgb, var(--panel) 65%, transparent); }
+.step-hint { font-variant-numeric: tabular-nums; }
+#lev-ticks span, #stake-ticks span { pointer-events: auto; cursor: help; }
+#fee-note { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
+
+.slide .label #fee-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.slide .label output { flex: none; }

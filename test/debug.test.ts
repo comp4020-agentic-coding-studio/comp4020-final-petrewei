@@ -63,7 +63,7 @@ it("resets the hall of fame, and logs who did it", async () => {
   const { visitor, act, open, state } = app();
   const a = await visitor();
   await open(30);
-  await act(a, { kind: "buy", leverage: 5 });
+  await act(a, { kind: "buy", leverage: 3 });
   let bell = await state(a);
   for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(a);
   expect(bell.career.length).toBeGreaterThan(0);

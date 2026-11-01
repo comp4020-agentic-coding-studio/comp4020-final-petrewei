@@ -11,7 +11,7 @@
 export const START = 1_000_000;
 // A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
 // Australia's 30× for major pairs is on it, offshore 1000× tops it.
-export const LEVERAGES = [1, 2, 5, 10, 30, 100, 200, 500, 1000];
+export const LEVERAGES = [1, 3, 10, 30, 100, 300, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
@@ -29,7 +29,7 @@ export const RECALL = 10;
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
 // the fee eats the account: over a round of 360 ticks, 0.03% of the margin at
-// 30×, 0.4% at 100×, 9% at 500× and 36% at 1000×.
+// 30×, 0.4% at 100×, 3.2% at 300× and 36% at 1000×.
 export const FEE = 1e-9;
 export const feeRate = (leverage: number): number => FEE * leverage * leverage;
 // Australia's legal cap for retail traders on major pairs, which is a rung of the ladder.

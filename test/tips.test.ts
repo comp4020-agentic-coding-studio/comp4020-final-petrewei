@@ -407,13 +407,13 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
 // the page's source.
 const lessonHtml = readFileSync("public/index.html", "utf8");
 const lessonApp = readFileSync("public/app.js", "utf8");
-it("puts the lesson in the chart's box, with five symbol buttons in its head, and its words in every language", () => {
+it("puts the lesson in the chart's box, with four symbol buttons in its head, and its words in every language", () => {
   const doc = new JSDOM(lessonHtml).window.document;
   const card = doc.getElementById("lesson")!;
   expect(card.closest(".chart-box"), "the lesson is in the chart box").not.toBeNull();
   for (const id of ["lesson-n", "lesson-title", "lesson-text", "lesson-task"]) expect(card.querySelector("#" + id), id).not.toBeNull();
   // symbols, not words: no visible letters, with a spoken label and a tip instead
-  expect([...card.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["lesson-back", "lesson-skip", "lesson-pause", "restart", "lesson-end"]);
+  expect([...card.querySelectorAll(".lesson-head button")].map((b) => b.id)).toEqual(["restart", "lesson-back", "lesson-pause", "lesson-skip"]);
   for (const b of card.querySelectorAll(".lesson-head button")) expect(b.textContent, b.id).toMatch(/^[^A-Za-z]{1,3}$/);
   for (const lang of LANGS) {
     expect(T[lang].ui.autoIn, lang).toMatch(/^\{s\}\S{0,2}$/);

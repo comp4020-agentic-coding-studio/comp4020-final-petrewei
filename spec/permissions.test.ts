@@ -56,7 +56,7 @@ it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone el
   const a = await visitor();
   const b = await visitor();
   await open();
-  await act(a, { kind: "sell", leverage: 5, stake: 0.5 });
+  await act(a, { kind: "sell", leverage: 3, stake: 0.5 });
   // the page asks for each a percentage away; the server sets the level
   expect((await act(a, { kind: "stop", pct: 5 })).status).toBe(200);
   expect((await act(a, { kind: "take", pct: 2 })).status).toBe(200);

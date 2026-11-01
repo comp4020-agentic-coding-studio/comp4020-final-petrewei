@@ -111,11 +111,10 @@
           <div class="lesson-body">
             <div class="lesson-head">
               <p class="lesson-n" id="lesson-n"></p>
-              <button id="lesson-back" class="icon" type="button" data-t-aria="backLesson" data-tip="backLesson" data-tip-side="below">⏪&#xFE0E;</button>
-              <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson" data-tip-side="below">⏩&#xFE0E;</button>
-              <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause" data-tip-side="below">⏸&#xFE0E;</button>
-              <button id="restart" class="icon" type="button" data-t-aria="restart" data-tip="restart" data-tip-side="below">↻&#xFE0E;</button>
-              <button id="lesson-end" class="icon" type="button" data-t-aria="resetTutorial" data-tip="resetTutorial" data-tip-side="below">⏹&#xFE0E;</button>
+              <button id="restart" class="icon" type="button" data-t-aria="tutorialStart" data-tip="tutorialStart">▶</button>
+              <button id="lesson-back" class="icon" type="button" data-t-aria="backLesson" data-tip="backLesson">⏪</button>
+              <button id="lesson-pause" class="icon" type="button" aria-pressed="false" data-tip="hintsPause">⏸</button>
+              <button id="lesson-skip" class="icon" type="button" data-t-aria="skipLesson" data-tip="skipLesson">⏩</button>
             </div>
             <p id="lesson-text"></p>
           </div>
@@ -229,10 +228,10 @@
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
            legal caps marked; stake on an even one (ADR 0024). -->
       <div class="field slide" id="leverage-box">
-        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button> <span id="lev-note" class="note"></span><output id="lev-out" for="leverage"></output></p>
+        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button> <span id="lev-note" class="note" hidden></span><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
         <input id="leverage" type="range" min="0" max="0" step="1" disabled data-t-aria="leverage" data-tip="leverage">
         <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
-        <p class="fee" id="fee-note" data-tip="fee"></p>
+
       </div>
       <div class="field slide" id="stake-box">
         <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" data-t="stakeNote">of your free money</span><output id="stake-out" for="stake"></output></p>
@@ -320,7 +319,11 @@
           <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g></svg>
           <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" fill="currentColor"/></svg>
         </button>
+      <a class="icon about" href="{{about}}" data-tip="about" data-t-aria="about">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/></svg>
+      </a>
       </div>
+
       <h2 id="name-title" data-t="nameTitle">Your Trader Name</h2>
       <p class="name-hint" data-t="nameHint">Everyone in the room sees it, next to your code.</p>
       <div class="name-row">

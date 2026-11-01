@@ -21,7 +21,7 @@ export const BOTS: Bot[] = [
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
       if (desk.broke(me)) return rnd() < 0.1 ? { kind: "borrow" } : null;
-      if (!pos) return rnd() < 0.15 ? { kind: "order", side: trend(prices, 9) < 0 ? 1 : -1, leverage: rnd() < 0.5 ? 500 : 1000, stake: 0.5 } : null;
+      if (!pos) return rnd() < 0.15 ? { kind: "order", side: trend(prices, 9) < 0 ? 1 : -1, leverage: rnd() < 0.5 ? 300 : 1000, stake: 0.5 } : null;
       if (desk.pnl(me) >= 0) return null;
       if (desk.free(me) > 0) return rnd() < 0.3 ? { kind: "order", side: pos.side, leverage: pos.leverage, stake: 1 } : null;
       // she prays for the way her own bet needs: a long for a rise, a short for a fall
@@ -83,7 +83,7 @@ export const BOTS: Bot[] = [
     act(desk, me, prices, rnd) {
       const pos = desk.account(me).pos;
       const t = trend(prices, 3);
-      if (!pos) return Math.abs(t) > 0.003 && rnd() < 0.5 ? { kind: "order", side: t > 0 ? 1 : -1, leverage: 500, stake: 0.5 } : null;
+      if (!pos) return Math.abs(t) > 0.003 && rnd() < 0.5 ? { kind: "order", side: t > 0 ? 1 : -1, leverage: 300, stake: 0.5 } : null;
       return desk.pnl(me) < 0 ? { kind: "close" } : null;
     },
   },

@@ -74,7 +74,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
+const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "restart", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -149,11 +149,13 @@ function mark() {
   $("stake-box").style.setProperty("--heat", hue(0.1 + 0.55 * ((STAKES.indexOf(choice.stake) + 1) / STAKES.length)));
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
   $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
-  $("lev-note").textContent = T[lang].ui.notes[choice.leverage] ?? "";
+
   for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
   for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
+  for (const [i, tick] of [...$("lev-ticks").children].entries()) tick.dataset.tipText = (T[lang].ui.notes[ladder[i]] ?? "") + " · " + t("feeRate", { pct: feePerMinute(broker.fee, ladder[i], broker.ticksPerMinute) });
+  for (const [i, tick] of [...$("stake-ticks").children].entries()) tick.dataset.tipText = T[lang].ui.stakeNotes[i] + " · " + t("feeRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
   // The financing fee grows with the square of the leverage (ADR 0058).
-  $("fee-note").textContent = t("feeRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
+  $("fee-note").textContent = t("carryRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
@@ -225,6 +227,7 @@ async function post(url, body) {
   }
 }
 async function act(kind, extra = {}) {
+  if (mode === "tutorial" && !tutorialStarted) return;
   if (!fresh) {
     $("error").textContent = t(connectionStatus);
     return;
@@ -529,8 +532,16 @@ async function choosePair() {
 }
 $("pair-base").onchange = $("pair-quote").onchange = choosePair;
 $("restart").onclick = () => {
+  tutorialStarted = true;
+  armedFor = null;
+  autoPaused = false;
   looked = 0;
-  act("again");
+  $("restart").textContent = "↻";
+  $("restart").setAttribute("aria-label", t("restart"));
+  $("restart").dataset.tip = "resetTutorial";
+  pauseLabel();
+  act("restart");
+
 };
 // Hints can be paused, which stops the countdown and the helper's doing the
 // step; the lit control and its words stay (ADR 0055). The tutorial can be
@@ -543,18 +554,16 @@ function pauseLabel() {
   retip();
 }
 $("lesson-pause").onclick = () => {
+  if (!tutorialStarted) return;
   autoPaused = !autoPaused;
+  act("pause-hints", { paused: autoPaused });
   pauseLabel();
   if (autoPaused) clearInterval(autoTimer);
-  armAuto();
+  if (!autoPaused) autoTimer = setInterval(tickAuto, 1000);
   showCount();
 };
 // ⏹ resets the tutorial and stays in it; ↻ starts the lesson again; ⏩ does
 // the lesson's moves and goes on (ADR 0057).
-$("lesson-end").onclick = () => {
-  looked = 0;
-  act("restart");
-};
 $("lesson-skip").onclick = () => act("skip");
 $("lesson-back").onclick = () => {
   looked = 0;
@@ -572,6 +581,7 @@ function lesson(s) {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
   if (!s.lesson) return;
   const l = s.lesson;
+  for (const id of ["lesson-back", "lesson-pause", "lesson-skip"]) $(id).disabled = !tutorialStarted;
   const moving = s.phase === "moving";
   // The lesson in this language; in English, as the server sent it.
   const own = T[lang].lessons[l.id] ?? l;
@@ -602,6 +612,7 @@ function currentStep(l) {
 // again. It never runs while the page is hidden, a dialog is open, or the
 // price is moving.
 const AUTO_S = 9;
+let tutorialStarted = false;
 let autoPaused = false;
 let autoLeft = AUTO_S;
 let autoTimer = 0;
@@ -609,14 +620,14 @@ let sliding = false;
 function armAuto() {
   clearInterval(autoTimer);
   autoLeft = AUTO_S;
-  if (!state?.lesson || state.lesson.finished || state.phase === "moving" || autoPaused) return;
+  if (!tutorialStarted || !state?.lesson || state.lesson.finished || state.phase === "moving" || autoPaused) return;
   showCount();
   autoTimer = setInterval(tickAuto, 1000);
 }
 function tickAuto() {
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
-  if (!fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
+  if (!tutorialStarted || autoPaused || !fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
   if (--autoLeft > 0) return showCount();
   clearInterval(autoTimer);
   doForPlayer(l);
@@ -625,7 +636,7 @@ function showCount() {
   if (hint.hidden || !hintFor) return;
   // The countdown leads the tip, so it is the first thing read and a long tip
   // can never cut it off (ADR 0059).
-  const text = autoPaused ? hintFor.words : `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`;
+  const text = `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`;
   if (hint.textContent !== text) {
     hint.textContent = text;
     placeHint(hintFor.el, text);
@@ -672,6 +683,7 @@ function slideTo(which, value, done) {
 // Move on from the step to look at that is on show, if one is. Returns whether
 // it did, so a click on a control still does its own work.
 function nextLook() {
+  if (!tutorialStarted || autoPaused) return false;
   const l = state?.lesson;
   if (!l || l.finished || state.phase === "moving" || currentStep(l)?.until !== "look") return false;
   looked++;
@@ -762,7 +774,7 @@ function spotlight(l, moving) {
   for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
   hint.hidden = true;
   hintFor = null;
-  if (l.finished || moving) return;
+  if (!tutorialStarted || l.finished || moving) return;
   const step = currentStep(l);
   if (!step) return;
   const el = $(TARGETS[step.target]);
@@ -780,7 +792,7 @@ function spotlight(l, moving) {
   const i = l.plan.indexOf(step);
   const says = T[lang].lessons[l.id]?.steps?.[i] ?? step.say;
   const words = `${l.plan.length > 1 ? `${i + 1}/${l.plan.length} ` : ""}${says}`;
-  placeHint(el, words);
+  placeHint(el, `${t("autoIn", { s: AUTO_S })} · ${words}`);
   // The words are placed against where the control is now, so when the page
   // is scrolling to it, they are placed again as it settles, and as the player
   // scrolls or resizes afterwards.
@@ -797,7 +809,7 @@ let hintFor = null;
 let settle = 0;
 const replace = () => {
   clearTimeout(settle);
-  settle = setTimeout(() => hintFor && !hint.hidden && placeHint(hintFor.el, hintFor.words), 60);
+  settle = setTimeout(() => hintFor && !hint.hidden && placeHint(hintFor.el, `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`), 60);
 };
 addEventListener("scroll", replace, { passive: true });
 addEventListener("resize", replace);
@@ -1467,7 +1479,7 @@ function render(s) {
     $("position").textContent = t(y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
-  const closed = !open || y.out || !!s.paused;
+  const closed = !open || y.out || !!s.paused || (tutorial && (!tutorialStarted || autoPaused));
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
@@ -1641,6 +1653,14 @@ function render(s) {
 // opens the other; the two markets keep running either way.
 let events = null;
 function watch(next) {
+  if (next === "tutorial" && mode !== next) {
+    tutorialStarted = false;
+    autoPaused = false;
+    clearInterval(autoTimer);
+    $("restart").textContent = "▶";
+    $("restart").setAttribute("aria-label", t("tutorialStart"));
+    $("restart").dataset.tip = "tutorialStart";
+  }
   mode = next;
   try {
     localStorage.setItem("tab", mode);

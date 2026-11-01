@@ -232,7 +232,10 @@ export class Tutorial {
     this.restart();
   }
 
+  paused = false;
+
   restart(): void {
+    this.paused = false;
     this.runs++;
     this.index = 0;
     this.nexted = false;
@@ -331,6 +334,7 @@ export class Tutorial {
 
   // One tick of the lesson's script, if it has one playing.
   step(): Fill[] {
+    if (this.paused) return [];
     const price = this.queue.shift();
     if (price === undefined) return [];
     const events = this.desk.mark(price);

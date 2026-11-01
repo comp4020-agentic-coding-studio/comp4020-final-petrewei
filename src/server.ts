@@ -59,7 +59,7 @@ const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
 // may pause or resume, and a pause ends by itself after a minute so
 // nobody can hold a room (ADR 0024). An ironman round cannot pause.
 const PAUSE_TICKS = Number(process.env.PAUSE_TICKS ?? Math.round(60_000 / TICK_MS));
-// A bet this big is the room's business: a red feed line and a bubble.
+// A bet this big, 300× on the ladder and up, is the room's business: a red feed line and a bubble.
 const WILD = 200;
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -1070,12 +1070,14 @@ const THEME = `<script>try { const t = localStorage.getItem("theme"); if (t === 
 const aboutIn = (lang: Lang): string => {
   const a = ABOUT[lang];
   const body = a.sections.map(([h, ps]) => `<h2>${escape(h)}</h2>${ps.map((p) => `<p>${escape(p)}</p>`).join("")}`).join("");
+  const header = marketIn(lang).match(/<header[\s\S]*?<\/header>/)![0].replace(/<nav class="tabs"[\s\S]*?<\/nav>/, "").replace(/<button id="whoami"[\s\S]*?<\/button>/, "");
   const others = LANGS.filter((l) => l !== lang).map((l) => `<a href="${prefix(l)}/about" hreflang="${HTMLLANG[l]}" lang="${HTMLLANG[l]}">${{ en: "English", ja: "日本語", zh: "简体中文" }[l]}</a>`).join(" · ");
-  return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about"><main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main></body></html>`;
+  return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about">${header}<main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main><footer>${escape(T[lang].ui.footer)}</footer><script type="module" src="/about-controls.js"></script></body></html>`;
 };
 const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
 const PAGES: Record<string, [string, string]> = {
   ...Object.fromEntries(LANGS.flatMap((l) => [[`${prefix(l)}/`, [marketIn(l), HTML]], [`${prefix(l)}/about`, [aboutIn(l), HTML]]])),
+  "/about-controls.js": [read("public/about-controls.js"), "text/javascript; charset=utf-8"],
   "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
   "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
   "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
@@ -1376,10 +1378,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (input.mode === "tutorial") {
       const t = tutorialOf(who);
       let error: string | null = null;
-      if (kind === "restart") t.restart();
+      if (kind === "pause-hints") t.paused = input.paused === true;
+      else if (kind === "restart") t.restart();
       else if (kind === "again") t.restartLesson();
       else if (kind === "back") t.back();
-      else if (kind === "skip") error = t.skip();
+      else if (kind === "skip") {
+        const paused = t.paused;
+        t.paused = false;
+        error = t.skip();
+        t.paused = paused;
+      }
       else if (kind === "next") error = t.act({ kind: "next" });
       else if (action && action.kind !== "pray") error = t.act(action as Move);
       else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";
