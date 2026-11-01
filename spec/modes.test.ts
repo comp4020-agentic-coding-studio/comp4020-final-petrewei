@@ -41,27 +41,35 @@ it("streams only the chosen market to a page", async () => {
   }
 });
 
-it.skipIf(live)("keeps a trade on one tab off the other", async () => {
-  const trader = await visitor();
-  const onSimulation = await page(await visitor(), "simulation");
-  const onReplay = await page(await visitor(), "replay");
-  const own = await page(trader, "simulation");
-  const me = (await own.next(() => true, 2000)) as { you: { code: string } };
-  // by short code, which is unique; a dealt name can be shared by two visitors
-  const shows = (e: Record<string, unknown>): boolean => (e.traders as { id: string; side: number }[]).some((t) => t.id === me.you.code && t.side === 1);
-  try {
-    await open(8, "simulation");
-    const seenLive = onSimulation.next(shows, 1000);
-    const seenHistory = onReplay.next(shows, 1500);
-    expect((await act(trader, { kind: "buy", leverage: 5, stake: 0.25, mode: "simulation" })).status).toBe(200);
-    expect(await seenLive).not.toBeNull();
-    expect(await seenHistory).toBeNull();
-    expect((await state(trader, "simulation")).you.pos).not.toBeNull();
-    expect((await state(trader, "replay")).you.pos).toBeNull();
-  } finally {
-    onSimulation.close();
-    onReplay.close();
-    own.close();
+// A trade is the room's business on its own tab only: another market's page, and a visitor's
+// private tutorial, never see it. Both directions, since each is its own way to leak.
+it.skipIf(live)("keeps a trade on one tab off every other tab, in both directions", async () => {
+  for (const [from, other] of [["simulation", "replay"], ["replay", "simulation"]] as const) {
+    const trader = await visitor();
+    const onSame = await page(await visitor(), from);
+    const onOther = await page(await visitor(), other);
+    const onTutorial = await page(await visitor(), "tutorial");
+    const own = await page(trader, from);
+    const me = (await own.next(() => true, 2000)) as { you: { code: string } };
+    // by short code, which is unique; a dealt name can be shared by two visitors
+    const shows = (e: Record<string, unknown>): boolean => ((e.traders as { id: string; side: number }[] | undefined) ?? []).some((t) => t.id === me.you.code && t.side === 1);
+    try {
+      await open(8, from);
+      const seenHere = onSame.next(shows, 1000);
+      const seenElsewhere = onOther.next(shows, 1500);
+      const seenInTutorial = onTutorial.next(shows, 1500);
+      expect((await act(trader, { kind: "buy", leverage: 5, stake: 0.25, mode: from })).status, from).toBe(200);
+      expect(await seenHere, `${from} page sees the trade`).not.toBeNull();
+      expect(await seenElsewhere, `${other} page must not see a ${from} trade`).toBeNull();
+      expect(await seenInTutorial, `a tutorial page must not see a ${from} trade`).toBeNull();
+      expect((await state(trader, from)).you.pos).not.toBeNull();
+      expect((await state(trader, other)).you.pos).toBeNull();
+    } finally {
+      onSame.close();
+      onOther.close();
+      onTutorial.close();
+      own.close();
+    }
   }
 });
 

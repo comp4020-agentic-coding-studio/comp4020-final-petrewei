@@ -19,10 +19,12 @@ it("gives each player a private bell breakdown that reconciles money, fees, loan
     await c.act(me, { kind: "start" });
     expect(await tabs[0].next((e) => e.phase === "trade", 2000)).not.toBeNull();
     // Mark enough financing to survive rounding to whole account yen.
-    await c.act(me, { kind: "buy", leverage: 30 });
-    expect(await tabs[0].next((e) => Number(e.tick) >= 5, 2000)).not.toBeNull();
-    await c.act(me, { kind: "close" });
-    await c.act(me, { kind: "finish" });
+    const bought = await c.act(me, { kind: "buy", leverage: 30 });
+    expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
+    expect(await tabs[0].next((e) => Number(e.tick) >= 5, 5000), "five ticks pass while the position is open").not.toBeNull();
+    const closed = await c.act(me, { kind: "close" });
+    expect(closed.status, JSON.stringify(await closed.clone().json())).toBe(200);
+    expect((await c.act(me, { kind: "finish" })).status).toBe(200);
     const bell = await c.state(me) as unknown as Bell;
     const d = bell.result.debrief!;
     expect(d).toBeTruthy();
