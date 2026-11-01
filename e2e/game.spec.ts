@@ -69,14 +69,23 @@ test("two independent players see orders, recover from offline and receive their
     const row = observer.locator("#traders li").filter({ hasText: name });
     await expect(row).toContainText("▲ 1×", { timeout: 1000 });
 
+    const chartTop = (await page.locator("#chart").boundingBox())!.y;
     await page.context().setOffline(true);
-    await expect(page.locator("#connection")).toHaveText(T[lang].ui.connectionOffline);
+    const notice = page.locator("#connection");
+    await expect(notice).toHaveText(T[lang].ui.connectionOffline);
+    await expect(notice).toBeVisible();
+    expect((await page.locator("#chart").boundingBox())!.y).toBe(chartTop);
     await expect(page.locator("#buy")).toBeDisabled();
     await expect(page.locator("#close")).toBeDisabled();
     await expect(page.locator("#mobile-close")).toBeDisabled();
+    await expect(notice).toBeHidden({ timeout: 1500 });
+    await expect(page.locator("#buy")).toBeDisabled();
+    expect((await page.locator("#chart").boundingBox())!.y).toBe(chartTop);
     await page.context().setOffline(false);
-    await expect(page.locator("#connection")).toHaveText(T[lang].ui.connectionRestored);
+    await expect(notice).toHaveText(T[lang].ui.connectionRestored);
+    await expect(notice).toBeVisible();
     await expect(page.locator("#close")).toBeEnabled();
+    await expect(notice).toBeHidden({ timeout: 1500 });
     await expect(row).toContainText("▲ 1×");
     // A returning connection kept the same account and the one order.
     const account = (await (await page.request.get(`${baseURL}/api/state`)).json()).you;

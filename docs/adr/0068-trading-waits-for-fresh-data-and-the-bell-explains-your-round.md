@@ -8,7 +8,7 @@ A page that lost its stream kept showing the last price and kept its buttons liv
 
 ## 2 Decision
 
-**Trading waits for fresh data.** The page shows when it is connecting, reconnecting, offline or restored, and disables every market control until a full state arrives. A stream that goes quiet is replaced after three missed five-second beats; the server sends a named heartbeat so an idle room is not mistaken for a dead one. A reply lost on the way is never sent again: the next state shows what landed.
+**Trading waits for fresh data.** The page shows when it is connecting, reconnecting, offline or restored in a popup that disappears after one second and takes no space in the layout. Every market control stays disabled until a full state arrives, even after the popup disappears. A stream that goes quiet is replaced after three missed five-second beats; the server sends a named heartbeat so an idle room is not mistaken for a dead one. A reply lost on the way is never sent again: the next state shows what landed.
 
 **The bell explains your round, to you only.** The server keeps each player's breakdown for the round: the result before financing, the financing paid, net worth, loans owed, and each deduction from the score. Others see none of it, and it is cleared when the next round starts.
 

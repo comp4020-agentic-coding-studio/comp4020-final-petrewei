@@ -72,7 +72,7 @@ let state = null;
 let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
-let restoredTimer = null;
+let connectionTimer = null;
 const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "plot-next", "pair-select", "guess-year", "restart", "lesson-skip", "lesson-back", "lesson-end"];
 function blockStaleControls() {
   if (!fresh) {
@@ -81,17 +81,18 @@ function blockStaleControls() {
   }
 }
 function connection(status) {
-  clearTimeout(restoredTimer);
+  clearTimeout(connectionTimer);
   connectionStatus = status;
   fresh = status === "connectionRestored";
   $("connection").textContent = t(status);
   $("connection").hidden = false;
   $("connection").classList.toggle("restored", fresh);
-  if (fresh) {
-    // Phase-specific restrictions are applied immediately by render().
-    for (const id of marketControls) $(id).disabled = false;
-    restoredTimer = setTimeout(() => ($("connection").hidden = true), 4000);
-  } else blockStaleControls();
+  // Notices never occupy a row, and disappear even while still offline.
+  // The account remains blocked independently until fresh data arrives.
+  connectionTimer = setTimeout(() => ($("connection").hidden = true), 1000);
+  // Phase-specific restrictions are applied immediately by render().
+  if (fresh) for (const id of marketControls) $(id).disabled = false;
+  else blockStaleControls();
 }
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;

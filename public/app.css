@@ -524,7 +524,7 @@ th:first-child, td:first-child { text-align: left; }
 .debrief dd { margin: 0; white-space: nowrap; font-family: var(--mono); }
 .debrief dl div:last-child { border-top: 1px solid var(--line); margin-top: 0.3rem; padding-top: 0.3rem; font-weight: 700; }
 .debrief p { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.5; }
-.connection { position: sticky; top: 0; z-index: 9; margin: 0; padding: 0.5rem 0.8rem; background: var(--panel); color: var(--call); border-bottom: 1px solid currentColor; text-align: center; font-size: 0.85rem; }
+.connection { position: fixed; top: 0.75rem; right: 0.75rem; z-index: 50; width: max-content; max-width: min(26rem, calc(100vw - 1.5rem)); margin: 0; padding: 0.5rem 0.8rem; background: var(--panel); color: var(--call); border: 1px solid currentColor; border-radius: 0.6rem; box-shadow: 0 3px 14px rgb(0 0 0 / 0.2); text-align: center; font-size: 0.85rem; pointer-events: none; }
 .connection.restored { color: var(--up); }
 .connection[hidden] { display: none; }
 .position-bar { display: none; }
