@@ -253,7 +253,7 @@ it("no longer lets anyone leave a round, and an old page that asks is refused", 
 // ADR 0064, ADR 0070: the lobby chooses the next round. Replay takes a plot by its number
 // only; Simulation takes a pair. Only someone on the tab may, only in the lobby, and what a
 // plot is stays secret: the room is told its number and its pair, never its name or day.
-it("lets the lobby give Replay any of its thirteen plots by number, telling the room the number and pair and no more", async () => {
+it("lets the lobby give Replay any of its plots by number, telling the room the number and pair and no more", async () => {
   s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "40", CHOOSE_MS: "0" });
   const { visitor, page, act, look, attempt } = app();
   const me = await visitor();
@@ -285,7 +285,8 @@ it("lets the lobby give Replay any of its thirteen plots by number, telling the 
     }
     // a visitor with no tab open may not choose, and nobody may name a plot that is not there
     expect((await attempt({ kind: "choose", what: 1, mode: "replay" }, await visitor())).status).toBe(409);
-    for (const what of ["nonsense", "EUR/CHF", "3", 0, 14, -1, 1.5, null]) {
+    // one past the last plot, and well past it, are refused as surely as a pair, a string or a fraction
+    for (const what of ["nonsense", "EUR/CHF", "3", 0, EVENTS.length + 1, EVENTS.length + 100, -1, 1.5, null]) {
       expect((await act(me, { kind: "choose", what, mode: "replay" })).status, JSON.stringify(what)).toBe(409);
     }
     // and once the countdown has begun, the round is fixed

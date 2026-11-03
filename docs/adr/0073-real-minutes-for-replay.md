@@ -1,6 +1,6 @@
 # ADR 0073: Real Minutes for Replay
 
-Status: accepted, 4 November 2026. The first part of a shorter, finer Replay; the window, the clock and the chart follow. Changes the real-data rule of [ADR 0070](0070-replay-pairs-and-a-centred-countdown.md).
+Status: accepted, 4 November 2026. The first part of a shorter, finer Replay; the window, the clock and the chart follow. [ADR 0074](0074-six-more-stories.md) adds stories and corrects what this one says about the plots' count and the widest day. Changes the real-data rule of [ADR 0070](0070-replay-pairs-and-a-centred-countdown.md).
 
 ## 1 Context
 

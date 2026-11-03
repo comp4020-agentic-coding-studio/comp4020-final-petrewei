@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { dayOpen, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
+import { dayOpen, MIN_BARS, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
 import { EVENTS } from "../src/market.ts";
 
 // Replay's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
@@ -46,9 +46,48 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
     expect(days[at + 1] - days[at], "the day after the referendum is the Sunday evening open, three days on").toBe(3 * 1440);
   });
 
-  it("makes the same trading days from a bar file as a plot's ticks are cut from", () => {
-    const bars = parseBars([bar("2016.06.23", "17:00", 1.5), bar("2016.06.26", "17:00", 1.4)].join("\n"));
+  // A day with fewer than MIN_BARS bars is shut: the weekend, and a holiday such as the turn of the year, when AUD/JPY's
+  // file for 2018 has nothing for the 30th and 31st of December. A file of many bars a day is open every day.
+  const openDays = (from: string, days: number, perDay = MIN_BARS + 1): string => {
+    const lines: string[] = [];
+    const start = Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10), 17, 0);
+    for (let d = 0; d < days; d++) {
+      const at = new Date(start + d * 86_400_000);
+      if (at.getUTCDay() === 6 || at.getUTCDay() === 5) continue;
+      for (let m = 0; m < perDay; m++) {
+        const t = new Date(at.getTime() + m * 60_000);
+        lines.push(bar(t.toISOString().slice(0, 10).replaceAll("-", "."), t.toISOString().slice(11, 16), 1 + m * 1e-5));
+      }
+    }
+    return lines.join("\n");
+  };
+
+  it("cuts six trading days of ticks from a file that spans them", () => {
+    const bars = parseBars(openDays("2016-06-12", 21));
     expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
+  });
+
+  it("skips a holiday the file shows shut, as it skips the weekend, and takes a day more from the other side", () => {
+    // the FX day that opens at 17:00 on 21 June has no bars: it is not one of the six, so the window takes the day before it
+    const shut = dayOpen("2016-06-22");
+    const kept = openDays("2016-06-12", 21)
+      .split("\n")
+      .filter((l) => {
+        const [date, time] = l.split(",");
+        const at = Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), +time.slice(0, 2), +time.slice(3, 5)) / 60_000;
+        return !(at >= shut && at < shut + 1440);
+      });
+    const days = plotDays("2016-06-24", parseBars(kept.join("\n")));
+    expect(days).toHaveLength(PRE_DAYS + PLAYED_DAYS);
+    expect(days.includes(shut), "the shut day is left out").toBe(false);
+    expect(days, "and the plot's own day is still the fourth of the six").toContain(dayOpen("2016-06-24"));
+    expect(days.indexOf(dayOpen("2016-06-24"))).toBe(PRE_DAYS + SWAN_DAY - 1);
+  });
+
+  it("stops and says so when the file does not reach far enough, and does not look for ever", () => {
+    // a file that begins on the day of the plot has none of the trading days before it
+    const bars = parseBars(openDays("2016-06-23", 6));
+    expect(() => plotTicks(bars, "2016-06-24")).toThrow(/2016-06-24/);
   });
 
   it("starts the day at 17:00 on a clock that never moves for daylight saving", () => {
@@ -74,14 +113,22 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
 
   // The plot's date is the day the ECB's daily rate first shows the event, which the minutes sometimes put a
   // day either side: the euro began falling on the day the ECB announced its bond buying, and the ECB's rate that
-  // shows it is the next day's; the Bear Stearns rescue was a fall and then a bounce, the bounce the bigger day.
-  // So the named day is the third played day, and the largest swing of a whole day is within one day of it.
-  it("puts the day the market broke in the middle of the five played, with its biggest day within one day of it", () => {
+  // shows it is the next day's. So the named day is the third played day, and the day of the widest range, which
+  // is what a candle shows and so what a flash crash is (a spike that comes back, a small move over the day, a big
+  // range), is within one day of it. One plot is known not to be: Lehman's bankruptcy was a Monday, and the market
+  // was wildest a week later, in the days of AIG and the run on money funds, so its window is on the bankruptcy and
+  // its widest day is the last. It is named here so another plot cannot join it unseen.
+  const WIDEST_ELSEWHERE = new Set(["lehman"]);
+  it("puts the day the market broke in the middle of the five played, with its widest day within one day of it", () => {
     for (const [id, prices] of byPlot) {
       const played = prices.slice(PRE_DAYS * TICKS_PER_DAY);
-      const swings = Array.from({ length: PLAYED_DAYS }, (_, d) => Math.abs(Math.log(played[d * TICKS_PER_DAY + TICKS_PER_DAY - 1] / played[d * TICKS_PER_DAY])));
-      const biggest = swings.indexOf(Math.max(...swings)) + 1;
-      expect(Math.abs(biggest - SWAN_DAY), `${id}: its biggest day is played day ${biggest}`).toBeLessThanOrEqual(1);
+      const ranges = Array.from({ length: PLAYED_DAYS }, (_, d) => {
+        const day = played.slice(d * TICKS_PER_DAY, (d + 1) * TICKS_PER_DAY);
+        return Math.log(Math.max(...day) / Math.min(...day));
+      });
+      const widest = ranges.indexOf(Math.max(...ranges)) + 1;
+      if (WIDEST_ELSEWHERE.has(id)) expect(Math.abs(widest - SWAN_DAY), `${id} is no longer an exception: its widest day is ${widest}`).toBeGreaterThan(1);
+      else expect(Math.abs(widest - SWAN_DAY), `${id}: its widest day is played day ${widest}`).toBeLessThanOrEqual(1);
     }
   });
 

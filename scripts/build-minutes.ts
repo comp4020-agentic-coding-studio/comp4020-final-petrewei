@@ -72,22 +72,53 @@ export function trades(open: number): boolean {
   return day !== 5 && day !== 6;
 }
 
+// A day with fewer bars than this had no market: the weekend, and the holidays when every desk is shut, such as the
+// turn of the year. A quiet day has hundreds of bars; a closed one has none.
+export const MIN_BARS = 100;
+
+// How many bars each FX day of a file holds, counted once and remembered for the file: a day is a 17:00 to 17:00
+// stretch, named by the minute it opens.
+const counts = new WeakMap<Bar[], Map<number, number>>();
+function barsIn(bars: Bar[], day: number): number {
+  let byDay = counts.get(bars);
+  if (!byDay) {
+    byDay = new Map();
+    for (const b of bars) {
+      const opens = b.at - (((b.at - 17 * 60) % 1440) + 1440) % 1440;
+      byDay.set(opens, (byDay.get(opens) ?? 0) + 1);
+    }
+    counts.set(bars, byDay);
+  }
+  return byDay.get(day) ?? 0;
+}
+
+// Whether an FX day traded in a file, which is when it opens on a weekday and the file has bars in it. The file's own
+// bars settle a holiday that the calendar cannot.
+function open(bars: Bar[] | undefined, day: number): boolean {
+  return trades(day) && (!bars || barsIn(bars, day) >= MIN_BARS);
+}
+
 // The openings of a plot's six trading days, in order: the day before, then the five played, the day the market
-// broke third of those. Walks back and forward over the weekend, which is not a day. One definition, used by
-// the build and by the checks.
-export function plotDays(date: string): number[] {
+// broke third of those. Walks back and forward over the weekend, and over any holiday the file shows shut, which are
+// not days. Given no bars it goes by the calendar alone. One definition, used by the build and by the checks.
+export function plotDays(date: string, bars?: Bar[]): number[] {
   const at = dayOpen(date);
   const days = [at];
+  // a window that runs off either end of the file has no days there to give: stop, and say so, and not look for ever
+  const first = bars?.[0].at ?? -Infinity;
+  const last = bars?.at(-1)?.at ?? Infinity;
   for (let before = 0, d = at; before < SWAN_DAY - 1 + PRE_DAYS; ) {
     d -= 1440;
-    if (trades(d)) {
+    if (d + 1440 < first) throw new Error(`the file starts after the ${SWAN_DAY - 1 + PRE_DAYS} trading days before ${date}`);
+    if (open(bars, d)) {
       days.unshift(d);
       before++;
     }
   }
   for (let after = 0, d = at; after < PLAYED_DAYS - SWAN_DAY; ) {
     d += 1440;
-    if (trades(d)) {
+    if (d > last) throw new Error(`the file ends before the ${PLAYED_DAYS - SWAN_DAY} trading days after ${date}`);
+    if (open(bars, d)) {
       days.push(d);
       after++;
     }
@@ -97,7 +128,7 @@ export function plotDays(date: string): number[] {
 
 // A plot's prices: each trading day's 48 ticks in turn, the first from the price before the day opened.
 export function plotTicks(bars: Bar[], date: string): number[] {
-  return plotDays(date).flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
+  return plotDays(date, bars).flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
 }
 
 // The raw file for a pair and a year, wherever it was unpacked under raw/histdata.
@@ -123,7 +154,12 @@ if (import.meta.main) {
       missing.push(`${e.id} (${pair} ${year})`);
       continue;
     }
-    const bars = parseBars(readFileSync(file, "utf8"));
+    // a window near the turn of the year reaches into the file of the year before or after, so those are read too
+    const bars = [year - 1, year, year + 1]
+      .map((y) => rawFile(root, pair, y))
+      .filter((f): f is string => f !== null)
+      .flatMap((f) => parseBars(readFileSync(f, "utf8")))
+      .sort((a, b) => a.at - b.at);
     const prices = plotTicks(bars, e.date);
     prices.forEach((p, n) => lines.push(`${e.id},${n},${p}`));
     built.push(e.id);

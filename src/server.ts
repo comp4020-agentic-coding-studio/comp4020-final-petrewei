@@ -738,9 +738,10 @@ class Market {
     if (this.tick % STEPS === 1) {
       const day = (this.tick - 1) / STEPS;
       const { scenario, event } = this.round;
-      const words = scenario ? T.en.scenarios[scenario].headlines : event ? T.en.clues[event.date] : [];
+      const words = scenario ? T.en.scenarios[scenario].headlines : event ? (T.en.clues[event.date] ?? []) : [];
       this.round.headlines?.forEach((h, i) => {
-        if (h.day !== day) return;
+        // a clue the table lacks is skipped, never allowed to stop the market: a missing line must not take the room down
+        if (h.day !== day || words[i] === undefined) return;
         // A replay's clue goes out by number, not by the date it leads to
         // (ADR 0050): the date is the answer to Name That Year.
         const clue = event ? clueDates("en").indexOf(event.date) : -1;

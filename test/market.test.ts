@@ -75,8 +75,8 @@ describe("a replay", () => {
     expect(seen.size).toBe(EVENTS.length);
   });
 
-  it("has thirteen plots, each a real day in the data, with its own pair, id and date", () => {
-    expect(EVENTS.length).toBe(13);
+  it("has at least the thirteen plots it began with, each a real day in the data, with its own pair, id and date", () => {
+    expect(EVENTS.length, "no story has been lost").toBeGreaterThanOrEqual(13);
     expect(new Set(EVENTS.map((e) => e.id)).size).toBe(EVENTS.length);
     expect(new Set(EVENTS.map((e) => e.date)).size, "clues and notes are keyed by date").toBe(EVENTS.length);
     for (const event of EVENTS) expect(history.series(event.pair).some((d) => d.date === event.date), event.id).toBe(true);
