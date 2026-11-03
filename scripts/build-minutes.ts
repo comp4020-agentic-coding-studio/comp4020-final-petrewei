@@ -4,10 +4,13 @@
 //
 //   node scripts/build-minutes.ts
 //
-// For each plot it cuts six FX days, the day before and the five that are played, so the day the
+// For each plot it cuts six trading days, the day before and the five that are played, so the day the
 // market broke is the third of the five, and it writes one price every 30 minutes (48 a day). A
 // day here is an FX day, which opens at 17:00 New York standard time the evening before, as the
-// files' own clock does (they are fixed at UTC-5 and never move for daylight saving). A minute with
+// files' own clock does (they are fixed at UTC-5 and never move for daylight saving). The days that
+// open on a Friday and a Saturday evening have no trade, so they are left out and Friday's close is
+// joined to Sunday's open, as a broker's chart joins it: that join is the weekend gap, a real jump
+// the market made, and the only one in a plot besides the event. A minute inside a trading day with
 // no bar had no trade, so the price carries on from the minute before.
 //
 // The output has one block per plot, so the game reads a file of a few thousand rows and never the
@@ -62,10 +65,39 @@ export function ticksOf(bars: Bar[], from: number, count: number, step = TICK_MI
   return out;
 }
 
-// Where a plot's six days begin: the day the market broke is the third of the five played, with the
-// day before them first. One definition, used by the build and by the checks.
-export function plotOpen(date: string): number {
-  return dayOpen(date) - (SWAN_DAY - 1 + PRE_DAYS) * 24 * 60;
+// Whether an FX day trades: it opens at 17:00 on a Sunday to Thursday, and the two that open on a Friday and
+// a Saturday evening are the weekend. (The clock is the files' own, fixed, so a weekday is read from it.)
+export function trades(open: number): boolean {
+  const day = new Date(open * 60_000).getUTCDay();
+  return day !== 5 && day !== 6;
+}
+
+// The openings of a plot's six trading days, in order: the day before, then the five played, the day the market
+// broke third of those. Walks back and forward over the weekend, which is not a day. One definition, used by
+// the build and by the checks.
+export function plotDays(date: string): number[] {
+  const at = dayOpen(date);
+  const days = [at];
+  for (let before = 0, d = at; before < SWAN_DAY - 1 + PRE_DAYS; ) {
+    d -= 1440;
+    if (trades(d)) {
+      days.unshift(d);
+      before++;
+    }
+  }
+  for (let after = 0, d = at; after < PLAYED_DAYS - SWAN_DAY; ) {
+    d += 1440;
+    if (trades(d)) {
+      days.push(d);
+      after++;
+    }
+  }
+  return days;
+}
+
+// A plot's prices: each trading day's 48 ticks in turn, the first from the price before the day opened.
+export function plotTicks(bars: Bar[], date: string): number[] {
+  return plotDays(date).flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
 }
 
 // The raw file for a pair and a year, wherever it was unpacked under raw/histdata.
@@ -92,7 +124,7 @@ if (import.meta.main) {
       continue;
     }
     const bars = parseBars(readFileSync(file, "utf8"));
-    const prices = ticksOf(bars, plotOpen(e.date), (PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
+    const prices = plotTicks(bars, e.date);
     prices.forEach((p, n) => lines.push(`${e.id},${n},${p}`));
     built.push(e.id);
   }

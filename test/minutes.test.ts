@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { dayOpen, PLAYED_DAYS, PRE_DAYS, parseBars, plotOpen, rawFile, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf } from "../scripts/build-minutes.ts";
+import { dayOpen, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
 import { EVENTS } from "../src/market.ts";
 
 // Replay's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
@@ -27,14 +27,28 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
     expect(ticks[47], "and the later bar is taken up").toBe(1.6);
   });
 
-  it("opens a plot so the day the market broke is the third of the five played, after a day before them", () => {
-    // the plot's date is the FX day's closing date; its day opens at 17:00 the evening before, 48 ticks a day
-    const open = plotOpen("2015-01-15");
-    expect(dayOpen("2015-01-15") - open, "two played days and the day before come first").toBe((SWAN_DAY - 1 + PRE_DAYS) * 24 * 60);
-    const dayOfTick = (t: number): number => Math.floor(t / TICKS_PER_DAY) + 1 - PRE_DAYS;
-    const shock = (stamp: number): number => Math.floor((stamp - open) / TICK_MINUTES);
-    // 04:30 on the 15th is 11.5 hours into the day that opens 17:00 on the 14th: tick 23 of that day
-    expect(dayOfTick(shock(dayOpen("2015-01-15") + 11.5 * 60)), "the shock falls on played day three").toBe(SWAN_DAY);
+  // The days that open on a Friday and a Saturday evening have no trade. A plot is six trading days, the weekend
+  // left out and Friday's close joined to Sunday's open, so no plot shows a flat line for a day.
+  it("opens a plot on six trading days, the day the market broke fourth of them, the weekend left out", () => {
+    for (const date of ["2015-01-15", "2016-06-24", "2008-09-15", "2020-03-19"]) {
+      const days = plotDays(date);
+      expect(days, date).toHaveLength(PRE_DAYS + PLAYED_DAYS);
+      for (const d of days) expect(trades(d), `${date}: a day that opens on a ${new Date(d * 60_000).getUTCDay()} is not a trading day`).toBe(true);
+      expect(days[PRE_DAYS + SWAN_DAY - 1], `${date}: the plot's own day is the third played`).toBe(dayOpen(date));
+      days.slice(1).forEach((d, i) => expect([1440, 3 * 1440], `${date}: a day follows the last by one day, or three over a weekend`).toContain(d - days[i]));
+    }
+  });
+
+  it("joins Friday's close to Sunday's open when a plot crosses a weekend, as a broker's chart does", () => {
+    // 24 June 2016 was a Friday: the day after it opens on Sunday evening, three days on
+    const days = plotDays("2016-06-24");
+    const at = days.indexOf(dayOpen("2016-06-24"));
+    expect(days[at + 1] - days[at], "the day after the referendum is the Sunday evening open, three days on").toBe(3 * 1440);
+  });
+
+  it("makes the same trading days from a bar file as a plot's ticks are cut from", () => {
+    const bars = parseBars([bar("2016.06.23", "17:00", 1.5), bar("2016.06.26", "17:00", 1.4)].join("\n"));
+    expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
   });
 
   it("starts the day at 17:00 on a clock that never moves for daylight saving", () => {
@@ -71,6 +85,17 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
     }
   });
 
+  // A weekend day is one price all through, where a pegged day, the franc's before the floor went, still ticks
+  // among a handful. So the test is a day with more than one price, not a day that wanders.
+  it("has no day of a single price: the weekend is not in the game", () => {
+    for (const [id, prices] of byPlot) {
+      for (let d = 0; d < PRE_DAYS + PLAYED_DAYS; d++) {
+        const day = prices.slice(d * TICKS_PER_DAY, (d + 1) * TICKS_PER_DAY);
+        expect(new Set(day).size, `${id}: day ${d + 1} is one price all through`).toBeGreaterThan(1);
+      }
+    }
+  });
+
   it("has the Swiss franc's real gap: the peg to the break, in one tick", () => {
     const prices = byPlot.get("franc-cap-dropped")!;
     expect(prices[0], "pegged at 1.20 before").toBeCloseTo(1.2, 1);
@@ -83,6 +108,6 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
     const file = rawFile("raw/histdata", "EURCHF", 2015);
     if (!file || !existsSync(file)) return;
     const bars = parseBars(readFileSync(file, "utf8"));
-    expect(byPlot.get("franc-cap-dropped")).toEqual(ticksOf(bars, plotOpen("2015-01-15"), (PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY));
+    expect(byPlot.get("franc-cap-dropped")).toEqual(plotTicks(bars, "2015-01-15"));
   });
 });
