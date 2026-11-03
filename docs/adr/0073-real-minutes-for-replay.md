@@ -26,4 +26,4 @@ Eleven plots are built from the nine files downloaded and the franc's, each six 
 
 ## 4 What Was Left Out
 
-The game does not read `data/minutes.csv` yet, and the page, the clock, the indicators and Simulation are unchanged. The text the players read has not yet been brought in line with the minutes, nor has the credit for HistData.
+This ADR left the game unreading the file. [ADR 0075](0075-a-shorter-finer-clock.md) wires it in, and brings the page text and the HistData credit in line. Its window is five played days and two before, not the six days written above.

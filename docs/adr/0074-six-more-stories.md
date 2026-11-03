@@ -35,4 +35,4 @@ The six causes and figures were checked against reports in this session, but the
 
 ## 4 What Is Still To Do
 
-The game still plays the thirty-day window from the ECB's daily closes. These stories, and the thirteen before them, are in `data/minutes.csv` and in the text tables, but nothing reads the file yet.
+[ADR 0075](0075-a-shorter-finer-clock.md) makes the game play these stories from `data/minutes.csv`.
