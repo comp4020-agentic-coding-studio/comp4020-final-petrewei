@@ -23,7 +23,7 @@ import { EVENTS } from "../src/market.ts";
 export const TICK_MINUTES = 30;
 export const TICKS_PER_DAY = (24 * 60) / TICK_MINUTES;
 export const PLAYED_DAYS = 5;
-export const PRE_DAYS = 1;
+export const PRE_DAYS = 2;
 // The third of five played days holds the day the market broke.
 export const SWAN_DAY = 3;
 
@@ -127,8 +127,12 @@ export function plotDays(date: string, bars?: Bar[]): number[] {
 }
 
 // A plot's prices: each trading day's 48 ticks in turn, the first from the price before the day opened.
+// One more tick follows the last day: the price at the end of it, so the days played are a whole number of candles of
+// moves (240) and the round has a last price to end on.
 export function plotTicks(bars: Bar[], date: string): number[] {
-  return plotDays(date, bars).flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
+  const days = plotDays(date, bars);
+  const ticks = days.flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
+  return [...ticks, ticksOf(bars, days.at(-1)!, TICKS_PER_DAY + 1).at(-1)!];
 }
 
 // The raw file for a pair and a year, wherever it was unpacked under raw/histdata.

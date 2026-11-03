@@ -3,6 +3,22 @@
 // with. A day with too little history gets null, never a guess. Plain
 // functions on numbers, shared by the page and test/indicators.test.ts.
 
+// The periods the chart draws them with, in candles of four hours, six to a day (ADR 0075). A round is shown two days
+// at a time, twelve candles, so a period must be short enough to be drawn across it: a twenty-candle average would be
+// a line that begins after the chart does. They are named here so what the chart says and what it works out are one
+// thing, and the labels and the tips are written from them.
+export const PERIODS = { fast: 6, slow: 18, band: 12, rsi: 9 };
+// What a number of candles is, for a label on the chart: whole days where it is one ("1d"), else the candles.
+export const spanOf = (candles) => (candles % 6 === 0 ? `${candles / 6}d` : `${candles}`);
+// The same, as words in a language, for a tip: "1 day", "3 days", "2日", "3天"; a count that is not whole days is
+// said as candles ("9 candles"), so a tip never says a day where the line is drawn over something else.
+const WORDS = {
+  en: { day: (n) => `${n} ${n === 1 ? "day" : "days"}`, candles: (n) => `${n} candles` },
+  ja: { day: (n) => `${n}日`, candles: (n) => `${n}本` },
+  zh: { day: (n) => `${n}天`, candles: (n) => `${n}根` },
+};
+export const spanIn = (lang, candles) => (candles % 6 === 0 ? WORDS[lang].day(candles / 6) : WORDS[lang].candles(candles));
+
 // Each day's last price: a day is `steps` ticks, and today's close so far
 // is the latest price.
 export function closes(prices, steps) {

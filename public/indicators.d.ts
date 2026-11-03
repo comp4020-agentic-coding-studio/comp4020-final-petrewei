@@ -4,3 +4,6 @@ export declare function sma(values: number[], n: number): (number | null)[];
 export declare function bollinger(values: number[], n: number, k: number): ({ mid: number; upper: number; lower: number } | null)[];
 export declare function rsi(values: number[], n: number): (number | null)[];
 export declare function stack<T extends { at: number }>(labels: T[], first: number, last: number, gap: number): T[];
+export declare const PERIODS: { fast: number; slow: number; band: number; rsi: number };
+export declare const spanOf: (candles: number) => string;
+export declare const spanIn: (lang: "en" | "ja" | "zh", candles: number) => string;

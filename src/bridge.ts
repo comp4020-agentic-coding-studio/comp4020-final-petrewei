@@ -34,24 +34,29 @@ function fat(rnd: () => number): number {
   return (normal(rnd) / Math.sqrt(chi / df)) / Math.sqrt(df / (df - 2));
 }
 
-// One day's ticks, from `open` to `close` (both prices), as 48 prices, the last of them the close. `vol` is the
-// day's own typical move as a fraction of price, and `wild` scales the random part beyond a plain day (1 is a plain
-// day). A move that is large against `vol` is carried by the first ticks and the rest stay near it: `gap` is the
-// share of the move that arrives at once, in the first tick.
-export function dayOf(open: number, close: number, vol: number, rnd: () => number, wild = 1, gap = 0): number[] {
-  const from = Math.log(open);
-  const to = Math.log(close);
-  const move = to - from;
+// Some ticks of a day, from `open` to `close` (both prices), `ticks` of them, the last the close. `from` says where in the
+// 48 half hours of the day the first of them falls, so a candle of eight that is the third of six takes the third
+// stretch of the day's session profile, and six candles side by side move as a day does. `vol` is the day's own
+// typical move as a fraction of price, and `wild` scales the random part beyond a plain day (1 is a plain day).
+// `gap` is the share of the move that arrives at once, in the first tick.
+export function span(open: number, close: number, vol: number, rnd: () => number, from = 0, ticks = TICKS_PER_DAY, wild = 1, gap = 0): number[] {
+  const start = Math.log(open);
+  const move = Math.log(close) - start;
   const first = move * gap;
   const left = move - first;
-  // the random part, in the session profile, then pinned so the day lands on its close
+  // the random part, in the session profile, then pinned so the stretch lands on its close
   const walk = [0];
-  for (let i = 0; i < TICKS_PER_DAY; i++) walk.push(walk[i] + fat(rnd) * vol * wild * Math.sqrt(PROFILE[i] / TICKS_PER_DAY));
+  for (let i = 0; i < ticks; i++) walk.push(walk[i] + fat(rnd) * vol * wild * Math.sqrt(PROFILE[(from + i) % TICKS_PER_DAY] / TICKS_PER_DAY));
   const out: number[] = [];
-  for (let i = 1; i <= TICKS_PER_DAY; i++) {
-    const t = i / TICKS_PER_DAY;
-    const pinned = walk[i] - t * walk[TICKS_PER_DAY];
-    out.push(i === TICKS_PER_DAY ? close : Math.exp(from + first + left * t + pinned));
+  for (let i = 1; i <= ticks; i++) {
+    const t = i / ticks;
+    const pinned = walk[i] - t * walk[ticks];
+    out.push(i === ticks ? close : Math.exp(start + first + left * t + pinned));
   }
   return out;
+}
+
+// One whole day: 48 ticks from `open` to `close`.
+export function dayOf(open: number, close: number, vol: number, rnd: () => number, wild = 1, gap = 0): number[] {
+  return span(open, close, vol, rnd, 0, TICKS_PER_DAY, wild, gap);
 }

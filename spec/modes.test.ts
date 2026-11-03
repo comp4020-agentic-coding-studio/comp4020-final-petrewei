@@ -83,14 +83,17 @@ it.skipIf(live)("counts who is on each tab", async () => {
   }
 });
 
-// ADR 0062: a round is thirty days, shown after thirty days of the market before it,
-// which a whole state carries once. A replay's history is real prices with no date
-// anywhere in it, so the hidden day stays hidden.
-it("sends the thirty days before a round with a whole state, ending where the round opens", async () => {
+// ADR 0062, ADR 0075: a round is shown after a stretch of the market before it, which a whole state carries once, so
+// the chart opens full. How long that stretch and the round are is the market's own business, and has changed, so this
+// holds what the page relies on and not the length: the history ends on the open, and the round's length is its prices.
+// A replay's history is real prices with no date anywhere in it, so the hidden day stays hidden.
+it("sends the market before a round with a whole state, ending where the round opens", async () => {
   for (const mode of ["replay", "simulation"] as const) {
     const s = await state(undefined, mode);
-    expect(s.total, mode).toBe(30 * s.steps);
-    expect(s.history, mode).toHaveLength(30 * s.steps + 1);
+    expect(s.history!.length, `${mode} has a history to draw`).toBeGreaterThan(s.steps);
+    expect((s.history!.length - 1) % s.steps, `${mode}: the history is a whole number of candles`).toBe(0);
+    expect(s.total, `${mode}: the round's length is its prices`).toBeGreaterThan(s.steps);
+    expect(s.total % s.steps, `${mode}: the round is a whole number of candles`).toBe(0);
     for (const p of s.history!) expect(Number.isFinite(p) && p > 0, mode).toBe(true);
     if (s.tick === 0) expect(s.history!.at(-1), `${mode}: the history ends on the open`).toBeCloseTo(s.prices[0], 9);
   }

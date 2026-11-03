@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 import { LANGS, T, clueText, money, news, refusal } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
-import { bollinger, closes, rsi, sma, stack } from "/indicators.js";
+import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
 import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
@@ -32,7 +32,8 @@ const pts = (n) => t("points", { n: `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(
 const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : name);
 // A tip in this language, by key (ADR 0025).
-const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", vars);
+// the indicators' periods are slots in their tips, so what a tip says is what is drawn (indicators.js)
+const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast: spanIn(lang, PERIODS.fast), slow: spanIn(lang, PERIODS.slow), band: spanIn(lang, PERIODS.band), ...vars });
 useWords((k) => tip(k));
 useClauses(clauses);
 // What an info button explains (ADR 0049), in this language, by key.
@@ -994,7 +995,7 @@ function draw(full) {
   // Each indicator is worked out on every day there is, then cut to the days shown.
   const cut = (values) => values.slice(s.skip ?? 0);
   const days = closes(s.all ?? prices, k);
-  const bands = studies.bb && !tutorial ? cut(bollinger(days, 20, 2)) : [];
+  const bands = studies.bb && !tutorial ? cut(bollinger(days, PERIODS.band, 2)) : [];
   const shown = bands.filter(Boolean);
   // The stop and the margin lines join the scale when they are near
   // (within 3%, as at 100× and up), so high leverage shows how close the
@@ -1019,8 +1020,10 @@ function draw(full) {
   const down = css.getPropertyValue("--down");
   ctx.fillStyle = css.getPropertyValue("--muted");
   ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
-  for (let d = 0; d * k <= s.total; d += 5) {
-    const xd = x(d * k);
+  // one line a day (48 ticks), not one a handful of candles, so a day reads as a day
+  const dayStep = s.dayTicks ?? 5 * k;
+  for (let d = 0; d <= s.total; d += dayStep) {
+    const xd = x(d);
     ctx.beginPath();
     ctx.moveTo(xd, 0);
     ctx.lineTo(xd, h + pane);
@@ -1117,14 +1120,14 @@ function draw(full) {
   // Moving averages over the candles, and their legend top-left.
   const legend = [];
   if (studies.ma && !tutorial) {
-    const fast = cut(sma(days, 5));
-    const slow = cut(sma(days, 20));
+    const fast = cut(sma(days, PERIODS.fast));
+    const slow = cut(sma(days, PERIODS.slow));
     line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
     line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
-    if (fast.at(-1)) legend.push([`MA5 ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
-    if (slow.at(-1)) legend.push([`MA20 ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
+    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast)} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
+    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow)} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
   }
-  if (shown.length) legend.push([`BB(20,2)`, css.getPropertyValue("--band")]);
+  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band)},2)`, css.getPropertyValue("--band")]);
   // On a phone the canvas is shrunk to a third, too small for a legend.
   const small = canvas.clientWidth < 600;
   let lx = 10;
@@ -1152,11 +1155,11 @@ function draw(full) {
       ctx.fillText(String(v), w - 66, ry(v) + 4);
     }
     ctx.setLineDash([]);
-    const r = cut(rsi(days, 14));
+    const r = cut(rsi(days, PERIODS.rsi));
     line(r.map((v) => v === null ? null : ry(v)), css.getPropertyValue("--rsi"));
     const now = r.at(-1);
     ctx.fillStyle = now === null ? css.getPropertyValue("--muted") : now >= 70 ? down : now <= 30 ? up : css.getPropertyValue("--rsi");
-    if (!small) ctx.fillText(`RSI(14) ${now === null ? "—" : now.toFixed(1)}`, 10, h + 20);
+    if (!small) ctx.fillText(`RSI(${PERIODS.rsi}) ${now === null ? "—" : now.toFixed(1)}`, 10, h + 20);
   }
   // A face at each moment a trader opened, added to, closed or was cut out of a position
   // (ADR 0064), on the price of that tick, with an arrow for the way and a ring if it is mine.
@@ -1400,7 +1403,9 @@ function render(s) {
   $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
   const clockKey = tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
-  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.steps)), of: s.total / s.steps, s: s.countdown };
+  // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
+  const dayTicks = s.dayTicks ?? s.steps;
+  const clockValues = { d: Math.max(1, Math.ceil(s.tick / dayTicks)), of: Math.max(1, Math.round(s.total / dayTicks)), s: s.countdown };
   $("clock").textContent = t(`${clockKey}Short`, clockValues);
   $("clock").setAttribute("aria-label", t(clockKey, clockValues));
   setTip($("clock"), t(clockKey, clockValues));

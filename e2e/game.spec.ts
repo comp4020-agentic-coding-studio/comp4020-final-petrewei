@@ -114,8 +114,8 @@ test("two independent players see orders, recover from offline and receive their
     const replayPair = page.locator(".quote #replay-pair");
     await expect(replayPair).toBeVisible();
     const initial = await state();
-    expect(initial.replayPlots).toHaveLength(13);
-    await expect(replayPair.locator("option")).toHaveCount(13);
+    expect(initial.replayPlots.length).toBeGreaterThanOrEqual(19);
+    await expect(replayPair.locator("option")).toHaveCount(initial.replayPlots.length);
     for (const plot of initial.replayPlots) {
       await page.waitForTimeout(300);
       await replayPair.selectOption(String(plot.n));

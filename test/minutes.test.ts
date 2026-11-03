@@ -64,7 +64,8 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
 
   it("cuts six trading days of ticks from a file that spans them", () => {
     const bars = parseBars(openDays("2016-06-12", 21));
-    expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
+    // seven days of 48, and the price at the end of the last, which the round ends on
+    expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY + 1);
   });
 
   it("skips a holiday the file shows shut, as it skips the weekend, and takes a day more from the other side", () => {
@@ -102,11 +103,11 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
   for (const [id, , price] of rows) byPlot.set(id, [...(byPlot.get(id) ?? []), Number(price)]);
   const ids = new Set(EVENTS.map((e) => e.id));
 
-  it("holds six days of 30-minute ticks for each plot it has, and only for plots that exist", () => {
+  it("holds seven days of 30-minute ticks and the last day's closing price for each plot it has, and only for plots that exist", () => {
     expect(byPlot.size, "at least the franc, whose real file is the first one").toBeGreaterThanOrEqual(1);
     for (const [id, prices] of byPlot) {
       expect(ids.has(id), `${id} is a plot`).toBe(true);
-      expect(prices, id).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
+      expect(prices, id).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY + 1);
       for (const p of prices) expect(Number.isFinite(p) && p > 0, id).toBe(true);
     }
   });

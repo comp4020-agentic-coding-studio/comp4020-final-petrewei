@@ -20,7 +20,7 @@ import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
-import { EVENTS, History, PAIRS, STEPS, random, replay, scenario, storyOf, type Pair, type Round } from "./market.ts";
+import { CANDLE, DAY_TICKS, EVENTS, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -30,7 +30,7 @@ const CAREER_FILE = join(DATA_DIR, "career.json");
 const NAMES_FILE = join(DATA_DIR, "names.json");
 const FACES_FILE = join(DATA_DIR, "faces.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
-// Half a second a tick: thirty days of nine ticks is two minutes and fifteen seconds.
+// Half a second a tick: five days of 48 ticks is 241 ticks, two minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
@@ -66,6 +66,7 @@ mkdirSync(DATA_DIR, { recursive: true });
 
 const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
 const history = new History(read("data/ecb.csv"));
+const minutes = new Minutes(read("data/minutes.csv"));
 
 // A visitor is their cookie; others see them by a trader name drawn from
 // it, or one they chose (ADR 0017), and the log by a short hash, so no
@@ -459,12 +460,12 @@ class Market {
     if (this.mode === "simulation") {
       const pair = PAIRS.find((p) => p === pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
       const now = todayRate(pair);
-      this.round = scenario(history, pair, now.rate, rnd);
+      this.round = simulation(history, pair, now.rate, rnd);
       const story = T.en.scenarios[this.round.scenario!];
       this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
       this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
     } else {
-      const round = replay(history, rnd, pick ?? undefined);
+      const round = replayRound(history, minutes, rnd, pick ?? undefined);
       this.round = round;
       this.reveal = `That was ${round.pair} from ${round.days[0]} to ${round.days.at(-1)}.${round.event ? ` ${round.event.title} (${round.event.date}): ${round.event.note}` : ""}`;
       this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
@@ -735,8 +736,10 @@ class Market {
     // Headlines, each on its day: a Simulation's situation (ADR 0027), or a
     // replay's clues before its famous day (ADR 0030); enough, read with
     // care, to see it coming.
-    if (this.tick % STEPS === 1) {
-      const day = (this.tick - 1) / STEPS;
+    // headlines and news come on the first tick of a unit: a day for a replay's clues, a candle for a simulation's stories
+    const unit = this.round.unit;
+    if (this.tick % unit === 1) {
+      const day = Math.floor((this.tick - 1) / unit);
       const { scenario, event } = this.round;
       const words = scenario ? T.en.scenarios[scenario].headlines : event ? (T.en.clues[event.date] ?? []) : [];
       this.round.headlines?.forEach((h, i) => {
@@ -862,7 +865,8 @@ class Market {
       simulated: round.simulated,
       tick,
       total: round.prices.length - 1,
-      steps: STEPS,
+      steps: CANDLE,
+      dayTicks: round.dayTicks ?? DAY_TICKS,
       start: START,
       from,
       // The market's thirty days before the open, sent whole with the round's first
