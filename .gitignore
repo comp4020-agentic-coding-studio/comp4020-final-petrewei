@@ -24,3 +24,7 @@ mise.local.toml
 
 # copyrighted reference scans for drawing, never published (ADR 0021)
 reference/
+
+# raw minute data downloaded from HistData for the build script: large, and not ours to republish
+# (ADR 0073). What the game uses is the small file data/ minutes derived from it.
+raw/

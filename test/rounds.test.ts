@@ -370,12 +370,15 @@ it("marks each trader's open and close for the chart, by face and short code, ne
     expect((await act(me, { kind: "buy", leverage: 3, stake: 0.5, sl: 5, tp: 10, mode: "replay" })).status).toBe(200);
     expect((await act(other, { kind: "sell", leverage: 3, mode: "replay" })).status).toBe(200);
     await new Promise((r) => setTimeout(r, 200));
-    expect((await act(me, { kind: "close", mode: "replay" })).status).toBe(200);
+    // A replay opens on a day the market broke, so the price may reach my stop or take profit before I close:
+    // then the close is refused with nothing to close, and the trade's end is marked as that stop or take instead.
+    const closed = await act(me, { kind: "close", mode: "replay" });
+    if (closed.status !== 200) expect((await closed.json()).error, "the close was refused for another reason").toBe("Nothing to close.");
     const mine = (await look(me)) as Marked;
     const theirs = (await look(other)) as Marked;
     const opened = mine.marks.find((m) => m.you && m.kind === "open");
     expect(opened, "my open is marked, and flagged as mine").toMatchObject({ side: 1, who: mine.you.code });
-    expect(mine.marks.some((m) => m.you && m.kind === "close"), "so is my close").toBe(true);
+    expect(mine.marks.some((m) => m.you && ["close", "stop", "take", "stopout", "zerocut"].includes(m.kind)), "so is the end of my trade, however it came").toBe(true);
     expect(mine.marks.find((m) => m.who === theirs.you.code && m.kind === "open"), "another's open is marked, not mine").toMatchObject({ side: -1, you: false });
     // the other person sees the same moments with the flag turned round
     expect(theirs.marks.find((m) => m.who === mine.you.code && m.kind === "open")?.you).toBe(false);
@@ -388,7 +391,10 @@ it("marks each trader's open and close for the chart, by face and short code, ne
     const wire = JSON.stringify(mine.marks);
     expect(wire).not.toContain(me.slice(2));
     expect(wire).not.toContain(other.slice(2));
-    expect(wire, "a stop or a take profit is not a moment").not.toMatch(/stop|take|"sl"|"tp"/);
+    // a mark names the moment a trade ended ("stop" or "take" are kinds of that), but never carries a stop's
+    // level or a trader's setting for one
+    for (const m of mine.marks) expect(Object.keys(m).sort(), "a mark holds no price, level or setting").toEqual(["face", "kind", "side", "tick", "who", "you"]);
+    expect(wire, "no stop or take-profit setting is on the wire").not.toMatch(/"sl"|"tp"|"stop":|"take":/);
   } finally {
     for (const t of tabs) t.close();
   }

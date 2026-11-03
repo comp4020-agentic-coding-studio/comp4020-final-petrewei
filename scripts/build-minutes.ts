@@ -1,0 +1,102 @@
+// Builds data/minutes.csv, the real intraday prices the Replay plots play, from the minute bars
+// downloaded from HistData (https://www.histdata.com, MetaTrader M1 files, kept in raw/ and never
+// committed). Run it by hand when a file is added:
+//
+//   node scripts/build-minutes.ts
+//
+// For each plot it cuts six FX days, the day before and the five that are played, so the day the
+// market broke is the third of the five, and it writes one price every 30 minutes (48 a day). A
+// day here is an FX day, which opens at 17:00 New York standard time the evening before, as the
+// files' own clock does (they are fixed at UTC-5 and never move for daylight saving). A minute with
+// no bar had no trade, so the price carries on from the minute before.
+//
+// The output has one block per plot, so the game reads a file of a few thousand rows and never the
+// raw files. A plot whose file is missing is left out, and the game plays it from the ECB's daily
+// closes as before.
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { EVENTS } from "../src/market.ts";
+
+export const TICK_MINUTES = 30;
+export const TICKS_PER_DAY = (24 * 60) / TICK_MINUTES;
+export const PLAYED_DAYS = 5;
+export const PRE_DAYS = 1;
+// The third of five played days holds the day the market broke.
+export const SWAN_DAY = 3;
+
+type Bar = { at: number; o: number; h: number; l: number; c: number };
+
+// The files' clock, in minutes since the epoch, as if the clock were UTC (it is fixed EST, so only
+// differences matter, and a day is 17:00 to 17:00 on it).
+const stamp = (date: string, time: string): number => Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), +time.slice(0, 2), +time.slice(3, 5)) / 60_000;
+
+export function parseBars(csv: string): Bar[] {
+  const bars: Bar[] = [];
+  for (const line of csv.split("\n")) {
+    const f = line.trim().split(",");
+    if (f.length < 6) continue;
+    bars.push({ at: stamp(f[0], f[1]), o: +f[2], h: +f[3], l: +f[4], c: +f[5] });
+  }
+  return bars.sort((a, b) => a.at - b.at);
+}
+
+// The 17:00 that opens the FX day containing the given calendar date's trading, 24 hours on.
+// An FX day is named for the date it closes on, so ECB's 15 January is the day from 17:00 on the 14th.
+export function dayOpen(date: string): number {
+  return stamp(date.replaceAll("-", "."), "00:00") - 7 * 60;
+}
+
+// One price every `step` minutes from `from`, for `count` ticks. A tick is the close of the last bar
+// at or before its end, so a bar that gapped shows as the tick it landed in; a tick with no bar
+// carries the price before it. `open` is the price the first tick carries from.
+export function ticksOf(bars: Bar[], from: number, count: number, step = TICK_MINUTES): number[] {
+  let i = 0;
+  while (i < bars.length && bars[i].at < from) i++;
+  let last = i > 0 ? bars[i - 1].c : bars[0].o;
+  const out: number[] = [];
+  for (let n = 0; n < count; n++) {
+    const end = from + (n + 1) * step;
+    while (i < bars.length && bars[i].at < end) last = bars[i++].c;
+    out.push(last);
+  }
+  return out;
+}
+
+// Where a plot's six days begin: the day the market broke is the third of the five played, with the
+// day before them first. One definition, used by the build and by the checks.
+export function plotOpen(date: string): number {
+  return dayOpen(date) - (SWAN_DAY - 1 + PRE_DAYS) * 24 * 60;
+}
+
+// The raw file for a pair and a year, wherever it was unpacked under raw/histdata.
+export function rawFile(root: string, pair: string, year: number): string | null {
+  const name = `DAT_MT_${pair}_M1_${year}.csv`;
+  for (const dir of existsSync(root) ? readdirSync(root) : []) {
+    const path = join(root, dir, name);
+    if (existsSync(path)) return path;
+  }
+  return null;
+}
+
+if (import.meta.main) {
+  const root = join(import.meta.dirname, "..", "raw", "histdata");
+  const lines = ["id,tick,price"];
+  const built: string[] = [];
+  const missing: string[] = [];
+  for (const e of EVENTS) {
+    const pair = e.pair.replace("/", "");
+    const year = +e.date.slice(0, 4);
+    const file = rawFile(root, pair, year);
+    if (!file) {
+      missing.push(`${e.id} (${pair} ${year})`);
+      continue;
+    }
+    const bars = parseBars(readFileSync(file, "utf8"));
+    const prices = ticksOf(bars, plotOpen(e.date), (PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY);
+    prices.forEach((p, n) => lines.push(`${e.id},${n},${p}`));
+    built.push(e.id);
+  }
+  writeFileSync(join(import.meta.dirname, "..", "data", "minutes.csv"), lines.join("\n") + "\n");
+  console.log(`wrote ${built.length} plots: ${built.join(", ") || "none"}`);
+  if (missing.length) console.log(`no raw file for ${missing.length}: ${missing.join(", ")}`);
+}
