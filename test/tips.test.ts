@@ -81,9 +81,11 @@ it("gives the stop loss and the take profit a toggle each, one on the left and o
   expect(exits).not.toBeNull();
   // stop loss first in the page, so on the left; take profit after, on the right
   expect([...exits.querySelectorAll("[role=switch]")].map((s) => s.id)).toEqual(["sl-on", "tp-on"]);
-  // on one row (ADR 0078): the stop loss's switch, the one track, the take profit's switch, in that order
-  const row = [...exits.querySelector(".exit-row")!.children].map((c) => c.id || c.className.split(" ")[0]);
-  expect(row.slice(0, 3)).toEqual(["sl-on", "exit-scale", "tp-on"]);
+  // on a row of their own over the track (ADR 0085, which undid 0078's one row): the stop loss's switch, the take
+  // profit's, and the definition
+  const heads = [...exits.querySelector(".exit-heads")!.children].map((c) => c.id || c.className.split(" ")[0]);
+  expect(heads).toEqual(["sl-on", "tp-on", "info"]);
+  expect(exits.querySelector(".exit-heads + .exit-track"), "the track comes under the switches").not.toBeNull();
   // one track, both thumbs on it, never hidden by a toggle
   expect(exits.querySelectorAll(".exit-track")).toHaveLength(1);
   const thumbs = [...exits.querySelectorAll(".exit-track input[type=range]")] as HTMLInputElement[];
@@ -108,7 +110,7 @@ it("abbreviates stop loss and take profit only on the switches beside their trac
     }
   }
   for (const id of ["sl-on", "tp-on", "psl-on", "ptp-on"]) expect(page.getElementById(id)!.getAttribute("aria-label"), id).toMatch(/Stop Loss|Take Profit/);
-  const html = [...page.body.querySelectorAll("*")].filter((e) => !e.closest(".exit-row .toggle")).map((e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("")).join(" ");
+  const html = [...page.body.querySelectorAll("*")].filter((e) => !e.closest(".exit-heads .toggle")).map((e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("")).join(" ");
   expect(html).not.toMatch(abbrev);
   expect(readFileSync("src/tutorial.ts", "utf8")).not.toMatch(abbrev);
   // the tutorial's lessons and its refusals, in every language
@@ -185,7 +187,7 @@ it("puts Ironman below Start, and only one line of text and a note in the lobby"
 });
 it("gives the ticket a heading, and lets headed panels fold", () => {
   expect(page.querySelector(".ticket > h2")?.textContent).toMatch(/\S/);
-  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["account", "chart", "fame", "feed", "position", "room", "ticket"]);
+  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["account", "chart", "desk", "fame", "feed", "position", "room", "ticket"]);
   for (const p of page.querySelectorAll(".panel[data-fold]")) expect(p.querySelector(":scope > h2"), (p as HTMLElement).dataset.fold).not.toBeNull();
 });
 it("shows the language as a globe alone, and lets the footer take the page's width", () => {
@@ -515,7 +517,9 @@ describe("the ticket, the account and the credit pop-up", () => {
     // the desk charges per tick, and the page is told how many ticks make a minute
     for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePerMinute(RULES.fee, lev, 120)), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
     for (const lang of LANGS) {
-      expect(T[lang].ui.carryRate, lang).toContain("{pct}");
+      // the leverage's note says both the cost a minute and how far against you takes it all (ADR 0085)
+      expect(T[lang].ui.levNote, lang).toContain("{pct}");
+      expect(T[lang].ui.levNote, lang).toContain("{away}");
       expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));
     }
   });

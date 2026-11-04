@@ -42,7 +42,7 @@ const stake = (m: Move): number => (m.kind === "order" ? (m.stake ?? 1) : 0);
 const order = (side: Side, leverage: number, full: boolean) => (m: Move): string | null => {
   const word = side === 1 ? "Buy" : "Sell";
   if (m.kind !== "order" || m.side !== side || m.leverage !== leverage) return `This lesson wants a ${word} at ${leverage}×. Set Leverage to ${leverage}× first.`;
-  if (full && stake(m) !== 1) return "Set Stake to 100% for this lesson.";
+  if (full && stake(m) !== 1) return "Set Margin to 100% for this lesson.";
   return null;
 };
 const only = (kind: Move["kind"], hint: string) => (m: Move): string | null => (m.kind === kind ? null : hint);
@@ -66,7 +66,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "buy",
     title: "Buy: Betting the Price Rises",
-    text: "To buy is to bet the price will rise. Leverage multiplies your bet: 1× borrows nothing. Stake is the share of your money you put in.",
+    text: "To buy is to bet the price will rise. Leverage multiplies your bet: 1× borrows nothing. Margin is the share of your money you put in.",
     task: "Slide Leverage to 1×, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=1", say: "Slide Leverage to 1×." },
@@ -110,10 +110,10 @@ export const LESSONS: Lesson[] = [
     id: "leverage",
     title: "Leverage: The Magnifying Glass",
     text: "At 30× your ¥1,000,000 controls ¥30,000,000, so a 1% move changes your money by 30%, either way. 30× is Australia's legal cap for retail traders.",
-    task: "Set Leverage to 30× and Stake to 100%, then press Buy.",
+    task: "Set Leverage to 30× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
-      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy." },
     ],
     fresh: true,
@@ -139,10 +139,10 @@ export const LESSONS: Lesson[] = [
     id: "stop",
     title: "Stop Loss: Decide in Advance",
     text: "A Stop Loss closes the position if the price moves against you by a set amount. Decide what you can afford to lose before the trade. At 10×, a stop 1% away keeps the loss near 10%.",
-    task: "Set Leverage to 10× and Stake to 100%, press Buy, then drag the Stop Loss thumb to 1%, beside the middle line.",
+    task: "Set Leverage to 10× and Margin to 100%, press Buy, then drag the Stop Loss thumb to 1%, beside the middle line.",
     plan: [
       { target: "leverage", until: "leverage=10", say: "Slide Leverage to 10×." },
-      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy." },
       { target: "stop", until: "look", say: "Your position's Stop Loss and Take Profit." },
       { target: "stopthumb", until: "press", say: "Drag the red thumb next to the middle line: 1%.", move: 1 },
@@ -164,10 +164,10 @@ export const LESSONS: Lesson[] = [
     id: "highest",
     title: "The Highest Leverage: 1000×",
     text: "Offshore brokers offer 1000×: your ¥1,000,000 controls ¥1,000,000,000, so a 0.1% move is your whole account. The spread alone costs a fifth the moment you buy.",
-    task: "Set Leverage to 1000× and Stake to 100%, then press Buy.",
+    task: "Set Leverage to 1000× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=1000", say: "Slide Leverage to 1000×, the highest." },
-      { target: "stake", until: "stake=1", say: "Set Stake to 100%." },
+      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy and watch." },
     ],
     fresh: true,
@@ -194,7 +194,7 @@ export const LESSONS: Lesson[] = [
     id: "gap",
     title: "A Gap and a Wipe-Out",
     text: "Same setting, buy again. The price gaps through every stop and loss cut, as the franc did on 15 January 2015. You are wiped out and still owe the credit: bankrupt. Keep leverage low.",
-    task: "Press Buy again. Leverage and Stake stay as they are.",
+    task: "Press Buy again. Leverage and Margin stay as they are.",
     plan: [
       { target: "buy", until: "press", say: "Press Buy again, same setting." },
       { target: "chart", until: "look", say: "The price gapped past every stop." },

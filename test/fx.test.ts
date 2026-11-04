@@ -205,7 +205,7 @@ describe("the trading desk", () => {
     desk.join("a");
     desk.order("a", 1, 10);
     expect(desk.order("a", -1, 7)).toBe("No such leverage.");
-    expect(desk.order("a", -1, 10, 99)).toBe("Stake must be between 0 and 1.");
+    expect(desk.order("a", -1, 10, 99)).toBe("Margin must be between 0 and 1.");
     expect(desk.account("a").pos).not.toBeNull();
   });
 

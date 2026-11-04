@@ -404,19 +404,12 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
    the take profit's from the middle to its thumb. Each is grey while its own
    toggle is off, and still shows its percentage. */
 .exits { display: grid; gap: 0.2rem; }
-/* The exits on one row (ADR 0078): the stop loss's switch at the track's left end, the take profit's at its right, each
-   with its short name and distance, so the toggles take no row of their own; the scale sits under the track. */
-.exit-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.4rem; }
-.exit-row .pct { font: 700 0.82rem var(--mono); }
-.exit-row .toggle .name { font-size: 0.78rem; }
-/* Each switch stacks its knob, name and distance (ADR 0079, 0084), so the track keeps the row's width. */
-.exit-row .toggle { display: grid; grid-template-columns: auto; justify-items: center; gap: 0.05rem; }
-/* top to bottom: the switch, its name, its distance (ADR 0084); the TP's markup puts them the other way, so the rows
-   are placed */
-.exit-row .toggle .track { grid-row: 1; }
-.exit-row .toggle .name { grid-row: 2; line-height: 1.1; }
-.exit-row .toggle .pct { grid-row: 3; line-height: 1.1; }
-.exit-scale { display: grid; gap: 0.1rem; min-width: 0; }
+/* The exits (ADR 0085): a row with the stop loss's switch, name and distance at the left, the take profit's at the
+   right and the definition last, then the joined track and its scale under them. */
+.exit-heads { display: flex; align-items: center; gap: 0.4rem; }
+.exit-heads .toggle.tp { margin-left: auto; }
+.exit-heads .pct { font: 700 0.82rem var(--mono); }
+.exit-heads .toggle .name { font-size: 0.8rem; }
 /* A pending order (ADR 0078): a row that opens to choose a side, a way and a distance, naming the order it makes and
    the level it would wait at; while one waits, its summary says so, with a Cancel. */
 .pend { padding-top: 0.1rem; }
@@ -484,15 +477,6 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .toggle[aria-checked="false"] { color: var(--muted); }
 /* The position's own exits: the ticket's toggles and track, under the row. */
 .pos-exits { padding: 0.1rem 0.9rem 0.7rem; }
-/* The preview is two whole phrases, one to a line, so no line ends on a
-   stray word; an amount never breaks. Room for each to wrap once. */
-.preview { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); }
-/* the two phrases run on one line, joined by a dot, and wrap at the dot if they must, never inside a phrase where
-   one fits on a line (ADR 0077) */
-.preview span { display: inline-block; }
-.preview #preview-1:not(:empty):has(+ #preview-2:not(:empty))::after { content: " ·"; }
-.preview #preview-1:not(:empty) { margin-right: 0.3em; }
-.preview strong { color: var(--soft); font-family: var(--mono); font-weight: 600; white-space: nowrap; }
 .account-body { padding: 0.8rem 0.9rem 0.9rem; display: grid; gap: 0.8rem; }
 .acct { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0; padding-top: 0; }
 .acct dt { font-size: 0.72rem; color: var(--muted); }
@@ -1005,6 +989,16 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
      so an open position is never below the fold */
   main { --pad: 0.75rem; --peek: 8.4rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad) - var(--peek)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; grid-template-rows: var(--tall); }
   .chart-panel, .desk { height: var(--tall); min-height: 0; }
+  /* a folded panel shrinks to its heading (ADR 0085), and the first row to whatever is still open; both folded, the
+     row is the headings alone */
+  .chart-panel.folded, .desk.folded { height: auto; align-self: start; }
+  /* a folded chart gives its column to the panels below, which rise to meet the card; a folded card gives the chart
+     the whole row; both folded, the row is the two headings */
+  main:has(.chart-panel.folded) { grid-template-areas: "chart desk" "position desk" "feed desk" "feed room" "fame fame"; grid-template-rows: auto auto 1fr auto; }
+  main:has(.desk.folded) { grid-template-areas: "desk desk" "chart chart" "position position" "feed room" "fame fame"; grid-template-rows: auto var(--tall); }
+  main:has(.chart-panel.folded):has(.desk.folded) { grid-template-areas: "chart desk" "position position" "feed room" "fame fame"; grid-template-rows: auto; }
+  main:has(.chart-panel.folded):not(:has(.desk.folded)) .desk { height: var(--tall); align-self: start; }
+  main:has(.chart-panel.folded):not(:has(.desk.folded)) .feed { max-height: none; }
   .chart-panel { display: flex; flex-direction: column; }
   /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
   .chart-panel > .chart-box { flex: 1; min-height: 0; }
@@ -1019,8 +1013,6 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   /* spacing the narrower column needed and this one does not */
   .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
   .field { gap: 0.25rem; }
-  /* a refusal stands in for the preview while it shows, rather than adding a line to the panel */
-  .ticket-body:has(#error:not(:empty)) #preview { display: none; }
   .account-body { gap: 0.45rem; padding: 0.6rem 0.9rem 0.7rem; }
   .meter { margin-bottom: 0.95rem; }
   /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing and

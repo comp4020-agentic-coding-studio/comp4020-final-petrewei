@@ -24,10 +24,10 @@ function show(el) {
   const text = textOf(el);
   if (!text) return hide();
   over = el;
-  // One unbreakable span a clause, so a line may end only between them.
-  // A space between clauses, except after a Japanese or Chinese mark, which
-  // is never spaced.
-  tip.replaceChildren(...clauses(text).flatMap((c, i, all) => [Object.assign(document.createElement("span"), { className: "clause", textContent: c }), ...(i < all.length - 1 && !/[。，、；：！？）」』]$/.test(c) ? [" "] : [])]));
+  // One unbreakable span a clause, so a line may end only between them. Each sentence starts a line of its own
+  // (ADR 0085); between other clauses a space, except after a Japanese or Chinese mark, which is never spaced.
+  const between = (c) => (/[.!?。！？]$/.test(c) ? [document.createElement("br")] : /[。，、；：！？）」』]$/.test(c) ? [] : [" "]);
+  tip.replaceChildren(...clauses(text).flatMap((c, i, all) => [Object.assign(document.createElement("span"), { className: "clause", textContent: c }), ...(i < all.length - 1 ? between(c) : [])]));
   tip.hidden = false;
   if (!tip.matches(":popover-open")) tip.showPopover?.();
   el.setAttribute("aria-describedby", "tip");

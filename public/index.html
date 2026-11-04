@@ -136,7 +136,7 @@
         </div>
       </div>
     </section>
-    <section class="panel desk" aria-label="Account and order">
+    <section class="panel desk" data-fold="desk" aria-label="Account and order">
       <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="deskTitle">Account / Order</span> <span class="aside spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></span></h2>
       <div class="desk-body">
     <section class="panel account" data-fold="account" aria-label="Account">
@@ -222,23 +222,22 @@
            profit on the right, over one joined track with a thumb each,
            grey when its toggle is off. Each shows only its percentage. -->
       <div class="exits" id="exits">
-        <div class="exit-row">
+        <!-- Each switch with its name and distance on a row of its own over the joined track, the stop loss on the left
+             and the take profit on the right (ADR 0085). -->
+        <div class="exit-heads">
           <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slShort">SL</span> <b id="sl-pct" class="pct"></b></button>
-          <div class="exit-scale">
-            <div class="exit-track" data-sl="false" data-tp="false">
-              <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
-              <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
-              <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
-              <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
-              <div class="exit-line" aria-hidden="true"></div>
-            </div>
-            <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
-          </div>
           <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="tp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
           <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
         </div>
+        <div class="exit-track" data-sl="false" data-tp="false">
+          <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
+          <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
+          <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
+          <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
+          <div class="exit-line" aria-hidden="true"></div>
+        </div>
+        <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
       </div>
-      <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
       <!-- A pending order (ADR 0078, 0079): this order, with its leverage, stake and exits, placed later when the price
            reaches the level typed. The level is only a trigger; the server fills at its own price on that tick. -->
       <details class="pend" id="pend">
@@ -290,21 +289,19 @@
            thumb places it (ADR 0037). -->
       <div class="pos-exits" id="pos-exits" hidden>
         <div class="exits" id="pexits">
-        <div class="exit-row">
+        <div class="exit-heads">
           <button id="psl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slShort">SL</span> <b id="psl-pct" class="pct"></b></button>
-          <div class="exit-scale">
-            <div class="exit-track" data-sl="false" data-tp="false">
+          <button id="ptp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="ptp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+          <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
+        </div>
+        <div class="exit-track" data-sl="false" data-tp="false">
           <span class="fill sl" id="psl-fill" aria-hidden="true"></span>
           <span class="fill tp" id="ptp-fill" aria-hidden="true"></span>
           <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
           <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
           <div class="exit-line" aria-hidden="true"></div>
         </div>
-            <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
-          </div>
-          <button id="ptp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="ptp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
-          <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
-        </div>
+        <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
       </div>
       </div>
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
@@ -400,10 +397,6 @@
         <button id="set-sound" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setSound"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
       <li><b data-t="setCalm">Calm screen</b><small data-t="setCalmNote">No shaking, flashing or blinking.</small>
         <button id="set-calm" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setCalm"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
-      <li><b data-t="setMusic">Music</b><small data-t="setMusicNote">The background track.</small>
-        <button id="set-music" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setMusic"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
-      <li><b data-t="setDark">Dark theme</b><small data-t="setDarkNote">Easier on the eyes at night.</small>
-        <button id="set-dark" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setDark"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
     </ul>
     <div class="row"><button type="button" class="ghost" id="settings-close" data-t="featsDone">Done</button></div>
   </dialog>

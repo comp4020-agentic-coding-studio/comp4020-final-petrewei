@@ -36,8 +36,6 @@ const fill = (template: string, vars: Record<string, string>): string =>
   });
 const market = read("public/index.html");
 const header = read("public/parts/header.html");
-// The market keeps music and the theme in its Settings, beside its achievements (ADR 0083), so the header holds the
-// same number of buttons; other pages keep them in the header.
 const MARKET_ONLY = { tabs: read("public/parts/tabs.html"), whoami: read("public/parts/whoami.html"), feats: read("public/parts/feats.html") };
 const sound = read("public/parts/sound.html");
 const slotsIn = (lang: Lang): Record<string, string> => {
@@ -54,5 +52,5 @@ const slotsIn = (lang: Lang): Record<string, string> => {
     about: `${prefix(lang)}/about`,
   };
 };
-export const headerIn = (lang: Lang, onMarket: boolean): string => fill(header, { ...slotsIn(lang), tabs: onMarket ? MARKET_ONLY.tabs : "", whoami: onMarket ? MARKET_ONLY.whoami : "", feats: onMarket ? MARKET_ONLY.feats : "", sound: onMarket ? "" : sound });
+export const headerIn = (lang: Lang, onMarket: boolean): string => fill(header, { ...slotsIn(lang), tabs: onMarket ? MARKET_ONLY.tabs : "", whoami: onMarket ? MARKET_ONLY.whoami : "", feats: onMarket ? MARKET_ONLY.feats : "", sound });
 export const marketIn = (lang: Lang): string => fill(market, { ...slotsIn(lang), header: headerIn(lang, true) });

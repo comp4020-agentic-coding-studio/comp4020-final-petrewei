@@ -164,7 +164,7 @@ export class Desk {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
-    if (!(stake > 0 && stake <= 1)) return "Stake must be between 0 and 1.";
+    if (!(stake > 0 && stake <= 1)) return "Margin must be between 0 and 1.";
     if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
@@ -194,7 +194,7 @@ export class Desk {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
-    if (!(r.stake > 0 && r.stake <= 1)) return "Stake must be between 0 and 1.";
+    if (!(r.stake > 0 && r.stake <= 1)) return "Margin must be between 0 and 1.";
     if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
     if (r.at === this.price) return "That is the price now. Buy or Sell instead.";
     if (Math.abs(r.at / this.price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";

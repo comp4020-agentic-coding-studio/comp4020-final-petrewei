@@ -211,8 +211,7 @@ function mark() {
 
   for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
   for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
-  // The financing fee grows with the square of the leverage (ADR 0058).
-  $("fee-note").textContent = t("carryRate", { pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
+  leverageNote();
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
@@ -432,7 +431,7 @@ const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "d
 function label() {
   document.documentElement.dataset.modeShown = theme();
   const name = theme() === "dark" ? t("toLight") : t("toDark");
-  for (const id of ["n-theme"]) {
+  for (const id of ["theme", "n-theme"]) {
     $(id).dataset.tip = theme() === "dark" ? "toLight" : "toDark";
     $(id).setAttribute("aria-label", name);
   }
@@ -446,10 +445,9 @@ const switchTheme = () => {
     // a private window: the choice lasts this visit
   }
   label();
-  $("set-dark").setAttribute("aria-checked", String(theme() === "dark"));
   if (state) draw(state);
 };
-$("n-theme").onclick = switchTheme;
+$("theme").onclick = $("n-theme").onclick = switchTheme;
 dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
@@ -459,9 +457,8 @@ let ironman = false;
 $("ironman").onclick = () => $("ironman").setAttribute("aria-checked", String((ironman = !ironman)));
 $("start").onclick = () => act("start", { ironman });
 
-// Settings (ADR 0083), each kept in this browser: sound effects, off until chosen, made in the page with no files;
-// a calm screen, the page's own reduced-motion rules on demand; and the music and theme switches, the same ones the
-// header has.
+// Settings (ADR 0083, 0085), each kept in this browser: sound effects, off until chosen, made in the page with no
+// files, and a calm screen, the page's own reduced-motion rules on demand. Music and the theme keep their own buttons.
 const prefs = (() => {
   try {
     return { sound: false, calm: false, ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
@@ -488,12 +485,8 @@ for (const k of ["sound", "calm"]) $(`set-${k}`).onclick = () => {
   showPrefs();
   if (k === "sound" && prefs.sound) sound("fill");
 };
-$("settings-btn").onclick = () => {
-  $("set-dark").setAttribute("aria-checked", String(theme() === "dark"));
-  $("settings").showModal();
-};
+$("settings-btn").onclick = () => $("settings").showModal();
 $("settings-close").onclick = () => $("settings").close();
-$("set-dark").onclick = switchTheme;
 // A short tone for a moment: a click for a fill, a two-note chime for a profit, a low thud for a forced cut, a buzz
 // for a margin call. Made with the page's own audio, so nothing is fetched, and only once a player has turned it on.
 let audio = null;
@@ -528,12 +521,11 @@ const bgm = $("bgm");
 bgm.volume = 0.35;
 const musicLabel = () => {
   const on = !bgm.paused;
-  for (const id of ["n-music"]) {
+  for (const id of ["music", "n-music"]) {
     $(id).setAttribute("aria-pressed", String(on));
     $(id).dataset.tip = on ? "musicOff" : "musicOn";
     $(id).setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
   }
-  $("set-music").setAttribute("aria-checked", String(on));
 };
 const remember = (on) => {
   try {
@@ -556,14 +548,14 @@ const toggleMusic = async () => {
   }
   musicLabel();
 };
-$("n-music").onclick = $("set-music").onclick = toggleMusic;
+$("music").onclick = $("n-music").onclick = toggleMusic;
 bgm.addEventListener("play", musicLabel);
 bgm.addEventListener("pause", musicLabel);
 try {
   if (localStorage.getItem("music") === "on") {
     addEventListener("pointerdown", function resume(e) {
       removeEventListener("pointerdown", resume, true);
-      if (bgm.paused && !e.target.closest?.("#set-music, #n-music")) bgm.play().catch(() => {});
+      if (bgm.paused && !e.target.closest?.("#music, #n-music")) bgm.play().catch(() => {});
     }, true);
   }
 } catch {
@@ -1085,6 +1077,13 @@ for (const k of ["sl", "tp"]) {
   };
 }
 
+// The leverage's note: how far against you takes everything you put in, at L× a move of 1/L, and the holding cost,
+// which grows with the square of the leverage (ADR 0058, 0085).
+function leverageNote() {
+  const wipe = 100 / choice.leverage;
+  const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
+  $("fee-note").textContent = t("levNote", { away, pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
+}
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
 function ticket(s) {
@@ -1103,32 +1102,13 @@ function ticket(s) {
   const controls = margin * choice.leverage;
   // beside the stake, what this order puts in and the position it controls, in yen (ADR 0079)
   $("stake-note").textContent = t("stakeNote", { margin: yen(margin), controls: yen(controls) });
-  // At L× leverage, a move of 1/L against you is everything you put in.
-  const wipe = 100 / choice.leverage;
-  // With a position open, a same-side order adds to it and an opposite
-  // one closes it, so the preview says which.
+  // The preview's row is gone (ADR 0085): what a move against you costs joins the leverage's note, and with a position
+  // open the opposite button says it closes it, where it would otherwise say what it earns on.
   const pos = s.you.pos;
-  const same = pos?.side === 1 ? t("buy") : t("sell");
-  const other = pos?.side === 1 ? t("sell") : t("buy");
-  const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
-  // Two whole phrases on one line, joined by a dot and wrapping only there:
-  // what the order puts in, then what it risks or does.
-  // Out of the round after a cut (ADR 0026): no order to preview, only
-  // the way back in.
-  const [one, two] = s.you.out
-    ? [t("previewOut1"), t("previewOut2")]
-    : pos
-      ? margin > 0
-        ? [t("previewAdd1", { same, lev: choice.leverage }), t("previewAdd2", { other })]
-        : [t("previewFull1"), t("previewFull2", { other })]
-      : margin > 0
-        ? [t("previewOpen"), ""]
-        : [t("previewNone"), ""];
-  // what goes in, as a share of the account: the game ranks on percentages, so the ticket speaks in them (ADR 0078)
-  const share = s.you.equity > 0 ? `${Math.round((margin / s.you.equity) * 100)}%` : "0%";
-  const slots = { margin: yen(margin), controls: yen(controls), away, share };
-  $("preview-1").replaceChildren(...rich(one, slots));
-  $("preview-2").replaceChildren(...rich(two, slots));
+  for (const [id, side, note] of [["sell", -1, "sellNote"], ["buy", 1, "buyNote"]]) {
+    $(id).querySelector("small").textContent = pos && pos.side !== side ? t("closesIt") : pos && margin > 0 ? t("addsTo") : t(note);
+  }
+  leverageNote();
 }
 // The pending row: what this order would be as a pending one, or what is waiting, with a Cancel (ADR 0078).
 function pending(s) {
