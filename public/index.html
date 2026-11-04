@@ -162,13 +162,11 @@
         </div>
         <!-- Emergency credit (ADR 0080): what is owed and its daily rate, borrowed or repaid a step at a time; the server
              sets the amounts. -->
-        <div class="credit" id="credit" data-tip="credit">
-          <span class="credit-name" data-t="creditTitle">Credit</span>
+        <div class="credit" id="credit">
+          <p class="credit-head"><span class="credit-name"><span class="long" data-t="dadTitle">Emergency Credit</span><span class="short" data-t="creditTitle">Credit</span></span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button><span class="credit-rate" id="credit-rate"></span></p>
           <span class="credit-owe" id="credit-owe"></span>
-          <span class="credit-rate" id="credit-rate"></span>
-          <button type="button" class="mini credit-go" id="credit-borrow" data-tip="borrow"></button>
-          <button type="button" class="mini credit-go" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
-          <button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button>
+          <button type="button" class="credit-go" id="credit-borrow" data-tip="borrow"><span class="long" id="credit-borrow-long"></span><span class="short" id="credit-borrow-short"></span></button>
+          <button type="button" class="credit-go" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
         </div>
       </div>
     </section>
@@ -201,14 +199,8 @@
       </div>
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
            legal caps marked; stake on an even one (ADR 0024). -->
-      <div class="field slide" id="leverage-box">
-        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
-        <input id="leverage" type="range" min="0" max="0" step="1" disabled data-t-aria="leverage" data-tip="leverage">
-        <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
-
-      </div>
       <div class="field slide" id="stake-box">
-        <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" id="stake-note"></span><output id="stake-out" for="stake"></output></p>
+        <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="fee" id="stake-note" data-tip="stakeNote"></span><output id="stake-out" for="stake"></output></p>
         <!-- The track is the whole account (ADR 0077): what is in use, then what this order adds, from nothing at the
              left to all of it at the right. The slider covers its 25% to 100% so its thumb and marks stand on the
              shares of the account they mean. -->
@@ -218,6 +210,12 @@
           <input id="stake" type="range" min="0" max="3" step="1" data-t-aria="stake" data-tip="stake">
         </div>
         <div class="ticks even stake-ticks" id="stake-ticks" aria-hidden="true"></div>
+      </div>
+      <div class="field slide" id="leverage-box">
+        <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
+        <input id="leverage" type="range" min="0" max="0" step="1" disabled data-t-aria="leverage" data-tip="leverage">
+        <div class="ticks" id="lev-ticks" aria-hidden="true" data-tip="caps"></div>
+
       </div>
       <!-- A stop loss and a take profit that ride on the order (ADR 0032,
            0034): a toggle for each, the stop loss on the left and the take
@@ -332,6 +330,12 @@
       <p class="fame-empty" data-t="fameEmpty">No one has finished a round yet. Be the first.</p>
       <!-- The score of each of a trader's recent rounds, as bars, for whoever is picked in the table: yourself at first. -->
       <figure class="fame-chart" id="fame-chart" hidden><figcaption id="fame-chart-title"></figcaption><svg id="fame-bars" viewBox="0 0 400 120" preserveAspectRatio="none" role="img"></svg><p class="fame-stats" id="fame-stats"></p></figure>
+      <!-- Your achievements (ADR 0082, 0084): every one named with what it takes, the earned ones ticked, under the hall. -->
+      <div class="feats" id="feats">
+        <h3><span aria-hidden="true">🏅</span> <span data-t="featsTitle">Achievements</span> <span class="aside" id="feats-count"></span></h3>
+        <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
+        <ul class="feat-list" id="feat-list"></ul>
+      </div>
     </section>
   </main>
 
@@ -388,13 +392,6 @@
   </dialog>
   <!-- Dad's savings (ADR 0057): a pop-up after a margin call or a cut, not a
        button in a panel. Not modal, so the position can still be closed. -->
-  <!-- Achievements (ADR 0082): a checklist of a dozen, every one named with what it takes, the earned ones ticked. -->
-  <dialog id="feats" class="card feats" aria-labelledby="feats-title">
-    <h2 id="feats-title"><span aria-hidden="true">🏅</span> <span data-t="featsTitle">Achievements</span> <span class="aside" id="feats-count"></span></h2>
-    <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
-    <ul class="feat-list" id="feat-list"></ul>
-    <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
-  </dialog>
   <!-- Settings (ADR 0083): kept in this browser only. -->
   <dialog id="settings" class="card settings" aria-labelledby="settings-title">
     <h2 id="settings-title" data-t="settingsTitle">Settings</h2>

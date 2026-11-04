@@ -57,6 +57,17 @@ it.skipIf(live)("awards an achievement for the first closed trade, to that perso
   expect(((await state(b)).you as unknown as { feats: string[] }).feats).toEqual([]);
 });
 
+// ADR 0084: an achievement alone does not put a person in the hall of fame, which lists who has finished a round or
+// been cut out; drawing credit earns one, and the hall is unchanged.
+it.skipIf(live)("keeps someone with only an achievement out of the hall of fame", async () => {
+  const a = await visitor();
+  await open();
+  expect((await act(a, { kind: "borrow" })).status).toBe(200);
+  const seen = await state(a);
+  expect((seen.you as unknown as { feats: string[] }).feats).toContain("credit");
+  expect(seen.career.some((c) => c.you), "not in the hall for drawing credit").toBe(false);
+});
+
 // ADR 0081: a player's closed trades are their own; another visitor's state never carries them.
 it.skipIf(live)("shows each player their own closed trades, and nobody else's", async () => {
   const a = await visitor();

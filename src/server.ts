@@ -338,7 +338,8 @@ for (const k of Object.keys(career)) if (bot(k)) delete career[k];
 function rank(): void {
   // Ranked by average score over enough rounds, then the newer players,
   // unranked, so the hall still shows who has begun (ADR 0029).
-  const { ranked, unranked } = hall(Object.entries(career).filter(([k]) => !bot(k)).map(([k, c]) => ({ key: k, ...c })));
+  // a career made only by an achievement, with no round finished and no bust, is not in the hall (ADR 0084)
+  const { ranked, unranked } = hall(Object.entries(career).filter(([k, c]) => !bot(k) && (c.rounds > 0 || c.busts > 0)).map(([k, c]) => ({ key: k, ...c })));
   fame = [...ranked.map((r) => ({ ...r, ranked: true })), ...unranked.map((r) => ({ ...r, ranked: false }))].slice(0, 10);
 }
 rank();

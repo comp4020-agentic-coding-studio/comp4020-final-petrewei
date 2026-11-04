@@ -66,7 +66,10 @@ function translate() {
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
   // the row's button is the step alone, signed, to keep the row on one line; its name and tip say it borrows
-  $("credit-borrow").textContent = `+${money(lang, broker.step)}`;
+  // in full where there is room, the step alone on a short screen; its name says it borrows either way
+  $("credit-borrow-long").textContent = t("borrow", { amount: money(lang, broker.step) });
+  $("credit-borrow-short").textContent = `+${money(lang, broker.step)}`;
+  $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   if (state?.lesson) lesson(state);
   retip();
@@ -381,12 +384,11 @@ for (const [id, way, emoji] of [["pray-rise", 1, "🚀"], ["pray-fall", -1, "�
   };
 }
 // Achievements (ADR 0082): the server sends the names earned; the dialog is a checklist of all of them, each named with
-// what it takes, the earned ones ticked first, and a bar for how far along; the header's medal counts them.
+// what it takes, the earned ones ticked first, and a bar for how far along, under the hall of fame (ADR 0084).
 let featsShown = "";
 function feats(s) {
   const earned = new Set(s.you.feats ?? []);
   const all = Object.keys(T.en.ui.feats);
-  $("feats-n").textContent = earned.size ? String(earned.size) : "";
   const key = [...earned].join() + lang;
   if (key === featsShown) return;
   featsShown = key;
@@ -401,8 +403,6 @@ function feats(s) {
     return li;
   }));
 }
-$("feats-btn").onclick = () => $("feats").showModal();
-$("feats-close").onclick = () => $("feats").close();
 
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];
@@ -1102,7 +1102,7 @@ function ticket(s) {
   $("stake-box").classList.toggle("cut", bar.cut && !s.you.out);
   const controls = margin * choice.leverage;
   // beside the stake, what this order puts in and the position it controls, in yen (ADR 0079)
-  $("stake-note").replaceChildren(...rich(t("stakeNote"), { margin: yen(margin), controls: yen(controls) }));
+  $("stake-note").textContent = t("stakeNote", { margin: yen(margin), controls: yen(controls) });
   // At L× leverage, a move of 1/L against you is everything you put in.
   const wipe = 100 / choice.leverage;
   // With a position open, a same-side order adds to it and an opposite
@@ -1529,7 +1529,8 @@ function popAt(p, s) {
     if (p.kind === "pray") return $(p.way === -1 ? "pray-fall" : "pray-rise");
     if (p.kind === "close") return $("pnl-box");
     if (p.kind === "call" || p.kind === "stopout" || p.kind === "zerocut") return $("level-box");
-    if (p.kind === "borrow") return $("equity");
+    // over the credit block it came from, not the panel's heading
+    if (p.kind === "borrow") return $("credit-owe");
     return $(s.you.pos?.side === -1 ? "sell" : "buy");
   }
   return document.querySelector(`#traders li[data-id="${CSS.escape(p.who)}"] .n`);
