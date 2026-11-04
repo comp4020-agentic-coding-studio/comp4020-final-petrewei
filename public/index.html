@@ -385,6 +385,13 @@
   </dialog>
   <!-- Dad's savings (ADR 0057): a pop-up after a margin call or a cut, not a
        button in a panel. Not modal, so the position can still be closed. -->
+  <!-- Achievements (ADR 0082): a checklist of a dozen, every one named with what it takes, the earned ones ticked. -->
+  <dialog id="feats" class="card feats" aria-labelledby="feats-title">
+    <h2 id="feats-title"><span aria-hidden="true">🏅</span> <span data-t="featsTitle">Achievements</span> <span class="aside" id="feats-count"></span></h2>
+    <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
+    <ul class="feat-list" id="feat-list"></ul>
+    <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
+  </dialog>
   <dialog id="dad" class="dad" aria-labelledby="dad-title">
     <h2 id="dad-title" data-t="dadTitle">Emergency Credit</h2>
     <p id="dad-text"></p>

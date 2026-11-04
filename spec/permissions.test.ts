@@ -43,6 +43,20 @@ it.skipIf(live)("acts only on the sender's own account", async () => {
   expect((await state(b)).you.pos).toBeNull();
 });
 
+// ADR 0082: achievements are awarded by the server, kept with a person's career, and sent only to them; the room is
+// told in the feed when one is unlocked.
+it.skipIf(live)("awards an achievement for the first closed trade, to that person alone, and tells the room", async () => {
+  const a = await visitor();
+  const b = await visitor();
+  await open();
+  await act(a, { kind: "buy", leverage: 10, stake: 0.5 });
+  await act(a, { kind: "close" });
+  const seen = await state(a);
+  expect((seen.you as unknown as { feats: string[] }).feats).toContain("first");
+  expect(seen.feed.some((f) => f.key === "feat" && f.args?.feat === "first")).toBe(true);
+  expect(((await state(b)).you as unknown as { feats: string[] }).feats).toEqual([]);
+});
+
 // ADR 0081: a player's closed trades are their own; another visitor's state never carries them.
 it.skipIf(live)("shows each player their own closed trades, and nobody else's", async () => {
   const a = await visitor();

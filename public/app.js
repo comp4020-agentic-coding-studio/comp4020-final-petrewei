@@ -380,6 +380,30 @@ for (const [id, way, emoji] of [["pray-rise", 1, "ðŸš€"], ["pray-fall", -1, "ðŸ“
     act("pray", { way });
   };
 }
+// Achievements (ADR 0082): the server sends the names earned; the dialog is a checklist of all of them, each named with
+// what it takes, the earned ones ticked first, and a bar for how far along; the header's medal counts them.
+let featsShown = "";
+function feats(s) {
+  const earned = new Set(s.you.feats ?? []);
+  const all = Object.keys(T.en.ui.feats);
+  $("feats-n").textContent = earned.size ? String(earned.size) : "";
+  const key = [...earned].join() + lang;
+  if (key === featsShown) return;
+  featsShown = key;
+  $("feats-count").textContent = t("featsCount", { n: earned.size, of: all.length });
+  $("feat-bar").style.width = `${(earned.size / all.length) * 100}%`;
+  const words = T[lang].ui.feats ?? T.en.ui.feats;
+  const order = [...all.filter((f) => earned.has(f)), ...all.filter((f) => !earned.has(f))];
+  $("feat-list").replaceChildren(...order.map((f) => {
+    const li = document.createElement("li");
+    li.className = earned.has(f) ? "got" : "open";
+    li.append(Object.assign(document.createElement("b"), { textContent: words[f][0] }), Object.assign(document.createElement("span"), { textContent: words[f][1] }));
+    return li;
+  }));
+}
+$("feats-btn").onclick = () => $("feats").showModal();
+$("feats-close").onclick = () => $("feats").close();
+
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];
 const ratePct = (r) => `${+(r * 100).toFixed(2)}%`;
@@ -1663,6 +1687,7 @@ function render(s) {
     $("pend-row-at").textContent = quoted(waiting.at);
     $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.stake * 100)}%` });
   }
+  feats(s);
   // This round's closed trades, newest first, each with its verdict (ADR 0081); hidden until there is one. The list is
   // rebuilt only when it changes, so an open row's place under the reader's cursor is kept.
   const trades = y.trades ?? [];

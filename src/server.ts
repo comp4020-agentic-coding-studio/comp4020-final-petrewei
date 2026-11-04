@@ -11,6 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSy
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
+import { type Feat, FEATS, fromBell, fromCredit, fromFill } from "./feats.ts";
 import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts";
 import { Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
@@ -264,7 +265,8 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 // `points` is the sum of a career's round scores (ADR 0029); careers saved
 // before scores have it worked out from their profit when they load.
 // `recent` is the last RECENT round scores, oldest first, for the hall's chart (ADR 0078); careers saved before it start empty.
-type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent?: number[] };
+// `feats` is the achievements earned, by name (ADR 0082); careers saved before them start with none.
+type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent?: number[]; feats?: Feat[] };
 const RECENT = 20;
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
 for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
@@ -346,6 +348,19 @@ function record(who: string): Career | null {
   saveCareer();
   queueMicrotask(rank);
   return career[key(who)];
+}
+
+// Award achievements to a person (ADR 0082): each once, kept with their career, and said in the feed of the round
+// that earned it, so a room sees it happen. A house trader earns none.
+function award(m: Market, who: string, feats: Feat[]): void {
+  if (bot(who) || !feats.length) return;
+  const c = record(who)!;
+  const had = new Set(c.feats ?? []);
+  const fresh = feats.filter((f) => !had.has(f));
+  if (!fresh.length) return;
+  c.feats = [...had, ...fresh];
+  saveCareer();
+  for (const f of fresh) m.say(`${nameOf(who)} unlocked an achievement.`, "info", "feat", { who: short(who), feat: f });
 }
 
 // A round's controls (ADRs 0022, 0024, 0030), by the kind a page sends:
@@ -636,6 +651,7 @@ class Market {
         const c = record(e.who);
         if (c) c.busts++;
       }
+      award(this, e.who, fromFill(e, !!e.called));
       // `key` joins a mark to its trader in a state, as `you` does in the room; the page never
       // sees it (view() swaps it for a flag), and it is never a cookie.
       if (MARKED.has(e.kind)) {
@@ -676,6 +692,7 @@ class Market {
         ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts }),
         bonus: bonus(r.who), score: Math.round(points(r.who) * 10) / 10,
       });
+      award(this, r.who, fromBell({ replay: this.mode === "replay", net: r.net, start: START, yearRight: !!year && this.guesses.get(r.who) === year }));
       const c = record(r.who)!;
       c.rounds++;
       c.profit += r.net - START;
@@ -808,6 +825,7 @@ class Market {
       const refused = action.kind === "borrow" ? desk.borrow(who) : desk.repay(who);
       if (refused) return refused;
       const debt = Math.round(desk.account(who).debt);
+      award(this, who, fromCredit(action.kind, debt));
       if (action.kind === "borrow") {
         this.say(`${nameOf(who)} drew ${yen(STEP)} of emergency credit. Owes ${yen(debt)}.`, "wild", "borrowed", { who: short(who), amount: STEP, debt });
         this.pop(who, "borrow");
@@ -897,6 +915,8 @@ class Market {
         cuts: mine?.cuts ?? 0,
         pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
         pending: mine?.pending ?? null,
+        // the achievements this person has earned, by name, in the order of FEATS (ADR 0082)
+        feats: FEATS.filter((f) => career[key(who)]?.feats?.includes(f)),
         // the round's closed trades, newest first, the last 20: a player's own, never anyone else's (ADR 0081)
         trades: (mine?.trades ?? []).slice(-20).reverse(),
       },

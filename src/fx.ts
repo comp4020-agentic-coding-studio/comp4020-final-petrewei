@@ -55,6 +55,8 @@ export type Position = {
   stop: number | null;
   take: number | null;
   called: boolean;
+  // Whether the position has been under a margin call at any time, which a recovery does not undo (ADR 0082).
+  everCalled?: boolean;
   // The financing fees paid so far, which count against the position.
   fees: number;
 };
@@ -76,7 +78,7 @@ export const PEND_RANGE = 0.5;
 // A closed trade, for the player's own history: how it ended, and its result in yen and as a share of its margin.
 export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
-export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
+export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean };
 
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
@@ -223,7 +225,8 @@ export class Desk {
     if (!reached) return [];
     account.pending = null;
     const out = this.order(who, p.side, p.leverage, p.stake, { sl: p.sl, tp: p.tp });
-    return typeof out === "string" ? [] : out;
+    // marked, so what follows can tell a pending order's fill from a click (ADR 0082)
+    return typeof out === "string" ? [] : out.map((f) => ({ ...f, pending: true }));
   }
 
   // A stop `pct` percent from the current price on the losing side, or no
@@ -320,6 +323,7 @@ export class Desk {
     if (level <= STOP_OUT) return [this.settleOne(who, "stopout")];
     if (level <= CALL && !pos.called) {
       pos.called = true;
+      pos.everCalled = true;
       return [{ kind: "call", who, price, pnl: this.pnl(who) }];
     }
     if (level > CALL) pos.called = false;
@@ -334,6 +338,7 @@ export class Desk {
     const account = this.account(who);
     const pnl = this.pnl(who);
     const pos = account.pos!;
+    const called = !!pos.everCalled;
     account.trades.push({ side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(this.price, -pos.side as Side), how: kind, pnl: Math.round(pnl), pct: pnl / pos.margin });
     account.balance = Math.max(0, Math.round(account.balance + pnl));
     account.pos = null;
@@ -346,7 +351,7 @@ export class Desk {
     if (account.balance === 0) account.out = true;
     // out of the round, a waiting order can no longer fill, so it goes
     if (account.out) account.pending = null;
-    return { kind, who, price: this.price, pnl };
+    return { kind, who, price: this.price, pnl, called };
   }
 
   broke(who: string): boolean {
