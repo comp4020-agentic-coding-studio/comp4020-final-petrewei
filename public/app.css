@@ -849,6 +849,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
     .side-col .screen { max-height: calc(100vh - 65px - 0.5rem - 0.5rem); }
     .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
     .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+    /* Sell's and Buy's notes ("Earns when the price falls") go, which a laptop needs for the card to fit; their tips
+       still say it, and the tutorial, where a newcomer first meets them, keeps them */
+    body:not(.tutorial) .side small { display: none; }
   }
   .main-col .screen .chart-panel { display: flex; flex-direction: column; min-height: 0; }
   /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
