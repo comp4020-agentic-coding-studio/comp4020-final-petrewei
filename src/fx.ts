@@ -138,7 +138,8 @@ export class Desk {
     return used ? this.equity(who) / used : Infinity;
   }
 
-  // Buy (1) or sell (-1) with a share of free margin. An order against the
+  // Buy (1) or sell (-1) with a share of the whole account: `stake` of net worth, cut to what is free, so 25% is a
+  // quarter of what you have however much is already in use (ADR 0076). An order against the
   // open position closes it: the desk keeps one position per player, so a
   // reversal takes two clicks and the second is a decision.
   // A stop loss and a take profit may ride on an order, as distances from
@@ -151,7 +152,7 @@ export class Desk {
     if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
-    const margin = Math.floor(this.free(who) * stake);
+    const margin = Math.floor(Math.min(this.equity(who) * stake, this.free(who)));
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
     const units = notional / fill(this.price, side);

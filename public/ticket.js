@@ -6,7 +6,7 @@
 // A position on a slider or a meter, held to its ends.
 const unit = (x) => Math.min(1, Math.max(0, x));
 
-// What share of free money an order puts up: evenly spaced.
+// What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
 
 // The rungs of the leverage ladder sit evenly along the slider, however far

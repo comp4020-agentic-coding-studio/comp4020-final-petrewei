@@ -63,6 +63,29 @@ describe("the trading desk", () => {
     expect(desk.free("a")).toBeCloseTo(START / 2 - START * 5 * SPREAD, -3);
   });
 
+  // A stake is a share of the whole account, net worth, so 25% means a quarter of what you have however much is
+  // already in use; only what is free can go in, so a share larger than that is cut to it.
+  it("stakes a share of the whole account, not of what is left free", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10, 0.25);
+    const first = desk.used("a");
+    expect(first).toBe(START / 4);
+    desk.order("a", 1, 10, 0.25);
+    // a second quarter is a quarter of the account again, not a quarter of the three quarters left
+    expect(desk.used("a") - first).toBeCloseTo(desk.equity("a") / 4, -3);
+    expect(desk.used("a") - first).toBeGreaterThan((START * 3) / 16 + 1000);
+  });
+
+  it("cuts a stake to what is free when the share asked for is more", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.order("a", 1, 10, 0.75);
+    const free = desk.free("a");
+    desk.order("a", 1, 10, 0.5);
+    expect(desk.used("a")).toBe(START * 0.75 + Math.floor(free));
+  });
+
   it("averages down: adding to a position merges it at a weighted entry", () => {
     const desk = new Desk(100);
     desk.join("a");

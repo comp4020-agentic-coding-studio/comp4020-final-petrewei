@@ -904,8 +904,9 @@ function ticket(s) {
   $("bid").textContent = quoted(s.bid);
   $("ask").textContent = quoted(s.ask);
   $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
+  // the desk's own rule (src/fx.ts): a share of the whole account, cut to what is free
   const free = Math.max(0, s.you.equity - (s.you.pos?.margin ?? 0));
-  const margin = Math.floor(free * choice.stake);
+  const margin = Math.floor(Math.min(Math.max(0, s.you.equity) * choice.stake, free));
   const controls = margin * choice.leverage;
   // At L× leverage, a move of 1/L against you is everything you put in.
   const wipe = 100 / choice.leverage;
