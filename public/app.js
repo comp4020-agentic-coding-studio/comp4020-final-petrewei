@@ -7,7 +7,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeBar, stakeMargin } from "/ticket.js";
+import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeBar, stakeMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted } from "/format.js";
@@ -110,6 +110,8 @@ let bankrupt = null;
 let popped = null;
 let lastPrice = null;
 let fame = "";
+// the closed trades last drawn, so the list is rebuilt only when it changes
+let historyShown = "";
 // whose recent rounds the hall's chart shows: picked in the table, else yourself, else the leader
 let famePick = null;
 const SVG = "http://www.w3.org/2000/svg";
@@ -1660,6 +1662,30 @@ function render(s) {
     $("pend-row-type").replaceChildren(Object.assign(document.createElement("span"), { className: `tag ${waiting.side === 1 ? "long" : "short"}`, textContent: typeName }), ` ${s.pair} ${waiting.leverage}×`);
     $("pend-row-at").textContent = quoted(waiting.at);
     $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.stake * 100)}%` });
+  }
+  // This round's closed trades, newest first, each with its verdict (ADR 0081); hidden until there is one. The list is
+  // rebuilt only when it changes, so an open row's place under the reader's cursor is kept.
+  const trades = y.trades ?? [];
+  $("history").hidden = !trades.length;
+  const traded = JSON.stringify(trades) + lang;
+  if (traded !== historyShown) {
+    historyShown = traded;
+    $("history-count").textContent = t("historyCount", { n: trades.length });
+    const ui = T[lang].ui;
+    $("history-rows").replaceChildren(...trades.map((tr) => {
+      const row = document.createElement("tr");
+      const side = Object.assign(document.createElement("span"), { className: `tag ${tr.side === 1 ? "long" : "short"}`, textContent: tr.side === 1 ? t("long") : t("short") });
+      const cells = [[side, ` ${s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], yen(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
+      cells.forEach((c, i) => {
+        const td = document.createElement("td");
+        if (Array.isArray(c)) td.append(...c);
+        else td.textContent = c;
+        if (i === 4 || i === 5) td.className = tone(tr.pnl);
+        if (i === 6) td.className = "verdict";
+        row.append(td);
+      });
+      return row;
+    }));
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;

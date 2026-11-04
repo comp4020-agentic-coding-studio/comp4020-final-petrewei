@@ -110,3 +110,14 @@ export function levHeat(leverage, cap, top) {
 // The colour of a heat: hue 140 (green) down to 0 (red).
 export const hue = (heat) => `hsl(${Math.round(140 - 140 * heat)} ${Math.round(65 + 25 * heat)}% ${Math.round(52 - 4 * heat)}%)`;
 
+// Which line a closed trade earns (ADR 0081): a forced end names itself, otherwise its result on its margin does. Half
+// the margin or more either way is big; under 2% either way, with the spread, is flat.
+export function verdict(how, pct) {
+  if (how === "zerocut") return "wiped";
+  if (how === "stopout") return "cut";
+  if (pct <= -0.5) return "big";
+  if (pct < -0.02) return "small";
+  if (pct < 0.02) return "flat";
+  if (pct < 0.5) return "win";
+  return "huge";
+}

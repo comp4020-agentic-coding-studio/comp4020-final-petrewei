@@ -43,6 +43,18 @@ it.skipIf(live)("acts only on the sender's own account", async () => {
   expect((await state(b)).you.pos).toBeNull();
 });
 
+// ADR 0081: a player's closed trades are their own; another visitor's state never carries them.
+it.skipIf(live)("shows each player their own closed trades, and nobody else's", async () => {
+  const a = await visitor();
+  const b = await visitor();
+  await open();
+  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5 })).status).toBe(200);
+  expect((await act(a, { kind: "close" })).status).toBe(200);
+  const mine = (await state(a)).you as unknown as { trades: { how: string; leverage: number }[] };
+  expect(mine.trades[0]).toMatchObject({ how: "close", leverage: 10 });
+  expect(((await state(b)).you as unknown as { trades: unknown[] }).trades).toEqual([]);
+});
+
 it.skipIf(live)("refuses an order the broker does not offer, even one that would close a position", async () => {
   const a = await visitor();
   await open();

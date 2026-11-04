@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DISTANCES, LEVERAGES } from "../src/fx.ts";
-import { STAKES, gauge, levAt, levPos, pct, stakeBar, stakeMargin } from "../public/ticket.js";
+import { STAKES, gauge, levAt, levPos, pct, stakeBar, stakeMargin, verdict } from "../public/ticket.js";
 
 // ADR 0024: the order ticket's arithmetic, kept out of the page so it can
 // be checked here. The leverage slider runs on a log scale and snaps to
@@ -232,3 +232,19 @@ describe("the joined track's fill", () => {
 // the chart, not set in the position panel. A pointer's height on the canvas
 // is turned back into a price, then into the distance the desk is asked for,
 // held to the six distances and to the right side of the price.
+
+// ADR 0081: each closed trade earns a line. A forced end names itself; otherwise the result on its margin picks it.
+describe("a closed trade's verdict", () => {
+  it("names a forced end by how it ended, whatever the result", () => {
+    expect(verdict("zerocut", -1)).toBe("wiped");
+    expect(verdict("stopout", -0.8)).toBe("cut");
+  });
+  it("picks a band by the result on the margin, with a flat band around nothing for the spread", () => {
+    expect(verdict("close", -0.6)).toBe("big");
+    expect(verdict("stop", -0.05)).toBe("small");
+    expect(verdict("close", -0.001)).toBe("flat");
+    expect(verdict("close", 0.019)).toBe("flat");
+    expect(verdict("take", 0.1)).toBe("win");
+    expect(verdict("take", 0.5)).toBe("huge");
+  });
+});

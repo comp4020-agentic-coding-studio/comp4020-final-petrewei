@@ -306,6 +306,14 @@
         </div>
       </div>
       </div>
+      <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
+      <details class="history" id="history" hidden>
+        <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
+        <table>
+          <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thExit">Exit</th><th data-t="thHow">How</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th data-t="thVerdict">Verdict</th></tr></thead>
+          <tbody id="history-rows"></tbody>
+        </table>
+      </details>
     </section>
     <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>

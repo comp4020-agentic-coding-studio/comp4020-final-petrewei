@@ -63,7 +63,7 @@ export type Position = {
 // counts forced closes, so a page can tell when a new one happens;
 // `traded` says whether the player placed an order this round at all.
 // `debt` is what is owed on the emergency credit line, interest included; `interest` is the round's interest so far,
-// for the bell's account.
+// for the bell's account. `trades` is the round's closed trades, newest last (ADR 0081).
 // A pending order (ADR 0078, 0079), the FX entry order: buy or sell when the price reaches `at`, the level the player
 // typed. The level is only a trigger: the order fills at the desk's own price on the tick that reaches it, as a click
 // would, with what it was set with. Its name says which side and where the level sits against the price when set:
@@ -73,7 +73,9 @@ export type Pending = { type: PendingType; side: Side; at: number; leverage: num
 export type PendRequest = { side: Side; at: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 export const PEND_RANGE = 0.5;
-export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null };
+// A closed trade, for the player's own history: how it ended, and its result in yen and as a share of its margin.
+export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
+export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -278,7 +280,7 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, interest: 0, pos: null, out: false, cuts: 0, traded: false, financing: 0, pending: null });
+    this.accounts.set(who, { balance: START, debt: 0, interest: 0, pos: null, out: false, cuts: 0, traded: false, financing: 0, pending: null, trades: [] });
   }
 
   // Move the price and enforce the rules on every account, in join order.
@@ -331,10 +333,12 @@ export class Desk {
   private settleOne(who: string, kind: "close" | "stop" | "take" | "stopout" | "zerocut"): Fill {
     const account = this.account(who);
     const pnl = this.pnl(who);
+    const pos = account.pos!;
+    account.trades.push({ side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(this.price, -pos.side as Side), how: kind, pnl: Math.round(pnl), pct: pnl / pos.margin });
     account.balance = Math.max(0, Math.round(account.balance + pnl));
     account.pos = null;
     // A forced cut ends the player's round (ADR 0026): what is left is kept,
-    // but only a loan from Dad lets them trade again. A wipe-out does too.
+    // but only emergency credit lets them trade again. A wipe-out does too.
     if (kind === "stopout" || kind === "zerocut") {
       account.cuts++;
       account.out = true;

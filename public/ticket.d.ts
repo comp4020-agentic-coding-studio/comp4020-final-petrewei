@@ -15,3 +15,4 @@ export declare function moveYen(margin: number, leverage: number, pct: number): 
 export declare function feePerMinute(fee: number, leverage: number, ticksPerMinute: number): string;
 export declare function levHeat(leverage: number, cap: number, top: number): number;
 export declare const hue: (heat: number) => string;
+export declare function verdict(how: "close" | "stop" | "take" | "stopout" | "zerocut", pct: number): "wiped" | "cut" | "big" | "small" | "flat" | "win" | "huge";

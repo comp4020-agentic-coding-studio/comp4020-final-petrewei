@@ -897,6 +897,8 @@ class Market {
         cuts: mine?.cuts ?? 0,
         pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
         pending: mine?.pending ?? null,
+        // the round's closed trades, newest first, the last 20: a player's own, never anyone else's (ADR 0081)
+        trades: (mine?.trades ?? []).slice(-20).reverse(),
       },
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
       feed: this.feed,

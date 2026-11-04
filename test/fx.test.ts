@@ -510,6 +510,25 @@ describe("stop loss and take profit", () => {
 // ADR 0080: emergency credit, which replaced Dad's savings. Interest is charged each tick, a tick's share of a daily
 // rate that rises with the debt, and added to what is owed; a step is repaid from free cash; owing more than you have is
 // bankruptcy.
+// ADR 0081: the desk keeps each player's closed trades for the round: how it ended, its prices, its result in yen and
+// on its margin.
+it("records each closed trade, how it ended and its result on its margin", () => {
+  const desk = new Desk(100);
+  desk.join("a");
+  desk.order("a", 1, 10, 0.5, { tp: 1 });
+  desk.mark(101.5);
+  desk.order("a", -1, 10, 0.5);
+  desk.close("a");
+  const [took, closed] = desk.account("a").trades;
+  expect(took).toMatchObject({ side: 1, leverage: 10, how: "take" });
+  expect(took.pnl).toBeGreaterThan(0);
+  // about ten times the move, on the margin, less the spread
+  expect(took.pct).toBeGreaterThan(0.1);
+  expect(took.exit).toBeCloseTo(101.5 * (1 - SPREAD / 2), 6);
+  expect(closed).toMatchObject({ side: -1, how: "close" });
+  expect(closed.pct, "a round trip at one price costs the spread").toBeLessThan(0);
+});
+
 describe("emergency credit", () => {
   it("charges a day's interest over a day's ticks, at the rate for what is owed, and adds it to the debt", () => {
     const desk = new Desk(100);
