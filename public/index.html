@@ -151,7 +151,7 @@
         </dl>
         <!-- Net worth against the starting money: losses run left in red,
              profit right in green, on a log scale centred on the start. With a
-             position open, where a margin call and the losscut would land. -->
+             position open, where a margin call and the stop-out would land. -->
         <!-- The bar's own ⓘ sits at its end; its marks name the levels they stand for (call 50%, cut 20%). -->
         <div class="meter-row">
           <div class="meter" id="meter-box" data-tip="meter">
@@ -255,7 +255,7 @@
     <section class="panel positions" data-fold="position" aria-label="Your position">
       <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thExits">Stop Loss / Take Profit</th><th data-t="thCut">Loss cut at</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thExits">Stop Loss / Take Profit</th><th data-t="thCut">Stop-out at</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
@@ -263,7 +263,7 @@
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
             <td id="pos-exit" data-label="Stop Loss / Take Profit" data-t-label="thExits"></td>
-            <td id="pos-cut" data-label="Loss cut at" data-t-label="thCut"></td>
+            <td id="pos-cut" data-label="Stop-out at" data-t-label="thCut"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
             <td id="pos-pct" class="pct-big" data-label="P&amp;L %" data-t-label="thPnlPct"></td>
             <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
@@ -422,7 +422,7 @@
       <button id="dad-no" class="ghost" type="button" data-t="dadNo" data-tip="dadNo">Not now</button>
     </div>
   </dialog>
-  <div id="losscut" class="losscut" hidden><span class="art" id="losscut-art" aria-hidden="true"></span><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Forced loss cut</small></div>
+  <div id="losscut" class="losscut" hidden><span class="art" id="losscut-art" aria-hidden="true"></span><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Stopped out</small></div>
 
   <div id="fx" class="fx" aria-hidden="true"></div>
   <aside id="position-bar" class="position-bar" data-t-aria="positionTitle" hidden>

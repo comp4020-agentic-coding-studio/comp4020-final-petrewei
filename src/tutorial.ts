@@ -125,7 +125,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "cut-loss",
     title: "Margin Call: Cut the Loss",
-    text: "A 2% fall cost about half your money: Margin Level is under 50%, a margin call. At 20% the broker cuts you out, 強制ロスカット. Cut a loss yourself while you can.",
+    text: "A 2% fall cost about half your money: Margin Level is under 50%, a margin call. At 20% the broker stops you out: 強制ロスカット. Cut a loss yourself while you can.",
     task: "Press Close to cut your loss.",
     plan: [
       { target: "level", until: "look", say: "Margin Level is under 50%: a margin call." },
@@ -180,10 +180,10 @@ export const LESSONS: Lesson[] = [
   {
     id: "dad",
     title: "Emergency Credit",
-    text: "Margin call at 50%, forced loss cut at 20%: your round is over, unless you borrow. Emergency credit lends ¥100,000 at a time, and charges interest every day on what you owe, more the more you owe.",
+    text: "Margin call at 50%, stop-out at 20%: your round is over, unless you borrow. Emergency credit lends ¥100,000 at a time, and charges interest every day on what you owe, more the more you owe.",
     task: "Draw emergency credit in the pop-up.",
     plan: [
-      { target: "level", until: "look", say: "Margin Level hit 20%: the broker cut you." },
+      { target: "level", until: "look", say: "Margin Level hit 20%: the broker stopped you out." },
       { target: "borrow", until: "press", say: "Draw emergency credit." },
     ],
     allow: only("borrow", "Draw emergency credit in the pop-up first."),
@@ -193,7 +193,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "gap",
     title: "A Gap and a Wipe-Out",
-    text: "Same setting, buy again. The price gaps through every stop and loss cut, as the franc did on 15 January 2015. You are wiped out and still owe the credit: bankrupt. Keep leverage low.",
+    text: "Same setting, buy again. The price gaps through every stop and the stop-out, as the franc did on 15 January 2015. You are wiped out and still owe the credit: bankrupt. Keep leverage low.",
     task: "Press Buy again. Leverage and Margin stay as they are.",
     plan: [
       { target: "buy", until: "press", say: "Press Buy again, same setting." },
@@ -403,7 +403,7 @@ export class Tutorial {
       else if (e.kind === "close") say(`You closed: ${yen(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
       else if (e.kind === "stop") say(`Your stop filled at ${quoted(e.price)}: ${yen(e.pnl)}.`, "loss", "you-stopped");
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
-      else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}. You are out until you borrow.`, "bust", "you-stopout");
+      else if (e.kind === "stopout") say(`強制ロスカット: stopped out at 20%, the broker closed you: ${yen(e.pnl)}. You are out unless you borrow.`, "bust", "you-stopout");
       else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
     }
   }

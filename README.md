@@ -12,11 +12,11 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
 - **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays five real days of minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Simulation draws a random market from today's rate, shaped by a hidden situation.
-- **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you "borrow". Fees grow with leverage. A gap can wipe you out.
-- **Losing is public.** Stop-outs hit the feed. Dad's savings are "borrowed" twice, and he finds out.
+- **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you draw emergency credit. Fees grow with leverage. A gap can wipe you out.
+- **Losing is public.** Stop-outs hit the feed. Emergency credit charges a loan shark's interest, and ending a round owing more than you have is bankruptcy ([ADR 0080](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0080-emergency-credit-replaces-dads-savings.md)).
 - **There's always someone to trade against.** Seven comic traders play.
 - **Beginners get a tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): ten lessons, ending in a 1000× wipe-out.
-- **There's a short game and a long game.** Rounds rank by a score docking losscuts and loans ([ADR 0029](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0029-a-fairer-score.md)); the hall ranks averages.
+- **There's a short game and a long game.** Rounds rank by a score docking stop-outs and bankruptcy ([ADR 0029](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0029-a-fairer-score.md)); the hall ranks averages.
 
 ## Enforced and judged
 
@@ -27,7 +27,7 @@ Checked in `spec/` and `test/`:
 - the server refuses orders its broker does not offer, and acts only on the sender's account
 - nobody is shown another person's cookie or stop, or their tutorial
 - a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
-- margin calls, stop-outs, zero-cuts, slipping stops and loans follow `src/fx.ts`
+- margin calls, stop-outs, zero-cuts, slipping stops and credit follow `src/fx.ts`
 - replays pass every real close; indicators match formulas
 - simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
 - who did what is logged by short code, surviving hard kills
