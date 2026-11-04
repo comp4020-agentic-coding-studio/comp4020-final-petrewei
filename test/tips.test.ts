@@ -187,7 +187,7 @@ it("puts Ironman below Start, and only one line of text and a note in the lobby"
 });
 it("gives the ticket a heading, and lets headed panels fold", () => {
   expect(page.querySelector(".ticket > h2")?.textContent).toMatch(/\S/);
-  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["account", "chart", "desk", "fame", "feed", "position", "room", "ticket"]);
+  expect([...page.querySelectorAll(".panel[data-fold]")].map((p) => (p as HTMLElement).dataset.fold).sort()).toEqual(["account", "chart", "credit", "desk", "fame", "feed", "position", "room", "ticket"]);
   for (const p of page.querySelectorAll(".panel[data-fold]")) expect(p.querySelector(":scope > h2"), (p as HTMLElement).dataset.fold).not.toBeNull();
 });
 it("shows the language as a globe alone, and lets the footer take the page's width", () => {
@@ -428,16 +428,16 @@ it("puts the lesson in the chart's box, with the words on the left, and four tra
 // the sliders' notes, colours and fee, and a plain line on Buy and Sell.
 describe("the ticket, the account and the credit pop-up", () => {
   const doc = new JSDOM(lessonHtml).window.document;
-  // ADR 0080: emergency credit is a real loan, drawn and repaid from the account's own row any time, and offered in a
+  // ADR 0080, 0085: emergency credit is a real loan, drawn and repaid from a card of its own any time, and offered in a
   // pop-up once a player is cut out or broke; no longer Dad's savings in quotation marks.
-  it("keeps credit in the account, offers it in a pop-up when broke, and names it plainly in every language", () => {
-    const account = doc.querySelector('.panel[data-fold="account"]')!;
-    for (const id of ["credit-owe", "credit-rate", "credit-borrow", "credit-repay"]) expect(account.querySelector("#" + id), id).not.toBeNull();
+  it("gives credit a card of its own, offers it in a pop-up when broke, and names it plainly in every language", () => {
+    const card = doc.querySelector('.panel[data-fold="credit"]')!;
+    for (const id of ["credit-owe", "credit-rate", "credit-borrow", "credit-repay"]) expect(card.querySelector("#" + id), id).not.toBeNull();
     const dad = doc.getElementById("dad")!;
     expect(dad.tagName).toBe("DIALOG");
     expect(dad.querySelector("#borrow")).not.toBeNull();
     for (const lang of LANGS) {
-      for (const k of ["borrow", "dadText", "dadTitle", "dadNo", "repay", "bankruptText", "bankruptBig", "creditOwe", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      for (const k of ["borrow", "dadText", "dadTitle", "dadNo", "repay", "bankruptText", "bankruptBig", "creditOweLabel", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
       expect(T[lang].ui.dadText, lang).toContain("{rate}");
       expect(T[lang].news.borrowed, lang).toContain("{debt}");
       // Dad's savings are gone from the money's words

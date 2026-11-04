@@ -40,7 +40,8 @@ const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast
 useWords((k) => tip(k));
 useClauses(clauses);
 // What an info button explains (ADR 0049), in this language, by key.
-useInfo((k) => T[lang].info[k] ?? T.en.info[k] ?? "");
+// A definition with the broker's numbers in it fills them from the state, so it never keeps a copy (ADR 0085).
+useInfo((k) => fill(T[lang].info[k] ?? T.en.info[k] ?? "", k === "credit" ? creditSlots() : {}));
 // A tip that carries values, written only when it changes, since render
 // runs twice a second.
 const setTip = (el, text) => {
@@ -66,10 +67,7 @@ function translate() {
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
   // the row's button is the step alone, signed, to keep the row on one line; its name and tip say it borrows
-  // in full where there is room, the step alone on a short screen; its name says it borrows either way
-  $("credit-borrow-long").textContent = t("borrow", { amount: money(lang, broker.step) });
-  $("credit-borrow-short").textContent = `+${money(lang, broker.step)}`;
-  $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
+  $("credit-borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 20) }), t("borrow", { amount: money(lang, broker.step) }));
   $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   if (state?.lesson) lesson(state);
   retip();
@@ -406,6 +404,11 @@ function feats(s) {
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];
 const ratePct = (r) => `${+(r * 100).toFixed(2)}%`;
+// the credit's tiers for its definition: each daily rate, and the debt each runs to
+function creditSlots() {
+  const [one, two, three] = broker.tiers;
+  return { t1: ratePct(one?.[1] ?? 0), t2: ratePct(two?.[1] ?? 0), t3: ratePct(three?.[1] ?? 0), a1: money(lang, one?.[0] ?? 0), a2: money(lang, two?.[0] ?? 0) };
+}
 // Emergency credit is drawn from its row any time, or from a pop-up once a player is cut out or broke, which closes
 // once it is (ADR 0080).
 $("credit-borrow").onclick = () => act("borrow");
@@ -1510,7 +1513,7 @@ function popAt(p, s) {
     if (p.kind === "close") return $("pnl-box");
     if (p.kind === "call" || p.kind === "stopout" || p.kind === "zerocut") return $("level-box");
     // over the credit block it came from, not the panel's heading
-    if (p.kind === "borrow") return $("credit-owe");
+    if (p.kind === "borrow") return $("credit-borrow");
     return $(s.you.pos?.side === -1 ? "sell" : "buy");
   }
   return document.querySelector(`#traders li[data-id="${CSS.escape(p.who)}"] .n`);
@@ -1712,9 +1715,13 @@ function render(s) {
   // whenever the price stands still).
   // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
   const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade";
-  $("credit-owe").textContent = y.debt ? t("creditOwe", { debt: yen(y.debt) }) : t("creditFree");
+  $("credit-owe").textContent = y.debt ? yen(y.debt) : t("creditFree");
+  // how much of the line is drawn, as a bar
+  $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
   $("credit-owe").classList.toggle("owing", y.debt > 0);
-  $("credit-rate").textContent = t("creditRate", { rate: ratePct(creditRate(y.debt || broker.step)) });
+  // a day's rate, and the same over a year, simply, so a player sees what it would cost a real borrower
+  const rate = creditRate(y.debt || broker.step);
+  $("credit-rate").textContent = t("creditRate", { rate: ratePct(rate), year: `${Math.round(rate * 365 * 100)}%` });
   $("credit-borrow").disabled = !lending || !!s.paused || y.credit <= 0;
   $("credit-repay").disabled = !lending || !!s.paused || !y.debt;
   const offer = y.broke && y.credit > 0 && lending && !s.paused;

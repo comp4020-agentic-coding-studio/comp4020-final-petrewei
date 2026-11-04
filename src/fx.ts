@@ -23,8 +23,10 @@ const STOP_OUT = 0.2;
 // added to the debt, so a line drawn and left eats a round. A net worth under zero at the bell is bankruptcy.
 export const STEP = 100_000;
 export const LIMIT = 1_000_000;
-// A day's interest on what is owed, by the most owed in that tier: 2% a day up to ¥300,000, 4% to ¥600,000, 6% above.
-export const TIERS: [number, number][] = [[300_000, 0.02], [600_000, 0.04], [Infinity, 0.06]];
+// A day's interest on what is owed, by the most owed in that tier (ADR 0085): 0.5% a day up to ¥300,000, 1% to
+// ¥600,000, 1.5% above, about 180% to 550% a year. A loan shark's rate, far over any legal one, as the comic's lenders
+// are; a legal rate would cost nothing in five days, and this costs the whole line about 8% of itself in a round.
+export const TIERS: [number, number][] = [[300_000, 0.005], [600_000, 0.01], [Infinity, 0.015]];
 export const dailyRate = (debt: number): number => TIERS.find(([upTo]) => debt <= upTo)![1];
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster

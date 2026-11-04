@@ -536,18 +536,20 @@ describe("emergency credit", () => {
     desk.dayTicks = 10;
     desk.borrow("a");
     for (let i = 0; i < 10; i++) desk.mark(100);
-    // 2% a day on ¥100,000, compounded over ten ticks
-    expect(desk.account("a").debt).toBeCloseTo(STEP * (1 + 0.02 / 10) ** 10, 6);
+    // 0.5% a day on ¥100,000, compounded over ten ticks
+    expect(desk.account("a").debt).toBeCloseTo(STEP * (1 + 0.005 / 10) ** 10, 6);
     expect(desk.account("a").interest).toBeCloseTo(desk.account("a").debt - STEP, 6);
   });
   it("charges more a day the more is owed", () => {
-    expect(dailyRate(100_000)).toBe(0.02);
-    expect(dailyRate(300_000)).toBe(0.02);
-    expect(dailyRate(300_001)).toBe(0.04);
-    expect(dailyRate(600_001)).toBe(0.06);
-    expect(dailyRate(LIMIT)).toBe(0.06);
-    // the whole line, left a five-day round, costs over a third of itself
-    expect((1 + dailyRate(LIMIT)) ** 5 - 1).toBeGreaterThan(0.33);
+    expect(dailyRate(100_000)).toBe(0.005);
+    expect(dailyRate(300_000)).toBe(0.005);
+    expect(dailyRate(300_001)).toBe(0.01);
+    expect(dailyRate(600_001)).toBe(0.015);
+    expect(dailyRate(LIMIT)).toBe(0.015);
+    // far over any legal rate, a loan shark's: well over 100% a year even at the lowest tier
+    expect(dailyRate(STEP) * 365).toBeGreaterThan(1);
+    // and felt in a round: the whole line, left a five-day round, costs over 5% of itself
+    expect((1 + dailyRate(LIMIT)) ** 5 - 1).toBeGreaterThan(0.05);
   });
   it("repays a step from free cash, never from the margin in use, and refuses with nothing owed or free", () => {
     const desk = new Desk(100);

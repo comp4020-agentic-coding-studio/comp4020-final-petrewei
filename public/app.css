@@ -207,7 +207,7 @@ button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[dat
 
 /* The terminal (ADR 0078): one grid. The chart and the Account / Order panel on top; the positions across the width;
    the feed beside the room at one height; the hall of fame across the width below. */
-main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "chart desk" "position position" "feed room" "fame fame"; align-items: start; }
+main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "chart desk" "position credit" "feed room" "fame fame"; align-items: start; }
 .chart-panel { grid-area: chart; }
 .desk { grid-area: desk; }
 .positions { grid-area: position; }
@@ -518,17 +518,22 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .meter-row > .info { align-self: start; margin-top: calc(5px - 0.55rem); }
 .borrow { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 2.4rem; padding: 0.3rem 0.8rem; background: var(--loan-bg); border-color: var(--call); color: var(--loan-ink); font-weight: 700; }
 .borrow[hidden] { display: none; }
-/* Emergency credit (ADR 0080, 0084): a titled block in the account, what is owed and its rate, and a step either way. */
-.credit { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.25rem 0.4rem; margin-top: 0.2rem; padding: 0.45rem 0.6rem; border: 1px dashed var(--line); border-radius: 10px; }
-.credit:has(.owing) { border-color: var(--call); border-style: solid; background: var(--loan-bg); }
-.credit-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.3rem; margin: 0; }
-.credit-name { font: 700 0.82rem var(--round); color: var(--soft); }
-.credit-rate { margin-left: auto; font: 0.76rem var(--mono); color: var(--muted); }
-.credit-owe { font: 600 0.88rem var(--mono); color: var(--muted); white-space: nowrap; }
+/* Emergency credit (ADR 0080, 0085): a golden card of its own beside the position, brighter while anything is owed. */
+.credit { grid-area: credit; border-color: var(--call); background: linear-gradient(160deg, var(--loan-bg), var(--panel) 70%); }
+.credit > h2 { color: var(--loan-ink); border-bottom-color: color-mix(in srgb, var(--call) 40%, transparent); }
+.credit:has(.owing) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--call) 45%, transparent); }
+.credit-body { display: grid; gap: 0.55rem; padding: 0.7rem 0.9rem 0.8rem; }
+.credit-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.credit-figs > div { display: grid; gap: 0.1rem; }
+.credit-label { font-size: 0.72rem; color: var(--muted); }
+.credit-owe { font: 700 1.05rem var(--mono); color: var(--soft); }
 .credit-owe.owing { color: var(--call); }
-.credit-go { height: 1.8rem; padding: 0 0.6rem; font: 700 0.78rem var(--round); white-space: nowrap; }
-.credit-go:disabled { opacity: 0.45; cursor: default; }
-.credit .short { display: none; }
+.credit-rate { font: 600 0.82rem var(--mono); color: var(--loan-ink); }
+.credit-meter { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--call) 18%, transparent); overflow: hidden; }
+.credit-meter span { display: block; height: 100%; background: var(--call); transition: width 0.3s; }
+.credit-go { display: flex; gap: 0.5rem; }
+.credit-go .borrow { flex: 1; }
+.credit-go button:disabled { opacity: 0.45; cursor: default; }
 /* Dad's savings, a pop-up beside the ticket after a margin call or a cut. */
 .dad { position: fixed; inset: auto 1rem 3rem auto; margin: 0; z-index: 43; width: min(22rem, calc(100vw - 2rem)); padding: 1rem 1.1rem; border: 2px solid var(--call); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 8px 28px rgb(0 0 0 / 0.4); }
 .dad:not([open]) { display: none; }
@@ -833,7 +838,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */
 @media (max-width: 900px) {
-  main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chart" "desk" "position" "room" "feed" "fame"; }
+  main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chart" "desk" "position" "credit" "room" "feed" "fame"; }
   /* One column: the words take what is left, the task and buttons a
      fixed row at the bottom. */
     .top { grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; }
@@ -994,9 +999,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .chart-panel.folded, .desk.folded { height: auto; align-self: start; }
   /* a folded chart gives its column to the panels below, which rise to meet the card; a folded card gives the chart
      the whole row; both folded, the row is the two headings */
-  main:has(.chart-panel.folded) { grid-template-areas: "chart desk" "position desk" "feed desk" "feed room" "fame fame"; grid-template-rows: auto auto 1fr auto; }
-  main:has(.desk.folded) { grid-template-areas: "desk desk" "chart chart" "position position" "feed room" "fame fame"; grid-template-rows: auto var(--tall); }
-  main:has(.chart-panel.folded):has(.desk.folded) { grid-template-areas: "chart desk" "position position" "feed room" "fame fame"; grid-template-rows: auto; }
+  main:has(.chart-panel.folded) { grid-template-areas: "chart desk" "position desk" "feed desk" "feed credit" "feed room" "fame fame"; grid-template-rows: auto auto 1fr auto auto; }
+  main:has(.desk.folded) { grid-template-areas: "desk desk" "chart chart" "position credit" "feed room" "fame fame"; grid-template-rows: auto var(--tall); }
+  main:has(.chart-panel.folded):has(.desk.folded) { grid-template-areas: "chart desk" "position credit" "feed room" "fame fame"; grid-template-rows: auto; }
   main:has(.chart-panel.folded):not(:has(.desk.folded)) .desk { height: var(--tall); align-self: start; }
   main:has(.chart-panel.folded):not(:has(.desk.folded)) .feed { max-height: none; }
   .chart-panel { display: flex; flex-direction: column; }
@@ -1019,13 +1024,6 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
      slimmer headings. Sell's and Buy's notes stay at every size: they say which way each one wins. */
   /* Under 800px of window the first row also gives the position its peek, so the card's spacing tightens first */
   @media (max-height: 800px) {
-    /* the credit block on one line: its name, what is owed, and the two steps; the rate stays in its tip */
-    .credit { grid-template-columns: auto minmax(0, 1fr) auto auto; padding: 0.3rem 0.5rem; }
-    .credit-head { grid-column: 1; }
-    .credit-rate { display: none; }
-    .credit-owe { justify-self: end; }
-    .credit .long { display: none; }
-    .credit .short { display: inline; }
     .ticket-body { gap: 0.45rem; padding-top: 0.55rem; padding-bottom: 0.55rem; }
     .account-body { gap: 0.3rem; padding-top: 0.45rem; padding-bottom: 0.5rem; }
     .side { padding: 0.45rem 0.7rem; }

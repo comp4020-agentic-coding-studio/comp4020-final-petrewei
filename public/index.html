@@ -160,14 +160,6 @@
           </div>
           <button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button>
         </div>
-        <!-- Emergency credit (ADR 0080): what is owed and its daily rate, borrowed or repaid a step at a time; the server
-             sets the amounts. -->
-        <div class="credit" id="credit">
-          <p class="credit-head"><span class="credit-name"><span class="long" data-t="dadTitle">Emergency Credit</span><span class="short" data-t="creditTitle">Credit</span></span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button><span class="credit-rate" id="credit-rate"></span></p>
-          <span class="credit-owe" id="credit-owe"></span>
-          <button type="button" class="credit-go" id="credit-borrow" data-tip="borrow"><span class="long" id="credit-borrow-long"></span><span class="short" id="credit-borrow-short"></span></button>
-          <button type="button" class="credit-go" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
-        </div>
       </div>
     </section>
     <!-- After the bell, trading is over: the result takes the order
@@ -312,6 +304,22 @@
           <tbody id="history-rows"></tbody>
         </table>
       </details>
+    </section>
+    <!-- Emergency credit (ADR 0080, 0085): a golden card of its own beside the position. What is owed, its daily rate and
+         the same over a year, and a step either way; the server sets every amount. -->
+    <section class="panel credit" id="credit" data-fold="credit" aria-label="Emergency credit">
+      <h2><span class="ico" aria-hidden="true">💰</span><span data-t="dadTitle">Emergency Credit</span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button></h2>
+      <div class="credit-body">
+        <div class="credit-figs">
+          <div><span class="credit-label" data-t="creditOweLabel">Owed</span><strong class="credit-owe" id="credit-owe"></strong></div>
+          <div><span class="credit-label" data-t="creditRateLabel">Interest</span><span class="credit-rate" id="credit-rate"></span></div>
+        </div>
+        <div class="credit-meter" aria-hidden="true"><span id="credit-used"></span></div>
+        <div class="credit-go">
+          <button type="button" class="borrow" id="credit-borrow" data-tip="borrow"></button>
+          <button type="button" class="ghost" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
+        </div>
+      </div>
     </section>
     <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
