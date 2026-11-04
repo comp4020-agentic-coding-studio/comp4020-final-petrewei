@@ -22,7 +22,8 @@ it.skipIf(live)("lands a double click as one order, then one add", async () => {
   const [one, two] = await Promise.all([act(me, { kind: "buy", leverage: 3, stake: 0.5 }), act(me, { kind: "buy", leverage: 3, stake: 0.5 })]);
   expect([one.status, two.status]).toEqual([200, 200]);
   const { you } = await state(me);
-  // half the money, then half of what was free: three quarters in all
-  expect(you.pos?.margin).toBeGreaterThan(you.balance * 0.7);
-  expect(you.pos?.margin).toBeLessThan(you.balance * 0.8);
+  // a stake is a share of the whole account (ADR 0076): half of it, then half again, all that was free in the end;
+  // two orders landed, not one, and the second was cut to what was left
+  expect(you.pos?.margin).toBeGreaterThan(you.balance * 0.95);
+  expect(you.pos?.margin).toBeLessThanOrEqual(you.balance);
 });

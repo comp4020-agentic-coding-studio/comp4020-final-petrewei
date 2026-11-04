@@ -246,7 +246,9 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock { flex: none; max-width: 6rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
 .chart-box { position: relative; }
-canvas { display: block; width: 100%; height: auto; background: var(--chart); }
+/* The chart's box sets its size and the page draws to fit it (ADR 0076): its old shape, 900 by 380, wherever no layout
+   gives it a height, so the drawing never sizes the box it is drawn into. */
+canvas { display: block; width: 100%; aspect-ratio: 900 / 380; background: var(--chart); }
 
 /* Indicator switches sit in the chart's top-right corner, each in its
    line's colour while on, and above the lobby so they work before a round. */
@@ -778,7 +780,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   /* The indicator switches move to the corner, clear of the price axis's
      narrower labels. */
   .studies { right: 0.5rem; }
-  canvas { height: 270px; }
+  canvas { height: 270px; aspect-ratio: auto; }
   .lobby .lobby-title { font-size: 1.3rem; }
   .lobby p { font-size: 0.85rem; }
   .fame { overflow-x: auto; }
@@ -826,3 +828,51 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 
 .slide .label #fee-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .slide .label output { flex: none; }
+
+/* The first screen (ADR 0076). A .screen holds the panels a trader needs at once: on the left the chart with the
+   position under it; on the right the order ticket and the account joined as one card, or the bell and the account
+   after a round. On a phone it is not there at all, so the panels keep the phone's order. On a desktop the left is
+   exactly the window's height under the header, the chart growing to fill what the position leaves, so the price, the
+   order, the position and the account all show without scrolling; the feed, the hall of fame and the room follow below.
+   Text keeps its size: the room comes from the layout. */
+.screen { display: grid; gap: 0.75rem; min-width: 0; }
+@media (max-width: 900px) { .screen { display: contents; } }
+@media (min-width: 1100px) and (min-height: 600px) {
+  /* 392px lets Sell's and Buy's notes sit on one line each, even beside the card's own scroll bar on a short screen */
+  main { grid-template-columns: minmax(0, 1fr) 392px; }
+  /* the window less the header (65px) and main's top padding, so the left column ends at the bottom of the screen */
+  .main-col .screen { height: calc(100vh - 65px - 0.75rem - 0.75rem); grid-template-rows: minmax(0, 1fr) auto; }
+  /* a laptop's screen (768px tall, less the browser) is the tightest: the panels' own spacing gives what the card needs */
+  @media (max-height: 700px) {
+    main { padding-top: 0.5rem; }
+    .main-col .screen { height: calc(100vh - 65px - 0.5rem - 0.5rem); gap: 0.5rem; }
+    .side-col .screen { max-height: calc(100vh - 65px - 0.5rem - 0.5rem); }
+    .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+    .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  }
+  .main-col .screen .chart-panel { display: flex; flex-direction: column; min-height: 0; }
+  /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
+  .chart-panel > .chart-box { flex: 1; min-height: 0; }
+  .chart-panel canvas { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
+  /* the ticket, or the bell, and the account are one card: no gap, a shared edge, the account's heading a divider */
+  .side-col .screen { gap: 0; align-content: start; }
+  /* where the window is shorter than the card (a 1366 by 768 laptop, less the browser's bars), the card keeps to the
+     screen and scrolls within itself, so its foot is a scroll away in place, never hidden under the page's edge */
+  .side-col .screen { max-height: calc(100vh - 65px - 0.75rem - 0.75rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .side-col .screen > .ticket, .side-col .screen > .bell { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .side-col .screen > .account { border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
+  /* inside the one card the account's heading is a divider with its name, not a second card's head, so it is slimmer */
+  .side-col .screen > .account > h2 { border-top: 1px solid var(--line); padding-top: 0.35rem; padding-bottom: 0.35rem; }
+  /* the ticket gives back the room it kept for a narrower column: tighter gaps, and two lines of preview, which fit
+     unwrapped at this width; no text is smaller */
+  .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
+  .field { gap: 0.25rem; }
+  .preview { height: auto; min-height: 2.8em; }
+  /* a refusal stands in for the preview while it shows, rather than adding a line to the card */
+  .ticket-body:has(#error:not(:empty)) #preview { display: none; }
+  .account-body { gap: 0.45rem; padding: 0.5rem 0.9rem 0.6rem; }
+  .meter { margin-bottom: 0.95rem; }
+}
+@media (min-width: 1440px) and (min-height: 600px) {
+  main { grid-template-columns: minmax(0, 1fr) 400px; }
+}

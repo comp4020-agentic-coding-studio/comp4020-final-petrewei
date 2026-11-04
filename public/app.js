@@ -817,6 +817,11 @@ function spotlight(l, moving) {
     armAuto();
   } else showCount();
 }
+// The chart redraws when its box changes size (a window resized, a panel folded, a position row appearing), since it
+// is drawn to the box (ADR 0076).
+// Where the browser has no ResizeObserver (an old one, or the checks' own page), a window resize does the same.
+if (typeof ResizeObserver === "function") new ResizeObserver(() => state && draw(state)).observe($("chart"));
+else addEventListener("resize", () => state && draw(state));
 let armedFor = null;
 let hintFor = null;
 let settle = 0;
@@ -983,14 +988,24 @@ function draw(full) {
   const s = windowed(full);
   const canvas = $("chart");
   const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  // With the RSI on, the price takes the top three quarters and the RSI
-  // a pane below; the canvas, and so the layout, keeps its size.
+  // The chart is drawn in the CSS pixels it is shown at (ADR 0076), so its text and margins keep their size however the
+  // layout sizes the box, and it is sharp on a scaled screen: the canvas holds that many device pixels and the drawing
+  // is scaled to them. Before the box has a size (hidden, or folded), it keeps the size it last had.
+  const ratio = devicePixelRatio || 1;
+  const boxW = canvas.clientWidth || canvas.width / ratio;
+  const boxH = canvas.clientHeight || canvas.height / ratio;
+  if (canvas.width !== Math.round(boxW * ratio) || canvas.height !== Math.round(boxH * ratio)) {
+    canvas.width = Math.round(boxW * ratio);
+    canvas.height = Math.round(boxH * ratio);
+  }
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  const w = boxW;
+  // With the RSI on, the price takes the top and the RSI a pane below; the canvas, and so the layout, keeps its size.
   const pane = studies.rsi && s.mode !== "tutorial" ? 84 : 0;
-  const h = canvas.height - pane;
+  const h = boxH - pane;
   const css = getComputedStyle(document.documentElement);
   ctx.fillStyle = css.getPropertyValue("--chart");
-  ctx.fillRect(0, 0, w, canvas.height);
+  ctx.fillRect(0, 0, w, boxH);
   const prices = s.prices;
   const k = s.steps;
   // Indicators on each day's close, drawn at the day's centre; the bands

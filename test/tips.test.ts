@@ -435,10 +435,15 @@ describe("the ticket, the account and Dad's pop-up", () => {
     }
   });
 
-  it("gives the account a panel of its own, apart from the ticket", () => {
+  // ADR 0076: the account joins the ticket as one card on the first screen, the order over what it does to the whole
+  // account; it stays a section of its own, so the bell can take the ticket's place and leave the account in view.
+  it("joins the account to the ticket on the first screen, as a section the bell leaves in view", () => {
     const panel = doc.querySelector('.panel[data-fold="account"]')!;
     for (const id of ["equity", "level", "meter"]) expect(panel.querySelector("#" + id), id).not.toBeNull();
-    expect(doc.querySelector(".ticket #equity"), "the ticket no longer holds the figures").toBeNull();
+    expect(doc.querySelector(".ticket #equity"), "the figures are the account's, not the ticket's").toBeNull();
+    const screen = doc.querySelector(".side-col .screen")!;
+    expect([...screen.children].map((c) => c.classList.contains("bell") ? "bell" : c.classList.contains("ticket") ? "ticket" : c.classList.contains("account") ? "account" : "other")).toEqual(["bell", "ticket", "account"]);
+    expect(doc.querySelector(".main-col .screen .positions"), "the position is under the chart").not.toBeNull();
   });
 
   it("writes a different note for every rung, naming Australia's cap at 30×, in every language", async () => {

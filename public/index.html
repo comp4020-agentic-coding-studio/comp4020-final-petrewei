@@ -18,6 +18,9 @@
   <p id="connection" class="connection" role="status" data-t="connectionConnecting" hidden>Connecting…</p>
   <main>
     <div class="col main-col">
+    <!-- The first screen (ADR 0076): on a desktop the chart and the position, beside the ticket and the account,
+         fill the window under the header together; what follows is below the fold. -->
+    <div class="screen">
     <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
       <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
       <div class="chart-box">
@@ -162,6 +165,7 @@
       </div>
       </div>
     </section>
+    </div>
 
     <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
@@ -174,6 +178,7 @@
     </section>
     </div>
     <div class="col side-col">
+    <div class="screen">
     <!-- After the bell, trading is over: the result takes the order
          ticket's place in the right column, and the chart stays in view. -->
     <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
@@ -244,6 +249,8 @@
       <p id="error" class="error" role="status"></p>
       </div>
     </section>
+    <!-- The account, joined to the ticket as one card (ADR 0076): the order and what it does to the whole account,
+         read together. It stays when the bell takes the ticket's place, so the result shows beside the money. -->
     <section class="panel account" data-fold="account" aria-label="Account">
       <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="accountTitle">Account</span></h2>
       <div class="account-body">
@@ -264,6 +271,7 @@
         <p class="meter-key"><span data-t="meterKey">Margin call at 50%, forced loss cut at 20%</span><button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button></p>
       </div>
     </section>
+    </div>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
