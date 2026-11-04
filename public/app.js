@@ -78,7 +78,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -107,6 +107,46 @@ let caught = null;
 let popped = null;
 let lastPrice = null;
 let fame = "";
+// whose recent rounds the hall's chart shows: picked in the table, else yourself, else the leader
+let famePick = null;
+const SVG = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs) => {
+  const el = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+};
+// A trader's recent round scores as a small line around zero, for the table.
+function spark(scores) {
+  const el = svgEl("svg", { class: "spark", viewBox: "0 0 60 18", "aria-hidden": "true" });
+  if (scores.length < 2) return el;
+  const top = Math.max(1, ...scores.map(Math.abs));
+  const y = (v) => 9 - (v / top) * 8;
+  el.append(svgEl("line", { x1: 0, x2: 60, y1: 9, y2: 9, class: "zero" }));
+  const points = scores.map((v, i) => `${((i / (scores.length - 1)) * 60).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  el.append(svgEl("polyline", { points, class: scores.at(-1) >= 0 ? "up" : "down" }));
+  return el;
+}
+// The chosen trader's recent rounds as bars up and down from zero, with what they add up to.
+function fameChart(s) {
+  const c = s.career.find((r) => r.name + (r.draw ?? "") === famePick) ?? s.career.find((r) => r.you) ?? s.career[0];
+  $("fame-chart").hidden = !c || !c.recent.length;
+  if (!c || !c.recent.length) return;
+  const scores = c.recent;
+  const top = Math.max(1, ...scores.map(Math.abs));
+  const w = 400 / Math.max(scores.length, 10);
+  const bars = scores.map((v, i) => {
+    const h = (Math.abs(v) / top) * 56;
+    const bar = svgEl("rect", { x: i * w + w * 0.15, width: w * 0.7, y: v >= 0 ? 60 - h : 60, height: Math.max(h, 0.8), class: v >= 0 ? "up" : "down" });
+    bar.append(Object.assign(svgEl("title", {}), { textContent: pts(v) }));
+    return bar;
+  });
+  $("fame-bars").replaceChildren(svgEl("line", { x1: 0, x2: 400, y1: 60, y2: 60, class: "zero" }), ...bars);
+  const name = nameIn(c.name, c.draw);
+  $("fame-bars").setAttribute("aria-label", t("fameChart", { name }));
+  $("fame-chart-title").textContent = t("fameChart", { name });
+  $("fame-stats").textContent = t("fameStats", { n: scores.length, up: scores.filter((v) => v > 0).length, down: scores.filter((v) => v < 0).length, best: pts(Math.max(...scores)), worst: pts(Math.min(...scores)) });
+  for (const tr of $("career").children) tr.classList.toggle("picked", s.career[tr.sectionRowIndex] === c);
+}
 
 // Leverage and stake are sliders that hold their choice (ADR 0024).
 // Leverage runs on a log scale and snaps to the desk's ladder, its ends
@@ -276,7 +316,7 @@ $("pend-pct").onchange = () => {
   if (state) pending(state);
 };
 $("pend-place").onclick = () => act("pend", { side: pend.side, toward: pend.toward, pct: pend.pct, leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
-$("pend-cancel").onclick = () => act("unpend");
+$("pend-cancel").onclick = $("pend-row-cancel").onclick = () => act("unpend");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
@@ -1569,7 +1609,12 @@ function render(s) {
     $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = yen(y.pos.margin);
     $("pos-pnl").textContent = yen(y.pnl);
-    $("pos-pnl").className = y.pnl > 0 ? "up" : y.pnl < 0 ? "down" : "";
+    $("pos-pnl").className = tone(y.pnl);
+    // the return on the margin is what the game ranks by, so it is the row's loudest figure
+    $("pos-pct").textContent = pct(y.pnl / y.pos.margin);
+    $("pos-pct").className = `pct-big ${tone(y.pnl)}`;
+    $("pos-exit").textContent = `${y.pos.stop ? quoted(y.pos.stop) : "—"} / ${y.pos.take ? quoted(y.pos.take) : "—"}`;
+    $("pos-cut").textContent = y.pos.cut ? quoted(y.pos.cut) : "—";
     // An exit set elsewhere (an order's, a bot's) shows at its distance now.
     for (const [k, at] of [["sl", y.pos.stop], ["tp", y.pos.take]]) {
       if (at && grabbed !== k) held[k] = exitAt(exitPos({ kind: k, dist: Math.abs((at / price - 1) * 100) }, broker.distances), broker.distances).dist;
@@ -1579,9 +1624,19 @@ function render(s) {
     $("position").textContent = t(y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
+  const waiting = y.pending;
+  $("pend-row").hidden = !waiting;
+  if (waiting) {
+    const typeName = T[lang].ui.pendTypes?.[waiting.type] ?? T.en.ui.pendTypes[waiting.type];
+    $("pend-row-type").replaceChildren(Object.assign(document.createElement("span"), { className: `tag ${waiting.side === 1 ? "long" : "short"}`, textContent: typeName }), ` ${s.pair} ${waiting.leverage}×`);
+    $("pend-row-at").textContent = quoted(waiting.at);
+    $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.stake * 100)}%` });
+  }
+  // the empty line only says something when nothing is open or waiting
+  $("pos-empty").hidden = !!y.pos || !!waiting;
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell", "pend-place"]) $(id).disabled = closed;
-  $("pend-cancel").disabled = closed;
+  $("pend-cancel").disabled = $("pend-row-cancel").disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
   $("position-bar").hidden = !y.pos;
@@ -1616,8 +1671,11 @@ function render(s) {
   const humans = s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
   const list = $("traders");
+  // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
+  const rank = (tr) => (tr.you ? 0 : tr.bot ? 2 : 1);
+  const order = [...s.traders].sort((a, b) => rank(a) - rank(b) || b.equity - a.equity);
   list.replaceChildren(
-    ...s.traders.map((tr) => {
+    ...order.map((tr) => {
       const li = document.createElement("li");
       li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
       const n = document.createElement("span");
@@ -1652,16 +1710,18 @@ function render(s) {
     li.append(avatar(x.who, 16), Object.assign(document.createElement("b"), { textContent: nameOf(x.who) }), t("quote", { text: x.text }));
     return li;
   });
-  $("feed").replaceChildren(
-    ...talk,
-    ...s.feed.map((f) => {
-      const li = document.createElement("li");
-      li.className = `k-${f.kind}`;
-      // Each line wears its kind's icon, so a glance tells a win from a cut.
-      li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
-      return li;
-    }),
-  );
+  const line = (f) => {
+    const li = document.createElement("li");
+    li.className = `k-${f.kind}`;
+    // Each line wears its kind's icon, so a glance tells a win from a cut.
+    li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
+    return li;
+  };
+  // The latest market news, what moves the price, is pinned at the top (ADR 0078); then what traders said, then the
+  // rest of the feed, newest first. The news is not listed twice.
+  const latest = s.feed.find((f) => f.kind === "news");
+  const pinned = latest ? [Object.assign(line(latest), { className: "k-news pinned" })] : [];
+  $("feed").replaceChildren(...pinned, ...talk, ...s.feed.filter((f) => f !== latest).map(line));
   // The hall of fame changes only on busts and at the bell.
   const famed = JSON.stringify(s.career);
   if (famed !== fame) {
@@ -1673,15 +1733,26 @@ function render(s) {
         // newer traders are listed after, unranked (ADR 0029).
         tr.className = `${c.you ? "you" : ""} ${c.ranked ? "" : "unranked"}`;
         if (!c.ranked) tr.dataset.tipText = tip("unrankedRow", { n: c.rounds, min: s.minRounds });
-        for (const v of [nameIn(c.name, c.draw), c.rounds, pts(c.average), yen(c.profit), c.wins, c.busts]) {
+        // the best round as a share of the starting money (the game ranks percentages, not yen); a career that never gained has none
+        for (const v of [nameIn(c.name, c.draw), c.rounds, pts(c.average), c.best > 0 ? pct(c.best / s.start) : "—", c.wins, c.busts]) {
           const td = document.createElement("td");
           td.textContent = v;
           tr.append(td);
         }
+        const trend = document.createElement("td");
+        trend.append(spark(c.recent));
+        tr.append(trend);
         tr.firstChild.prepend(avatar(c.face, 18));
+        tr.tabIndex = 0;
+        tr.onclick = tr.onkeydown = (e) => {
+          if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+          famePick = c.name + (c.draw ?? "");
+          fameChart(s);
+        };
         return tr;
       }),
     );
+    fameChart(s);
   }
 
 

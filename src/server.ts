@@ -266,7 +266,9 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 // Career results across rounds and restarts: the long-term ranking.
 // `points` is the sum of a career's round scores (ADR 0029); careers saved
 // before scores have it worked out from their profit when they load.
-type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number };
+// `recent` is the last RECENT round scores, oldest first, for the hall's chart (ADR 0078); careers saved before it start empty.
+type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent?: number[] };
+const RECENT = 20;
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
 for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
 // ADR 0038: names became given names alone, and the hall began again, once:
@@ -687,6 +689,7 @@ class Market {
       c.rounds++;
       c.profit += r.net - START;
       c.points += points(r.who);
+      c.recent = [...(c.recent ?? []), Math.round(points(r.who) * 10) / 10].slice(-RECENT);
       c.best = Math.max(c.best, r.net - START);
       if (r === humans[0] && humans.length > 1) c.wins++;
     }
@@ -913,7 +916,7 @@ class Market {
       pops: this.pops.map(({ at: _at, ...p }) => p),
       marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
       result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
-      career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === me })),
+      career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
       desk: DESK,
       minRounds: MIN_ROUNDS,

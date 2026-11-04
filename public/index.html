@@ -257,17 +257,27 @@
     <section class="panel positions" data-fold="position" aria-label="Your position">
       <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thExits">Stop Loss / Take Profit</th><th data-t="thCut">Loss cut at</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
             <td id="pos-entry" data-label="Entry" data-t-label="thEntry"></td>
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
+            <td id="pos-exit" data-label="Stop Loss / Take Profit" data-t-label="thExits"></td>
+            <td id="pos-cut" data-label="Loss cut at" data-t-label="thCut"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
+            <td id="pos-pct" class="pct-big" data-label="P&amp;L %" data-t-label="thPnlPct"></td>
             <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
           </tr>
-          <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
+          <!-- The waiting pending order is a row of its own, cancelled here as on the ticket. -->
+          <tr id="pend-row" class="pend-row" hidden>
+            <td id="pend-row-type"></td>
+            <td id="pend-row-at" data-label="At" data-t-label="thAt"></td>
+            <td colspan="6" id="pend-row-what"></td>
+            <td><button id="pend-row-cancel" class="mini" type="button" data-t="pendCancel" data-tip="pendCancel">Cancel</button></td>
+          </tr>
+          <tr id="pos-empty"><td colspan="9" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
         </tbody>
       </table>
       <!-- The same two toggles and joined track as the ticket, bound to the
@@ -303,7 +313,9 @@
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thBestPct">Best</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th><th data-t="thTrend">Last 20</th></tr></thead><tbody id="career"></tbody></table>
+      <!-- The score of each of a trader's recent rounds, as bars, for whoever is picked in the table: yourself at first. -->
+      <figure class="fame-chart" id="fame-chart" hidden><figcaption id="fame-chart-title"></figcaption><svg id="fame-bars" viewBox="0 0 400 120" preserveAspectRatio="none" role="img"></svg><p class="fame-stats" id="fame-stats"></p></figure>
     </section>
   </main>
 

@@ -156,6 +156,14 @@ test("two independent players see orders, recover from offline and receive their
     await page.locator("#buy").click();
     const row = observer.locator("#traders li").filter({ hasText: name });
     await expect(row).toContainText("▲ 1×", { timeout: 1000 });
+    // ADR 0078: each page lists its own trader first, then the other people, then the house traders
+    for (const p of [page, observer]) {
+      const kinds = await p.locator("#traders li").evaluateAll((rows) => rows.map((r) => (r.classList.contains("you") ? "you" : r.querySelector(".badge") && r.textContent!.includes("🤖") ? "bot" : "person")));
+      expect(kinds[0]).toBe("you");
+      // from the first house trader on, every row is one: no person is listed after a bot
+      const firstBot = kinds.indexOf("bot");
+      if (firstBot !== -1) expect(kinds.slice(firstBot).every((k) => k === "bot"), kinds.join(",")).toBe(true);
+    }
 
     const chartTop = (await page.locator("#chart").boundingBox())!.y;
     await page.context().setOffline(true);

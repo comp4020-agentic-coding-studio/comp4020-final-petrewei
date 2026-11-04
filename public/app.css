@@ -535,7 +535,11 @@ table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 th { text-align: right; font-weight: 400; font-size: 0.75rem; color: var(--muted); padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--line); }
 td { text-align: right; padding: 0.55rem 0.9rem; font-family: var(--mono); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
-#pos-row[hidden], #pos-empty[hidden] { display: none; }
+#pos-row[hidden], #pos-empty[hidden], #pend-row[hidden] { display: none; }
+/* The return on the margin is what the game ranks by: the row's largest figure. */
+.pct-big { font-size: 1rem; font-weight: 700; }
+.pend-row td { color: var(--muted); border-top: 1px dashed var(--line); }
+#pend-row-what { text-align: left; font-family: var(--round); white-space: normal; }
 #pos-empty td { text-align: left; font-family: var(--round); color: var(--muted); white-space: normal; }
 .tag { display: inline-block; font: 700 0.75rem var(--round); padding: 0.1rem 0.45rem; border-radius: 5px; color: var(--on-fill); }
 .tag.long { background: var(--up); }
@@ -567,6 +571,8 @@ th:first-child, td:first-child { text-align: left; }
 /* A fixed window onto the feed, so a language with longer lines, or a
    busy round, never pushes the panels below. */
 #feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; height: 15rem; overflow: auto; }
+/* the latest market news stays at the top, marked, so a headline is never buried under chatter */
+#feed li.pinned { position: sticky; top: -0.4rem; z-index: 1; margin: -0.4rem -0.9rem 0.2rem; padding: 0.35rem 0.9rem; background: var(--raise); border-bottom: 1px solid var(--line); white-space: normal; }
 #feed li { padding: 0.15rem 0; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #feed .ico { display: inline-block; width: 1.4rem; text-align: center; }
 #feed .k-call { color: var(--call); font-weight: 700; }
@@ -583,6 +589,22 @@ th:first-child, td:first-child { text-align: left; }
 #feed .k-said b { color: var(--ink); font-weight: 700; }
 .fame td:first-child { font-family: var(--round); }
 .fame tr.you td { color: var(--pink); }
+/* The hall spans the page: the table, and beside it the picked trader's recent rounds as bars (ADR 0078). */
+.fame { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 26rem); align-items: start; }
+.fame > h2, .fame:has(.fame-chart[hidden]) > table { grid-column: 1 / -1; }
+.fame tbody tr { cursor: pointer; }
+.fame tr.picked td { background: color-mix(in srgb, var(--pink) 10%, transparent); }
+.spark { width: 60px; height: 18px; display: block; margin-left: auto; overflow: visible; }
+.spark .zero, .fame-chart .zero { stroke: var(--line); stroke-width: 1; }
+.spark polyline { fill: none; stroke-width: 1.5; }
+.spark .up { stroke: var(--up); }
+.spark .down { stroke: var(--down); }
+.fame-chart { margin: 0; padding: 0.6rem 0.9rem 0.8rem; border-left: 1px solid var(--line); }
+.fame-chart figcaption { font: 0.8rem var(--round); color: var(--muted); margin-bottom: 0.3rem; }
+.fame-chart svg { width: 100%; height: 8rem; display: block; }
+.fame-chart rect.up { fill: var(--up); }
+.fame-chart rect.down { fill: var(--down); }
+.fame-stats { margin: 0.4rem 0 0; font: 0.78rem var(--mono); color: var(--soft); }
 
 /* The bell takes the ticket's place in the right column, at the ticket's
    height, so nothing below it moves; a long ranking scrolls inside. */
@@ -847,7 +869,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   canvas { height: 270px; }
   .lobby .lobby-title { font-size: 1.3rem; }
   .lobby p { font-size: 0.85rem; }
-  .fame { overflow-x: auto; }
+  .fame { overflow-x: auto; grid-template-columns: minmax(0, 1fr); }
+  .fame-chart { border-left: 0; border-top: 1px solid var(--line); }
   .fame th, .fame td { padding: 0.45rem 0.4rem; }
   .fame th:first-child, .fame td:first-child { padding-left: 0.9rem; }
   .positions thead { display: none; }
@@ -857,6 +880,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   #pos-row td[data-label]::before { content: attr(data-label) " "; font: 0.72rem var(--round); color: var(--muted); }
   #pos-row td:last-child { grid-column: 1 / -1; margin-top: 0.4rem; }
   #pos-row td:last-child .close { width: 100%; padding: 0.5rem; }
+  #pend-row:not([hidden]) { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.8rem; padding: 0.6rem 0.9rem; }
+  #pend-row td { padding: 0; border: 0; text-align: left; }
+  #pend-row td[data-label]::before { content: attr(data-label) " "; font: 0.72rem var(--round); color: var(--muted); }
 }
 @media (prefers-reduced-motion: reduce) {
   .losscut, .focus, .tick-up, .tick-down, .warn.calling, #level-box.alarm dd, .bell-art, .tip { animation: none; }
@@ -911,6 +937,8 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .desk-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
   /* the feed and the room take a screen's height between them, so a long feed scrolls in place */
   .feed, .room { max-height: calc(var(--tall) * 0.7); }
+  /* the feed's list takes the height the row gives it, the same as the room's */
+  #feed { height: auto; }
   /* spacing the narrower column needed and this one does not */
   .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
   .field { gap: 0.25rem; }

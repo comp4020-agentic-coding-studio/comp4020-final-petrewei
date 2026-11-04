@@ -113,6 +113,9 @@ it("ranks the room at the bell, logs the round to stdout, and waits in the lobby
     const hall = (await state(trader)).career;
     expect(hall.filter((c) => c.rounds > 0)).toHaveLength(1);
     expect(hall[0].you).toBe(true);
+    // the hall's chart reads each finished round's score, as the bell scored it (ADR 0078)
+    const scored = (await state(trader)) as unknown as { result: { debrief: { score: number } } };
+    expect((hall[0] as unknown as { recent: number[] }).recent).toEqual([scored.result.debrief.score]);
     // a person is shown the same face in the room, at the bell and in the hall
     // (ADR 0021): a house trader's name or a plain face's number, nothing else
     type Faced = { face: string; you: boolean };
