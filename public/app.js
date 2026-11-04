@@ -7,7 +7,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct } from "/ticket.js";
+import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeMargin } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted } from "/format.js";
@@ -819,9 +819,16 @@ function spotlight(l, moving) {
 }
 // The chart redraws when its box changes size (a window resized, a panel folded, a position row appearing), since it
 // is drawn to the box (ADR 0076).
-// Where the browser has no ResizeObserver (an old one, or the checks' own page), a window resize does the same.
-if (typeof ResizeObserver === "function") new ResizeObserver(() => state && draw(state)).observe($("chart"));
-else addEventListener("resize", () => state && draw(state));
+// The header's height, for the first screen's sizing (ADR 0076): it changes with the language and wraps at some
+// widths, so it is measured, not assumed. Where the browser has no ResizeObserver (an old one, or the checks' own
+// page), a window resize does both jobs.
+const header = document.querySelector("header.top");
+const measureHead = () => header && document.documentElement.style.setProperty("--head", `${header.offsetHeight}px`);
+measureHead();
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(() => state && draw(state)).observe($("chart"));
+  if (header) new ResizeObserver(measureHead).observe(header);
+} else addEventListener("resize", () => (measureHead(), state && draw(state)));
 let armedFor = null;
 let hintFor = null;
 let settle = 0;
@@ -909,9 +916,8 @@ function ticket(s) {
   $("bid").textContent = quoted(s.bid);
   $("ask").textContent = quoted(s.ask);
   $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
-  // the desk's own rule (src/fx.ts): a share of the whole account, cut to what is free
-  const free = Math.max(0, s.you.equity - (s.you.pos?.margin ?? 0));
-  const margin = Math.floor(Math.min(Math.max(0, s.you.equity) * choice.stake, free));
+  // the desk's own rule, from the module both share
+  const margin = stakeMargin(s.you.equity, s.you.pos?.margin ?? 0, choice.stake);
   const controls = margin * choice.leverage;
   // At L× leverage, a move of 1/L against you is everything you put in.
   const wipe = 100 / choice.leverage;
@@ -992,14 +998,12 @@ function draw(full) {
   // layout sizes the box, and it is sharp on a scaled screen: the canvas holds that many device pixels and the drawing
   // is scaled to them. Before the box has a size (hidden, or folded), it keeps the size it last had.
   const ratio = devicePixelRatio || 1;
-  const boxW = canvas.clientWidth || canvas.width / ratio;
+  const w = canvas.clientWidth || canvas.width / ratio;
   const boxH = canvas.clientHeight || canvas.height / ratio;
-  if (canvas.width !== Math.round(boxW * ratio) || canvas.height !== Math.round(boxH * ratio)) {
-    canvas.width = Math.round(boxW * ratio);
-    canvas.height = Math.round(boxH * ratio);
-  }
+  const [pw, ph] = [Math.round(w * ratio), Math.round(boxH * ratio)];
+  // a new size clears the canvas, so it is set only when the box has changed
+  if (canvas.width !== pw || canvas.height !== ph) [canvas.width, canvas.height] = [pw, ph];
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  const w = boxW;
   // With the RSI on, the price takes the top and the RSI a pane below; the canvas, and so the layout, keeps its size.
   const pane = studies.rsi && s.mode !== "tutorial" ? 84 : 0;
   const h = boxH - pane;

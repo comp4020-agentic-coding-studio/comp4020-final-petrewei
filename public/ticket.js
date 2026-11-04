@@ -8,6 +8,9 @@ const unit = (x) => Math.min(1, Math.max(0, x));
 
 // What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
+// The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole yen, never below nothing.
+// The one rule, for the desk that takes the order and the ticket that shows it beforehand.
+export const stakeMargin = (equity, used, stake) => Math.max(0, Math.floor(Math.min(equity * stake, equity - used)));
 
 // The rungs of the leverage ladder sit evenly along the slider, however far
 // apart they are in leverage (ADR 0059): a rung's place is its number in the

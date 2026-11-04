@@ -209,7 +209,7 @@ button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[dat
 /* Two columns that stack on their own, so neither waits on the other's
    height: the market on the left, the ticket and the room on the right. */
 main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
-.col { display: grid; gap: 0.75rem; min-width: 0; }
+.col, .screen { display: grid; gap: 0.75rem; min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
 .panel h2 { margin: 0; padding: 0.6rem 0.9rem; font-size: 0.9rem; font-weight: 700; color: var(--soft); border-bottom: 1px solid var(--line); display: flex; align-items: baseline; }
 /* A heading is its icon and label on the left, and an optional note or
@@ -699,7 +699,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
    take the order a phone needs, the ticket right under the chart. */
 @media (max-width: 900px) {
   main { grid-template-columns: minmax(0, 1fr); }
-  .col { display: contents; }
+  .col, .screen { display: contents; }
   .chart-panel { order: 1; }
   .ticket, .bell { order: 2; }
   .account { order: 2; }
@@ -780,7 +780,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   /* The indicator switches move to the corner, clear of the price axis's
      narrower labels. */
   .studies { right: 0.5rem; }
-  canvas { height: 270px; aspect-ratio: auto; }
+  canvas { height: 270px; }
   .lobby .lobby-title { font-size: 1.3rem; }
   .lobby p { font-size: 0.85rem; }
   .fame { overflow-x: auto; }
@@ -830,44 +830,30 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .slide .label output { flex: none; }
 
 /* The first screen (ADR 0076). A .screen holds the panels a trader needs at once: on the left the chart with the
-   position under it; on the right the order ticket and the account joined as one card, or the bell and the account
-   after a round. On a phone it is not there at all, so the panels keep the phone's order. On a desktop the left is
-   exactly the window's height under the header, the chart growing to fill what the position leaves, so the price, the
-   order, the position and the account all show without scrolling; the feed, the hall of fame and the room follow below.
-   Text keeps its size: the room comes from the layout. */
-.screen { display: grid; gap: 0.75rem; min-width: 0; }
-@media (max-width: 900px) { .screen { display: contents; } }
+   position under it; on the right the order ticket and the account as one card, or the bell and the account after a
+   round. Below 900px it dissolves with the columns, so the panels keep the phone's order. On a desktop the left is the
+   window's height under the header, the chart growing into what the position leaves, and the card on the right keeps
+   to that height too, scrolling within itself if a short window cannot hold it; the feed, the hall of fame and the
+   room follow below. Text keeps its size: the room comes from the layout and the spacing, never from smaller type. */
 @media (min-width: 1100px) and (min-height: 600px) {
-  /* 392px lets Sell's and Buy's notes sit on one line each, even beside the card's own scroll bar on a short screen */
-  main { grid-template-columns: minmax(0, 1fr) 392px; }
-  /* the window less the header (65px) and main's top padding, so the left column ends at the bottom of the screen */
-  .main-col .screen { height: calc(100vh - 65px - 0.75rem - 0.75rem); grid-template-rows: minmax(0, 1fr) auto; }
-  /* a laptop's screen (768px tall, less the browser) is the tightest: the panels' own spacing gives what the card needs */
-  @media (max-height: 700px) {
-    main { padding-top: 0.5rem; }
-    .main-col .screen { height: calc(100vh - 65px - 0.5rem - 0.5rem); gap: 0.5rem; }
-    .side-col .screen { max-height: calc(100vh - 65px - 0.5rem - 0.5rem); }
-    .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
-    .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
-    /* Sell's and Buy's notes ("Earns when the price falls") go, which a laptop needs for the card to fit; their tips
-       still say it, and the tutorial, where a newcomer first meets them, keeps them */
-    body:not(.tutorial) .side small { display: none; }
-  }
+  /* --head is the header's height, which the page measures (65px until it has); --pad is main's own top padding and
+     the gap under the screen; --tall is what the screen may fill: the window, less both */
+  main { --pad: 0.75rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; }
+  .main-col .screen { height: var(--tall); grid-template-rows: minmax(0, 1fr) auto; gap: var(--pad); }
   .main-col .screen .chart-panel { display: flex; flex-direction: column; min-height: 0; }
   /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
   .chart-panel > .chart-box { flex: 1; min-height: 0; }
-  .chart-panel canvas { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
-  /* the ticket, or the bell, and the account are one card: no gap, a shared edge, the account's heading a divider */
-  .side-col .screen { gap: 0; align-content: start; }
-  /* where the window is shorter than the card (a 1366 by 768 laptop, less the browser's bars), the card keeps to the
-     screen and scrolls within itself, so its foot is a scroll away in place, never hidden under the page's edge */
-  .side-col .screen { max-height: calc(100vh - 65px - 0.75rem - 0.75rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-  .side-col .screen > .ticket, .side-col .screen > .bell { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-  .side-col .screen > .account { border-top: none; border-top-left-radius: 0; border-top-right-radius: 0; }
-  /* inside the one card the account's heading is a divider with its name, not a second card's head, so it is slimmer */
-  .side-col .screen > .account > h2 { border-top: 1px solid var(--line); padding-top: 0.35rem; padding-bottom: 0.35rem; }
-  /* the ticket gives back the room it kept for a narrower column: tighter gaps, and two lines of preview, which fit
-     unwrapped at this width; no text is smaller */
+  .chart-panel canvas { position: absolute; inset: 0; height: 100%; }
+  /* The card: the right column's screen is itself the panel's box, so its edge and corners stay put when it scrolls;
+     the ticket, or the bell, and the account inside are flat, with a line between them. */
+  .side-col .screen { gap: 0; align-content: start; max-height: var(--tall); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .side-col .screen > .panel { border: none; border-radius: 0; box-shadow: none; }
+  .side-col .screen > .panel + .panel { border-top: 1px solid var(--line); }
+  .side-col .screen:has(> .bell:not([hidden])) { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
+  /* inside the card the account's heading is a divider with its name, so it is slimmer than a card's own head */
+  .side-col .screen > .account > h2 { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+  /* spacing the narrower column needed and this one does not: tighter gaps, and two lines of preview, which fit
+     unwrapped at this width */
   .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
   .field { gap: 0.25rem; }
   .preview { height: auto; min-height: 2.8em; }
@@ -875,7 +861,13 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .ticket-body:has(#error:not(:empty)) #preview { display: none; }
   .account-body { gap: 0.45rem; padding: 0.5rem 0.9rem 0.6rem; }
   .meter { margin-bottom: 0.95rem; }
-}
-@media (min-width: 1440px) and (min-height: 600px) {
-  main { grid-template-columns: minmax(0, 1fr) 400px; }
+  /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing,
+     slimmer headings, and, Peter's choice, Sell's and Buy's notes ("Earns when the price falls") go outside the
+     tutorial, where a newcomer first meets them; their tips still say it. */
+  @media (max-height: 700px) {
+    main { --pad: 0.5rem; }
+    .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+    .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+    body:not(.tutorial) .side small { display: none; }
+  }
 }

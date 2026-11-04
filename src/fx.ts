@@ -8,6 +8,8 @@
 // stop-out at 20%, and a "zero-cut" that wipes a negative balance but
 // takes the player out of the market until the next round.
 
+import { stakeMargin } from "../public/ticket.js";
+
 export const START = 1_000_000;
 // A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
 // Australia's 30× for major pairs is on it, offshore 1000× tops it.
@@ -152,7 +154,7 @@ export class Desk {
     if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
-    const margin = Math.floor(Math.min(this.equity(who) * stake, this.free(who)));
+    const margin = stakeMargin(this.equity(who), this.used(who), stake);
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
     const units = notional / fill(this.price, side);

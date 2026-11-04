@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DISTANCES, LEVERAGES } from "../src/fx.ts";
-import { STAKES, gauge, levAt, levPos, pct } from "../public/ticket.js";
+import { STAKES, gauge, levAt, levPos, pct, stakeMargin } from "../public/ticket.js";
 
 // ADR 0024: the order ticket's arithmetic, kept out of the page so it can
 // be checked here. The leverage slider runs on a log scale and snaps to
@@ -38,6 +38,17 @@ describe("the leverage slider", () => {
 describe("the stake slider", () => {
   it("offers a quarter, a half, three quarters and all, evenly", () => {
     expect(STAKES).toEqual([0.25, 0.5, 0.75, 1]);
+  });
+
+  // ADR 0076: the one rule the desk takes an order by and the ticket previews it by.
+  it("stakes a share of net worth, cut to what is free, and never less than nothing", () => {
+    expect(stakeMargin(1_000_000, 0, 0.25)).toBe(250_000);
+    expect(stakeMargin(1_000_000, 250_000, 0.25), "a quarter of the whole, not of what is left").toBe(250_000);
+    expect(stakeMargin(1_000_000, 750_000, 0.5), "cut to the quarter that is free").toBe(250_000);
+    expect(stakeMargin(1_000_000, 1_000_000, 1)).toBe(0);
+    expect(stakeMargin(-50_000, 0, 1), "an account under water stakes nothing").toBe(0);
+    expect(stakeMargin(900_000, 1_000_000, 0.5), "margin above net worth leaves nothing free").toBe(0);
+    expect(stakeMargin(1_000_001, 0, 0.25), "whole yen").toBe(250_000);
   });
 });
 
