@@ -2,6 +2,8 @@
 // seconds while anyone watches, from which all twenty-one pairs of the seven currencies are crossed, so every pair agrees
 // with every other. The offshore yuan, CNH, stands for the yuan: the onshore rate stops overnight. Prices are kept as
 // fifteen-minute closes, the game's own tick (ADR 0085), the newest slot's close being the price now.
+import http from "node:http";
+import https from "node:https";
 import { PAIRS, type Pair } from "./market.ts";
 
 export const CURRENCIES = ["EUR", "GBP", "AUD", "USD", "CHF", "CNY", "JPY"] as const;
@@ -19,12 +21,26 @@ export type Usd = Record<Currency, number>;
 type Spark = { spark?: { result?: { symbol: string; response: { meta: { regularMarketPrice: number; regularMarketTime: number }; timestamp?: number[]; indicators: { quote: { close: (number | null)[] }[] } }[] }[] } };
 export type Fetcher = (url: string) => Promise<Spark>;
 
-const yahoo: Fetcher = async (url) => {
-  // query2 answers from Fly's network where query1 does not, and a plain client is refused without a browser's name
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Losscut/1.0" }, signal: AbortSignal.timeout(8_000) });
-  if (!res.ok) throw new Error(`prices ${res.status}`);
-  return (await res.json()) as Spark;
-};
+// Yahoo answers Fly's machine over IPv4 and times out over IPv6, where fetch may wait on it, so the request is made
+// over IPv4 alone. A plain client is refused without a browser's name.
+const yahoo: Fetcher = (url) =>
+  new Promise((resolve, reject) => {
+    const req = (url.startsWith("https:") ? https : http).get(url, { family: 4, timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Losscut/1.0" } }, (res) => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk: string) => (body += chunk));
+      res.on("end", () => {
+        if (res.statusCode !== 200) return reject(new Error(`prices ${res.statusCode}`));
+        try {
+          resolve(JSON.parse(body) as Spark);
+        } catch {
+          reject(new Error("prices unreadable"));
+        }
+      });
+    });
+    req.on("timeout", () => req.destroy(new Error("prices timed out")));
+    req.on("error", reject);
+  });
 // MARATHON_FEED points the feed at another address with the same answer, for the checks, which never reach the network
 const HOST = process.env.MARATHON_FEED ?? "https://query2.finance.yahoo.com";
 const url = (range: string) => `${HOST}/v7/finance/spark?symbols=${Object.values(SYMBOLS).map(([s]) => s).join(",")}&range=${range}&interval=15m`;
