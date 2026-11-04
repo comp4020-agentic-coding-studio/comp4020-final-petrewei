@@ -292,7 +292,7 @@ it("names the mode simulation, and keeps its old names working", () => {
   expect(page.querySelector('[data-mode="scenario"]')).toBeNull();
   expect(page.querySelector("#here-simulation")).not.toBeNull();
   const app = readFileSync("public/app.js", "utf8");
-  expect(app).toMatch(/const MODES = \["replay", "simulation", "tutorial"\]/);
+  expect(app).toMatch(/const MODES = \["replay", "simulation", "marathon", "tutorial"\]/);
   expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", live: "simulation", scenario: "simulation" \}\)/);
   const server = readFileSync("src/server.ts", "utf8");
   expect(server).toMatch(/const MODES = \["replay", "simulation"\] as const/);

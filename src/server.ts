@@ -23,6 +23,7 @@ import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
 import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
+import { Marathon } from "./marathon.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DATA_DIR = process.env.DATA_DIR ?? "/data";
@@ -405,7 +406,7 @@ const FIRST_YEAR = 1999;
 // starts from today's real rate and simulates a random market (ADR 0027).
 const MODES = ["replay", "simulation"] as const;
 type Mode = (typeof MODES)[number];
-type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
+type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "marathon" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
 type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; scenario?: string };
 type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
@@ -1000,7 +1001,7 @@ class Market {
       minRounds: MIN_ROUNDS,
       ...quote(desk.price),
       // How many people are on each tab, for the tab labels.
-      here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
+      here: headCounts(),
     };
   }
 
@@ -1015,6 +1016,18 @@ class Market {
 }
 
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
+// Marathon (ADR 0087): one market on real prices that never closes, its accounts kept on the volume.
+const marathonHere = (): number => new Set([...listeners].filter((l) => l.mode === "marathon").map((l) => l.who)).size;
+const marathon = new Marathon(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt }, {
+  watching: marathonHere,
+  onChange: () => sendMarathon(),
+  log: (who, ev, fields) => log(who, ev, fields),
+});
+const headCounts = (): Record<string, number> => ({ ...Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])), marathon: marathonHere() });
+function sendMarathon(except?: Listener): void {
+  const here = headCounts();
+  for (const l of listeners) if (l.mode === "marathon" && l !== except) l.res.write(`data: ${JSON.stringify(marathon.view(l.who, here))}\n\n`);
+}
 // The tabs' old names still lead to them: History and Live (ADRs 0027, 0028),
 // then Scenario (ADR 0047).
 const OLD: Record<string, Mode> = { history: "replay", live: "simulation", scenario: "simulation" };
@@ -1101,6 +1114,7 @@ function broadcastPresence(except?: Listener): void {
   for (const m of MODES) markets[m].broadcast(false, except);
   const watching = new Set([...listeners].filter((l) => l.mode === "tutorial").map((l) => l.who));
   for (const who of watching) sendTutorial(who, except);
+  sendMarathon(except);
 }
 
 setInterval(() => {
@@ -1340,6 +1354,23 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   // Opening a tab joins that market's round in progress with a fresh
   // account; switching tabs opens a new stream on the other market.
+  if (req.method === "GET" && path === "/api/events" && url.searchParams.get("mode") === "marathon") {
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
+    const listener: Listener = { res, who, mode: "marathon" };
+    const already = ids().has(who);
+    listeners.add(listener);
+    log(who, already ? "tab" : "join", { mode: "marathon", ...(already ? {} : { here: here() }) });
+    res.write(`data: ${JSON.stringify(marathon.view(who, headCounts()))}\n\n`);
+    marathon.wake();
+    const opened = requests.getStore();
+    req.on("close", () => {
+      listeners.delete(listener);
+      if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
+      broadcastPresence();
+    });
+    broadcastPresence(listener);
+    return;
+  }
   if (req.method === "GET" && path === "/api/events" && url.searchParams.get("mode") === "tutorial") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
     const listener: Listener = { res, who, mode: "tutorial" };
@@ -1388,6 +1419,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (req.method === "GET" && path === "/api/state") {
     if (url.searchParams.get("mode") === "tutorial") return json(res, 200, tutorialView(who));
+    if (url.searchParams.get("mode") === "marathon") return json(res, 200, marathon.view(who, headCounts()));
     return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
   }
 
@@ -1408,6 +1440,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     for (const m of MODES) markets[m].broadcast();
     sendTutorial(who);
+    sendMarathon();
     return json(res, 200, result);
   }
 
@@ -1439,6 +1472,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown action." });
     const kind = input.kind;
+    // Marathon's orders go to its own accounts; like every market, the page sends only what the player chose
+    if (input.mode === "marathon") {
+      const error = marathon.act(who, input);
+      if (error) {
+        log(who, "refused", { mode: "marathon", action: kind, why: error });
+        return json(res, 409, { error });
+      }
+      sendMarathon();
+      return json(res, 200, { ok: true });
+    }
     let action: Action | null = null;
     if (kind === "buy" || kind === "sell") {
       const stake = typeof input.stake === "number" ? input.stake : 1;
@@ -1546,3 +1589,8 @@ setInterval(() => {
     if (!ok && l.res.writableLength > 64_000) l.res.destroy();
   }
 }, 5_000).unref();
+// Marathon's accounts are saved every few seconds; a stop for a deploy saves them at once.
+for (const signal of ["SIGTERM", "SIGINT"] as const) process.once(signal, () => {
+  marathon.save(true);
+  process.exit(0);
+});

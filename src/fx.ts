@@ -18,7 +18,7 @@ export const LEVERAGES = [1, 3, 10, 30, 100, 300, 1000];
 // The whole spread as a fraction of the price: half on entry, half on exit.
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
-const STOP_OUT = 0.2;
+export const STOP_OUT = 0.2;
 // Emergency credit (ADR 0080), which replaced Dad's savings: anyone may draw a STEP at a time, up to LIMIT, and repay it
 // from free cash. What is owed grows by a daily rate that rises with the debt, charged in a tick's share each tick and
 // added to the debt, so a line drawn and left eats a round. A net worth under zero at the bell is bankruptcy.

@@ -53,7 +53,7 @@ const avatar = (face, size = 20) => Object.assign(document.createElement("span")
 let names = new Map();
 // What a room row is, and the badge and word that say so in place of text.
 const ROWS = { bot: { badge: "🤖", label: "bot" }, wiped: { badge: "💀", label: "wipedTag" }, person: {} };
-const nameOf = (code) => names.get(code) ?? botName(code, code);
+const nameOf = (code, line) => names.get(code) ?? (line?.name ? nameIn(line.name, line.draw >= 0 ? line.draw : null) : botName(code, code));
 
 // Every fixed string on the page carries data-t (its text), data-t-title
 // (its tooltip) or data-t-label (a phone label). Switching language fills
@@ -234,7 +234,7 @@ $("ironman-fist").innerHTML = prop("fist", 20);
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
-const MODES = ["replay", "simulation", "tutorial"];
+const MODES = ["replay", "simulation", "marathon", "tutorial"];
 // The tabs' old names, History, Live and Scenario, still lead to them (ADRs
 // 0027, 0028, 0047).
 const renamed = (m) => ({ history: "replay", live: "simulation", scenario: "simulation" })[m] ?? m;
@@ -288,7 +288,8 @@ async function act(kind, extra = {}) {
   }
   $("error").textContent = "";
   const source = events;
-  const reply = await post("/api/act", { kind, mode, ...extra });
+  // in Marathon an order is for the pair on the chart (ADR 0087)
+  const reply = await post("/api/act", { kind, mode, ...(mode === "marathon" && state?.pair && !extra.pair ? { pair: state.pair } : {}), ...extra });
   if (source === events) $("error").textContent = reply.why;
 }
 // A stop loss and a take profit each ride on the order when their own
@@ -663,7 +664,7 @@ $("name-form").onsubmit = async (e) => {
 // pressed Start may cancel it.
 function lobby(s) {
   const waiting = s.phase === "lobby" || s.phase === "countdown";
-  $("lobby").hidden = s.mode === "tutorial" || !waiting;
+  $("lobby").hidden = s.mode === "tutorial" || s.mode === "marathon" || !waiting;
   if (!waiting) return;
   const counting = s.phase === "countdown";
   $("lobby").classList.toggle("counting", counting);
@@ -683,11 +684,12 @@ function options(id, values, selected) {
   if (rebuilt || document.activeElement !== sel) sel.value = selected;
 }
 function pairChoices(s) {
-  const simulation = s.mode === "simulation";
+  // Marathon's pair is the account's to switch at any time (ADR 0087), with the same two menus as Simulation's lobby
+  const simulation = s.mode === "simulation" || s.mode === "marathon";
   $("pair").hidden = simulation || s.mode === "replay";
   $("pair-controls").hidden = !simulation;
   $("replay-pair").hidden = s.mode !== "replay";
-  const closed = s.phase !== "lobby" || !fresh;
+  const closed = (s.mode !== "marathon" && s.phase !== "lobby") || !fresh;
   for (const id of ["replay-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
   if (s.replayPlots) {
     const sel = $("replay-pair");
@@ -709,7 +711,7 @@ async function choosePair() {
   const pair = offered.find((p) => p.endsWith(`/${$("pair-quote").value}`)) ?? offered[0];
   if (!pair) return;
   options("pair-quote", offered.map((p) => p.split("/")[1]), pair.split("/")[1]);
-  await act("choose", { what: pair });
+  await (mode === "marathon" ? act("pair", { pair }) : act("choose", { what: pair }));
   if (state) pairChoices(state);
 }
 $("pair-base").onchange = $("pair-quote").onchange = choosePair;
@@ -1121,6 +1123,72 @@ function ticket(s) {
   }
   leverageNote();
 }
+// Marathon's other open pairs (ADR 0087): each with its side, leverage, result and its own Close; clicking a pair puts
+// it on the chart. The chart's own pair is the position row above.
+function book(s) {
+  const rows = s.mode === "marathon" ? s.you.positions.filter((p) => p.pair !== s.pair) : [];
+  $("book").hidden = !rows.length;
+  $("book-rows").replaceChildren(...rows.map((p) => {
+    const tr = document.createElement("tr");
+    const side = Object.assign(document.createElement("span"), { className: `tag ${p.side === 1 ? "long" : "short"}`, textContent: p.side === 1 ? t("long") : t("short") });
+    const go = Object.assign(document.createElement("button"), { type: "button", className: "linkish", textContent: ` ${p.pair} ${p.leverage}×` });
+    go.dataset.tipText = t("showPair", { pair: p.pair });
+    go.onclick = () => act("pair", { pair: p.pair });
+    const shut = Object.assign(document.createElement("button"), { type: "button", className: "mini", textContent: t("close") });
+    shut.onclick = () => act("close", { pair: p.pair });
+    shut.disabled = !s.live;
+    const cells = [[side, go], quoted(p.entry), quoted(p.now), cash(p.margin), cash(p.pnl), pct(p.pnl / p.margin), [shut]];
+    for (const [i, c] of cells.entries()) {
+      const td = document.createElement("td");
+      if (Array.isArray(c)) td.append(...c);
+      else td.textContent = c;
+      if (i === 4 || i === 5) td.className = tone(p.pnl);
+      tr.append(td);
+    }
+    return tr;
+  }));
+}
+// Marathon's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
+// the forecast and, once out, the actual figure, as the calendar's source gives them; then the central banks' latest
+// words, each a link to the bank's own page. The titles are the sources' own, in English.
+function realCalendar(s) {
+  const on = s.mode === "marathon";
+  const rows = on ? s.calendar ?? [] : [];
+  const banks = on ? s.bankNews ?? [] : [];
+  $("real-calendar").hidden = !rows.length && !banks.length;
+  const when = (at) => new Date(at).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" });
+  $("real-calendar").replaceChildren(
+    ...rows.map((c) => {
+      const li = document.createElement("li");
+      li.className = c.actual ? "told" : c.at < Date.now() ? "told" : "upcoming";
+      const figures = [c.actual && t("calActual", { v: c.actual }), c.forecast && t("calForecast", { v: c.forecast }), c.previous && t("calPrevious", { v: c.previous })].filter(Boolean).join(" · ");
+      li.append(Object.assign(document.createElement("span"), { className: "when", textContent: when(c.at) }), Object.assign(document.createElement("span"), { className: "what", textContent: `${c.cur} · ${c.title}${figures ? ` · ${figures}` : ""}` }));
+      return li;
+    }),
+    ...banks.slice(0, 4).map((b) => {
+      const li = document.createElement("li");
+      li.className = "bank";
+      const a = Object.assign(document.createElement("a"), { href: b.link, target: "_blank", rel: "noopener noreferrer", textContent: `${b.cur} · ${b.source}: ${b.title}` });
+      li.append(Object.assign(document.createElement("span"), { className: "when", textContent: when(b.at) }), Object.assign(document.createElement("span"), { className: "what" }));
+      li.lastChild.append(a);
+      return li;
+    }),
+  );
+}
+// Marathon's board in the room's place (ADR 0087): who lasted longest, running or bankrupt.
+function board(s) {
+  const on = s.mode === "marathon";
+  $("board").hidden = !on;
+  $("traders").hidden = on;
+  if (!on) return;
+  $("board").replaceChildren(...(s.board ?? []).map((r) => {
+    const li = document.createElement("li");
+    li.className = `${r.you ? "you" : ""} ${r.how}`;
+    li.append(avatar(r.face, 18), strong(nameIn(r.name, r.draw)), Object.assign(document.createElement("span"), { className: "aside", textContent: `${r.days} · ${t(r.how === "running" ? "boardRunning" : "boardBust")} · ${cash(r.worth)}` }));
+    li.dataset.tipText = t("boardPeak", { peak: cash(r.peak) });
+    return li;
+  }));
+}
 // The pending row: what this order would be as a pending one, or what is waiting, with a Cancel (ADR 0078).
 function pending(s) {
   const ui = T[lang].ui;
@@ -1274,7 +1342,9 @@ function draw(full) {
     ctx.moveTo(xd, 0);
     ctx.lineTo(xd, h + pane);
     ctx.stroke();
-    if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(`D${at / dayStep + 1}`, xd + 4, h - 6);
+    // Marathon's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
+    const dayName = s.mode === "marathon" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(lang === "en" ? "en-AU" : lang, { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
+    if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
   }
   // A day's indicator sits at its candle's centre; today's at the price.
   const dayX = (d) => x(Math.min(d * k + k / 2, prices.length - 1));
@@ -1600,7 +1670,9 @@ function render(s) {
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
+  const marathon = s.mode === "marathon";
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
+  document.body.classList.toggle("marathon", marathon);
   // End is the starter's, in a trading round.
   $("finish").hidden = !(s.phase === "trade" && s.rules);
   // 2× (ADR 0085): the ruler's to press; when it is on, everyone sees the lit button, pressable or not
@@ -1628,9 +1700,9 @@ function render(s) {
   lobby(s);
   pairChoices(s);
   // The tab shows a head count as a bare number; its tooltip says what.
-  for (const m of ["replay", "simulation"]) {
+  for (const m of ["replay", "simulation", "marathon"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "simulation" ? "tabSimulation" : "tabReplay")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
+    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "simulation" ? "tabSimulation" : m === "marathon" ? "tabMarathon" : "tabReplay")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -1646,6 +1718,13 @@ function render(s) {
     mark();
     translate();
   }
+  // Marathon before its first price (ADR 0087): a page that opens as the server fetches shows the wait and no chart
+  if (!s.prices.length) {
+    $("price").textContent = "—";
+    $("clock").textContent = t("clockWaitShort");
+    for (const id of ["buy", "sell"]) $(id).disabled = true;
+    return;
+  }
   const price = s.prices.at(-1);
   const first = s.prices[0];
   $("pair").textContent = s.pair;
@@ -1655,16 +1734,18 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && (s.headline.release ? releaseText(lang, "release", s.headline.release) : s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
+  const head = s.headline && (s.headline.source ? `${s.headline.source}: ${s.headline.title}` : s.headline.release ? releaseText(lang, "release", s.headline.release) : s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
   // Only a clue or headline is shown here; the static label that said which
   // mode this was is gone (ADR 0059), since the tab already says it.
   $("mode").textContent = head ? `📰 ${head}` : "";
   $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
-  const clockKey = tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
+  const clockKey = marathon ? (s.live ? "clockLive" : "clockShut") : tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
   // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
-  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
+  // Marathon's clock is Sydney's time of the last price (ADR 0087)
+  const sydney = s.priceAt ? new Date(s.priceAt).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+  const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
   $("clock").textContent = t(`${clockKey}Short`, clockValues);
   $("clock").setAttribute("aria-label", t(clockKey, clockValues));
   setTip($("clock"), t(clockKey, clockValues));
@@ -1728,7 +1809,7 @@ function render(s) {
   // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
   // whenever the price stands still).
   // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
-  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade";
+  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" || (marathon && !y.out);
   $("credit-owe").textContent = y.debt ? cash(y.debt) : t("creditFree");
   // how much of the line is drawn, as a bar
   $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
@@ -1759,11 +1840,13 @@ function render(s) {
     $("pos-entry").textContent = quoted(y.pos.entry);
     $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = cash(y.pos.margin);
-    $("pos-pnl").textContent = cash(y.pnl);
-    $("pos-pnl").className = tone(y.pnl);
+    // in Marathon the row is the chart's pair, one of several open, so its own result (ADR 0087)
+    const rowPnl = marathon ? (y.positions.find((p) => p.pair === s.pair)?.pnl ?? 0) : y.pnl;
+    $("pos-pnl").textContent = cash(rowPnl);
+    $("pos-pnl").className = tone(rowPnl);
     // the return on the margin is what the game ranks by, so it is the row's loudest figure
-    $("pos-pct").textContent = pct(y.pnl / y.pos.margin);
-    $("pos-pct").className = `pct-big ${tone(y.pnl)}`;
+    $("pos-pct").textContent = pct(rowPnl / y.pos.margin);
+    $("pos-pct").className = `pct-big ${tone(rowPnl)}`;
     $("pos-exit").textContent = `${y.pos.stop ? quoted(y.pos.stop) : "—"} / ${y.pos.take ? quoted(y.pos.take) : "—"}`;
     $("pos-cut").textContent = y.pos.cut ? quoted(y.pos.cut) : "—";
     // An exit set elsewhere (an order's, a bot's) shows at its distance now.
@@ -1784,6 +1867,7 @@ function render(s) {
     $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.stake * 100)}%` });
   }
   feats(s);
+  book(s);
   // This round's closed trades, newest first, each with its verdict (ADR 0081); hidden until there is one. The list is
   // rebuilt only when it changes, so an open row's place under the reader's cursor is kept.
   const trades = y.trades ?? [];
@@ -1796,7 +1880,7 @@ function render(s) {
     $("history-rows").replaceChildren(...trades.map((tr) => {
       const row = document.createElement("tr");
       const side = Object.assign(document.createElement("span"), { className: `tag ${tr.side === 1 ? "long" : "short"}`, textContent: tr.side === 1 ? t("long") : t("short") });
-      const cells = [[side, ` ${s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], cash(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
+      const cells = [[side, ` ${tr.pair ?? s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], cash(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
       cells.forEach((c, i) => {
         const td = document.createElement("td");
         if (Array.isArray(c)) td.append(...c);
@@ -1810,6 +1894,7 @@ function render(s) {
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
+  if (marathon && !y.pos) $("position").textContent = y.out ? t("marathonClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "marathonOther" : "noPos") : t("marathonShut");
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;
@@ -1846,7 +1931,8 @@ function render(s) {
   }
   bankrupt = y.bankrupt;
 
-  const humans = s.traders.filter((t) => !t.bot).length;
+  board(s);
+  const humans = s.mode === "marathon" ? s.here.marathon : s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
   const list = $("traders");
   // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
@@ -1896,7 +1982,8 @@ function render(s) {
     return li;
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
-  const cal = s.calendar ?? [];
+  const cal = s.mode === "marathon" ? [] : s.calendar ?? [];
+  realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {
     const li = document.createElement("li");
@@ -2050,7 +2137,8 @@ function watch(next) {
     if (source !== events) return;
     try {
       await receive(JSON.parse(e.data), source);
-    } catch {
+    } catch (err) {
+      console.error("render failed", err);
       if (source === events) connection("connectionReconnecting");
     }
   };

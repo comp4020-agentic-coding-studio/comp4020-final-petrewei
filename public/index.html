@@ -299,6 +299,8 @@
       </div>
       </div>
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
+      <!-- Marathon (ADR 0087): every pair open in the account, each with its own close. -->
+      <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
       <details class="history" id="history" hidden>
         <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
         <table>
@@ -327,11 +329,15 @@
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
       <!-- Simulation's economic calendar (ADR 0085): the round's releases with their times, and each outcome once told. -->
       <ol class="calendar" id="calendar" hidden></ol>
+      <!-- Marathon's real calendar and the central banks' own words (ADR 0087), each linked to its source. -->
+      <ol class="calendar real" id="real-calendar" hidden></ol>
       <ul id="feed"></ul>
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
+      <!-- Marathon's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt. -->
+      <ol class="board" id="board" hidden></ol>
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>

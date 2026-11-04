@@ -20,7 +20,7 @@ export function money(lang, n) {
 // Fills {name} slots. A slot holding money is formatted for the language.
 function fill(lang, text, args, nameOf) {
   return text.replace(/\{(\w+\+?)\}/g, (_, k) => {
-    if (k === "who") return nameOf(args.who);
+    if (k === "who") return nameOf(args.who, args);
     if (k === "pnl" || k === "amount" || k === "debt") return money(lang, args[k]);
     if (k === "feat") return (T[lang].ui.feats[args.feat] ?? T.en.ui.feats[args.feat] ?? [args.feat])[0];
     if (k === "pnl+") return (args.pnl >= 0 ? "+" : "") + money(lang, args.pnl);
@@ -68,6 +68,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "tabMarathon": "Real prices, all 21 pairs. Trade until you go bankrupt.",
+      "showPair": "Show {pair} on the chart.",
       "pairPick": "Choose a pair for this replay.",
       "baseCurrency": "The currency you are pricing.",
       "quoteCurrency": "The currency you price it in.",
@@ -171,6 +173,22 @@ export const T = {
       "exits": "Stop Loss: closes the trade if the price goes this far against you. Take Profit: banks the win if it goes this far your way. Each is a distance from the price: 1, 2, 5, 10, 20 or 50%. Switch it on, or drag its thumb.",
     },
     ui: {
+      marathon: "Marathon",
+      clockLiveShort: "Live {at}",
+      clockWaitShort: "Fetching prices…",
+      clockLive: "Live prices, last at {at} Sydney time",
+      clockShutShort: "Shut {at}",
+      clockShut: "The market is shut: the last price was at {at} Sydney time. Orders wait for the next.",
+      marathonClosed: "Bankrupt. A new A$10,000 account opens at midnight in Sydney ({at}).",
+      marathonOther: "Nothing open on this pair. Your other pairs are below.",
+      marathonShut: "The market is shut: no live prices now. Weekends, and the feed's outages, stop trading.",
+      showPair: "Show {pair}",
+      boardRunning: "running",
+      boardBust: "bankrupt",
+      boardPeak: "Peak net worth {peak}",
+      calActual: "actual {v}",
+      calForecast: "forecast {v}",
+      calPrevious: "previous {v}",
       levNote: "{away} against you loses it all · {pct}/min",
       slNotes: { 1: "Panics at a sneeze", 2: "Nervous, but trying", 5: "Sensible. Boring. Alive.", 10: "Hopes it will come back", 20: "Prays at the screen", 50: "A stop in name only" },
       tpNotes: { 1: "Takes the crumbs", 2: "A snack", 5: "A decent meal", 10: "Greedy but fair", 20: "Dreams of a yacht", 50: "Still waiting for the moon" },
@@ -415,7 +433,7 @@ export const T = {
       doneTitle: "Tutorial Complete",
       doneText: "Well done. Choose Replay or Simulation above to trade against other people, or start the tutorial again.",
       doneTask: "Pick a tab above.",
-      footer: "Prices: real minute data from HistData, the ECB's euro reference rates for the two yuan plots, and Frankfurter for today's rate. Simulation prices and the moves between the ECB's closes are generated at random. This is an unofficial fan parody of FX Fighter Kurumi-chan, with no link to its creators, KADOKAWA, the studio or any broker. It uses play money only. In real markets, most people who trade FX with leverage lose money. If gambling or debt is hurting you, in Australia call Gambling Help on 1800 858 858.",
+      footer: "Prices: real minute data from HistData, the ECB's euro reference rates for the two yuan plots, and Frankfurter for today's rate. Marathon's prices are Yahoo Finance's, every few seconds, with the offshore yuan (CNH) for the yuan; its news is the central banks' own and the ForexFactory calendar's. Simulation prices and the moves between the ECB's closes are generated at random. This is an unofficial fan parody of FX Fighter Kurumi-chan, with no link to its creators, KADOKAWA, the studio or any broker. It uses play money only. In real markets, most people who trade FX with leverage lose money. If gambling or debt is hurting you, in Australia call Gambling Help on 1800 858 858.",
       notes: { 1: "Index-fund energy", 3: "Reads the terms and conditions", 10: "Checks the chart at dinner", 30: "Australia's legal cap", 100: "Offshore broker, no questions", 300: "Dad must never know", 1000: "It's okay, I've got leverage~♪" },
       markCall: "call 50%",
       markCut: "stop-out 20%",
@@ -425,6 +443,15 @@ export const T = {
       pausedTitle: "Paused · resumes in {s}s",
     },
     news: {
+      bank: "{source}: {title}",
+      "m-bought": "{who} bought {pair} at {lev}×.",
+      "m-sold": "{who} sold {pair} at {lev}×.",
+      "m-closed": "{who} closed {pair}: {pnl}.",
+      "m-stopped": "{who}'s stop filled on {pair}: {pnl}.",
+      "m-took": "{who} took profit on {pair}: {pnl}.",
+      "m-stopout": "強制ロスカット! {who} was stopped out on {pair}: {pnl}.",
+      "m-call": "Margin call for {who}.",
+      "m-bankrupt": "{who} went bankrupt after {days}.",
       started: "{who} pressed Start. Trading opens in {secs} seconds.",
       cancelled: "{who} cancelled the start.",
       ironman: "Ironman round: nobody can pause it.",
@@ -462,6 +489,9 @@ export const T = {
       "you-bankrupt": "Bankrupt: you owe more than you have.",
     },
     refusals: {
+      "Your account is closed until midnight in Sydney.": "Your account is closed until midnight in Sydney.",
+      "The market is closed: prices are not live. Orders wait for the next price.": "The market is closed: prices are not live. Orders wait for the next price.",
+      "No such pair.": "No such pair.",
       "Press Play to carry on with the tutorial.": "Press Play to carry on with the tutorial.",
       "Internal server error.": "Internal server error.",
       "A long's Stop Loss must be below the price.": "A long's Stop Loss must be below the price.",
@@ -553,6 +583,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "tabMarathon": "全21ペアの本物の価格。破産するまで続く。",
+      "showPair": "{pair}をチャートに表示。",
       "pairPick": "リプレイの通貨ペアを選びます。",
       "baseCurrency": "値段を知りたい通貨。",
       "quoteCurrency": "値段を表す側の通貨。",
@@ -656,6 +688,22 @@ export const T = {
       "exits": "損切り：この幅だけ逆行したら決済。利確：この幅だけ順行したら利益確定。どちらも現在値からの幅で、1・2・5・10・20・50%から選びます。オンにするか、つまみを動かして決めます。",
     },
     ui: {
+      marathon: "マラソン",
+      clockLiveShort: "ライブ {at}",
+      clockWaitShort: "価格を取得中…",
+      clockLive: "ライブ価格、最終 {at}（シドニー時間）",
+      clockShutShort: "休場 {at}",
+      clockShut: "市場は休場中。最後の価格はシドニー時間 {at}。注文は次の価格まで待ちます。",
+      marathonClosed: "破産しました。シドニーの深夜0時（{at}）に新しいA$10,000の口座が開きます。",
+      marathonOther: "このペアには建玉がありません。ほかのペアは下にあります。",
+      marathonShut: "市場は休場中で、ライブ価格がありません。週末とデータの停止中は取引できません。",
+      showPair: "{pair}を表示",
+      boardRunning: "継続中",
+      boardBust: "破産",
+      boardPeak: "純資産の最高 {peak}",
+      calActual: "結果 {v}",
+      calForecast: "予想 {v}",
+      calPrevious: "前回 {v}",
       levNote: "{away}逆行で全損 · {pct}/分",
       slNotes: { 1: "くしゃみで慌てる", 2: "緊張しつつ頑張る", 5: "堅実。地味。生き残る", 10: "戻ると信じてる", 20: "画面に祈る", 50: "名ばかりの損切り" },
       tpNotes: { 1: "パンくずを拾う", 2: "おやつ", 5: "ちゃんとした食事", 10: "欲張りだけど妥当", 20: "ヨットを夢見る", 50: "月を待ち続ける" },
@@ -899,7 +947,7 @@ export const T = {
       doneTitle: "チュートリアル完了",
       doneText: "おつかれさまでした。上のリプレイかシナリオを選んでほかの人とトレードするか、もう一度チュートリアルを。",
       doneTask: "上のタブを選んでください。",
-      footer: "レートはHistDataの実際の分足、人民元の2場面は欧州中央銀行（ECB）のユーロ参照レート、今日のレートはFrankfurterによるものです。シナリオの値動きと、ECBの終値のあいだの動きはシミュレーションです。本作は『FX戦士くるみちゃん』の非公式ファンパロディで、原作者、KADOKAWA、制作会社、FX業者とは関係ありません。お金はすべて仮想です。現実のFXでは、レバレッジをかけた個人トレーダーの多くが損をしています。ギャンブルや借金で悩んだら、ひとりで抱え込まずに相談を。オーストラリアではGambling Help（1800 858 858）が窓口です。",
+      footer: "レートはHistDataの実際の分足、人民元の2場面は欧州中央銀行（ECB）のユーロ参照レート、今日のレートはFrankfurterによるものです。マラソンの価格はYahoo Financeの数秒ごとのもので、人民元にはオフショア人民元（CNH）を使います。ニュースは各中央銀行の発表とForexFactoryのカレンダーです。シナリオの値動きと、ECBの終値のあいだの動きはシミュレーションです。本作は『FX戦士くるみちゃん』の非公式ファンパロディで、原作者、KADOKAWA、制作会社、FX業者とは関係ありません。お金はすべて仮想です。現実のFXでは、レバレッジをかけた個人トレーダーの多くが損をしています。ギャンブルや借金で悩んだら、ひとりで抱え込まずに相談を。オーストラリアではGambling Help（1800 858 858）が窓口です。",
       notes: { 1: "積立投資のノリ", 3: "約款をちゃんと読む", 10: "夕食中もチャートを見る", 30: "オーストラリアの上限", 100: "海外業者、質問なし", 300: "パパには内緒", 1000: "レバレッジあるから大丈夫ぅ♪" },
       markCall: "追証 50%",
       markCut: "ロスカット 20%",
@@ -909,6 +957,15 @@ export const T = {
       pausedTitle: "一時停止中・あと{s}秒で再開",
     },
     news: {
+      bank: "{source}: {title}",
+      "m-bought": "{who}が{pair}を{lev}倍で買い。",
+      "m-sold": "{who}が{pair}を{lev}倍で売り。",
+      "m-closed": "{who}が{pair}を決済：{pnl}。",
+      "m-stopped": "{who}の{pair}の損切りが約定：{pnl}。",
+      "m-took": "{who}が{pair}で利確：{pnl}。",
+      "m-stopout": "強制ロスカット！{who}の{pair}：{pnl}。",
+      "m-call": "{who}に追証。",
+      "m-bankrupt": "{who}が{days}で破産。",
       started: "{who}がスタートを押しました。あと{secs}秒で取引開始。",
       cancelled: "{who}がスタートを取り消しました。",
       ironman: "アイアンマン戦。一時停止はなし、待ったなし。",
@@ -946,6 +1003,9 @@ export const T = {
       "you-bankrupt": "破産：持っているより多く借りています。",
     },
     refusals: {
+      "Your account is closed until midnight in Sydney.": "口座はシドニーの深夜0時まで閉じています。",
+      "The market is closed: prices are not live. Orders wait for the next price.": "市場は休場中です。ライブ価格がありません。注文は次の価格まで待ちます。",
+      "No such pair.": "そのペアはありません。",
       "Press Play to carry on with the tutorial.": "再生を押して、チュートリアルを続けます。",
       "Internal server error.": "サーバーでエラーが発生しました。",
       "A long's Stop Loss must be below the price.": "買いの逆指値は現在値より下に置いてください。",
@@ -1036,6 +1096,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "tabMarathon": "全部21个货币对的真实价格，玩到破产为止。",
+      "showPair": "在图上显示{pair}。",
       "pairPick": "选择回放的货币对。",
       "baseCurrency": "你想知道价格的货币。",
       "quoteCurrency": "用来表示价格的货币。",
@@ -1139,6 +1201,22 @@ export const T = {
       "exits": "止损：反向走到这个幅度就平仓；止盈：顺向走到这个幅度就锁定盈利。两者都是离现价的幅度（1、2、5、10、20或50%），打开开关或拖动滑块即可设置。",
     },
     ui: {
+      marathon: "马拉松",
+      clockLiveShort: "实时 {at}",
+      clockWaitShort: "正在获取价格…",
+      clockLive: "实时价格，最新于悉尼时间 {at}",
+      clockShutShort: "休市 {at}",
+      clockShut: "市场休市：最后价格在悉尼时间 {at}。订单等待下一个价格。",
+      marathonClosed: "已破产。悉尼午夜（{at}）开一个新的A$10,000账户。",
+      marathonOther: "这个货币对没有持仓。其他货币对在下面。",
+      marathonShut: "市场休市，没有实时价格。周末和数据中断时无法交易。",
+      showPair: "显示{pair}",
+      boardRunning: "进行中",
+      boardBust: "破产",
+      boardPeak: "最高净值 {peak}",
+      calActual: "实际 {v}",
+      calForecast: "预期 {v}",
+      calPrevious: "前值 {v}",
       levNote: "反向{away}即全亏 · {pct}/分钟",
       slNotes: { 1: "打个喷嚏就慌", 2: "紧张但在努力", 5: "稳健。无聊。活着", 10: "盼着它涨回来", 20: "对着屏幕祈祷", 50: "名义上的止损" },
       tpNotes: { 1: "捡点面包屑", 2: "一份点心", 5: "像样的一餐", 10: "贪心但公道", 20: "梦想买游艇", 50: "还在等月亮" },
@@ -1383,7 +1461,7 @@ export const T = {
       doneTitle: "教程完成",
       doneText: "干得好。选择上方的回放或模拟与其他人交易，或者重新开始教程。",
       doneTask: "选择上方的标签页。",
-      footer: "汇率数据：HistData 的真实分钟行情；两个人民币剧情用欧洲央行（ECB）欧元参考汇率；今日汇率来自 Frankfurter。模拟模式及ECB收盘价之间的走势均为随机生成的模拟。本站是《FX战士久留美》的非官方同人恶搞，与原作者、KADOKAWA、动画制作公司及任何外汇平台无关，全程只用虚拟币。现实中，用杠杆炒外汇的散户大多亏钱。如果赌博或债务正在困扰你，请及时向身边的人或专业机构求助；在澳大利亚可拨打 Gambling Help 热线 1800 858 858。",
+      footer: "汇率数据：HistData 的真实分钟行情；两个人民币剧情用欧洲央行（ECB）欧元参考汇率；今日汇率来自 Frankfurter。马拉松的价格来自 Yahoo Finance，每几秒更新，人民元用离岸人民币（CNH）；新闻来自各国央行的发布和 ForexFactory 财经日历。模拟模式及ECB收盘价之间的走势均为随机生成的模拟。本站是《FX战士久留美》的非官方同人恶搞，与原作者、KADOKAWA、动画制作公司及任何外汇平台无关，全程只用虚拟币。现实中，用杠杆炒外汇的散户大多亏钱。如果赌博或债务正在困扰你，请及时向身边的人或专业机构求助；在澳大利亚可拨打 Gambling Help 热线 1800 858 858。",
       notes: { 1: "定投的心态", 3: "认真看合同条款", 10: "吃饭时也看盘", 30: "澳洲上限", 100: "海外平台，不问来历", 300: "别让老爹知道", 1000: "有杠杆就没问题♪" },
       markCall: "追保 50%",
       markCut: "强平 20%",
@@ -1393,6 +1471,15 @@ export const T = {
       pausedTitle: "已暂停 · {s}秒后自动恢复",
     },
     news: {
+      bank: "{source}：{title}",
+      "m-bought": "{who}以{lev}倍买入{pair}。",
+      "m-sold": "{who}以{lev}倍卖出{pair}。",
+      "m-closed": "{who}平仓{pair}：{pnl}。",
+      "m-stopped": "{who}的{pair}止损成交：{pnl}。",
+      "m-took": "{who}在{pair}止盈：{pnl}。",
+      "m-stopout": "强制平仓！{who}的{pair}：{pnl}。",
+      "m-call": "{who}收到追保通知。",
+      "m-bankrupt": "{who}坚持了{days}后破产。",
       started: "{who}按下了开始。{secs}秒后开盘。",
       cancelled: "{who}取消了开始。",
       ironman: "铁人局：不能暂停，落子无悔。",
@@ -1430,6 +1517,9 @@ export const T = {
       "you-bankrupt": "破产：你欠的比你有的还多。",
     },
     refusals: {
+      "Your account is closed until midnight in Sydney.": "账户在悉尼午夜前关闭。",
+      "The market is closed: prices are not live. Orders wait for the next price.": "市场休市：没有实时价格。订单等待下一个价格。",
+      "No such pair.": "没有这个货币对。",
       "Press Play to carry on with the tutorial.": "按播放，继续教程。",
       "Internal server error.": "服务器发生错误。",
       "A long's Stop Loss must be below the price.": "多单的止损必须低于现价。",

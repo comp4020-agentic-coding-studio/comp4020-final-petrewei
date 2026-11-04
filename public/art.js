@@ -8,9 +8,10 @@ import { pixels } from "./avatars.js";
 
 export const ICONS = {
   news: {
+    bank: "🏛️", "m-bought": "📈", "m-sold": "📉", "m-closed": "💵", "m-stopped": "🛡️", "m-took": "🎯", "m-stopout": "💀", "m-call": "📞", "m-bankrupt": "🪦",
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "scenario-round": "📡", "replay-round": "📼", "replay-bridged-round": "📼",
-    bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
+    bought: "📈", sold: "📉", added: "➕", closed: "💵", stopped: "🛡️", took: "🎯",
     call: "📞", stopout: "💀", zerocut: "🕳️", "prayed-rise": "🙏", "prayed-fall": "🙏", borrowed: "🐷", repaid: "💴", bankrupt: "🚨", feat: "🏅", release: "📊", calendar: "🗓️", fast: "⏩", normal: "▶️", entered: "👋",
   },
   pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷" },
