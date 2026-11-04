@@ -371,6 +371,8 @@ export class Desk {
     account.balance += take;
     account.debt += take;
     account.out = false;
+    // a borrower is in the round, ranked and scored with the interest, as a trader is
+    account.traded = true;
     return null;
   }
 
