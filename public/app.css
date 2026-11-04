@@ -848,7 +848,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
      the ticket, or the bell, and the account inside are flat, with a line between them. */
   .side-col .screen { gap: 0; align-content: start; max-height: var(--tall); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
   .side-col .screen > .panel { border: none; border-radius: 0; box-shadow: none; }
-  .side-col .screen > .panel + .panel { border-top: 1px solid var(--line); }
+  .side-col .screen > .account { border-top: 1px solid var(--line); }
   .side-col .screen:has(> .bell:not([hidden])) { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
   /* inside the card the account's heading is a divider with its name, so it is slimmer than a card's own head */
   .side-col .screen > .account > h2 { padding-top: 0.35rem; padding-bottom: 0.35rem; }

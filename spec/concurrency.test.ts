@@ -21,10 +21,12 @@ it.skipIf(live)("lands a double click as one order, then one add", async () => {
   const me = await visitor();
   const [one, two] = await Promise.all([act(me, { kind: "buy", leverage: 3, stake: 0.5 }), act(me, { kind: "buy", leverage: 3, stake: 0.5 })]);
   expect([one.status, two.status]).toEqual([200, 200]);
-  const { you, start } = await state(me);
-  // a stake is a share of the whole account (ADR 0076), net worth with any open profit: half of it, then half again,
-  // all that was free in the end; two orders landed, not one, and the second was cut to what was left. The price may
-  // move between the clicks, so the bound is the starting money give or take a small move, not the cash alone.
-  expect(you.pos?.margin).toBeGreaterThan(start * 0.95);
-  expect(you.pos?.margin).toBeLessThan(start * 1.05);
+  const { you } = await state(me);
+  // A stake is a share of the whole account (ADR 0076): half of it, then half again, which is all of it. An order
+  // lost leaves about half the account in, and the old rule, a share of what was free, three quarters; both fail here
+  // (the old rule was checked to). Net worth moves with the price between the clicks and the read, so the bound is a
+  // tenth either side of it. That the second order is cut to what is free is held by test/fx.test.ts, on the desk,
+  // since the desk never has more than its free money to give.
+  expect(you.pos?.margin).toBeGreaterThan(you.equity * 0.9);
+  expect(you.pos?.margin).toBeLessThan(you.equity * 1.1);
 });

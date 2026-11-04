@@ -1,7 +1,9 @@
 // The order ticket's arithmetic (ADR 0024), shared by the page and the
 // checks: where a leverage sits on its log-scale slider and which rung a
 // slider position snaps to, the stakes, a signed percentage, and where a
-// net worth sits on the meter.
+// net worth sits on the meter. One rule here is the desk's own, not only
+// the page's: stakeMargin is what src/fx.ts takes for an order (ADR 0076),
+// so a change to it changes every fill, not just the preview.
 
 // A position on a slider or a meter, held to its ends.
 const unit = (x) => Math.min(1, Math.max(0, x));
@@ -9,7 +11,7 @@ const unit = (x) => Math.min(1, Math.max(0, x));
 // What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
 // The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole yen, never below nothing.
-// The one rule, for the desk that takes the order and the ticket that shows it beforehand.
+// The desk's rule (src/fx.ts calls it for every order); the ticket calls it too, to show the amount beforehand.
 export const stakeMargin = (equity, used, stake) => Math.max(0, Math.floor(Math.min(equity * stake, equity - used)));
 
 // The rungs of the leverage ladder sit evenly along the slider, however far
