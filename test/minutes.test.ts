@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { dayOpen, MIN_BARS, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, stamp, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
-import { EVENTS, Minutes } from "../src/market.ts";
+import { dayOpen, MIN_BARS, parseBars, plotDays, plotTicks, rawFile, stamp, TICK_MINUTES, ticksOf, trades } from "../scripts/build-minutes.ts";
+import { DAY_TICKS, EVENTS, Minutes, PLAY_DAYS, PRE_ROLL_DAYS, SWAN_DAY } from "../src/market.ts";
 
 // Replay's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
 // checks hold the cutting to its rules on a small file written here, so they run anywhere, and the shipped
@@ -32,9 +32,9 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
   it("opens a plot on six trading days, the day the market broke fourth of them, the weekend left out", () => {
     for (const date of ["2015-01-15", "2016-06-24", "2008-09-15", "2020-03-19"]) {
       const days = plotDays(date);
-      expect(days, date).toHaveLength(PRE_DAYS + PLAYED_DAYS);
+      expect(days, date).toHaveLength(PRE_ROLL_DAYS + PLAY_DAYS);
       for (const d of days) expect(trades(d), `${date}: a day that opens on a ${new Date(d * 60_000).getUTCDay()} is not a trading day`).toBe(true);
-      expect(days[PRE_DAYS + SWAN_DAY - 1], `${date}: the plot's own day is the third played`).toBe(dayOpen(date));
+      expect(days[PRE_ROLL_DAYS + SWAN_DAY - 1], `${date}: the plot's own day is the third played`).toBe(dayOpen(date));
       days.slice(1).forEach((d, i) => expect([1440, 3 * 1440], `${date}: a day follows the last by one day, or three over a weekend`).toContain(d - days[i]));
     }
   });
@@ -65,7 +65,7 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
   it("cuts six trading days of ticks from a file that spans them", () => {
     const bars = parseBars(openDays("2016-06-12", 21));
     // seven days of 48, and the price at the end of the last, which the round ends on
-    expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY + 1);
+    expect(plotTicks(bars, "2016-06-24")).toHaveLength((PRE_ROLL_DAYS + PLAY_DAYS) * DAY_TICKS + 1);
   });
 
   it("skips a holiday the file shows shut, as it skips the weekend, and takes a day more from the other side", () => {
@@ -79,10 +79,10 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
         return !(at >= shut && at < shut + 1440);
       });
     const days = plotDays("2016-06-24", parseBars(kept.join("\n")));
-    expect(days).toHaveLength(PRE_DAYS + PLAYED_DAYS);
+    expect(days).toHaveLength(PRE_ROLL_DAYS + PLAY_DAYS);
     expect(days.includes(shut), "the shut day is left out").toBe(false);
     expect(days, "and the plot's own day is still the fourth of the six").toContain(dayOpen("2016-06-24"));
-    expect(days.indexOf(dayOpen("2016-06-24"))).toBe(PRE_DAYS + SWAN_DAY - 1);
+    expect(days.indexOf(dayOpen("2016-06-24"))).toBe(PRE_ROLL_DAYS + SWAN_DAY - 1);
   });
 
   it("stops and says so when the file does not reach far enough, and does not look for ever", () => {
@@ -107,7 +107,7 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
     expect(byPlot.size, "at least the franc, whose real file is the first one").toBeGreaterThanOrEqual(1);
     for (const [id, prices] of byPlot) {
       expect(ids.has(id), `${id} is a plot`).toBe(true);
-      expect(prices, id).toHaveLength((PRE_DAYS + PLAYED_DAYS) * TICKS_PER_DAY + 1);
+      expect(prices, id).toHaveLength((PRE_ROLL_DAYS + PLAY_DAYS) * DAY_TICKS + 1);
       for (const p of prices) expect(Number.isFinite(p) && p > 0, id).toBe(true);
     }
   });
@@ -122,9 +122,9 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
   const WIDEST_ELSEWHERE = new Set(["lehman"]);
   it("puts the day the market broke in the middle of the five played, with its widest day within one day of it", () => {
     for (const [id, prices] of byPlot) {
-      const played = prices.slice(PRE_DAYS * TICKS_PER_DAY);
-      const ranges = Array.from({ length: PLAYED_DAYS }, (_, d) => {
-        const day = played.slice(d * TICKS_PER_DAY, (d + 1) * TICKS_PER_DAY);
+      const played = prices.slice(PRE_ROLL_DAYS * DAY_TICKS);
+      const ranges = Array.from({ length: PLAY_DAYS }, (_, d) => {
+        const day = played.slice(d * DAY_TICKS, (d + 1) * DAY_TICKS);
         return Math.log(Math.max(...day) / Math.min(...day));
       });
       const widest = ranges.indexOf(Math.max(...ranges)) + 1;
@@ -137,8 +137,8 @@ describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
   // among a handful. So the test is a day with more than one price, not a day that wanders.
   it("has no day of a single price: the weekend is not in the game", () => {
     for (const [id, prices] of byPlot) {
-      for (let d = 0; d < PRE_DAYS + PLAYED_DAYS; d++) {
-        const day = prices.slice(d * TICKS_PER_DAY, (d + 1) * TICKS_PER_DAY);
+      for (let d = 0; d < PRE_ROLL_DAYS + PLAY_DAYS; d++) {
+        const day = prices.slice(d * DAY_TICKS, (d + 1) * DAY_TICKS);
         expect(new Set(day).size, `${id}: day ${d + 1} is one price all through`).toBeGreaterThan(1);
       }
     }

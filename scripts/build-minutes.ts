@@ -18,14 +18,10 @@
 // closes as before.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DAY_TICKS, EVENTS, PLAY_DAYS, PRE_ROLL_DAYS, SWAN_DAY as SWAN } from "../src/market.ts";
+import { DAY_TICKS, EVENTS, PLAY_DAYS, PRE_ROLL_DAYS, SWAN_DAY } from "../src/market.ts";
 
 // The clock is the game's own (src/market.ts), so the file is cut as the game slices it; a tick is then this long.
-export const TICKS_PER_DAY = DAY_TICKS;
-export const TICK_MINUTES = (24 * 60) / TICKS_PER_DAY;
-export const PLAYED_DAYS = PLAY_DAYS;
-export const PRE_DAYS = PRE_ROLL_DAYS;
-export const SWAN_DAY = SWAN;
+export const TICK_MINUTES = (24 * 60) / DAY_TICKS;
 
 type Bar = { at: number; o: number; h: number; l: number; c: number };
 
@@ -107,17 +103,17 @@ export function plotDays(date: string, bars?: Bar[]): number[] {
   // a window that runs off either end of the file has no days there to give: stop, and say so, and not look for ever
   const first = bars?.[0].at ?? -Infinity;
   const last = bars?.at(-1)?.at ?? Infinity;
-  for (let before = 0, d = at; before < SWAN_DAY - 1 + PRE_DAYS; ) {
+  for (let before = 0, d = at; before < SWAN_DAY - 1 + PRE_ROLL_DAYS; ) {
     d -= 1440;
-    if (d + 1440 < first) throw new Error(`the file starts after the ${SWAN_DAY - 1 + PRE_DAYS} trading days before ${date}`);
+    if (d + 1440 < first) throw new Error(`the file starts after the ${SWAN_DAY - 1 + PRE_ROLL_DAYS} trading days before ${date}`);
     if (open(bars, d)) {
       days.unshift(d);
       before++;
     }
   }
-  for (let after = 0, d = at; after < PLAYED_DAYS - SWAN_DAY; ) {
+  for (let after = 0, d = at; after < PLAY_DAYS - SWAN_DAY; ) {
     d += 1440;
-    if (d > last) throw new Error(`the file ends before the ${PLAYED_DAYS - SWAN_DAY} trading days after ${date}`);
+    if (d > last) throw new Error(`the file ends before the ${PLAY_DAYS - SWAN_DAY} trading days after ${date}`);
     if (open(bars, d)) {
       days.push(d);
       after++;
@@ -131,8 +127,8 @@ export function plotDays(date: string, bars?: Bar[]): number[] {
 // moves (240) and the round has a last price to end on.
 export function plotTicks(bars: Bar[], date: string): number[] {
   const days = plotDays(date, bars);
-  const ticks = days.flatMap((open) => ticksOf(bars, open, TICKS_PER_DAY));
-  return [...ticks, ticksOf(bars, days.at(-1)!, TICKS_PER_DAY + 1).at(-1)!];
+  const ticks = days.flatMap((open) => ticksOf(bars, open, DAY_TICKS));
+  return [...ticks, ticksOf(bars, days.at(-1)!, DAY_TICKS + 1).at(-1)!];
 }
 
 // The raw file for a pair and a year, wherever it was unpacked under raw/histdata.

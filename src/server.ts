@@ -16,11 +16,11 @@ import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, RULES, START } from "
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { quoted, yen } from "../public/format.js";
-import { LANGS as LANG_LIST, T, clueDates } from "../public/i18n.js";
+import { LANGS as LANG_LIST, T, clueDates, news } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
-import { CANDLE, DAY_TICKS, EVENTS, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
+import { CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -69,6 +69,11 @@ mkdirSync(DATA_DIR, { recursive: true });
 const read = (file: string): string => readFileSync(join(ROOT, file), "utf8");
 const history = new History(read("data/ecb.csv"));
 const minutes = new Minutes(read("data/minutes.csv"));
+// Every story's clues, one a day before its break, checked once here: a story whose clues the table lacks stops the
+// server from starting, which a deploy shows, rather than throwing in the tick that would take every room down.
+for (const e of EVENTS) for (const lang of LANG_LIST) {
+  if ((T[lang].clues[e.date]?.length ?? 0) < SWAN_DAY - 1) throw new Error(`${e.id}: ${lang} needs ${SWAN_DAY - 1} clues for ${e.date}`);
+}
 
 // A visitor is their cookie; others see them by a trader name drawn from
 // it, or one they chose (ADR 0017), and the log by a short hash, so no
@@ -590,7 +595,7 @@ class Market {
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
     const opening = OPENING[this.round.source];
-    this.say(T.en.news[opening].replace("{pair}", this.round.pair), "info", opening, { pair: this.round.pair });
+    this.say(news("en", { key: opening, args: { pair: this.round.pair }, text: "" }, nameOf), "info", opening, { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, source: this.round.source });
     void refreshToday();
   }

@@ -33,9 +33,10 @@ const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : name);
 // A tip in this language, by key (ADR 0025).
 // the indicators' periods are slots in their tips, so what a tip says is what is drawn (indicators.js)
-// the indicators' spans in words, in the candles a day the market's own state says (12 before the first state arrives)
-const perDay = () => (state?.dayTicks && state?.steps ? state.dayTicks / state.steps : 12);
-const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast: spanIn(lang, PERIODS.fast, perDay()), slow: spanIn(lang, PERIODS.slow, perDay()), band: spanIn(lang, PERIODS.band, perDay()), ...vars });
+// Candles in a day, from a market state; the chart's labels and the tips both say spans by it. Before the first state
+// a tip says its span in candles, which is true whatever the clock.
+const perDay = (s) => (s ? s.dayTicks / s.steps : Infinity);
+const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast: spanIn(lang, PERIODS.fast, perDay(state)), slow: spanIn(lang, PERIODS.slow, perDay(state)), band: spanIn(lang, PERIODS.band, perDay(state)), ...vars });
 useWords((k) => tip(k));
 useClauses(clauses);
 // What an info button explains (ADR 0049), in this language, by key.
@@ -1132,10 +1133,10 @@ function draw(full) {
     const slow = cut(sma(days, PERIODS.slow));
     line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
     line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
-    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast, s.dayTicks / k)} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
-    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow, s.dayTicks / k)} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
+    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast, perDay(s))} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
+    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow, perDay(s))} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
   }
-  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band, s.dayTicks / k)},2)`, css.getPropertyValue("--band")]);
+  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band, perDay(s))},2)`, css.getPropertyValue("--band")]);
   // On a phone the canvas is shrunk to a third, too small for a legend.
   const small = canvas.clientWidth < 600;
   let lx = 10;
