@@ -331,16 +331,11 @@
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thBestPct">Best</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th><th data-t="thTrend">Last 20</th></tr></thead><tbody id="career"></tbody></table>
+      <button type="button" class="ghost feats-mine" id="feats-mine" data-tip="feats"><span aria-hidden="true">🏅</span> <span data-t="featsMine">My achievements</span> <b id="feats-mine-n"></b></button>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thBestPct">Best</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th><th data-t="thTrend">Last 20</th><th data-t="thFeats">Medals</th></tr></thead><tbody id="career"></tbody></table>
       <p class="fame-empty" data-t="fameEmpty">No one has finished a round yet. Be the first.</p>
       <!-- The score of each of a trader's recent rounds, as bars, for whoever is picked in the table: yourself at first. -->
       <figure class="fame-chart" id="fame-chart" hidden><figcaption id="fame-chart-title"></figcaption><svg id="fame-bars" viewBox="0 0 400 120" preserveAspectRatio="none" role="img"></svg><p class="fame-stats" id="fame-stats"></p></figure>
-      <!-- Your achievements (ADR 0082, 0084): every one named with what it takes, the earned ones ticked, under the hall. -->
-      <div class="feats" id="feats">
-        <h3><span aria-hidden="true">🏅</span> <span data-t="featsTitle">Achievements</span> <span class="aside" id="feats-count"></span></h3>
-        <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
-        <ul class="feat-list" id="feat-list"></ul>
-      </div>
     </section>
   </main>
 
@@ -407,6 +402,13 @@
         <button id="set-calm" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setCalm"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
     </ul>
     <div class="row"><button type="button" class="ghost" id="settings-close" data-t="featsDone">Done</button></div>
+  </dialog>
+  <!-- A trader's achievements (ADR 0082, 0085), opened from the hall of fame: anyone's, since the hall is public. -->
+  <dialog id="feats" class="card feats" aria-labelledby="feats-title">
+    <h2 id="feats-title"><span aria-hidden="true">🏅</span> <span id="feats-who"></span> <span class="aside" id="feats-count"></span></h2>
+    <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
+    <ul class="feat-list" id="feat-list"></ul>
+    <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
   </dialog>
   <dialog id="dad" class="dad" aria-labelledby="dad-title">
     <h2 id="dad-title" data-t="dadTitle">Emergency Credit</h2>

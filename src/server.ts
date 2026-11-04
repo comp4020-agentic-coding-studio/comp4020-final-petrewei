@@ -926,7 +926,8 @@ class Market {
       pops: this.pops.map(({ at: _at, ...p }) => p),
       marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
       result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
-      career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], face: faceAt(k), you: k === me })),
+      // each listed trader's achievements are public, as the hall is (ADR 0085): only the names earned
+      career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], feats: FEATS.filter((f) => c.feats?.includes(f)), face: faceAt(k), you: k === me })),
       leverages: LEVERAGES,
       desk: DESK,
       minRounds: MIN_ROUNDS,

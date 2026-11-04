@@ -382,13 +382,12 @@ for (const [id, way, emoji] of [["pray-rise", 1, "🚀"], ["pray-fall", -1, "�
 }
 // Achievements (ADR 0082): the server sends the names earned; the dialog is a checklist of all of them, each named with
 // what it takes, the earned ones ticked first, and a bar for how far along, under the hall of fame (ADR 0084).
-let featsShown = "";
-function feats(s) {
-  const earned = new Set(s.you.feats ?? []);
+// A trader's achievements in the dialog: every one named with what it takes, the earned ones ticked first, and a bar
+// for how far along (ADR 0082, 0085). Anyone's, opened from their row in the hall, or your own from the hall's heading.
+function showFeats(name, list) {
+  const earned = new Set(list);
   const all = Object.keys(T.en.ui.feats);
-  const key = [...earned].join() + lang;
-  if (key === featsShown) return;
-  featsShown = key;
+  $("feats-who").textContent = name === null ? t("featsMine") : t("featsOf", { name });
   $("feats-count").textContent = t("featsCount", { n: earned.size, of: all.length });
   $("feat-bar").style.width = `${(earned.size / all.length) * 100}%`;
   const words = T[lang].ui.feats ?? T.en.ui.feats;
@@ -399,7 +398,14 @@ function feats(s) {
     li.append(Object.assign(document.createElement("b"), { textContent: words[f][0] }), Object.assign(document.createElement("span"), { textContent: words[f][1] }));
     return li;
   }));
+  if (!$("feats").open) $("feats").showModal();
 }
+function feats(s) {
+  const n = (s.you.feats ?? []).length;
+  $("feats-mine-n").textContent = n ? String(n) : "";
+}
+$("feats-mine").onclick = () => state && showFeats(null, state.you.feats ?? []);
+$("feats-close").onclick = () => $("feats").close();
 
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];
@@ -1906,6 +1912,16 @@ function render(s) {
         const trend = document.createElement("td");
         trend.append(spark(c.recent));
         tr.append(trend);
+        // the trader's medals, a button that opens their achievements for anyone to see (ADR 0085)
+        const medals = document.createElement("td");
+        const open = Object.assign(document.createElement("button"), { type: "button", className: "medals", textContent: `🏅 ${c.feats.length}` });
+        open.setAttribute("aria-label", t("featsOpen", { name: nameIn(c.name, c.draw), n: c.feats.length, of: Object.keys(T.en.ui.feats).length }));
+        open.onclick = (e) => {
+          e.stopPropagation();
+          showFeats(nameIn(c.name, c.draw), c.feats);
+        };
+        medals.append(open);
+        tr.append(medals);
         tr.firstChild.prepend(avatar(c.face, 18));
         tr.tabIndex = 0;
         tr.onclick = tr.onkeydown = (e) => {

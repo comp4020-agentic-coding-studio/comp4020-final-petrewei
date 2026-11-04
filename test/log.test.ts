@@ -91,6 +91,9 @@ it("ranks the room at the bell, logs the round to stdout, and waits in the lobby
   const watching = await page(watcher);
   try {
     await open(30);
+    // a close before the bell earns the trader "first", which the watcher must see (ADR 0085)
+    await act(trader, { kind: "buy", leverage: 3 });
+    await act(trader, { kind: "close" });
     await act(trader, { kind: "buy", leverage: 3 });
     let bell = await state(watcher);
     for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(watcher);
@@ -113,6 +116,9 @@ it("ranks the room at the bell, logs the round to stdout, and waits in the lobby
     const hall = (await state(trader)).career;
     expect(hall.filter((c) => c.rounds > 0)).toHaveLength(1);
     expect(hall[0].you).toBe(true);
+    // a trader's achievements are public with their row (ADR 0085): the watcher sees the trader's first close
+    const seenByWatcher = (await state(watcher)).career.find((c) => !c.you) as unknown as { feats: string[] } | undefined;
+    expect(seenByWatcher?.feats).toContain("first");
     // the hall's chart reads each finished round's score, as the bell scored it (ADR 0078)
     const scored = (await state(trader)) as unknown as { result: { debrief: { score: number } } };
     expect((hall[0] as unknown as { recent: number[] }).recent).toEqual([scored.result.debrief.score]);
