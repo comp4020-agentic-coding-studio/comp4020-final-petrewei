@@ -9,12 +9,12 @@ import { CLUES, EVENTS, LESSONS, LINES, NEWS, RELEASES, SCENARIOS } from "./i18n
 
 export const LANGS = ["en", "ja", "zh"];
 
-// Yen as ¥ in every language, Peter's choice (ADR 0078), so an amount reads the same on every page and is short
-// beside the figures. Japanese brokers write 円 and a mainland reader may take a bare ¥ for the yuan; the account is
-// always in yen, which the About page says, so ¥ here is the yen.
+// Australian dollars as A$ in every language (ADR 0087, after ADR 0078's ¥): every account is in Australian dollars,
+// an ANU project's home currency, and A$ reads the same on every page, short beside the figures. Whole dollars, as the
+// desk keeps them.
 export function money(lang, n) {
   const sign = n < 0 ? "−" : "";
-  return `${sign}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
+  return `${sign}A$${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
 }
 
 // Fills {name} slots. A slot holding money is formatted for the language.
@@ -154,11 +154,11 @@ export const T = {
       "leverage": "Leverage: how many times your own money you control. At 30×, a move counts 30 times over. Wins and losses grow alike.",
       "stake": "Margin: how much of your whole account goes into this order: 25%, 50%, 75% or all of it, as far as it is free.",
       "spread": "Spread: the gap between the selling and buying price. You buy a little above the middle, and sell a little below it. The gap is the broker's pay.",
-      "netWorth": "Net worth: cash, plus the open profit or loss, less any debt, against the ¥1,000,000 you started with.",
+      "netWorth": "Net worth: cash, plus the open profit or loss, less any debt, against the A$10,000 you started with.",
       "pnl": "Open P&L: profit or loss on the open position, as a share of the margin you put up for it.",
       "level": "Margin level: your equity over the margin in use. At 50% the broker calls for more. At 20% it cuts the position for you.",
       "meter": "Account bar: net worth against the start, on a log scale. Red to the left is a loss, green to the right a gain. With a position open, its marks show where calls come. Margin call at 50% margin level. Stop-out at 20%.",
-      "credit": "Emergency credit: ¥100,000 a step, up to ¥1,000,000. Interest is charged daily on what you owe. It is {t1} a day to {a1}, {t2} to {a2}, then {t3}. A loan shark's rate, far over any legal one. It adds to the debt. Owe more than you have at the bell and you are bankrupt.",
+      "credit": "Emergency credit: A$1,000 a step, up to A$10,000. Interest is charged daily on what you owe. It is {t1} a day to {a1}, {t2} to {a2}, then {t3}. A loan shark's rate, far over any legal one. It adds to the debt. Owe more than you have at the bell and you are bankrupt.",
       "caps": "Australia caps retail traders on major pairs at 30×. Offshore brokers offer far more, up to 1000× here.",
       "slOn": "Stop Loss: closes the trade if the price goes this far against you. Switch it on, or drag its thumb left. 1, 2, 5, 10, 20 or 50%.",
       "tpOn": "Take Profit: banks the win if the price goes this far your way. Switch it on, or drag its thumb right. 1, 2, 5, 10, 20 or 50%.",
@@ -329,7 +329,7 @@ export const T = {
         cut: ["The Broker's Friend", "Be stopped out by the broker."],
         void: ["Into the Void", "Be wiped out to nothing."],
         credit: ["On Credit", "Draw emergency credit."],
-        debtFree: ["Debt Free", "Repay your credit to the last yen."],
+        debtFree: ["Debt Free", "Repay your credit to the last dollar."],
         bankrupt: ["Underwater", "End a round owing more than you have."],
         patient: ["The Patient One", "Have a pending order fill."],
         swan: ["Swan Survivor", "End a Replay in profit."],
@@ -639,11 +639,11 @@ export const T = {
       "leverage": "レバレッジ：資金の何倍を動かすか。30倍なら、値動きの30倍があなたの資金に響きます。利益も損失も同じだけ膨らみます",
       "stake": "証拠金：口座全体のうち、この注文に回す割合。25%・50%・75%・全額から選びます。空いている分まで",
       "spread": "スプレッド：売値と買値の差。買うときは中値より少し高く、売るときは少し安くなり、その差がブローカーの取り分です",
-      "netWorth": "純資産：現金＋含み損益−借金。元手¥100万と比べた増減です",
+      "netWorth": "純資産：現金＋含み損益−借金。元手A$1万と比べた増減です",
       "pnl": "評価損益：保有中のポジションの損益。入れた証拠金に対する割合です",
       "level": "証拠金維持率：有効証拠金÷必要証拠金。50%で追証、20%で強制ロスカットになります",
       "meter": "口座バー：元手と比べた純資産（対数目盛り）。左の赤は損失、右の緑は利益。ポジションがあると目盛りが出ます。追証は維持率50%、強制ロスカットは20%です",
-      "credit": "緊急クレジット：¥10万ずつ、¥100万まで。借入に毎日利息がつきます。{a1}まで1日{t1}、{a2}まで{t2}、それ以上{t3}。法定金利をはるかに超える闇金の利率です。利息は借金に加わります。ベルの時点で借金が資産を上回ると破産です",
+      "credit": "緊急クレジット：A$1,000ずつ、A$1万まで。借入に毎日利息がつきます。{a1}まで1日{t1}、{a2}まで{t2}、それ以上{t3}。法定金利をはるかに超える闇金の利率です。利息は借金に加わります。ベルの時点で借金が資産を上回ると破産です",
       "caps": "個人向けの法定上限は、オーストラリアでは主要通貨で30倍。海外業者はもっと出してくれます。ここでは最大1000倍。",
       "slOn": "損切り：この幅だけ逆行したら決済します。オンにするか、つまみを左へ。1・2・5・10・20・50%",
       "tpOn": "利確：この幅だけ順行したら利益を確定します。オンにするか、つまみを右へ。1・2・5・10・20・50%",
@@ -814,7 +814,7 @@ export const T = {
         cut: ["業者のお得意様", "ブローカーにロスカットされる。"],
         void: ["虚無へ", "資金がゼロになる。"],
         credit: ["借金デビュー", "緊急クレジットを借りる。"],
-        debtFree: ["完済", "クレジットを1円残らず返す。"],
+        debtFree: ["完済", "クレジットを1ドル残らず返す。"],
         bankrupt: ["水面下", "借金が資産を上回ったままラウンドを終える。"],
         patient: ["待てる人", "予約注文を約定させる。"],
         swan: ["白鳥を生き延びて", "リプレイを利益で終える。"],
@@ -1122,11 +1122,11 @@ export const T = {
       "leverage": "杠杆：用多少倍的资金下注。30倍的仓位，行情动一点，你的本金就动30倍：盈利和亏损一起放大",
       "stake": "保证金：整个账户中投入这笔订单的比例，25%、50%、75%或全部，以可用的为限",
       "spread": "点差：卖价和买价之差。你买入总比中间价高一点，卖出总低一点，这个差就是平台的收入",
-      "netWorth": "净值：现金加浮动盈亏、减去债务，与¥100万本金相比的涨跌",
+      "netWorth": "净值：现金加浮动盈亏、减去债务，与A$1万本金相比的涨跌",
       "pnl": "浮动盈亏：当前持仓的盈亏，占所投保证金的比例",
       "level": "保证金比例：净值除以占用保证金。到50%平台会追保，到20%会替你强平",
       "meter": "账户条：净值相对本金（对数刻度）。左边红色是亏损，右边绿色是盈利。有持仓时会显示刻度。保证金比例50%追保，20%强平",
-      "credit": "应急信贷：每次¥10万，最多¥100万。按欠款每天计息。{a1}以内日息{t1}，{a2}以内{t2}，以上{t3}。这是远超法定上限的高利贷利率。利息计入欠款。收盘时欠的比有的多就是破产",
+      "credit": "应急信贷：每次A$1,000，最多A$1万。按欠款每天计息。{a1}以内日息{t1}，{a2}以内{t2}，以上{t3}。这是远超法定上限的高利贷利率。利息计入欠款。收盘时欠的比有的多就是破产",
       "caps": "澳大利亚对散户的法定上限是主要货币对30倍。海外平台给得更多，这里最高到1000倍",
       "slOn": "止损：反向走到这个幅度就平仓。打开开关，或把滑块往左拖；1、2、5、10、20或50%",
       "tpOn": "止盈：顺向走到这个幅度就锁定盈利。打开开关，或把滑块往右拖；1、2、5、10、20或50%",

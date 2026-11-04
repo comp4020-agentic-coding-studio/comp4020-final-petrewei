@@ -293,3 +293,19 @@ it("empties an older hall once, then keeps the new one", async () => {
   await s.restart();
   expect((await app().state()).career.map((c) => c.name)).toEqual(["Hikari"]);
 }, 20_000);
+
+// ADR 0087: accounts moved from ¥1,000,000 to A$10,000, so money saved in yen is divided by a hundred, once, and a career
+// saved before scores is scored from its profit in dollars. A marker says it is done, so a later restart keeps the figures.
+it("moves a hall saved in yen to Australian dollars once, keeping its scores", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "losscut-"));
+  writeFileSync(join(dir, "career.json"), JSON.stringify({ "0123456789abcdef": { name: "Hikari", rounds: 4, profit: 200_000, wins: 1, busts: 0, best: 90_000, points: 20 }, "fedcba9876543210": { name: "Old Hand", rounds: 4, profit: 200_000, wins: 1, busts: 0, best: 90_000 } }));
+  writeFileSync(join(dir, "hall-given-names"), "1");
+  s = await server(8097, { TICK_MS: "10", COUNTDOWN_TICKS: "2" }, dir);
+  type Row = { name: string; profit: number; best: number; points: number };
+  const hall = async () => (await app().state()).career as unknown as Row[];
+  expect(await hall()).toEqual(expect.arrayContaining([expect.objectContaining({ name: "Hikari", profit: 2_000, best: 900, points: 20 }), expect.objectContaining({ name: "Old Hand", profit: 2_000, best: 900, points: 20 })]));
+  s.proc.kill("SIGKILL");
+  await new Promise((r) => s.proc.once("exit", r));
+  await s.restart();
+  expect((await hall()).find((c) => c.name === "Hikari")).toMatchObject({ profit: 2_000, best: 900 });
+}, 20_000);

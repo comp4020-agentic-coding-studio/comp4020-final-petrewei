@@ -197,7 +197,7 @@ test("two independent players see orders, recover from offline and receive their
     // A returning connection kept the same account and the one order.
     const account = (await (await page.request.get(`${baseURL}/api/state`)).json()).you;
     expect(account.pos.leverage).toBe(1);
-    expect(account.pos.margin).toBe(1_000_000);
+    expect(account.pos.margin).toBe(10_000);
     // Pause holds the shared chart; Resume works for another visitor too.
     await page.locator("#pause").click();
     await expect(page.locator("#paused")).toBeVisible();

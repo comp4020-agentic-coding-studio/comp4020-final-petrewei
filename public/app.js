@@ -23,7 +23,7 @@ const home = (l) => (l === "en" ? "/" : `/${l}/`);
 // A slot not given here is left as {slot}, for rich() to fill as bold.
 const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (slot, v) => (v in vars ? String(vars[v]) : slot));
 const t = (k, vars = {}) => fill(T[lang].ui[k] ?? T.en.ui[k], vars);
-const yen = (n) => money(lang, n);
+const cash = (n) => money(lang, n);
 // A score, signed as a percentage is: a true minus, so the two line up.
 const pts = (n) => t("points", { n: `${n < 0 ? "−" : ""}${Math.abs(n).toFixed(1)}` });
 // A trader's name in this language: a character's in the page's script,
@@ -1111,8 +1111,8 @@ function ticket(s) {
   $("stake-order").style.width = `${bar.order * 100}%`;
   $("stake-box").classList.toggle("cut", bar.cut && !s.you.out);
   const controls = margin * choice.leverage;
-  // beside the stake, what this order puts in and the position it controls, in yen (ADR 0079)
-  $("stake-note").textContent = t("stakeNote", { margin: yen(margin), controls: yen(controls) });
+  // beside the stake, what this order puts in and the position it controls, in dollars (ADR 0079)
+  $("stake-note").textContent = t("stakeNote", { margin: cash(margin), controls: cash(controls) });
   // The preview's row is gone (ADR 0085): what a move against you costs joins the leverage's note, and with a position
   // open the opposite button says it closes it, where it would otherwise say what it earns on.
   const pos = s.you.pos;
@@ -1508,9 +1508,9 @@ function botLine(p) {
 const lastLine = new Map();
 function popText(p) {
   const said = botLine(p);
-  if (said) return p.kind === "close" ? `${said} ${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}` : said;
+  if (said) return p.kind === "close" ? `${said} ${p.pnl >= 0 ? "+" : ""}${cash(p.pnl)}` : said;
   if (p.kind === "pray") return pick(T[lang].prayers[p.way === -1 ? "fall" : "rise"]);
-  if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${yen(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
+  if (p.kind === "close") return `${p.pnl >= 0 ? "+" : ""}${cash(p.pnl)}${p.pnl > 0 ? " 💰" : p.pnl < 0 ? " 💸" : ""}`;
   return `${ICONS.pops[p.kind] ?? ""} ${(T[lang].pops[p.kind] ?? "").replaceAll("{lev}", String(p.lev ?? ""))}`.trim();
 }
 // Where a pop shows: over the trader's row in the room, or, for your own,
@@ -1689,10 +1689,10 @@ function render(s) {
   // reads: net worth against the starting money, open P&L against the
   // margin put up for it.
   const worth = y.equity - y.debt;
-  $("equity").textContent = yen(worth);
+  $("equity").textContent = cash(worth);
   $("equity-pct").textContent = pct(worth / s.start - 1);
   $("equity-pct").className = `rate ${tone(worth - s.start)}`;
-  $("pnl").textContent = yen(y.pnl);
+  $("pnl").textContent = cash(y.pnl);
   // Toggled, not assigned: the tutorial may have a ring on this figure (ADR 0052).
   $("pnl").classList.toggle("up", y.pnl > 0);
   $("pnl").classList.toggle("down", y.pnl < 0);
@@ -1729,7 +1729,7 @@ function render(s) {
   // whenever the price stands still).
   // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
   const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade";
-  $("credit-owe").textContent = y.debt ? yen(y.debt) : t("creditFree");
+  $("credit-owe").textContent = y.debt ? cash(y.debt) : t("creditFree");
   // how much of the line is drawn, as a bar
   $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
   $("credit-owe").classList.toggle("owing", y.debt > 0);
@@ -1744,7 +1744,7 @@ function render(s) {
     dadAsked = false;
     if ($("dad").open) $("dad").close();
   } else if (!dadAsked && !$("dad").open && !document.querySelector("dialog[open]:not(#dad)")) {
-    $("dad-text").textContent = t("dadText", { amount: yen(broker.step), rate: ratePct(creditRate(y.debt + broker.step)) });
+    $("dad-text").textContent = t("dadText", { amount: cash(broker.step), rate: ratePct(creditRate(y.debt + broker.step)) });
     $("dad").show();
   }
   warn(s, open);
@@ -1758,8 +1758,8 @@ function render(s) {
     $("pos-side").replaceChildren(side, ` ${s.pair} ${y.pos.leverage}×`);
     $("pos-entry").textContent = quoted(y.pos.entry);
     $("pos-now").textContent = quoted(price);
-    $("pos-margin").textContent = yen(y.pos.margin);
-    $("pos-pnl").textContent = yen(y.pnl);
+    $("pos-margin").textContent = cash(y.pos.margin);
+    $("pos-pnl").textContent = cash(y.pnl);
     $("pos-pnl").className = tone(y.pnl);
     // the return on the margin is what the game ranks by, so it is the row's loudest figure
     $("pos-pct").textContent = pct(y.pnl / y.pos.margin);
@@ -1774,7 +1774,7 @@ function render(s) {
   } else {
     $("position").textContent = t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
-  if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
+  if (y.debt) $("position").textContent += t("owe", { amount: cash(y.debt) });
   const waiting = y.pending;
   $("pend-row").hidden = !waiting;
   if (waiting) {
@@ -1796,7 +1796,7 @@ function render(s) {
     $("history-rows").replaceChildren(...trades.map((tr) => {
       const row = document.createElement("tr");
       const side = Object.assign(document.createElement("span"), { className: `tag ${tr.side === 1 ? "long" : "short"}`, textContent: tr.side === 1 ? t("long") : t("short") });
-      const cells = [[side, ` ${s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], yen(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
+      const cells = [[side, ` ${s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], cash(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
       cells.forEach((c, i) => {
         const td = document.createElement("td");
         if (Array.isArray(c)) td.append(...c);
@@ -1819,7 +1819,7 @@ function render(s) {
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
   $("position-bar").hidden = !y.pos;
   document.body.classList.toggle("has-position", !!y.pos);
-  $("mobile-pnl").textContent = yen(y.pnl);
+  $("mobile-pnl").textContent = cash(y.pnl);
   $("mobile-pnl").className = tone(y.pnl);
   $("mobile-level").textContent = y.level === null ? "—" : `${y.level}%`;
 
@@ -1924,7 +1924,7 @@ function render(s) {
         // newer traders are listed after, unranked (ADR 0029).
         tr.className = `${c.you ? "you" : ""} ${c.ranked ? "" : "unranked"}`;
         if (!c.ranked) tr.dataset.tipText = tip("unrankedRow", { n: c.rounds, min: s.minRounds });
-        // the best round as a share of the starting money (the game ranks percentages, not yen); a career that never gained has none
+        // the best round as a share of the starting money (the game ranks percentages, not dollars); a career that never gained has none
         for (const v of [nameIn(c.name, c.draw), c.rounds, pts(c.average), c.best > 0 ? pct(c.best / s.start) : "—", c.wins, c.busts]) {
           const td = document.createElement("td");
           td.textContent = v;
@@ -1975,12 +1975,12 @@ function render(s) {
     if (d) {
       $("debrief-score").textContent = pts(d.score);
       const lines = [
-        [t("startingFunds"), yen(s.start)],
-        [t("resultBeforeFees"), yen(d.beforeFees)],
-        [t("financingPaid"), yen(-d.financing)],
-        ...(d.interest ? [[t("interestPaid"), yen(-d.interest)]] : []),
-        [t("netWorth"), yen(d.net)],
-        [t("loansOwed"), yen(d.debt)],
+        [t("startingFunds"), cash(s.start)],
+        [t("resultBeforeFees"), cash(d.beforeFees)],
+        [t("financingPaid"), cash(-d.financing)],
+        ...(d.interest ? [[t("interestPaid"), cash(-d.interest)]] : []),
+        [t("netWorth"), cash(d.net)],
+        [t("loansOwed"), cash(d.debt)],
         [t("returnPoints"), pts(d.returnPct)],
         ...(d.cuts ? [[t("cutPenalty", { n: d.cuts }), pts(-d.cutPenalty)]] : []),
         ...(d.bankruptPenalty ? [[t("bankruptPenalty"), pts(-d.bankruptPenalty)]] : []),
@@ -2007,9 +2007,9 @@ function render(s) {
           : Object.assign(document.createElement("span"), { className: `res ${delta >= 0 ? "up" : "down"}` });
         // The percentage first, as a trader reads it; the score, which ranks
         // the bell (ADR 0029), after it: lower than the percentage by the
-        // cost of each forced cut and loan. The yen is in the tip.
+        // cost of each forced cut and loan. The amount is in the tip.
         if (!r.sat) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
-        li.dataset.tipText = tip("rankRow", { worth: yen(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${yen(delta)}` }) + (r.bonus ? ` · ${t("bonus", { n: r.bonus })}` : "");
+        li.dataset.tipText = tip("rankRow", { worth: cash(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${cash(delta)}` }) + (r.bonus ? ` · ${t("bonus", { n: r.bonus })}` : "");
         // A replay guess, shown at the bell, a hit marked by its bonus.
         if (r.guess) name.append(" ", Object.assign(document.createElement("span"), { className: `guessed ${r.bonus ? "hit" : ""}`, textContent: t("guessed", { year: r.guess }) }));
         li.append(avatar(r.face, 18), name, result);

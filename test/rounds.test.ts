@@ -76,7 +76,7 @@ it("lets only the starter cancel the countdown, back to the lobby, with no recor
     const x = await look(other);
     expect(x.phase).toBe("lobby");
     expect(x.you.pos).toBeNull();
-    expect(x.you.equity).toBe(1_000_000);
+    expect(x.you.equity).toBe(10_000);
     expect(x.career).toEqual([]);
     // nothing to cancel now
     expect((await act(me, { kind: "cancel", mode: "replay" })).status).toBe(409);
@@ -220,10 +220,10 @@ it("lends a step of credit in a market round, tells the room, and grows what is 
   try {
     const first = (await look(me, "simulation")) as Owing;
     expect(first.feed.map((f) => f.key)).toContain("borrowed");
-    expect(first.you.debt).toBeGreaterThanOrEqual(100_000);
+    expect(first.you.debt).toBeGreaterThanOrEqual(1_000);
     const later = (await until(me, (x) => (x as Owing).you.debt > first.you.debt, 10_000, "simulation")) as Owing;
     expect(later.you.debt, "interest is added to what is owed").toBeGreaterThan(first.you.debt);
-    expect(later.you.credit).toBe(1_000_000 - later.you.debt);
+    expect(later.you.credit).toBe(10_000 - later.you.debt);
     // repaid a step from the cash it put in, which leaves only the interest owed
     expect((await act(me, { kind: "repay", mode: "simulation" })).status).toBe(200);
     const after = (await look(me, "simulation")) as Owing;
@@ -240,9 +240,9 @@ it("counts the interest against a borrower at the bell, with no bankruptcy cost 
     const bell = await until(me, (x) => x.phase === "break", 30_000, "simulation");
     const mine = bell.result!.ranking.find((r) => r.you)! as Row & { score: number; balance: number };
     // never traded, so the step sits as cash and the interest is the whole loss
-    expect(mine.balance).toBeLessThan(1_000_000);
+    expect(mine.balance).toBeLessThan(10_000);
     expect(mine.balance).toBeGreaterThan(0);
-    expect(mine.score).toBeCloseTo(Math.round((mine.balance / 1_000_000 - 1) * 1000) / 10, 1);
+    expect(mine.score).toBeCloseTo(Math.round((mine.balance / 10_000 - 1) * 1000) / 10, 1);
   } finally {
     tab.close();
   }

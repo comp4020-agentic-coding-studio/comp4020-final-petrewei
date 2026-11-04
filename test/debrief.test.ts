@@ -18,12 +18,12 @@ it("gives each player a private bell breakdown that reconciles money, fees, cred
   try {
     await c.act(me, { kind: "start" });
     expect(await tabs[0].next((e) => e.phase === "trade", 2000)).not.toBeNull();
-    // Mark enough financing to survive rounding to whole account yen.
-    const bought = await c.act(me, { kind: "buy", leverage: 30 });
+    // Enough financing to survive rounding to whole dollars: 100× on A$10,000 pays about 10 cents a tick.
+    const bought = await c.act(me, { kind: "buy", leverage: 100 });
     expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
-    expect(await tabs[0].next((e) => Number(e.tick) >= 5, 5000), "five ticks pass while the position is open").not.toBeNull();
+    expect(await tabs[0].next((e) => Number(e.tick) >= 20, 5000), "twenty ticks pass while the position is open").not.toBeNull();
     // A replay opens on a day the market broke, so the price may already have cut this position
-    // (a 30x one in a few ticks): the market's verdict is a way the round can go, and the
+    // (a 100x one in a few ticks): the market's verdict is a way the round can go, and the
     // breakdown must reconcile either way. Only a refusal that is not "nothing to close" is wrong.
     const closed = await c.act(me, { kind: "close" });
     if (closed.status !== 200) expect((await closed.json()).error, "close was refused for another reason").toBe("Nothing to close.");
@@ -32,7 +32,7 @@ it("gives each player a private bell breakdown that reconciles money, fees, cred
     const d = bell.result.debrief!;
     expect(d).toBeTruthy();
     // financing is charged each tick the position is open, so it is there unless the market cut
-    // the position before its first whole yen
+    // the position before its first whole dollar
     if (d.cuts === 0) expect(d.financing).toBeGreaterThan(0);
     expect(Math.round(d.balance - d.debt)).toBe(d.net);
     expect(START + d.beforeFees - d.financing - d.interest).toBe(d.net);

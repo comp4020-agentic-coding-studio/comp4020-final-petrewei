@@ -16,7 +16,7 @@ import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts"
 import { Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
-import { quoted, yen } from "../public/format.js";
+import { quoted, aud } from "../public/format.js";
 import { LANGS as LANG_LIST, T, clueDates, news } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
@@ -269,7 +269,6 @@ function log(who: string | null, ev: string, fields: Record<string, unknown> = {
 type Career = { name: string; draw?: Draw | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent?: number[]; feats?: Feat[] };
 const RECENT = 20;
 const career: Record<string, Career> = existsSync(CAREER_FILE) ? JSON.parse(readFileSync(CAREER_FILE, "utf8")) : {};
-for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
 // ADR 0038: names became given names alone, and the hall began again, once:
 // a marker beside it says it has. Careers saved after that are kept.
 const HALL_MARK = join(DATA_DIR, "hall-given-names");
@@ -278,6 +277,20 @@ if (!existsSync(HALL_MARK)) {
   writeFileSync(CAREER_FILE, "{}");
   writeFileSync(HALL_MARK, "1");
 }
+// ADR 0087: accounts moved from ¥1,000,000 to A$10,000, so a career's money saved in yen is divided by a hundred, once,
+// as a marker beside it records. Scores are percentages and stay as they are.
+const AUD_MARK = join(DATA_DIR, "careers-in-aud");
+if (!existsSync(AUD_MARK)) {
+  for (const c of Object.values(career)) {
+    c.profit = Math.round(c.profit / 100);
+    c.best = Math.round(c.best / 100);
+  }
+  if (Object.keys(career).length) writeFileSync(CAREER_FILE, JSON.stringify(career));
+  writeFileSync(AUD_MARK, "1");
+}
+// a career saved before scores is scored from its profit, once its profit is in dollars
+for (const c of Object.values(career)) c.points ??= (c.profit / START) * 100;
+
 // Changes are saved once, just after the code that made them, however
 // many careers changed; a failed write is reported and the game goes on.
 let saving = false;
@@ -680,11 +693,11 @@ class Market {
       const a = { who: short(e.who), pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
       if (e.kind === "open") this.say(`${name} ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×`, e.leverage! >= WILD ? "wild" : "trade", e.side === 1 ? "bought" : "sold", a);
       else if (e.kind === "add") this.say(`${name} doubled down. Now ${e.leverage}×`, "wild", "added", a);
-      else if (e.kind === "close") this.say(`${name} closed: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "closed", a);
-      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${quoted(e.price)}: ${yen(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
-      else if (e.kind === "take") this.say(`${name} took profit at ${quoted(e.price)}: ${yen(e.pnl)}`, "win", "took", a);
+      else if (e.kind === "close") this.say(`${name} closed: ${aud(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "closed", a);
+      else if (e.kind === "stop") this.say(`${name}'s stop filled at ${quoted(e.price)}: ${aud(e.pnl)}`, e.pnl >= 0 ? "win" : "loss", "stopped", a);
+      else if (e.kind === "take") this.say(`${name} took profit at ${quoted(e.price)}: ${aud(e.pnl)}`, "win", "took", a);
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
-      else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}. Out of the round.`, "bust", "stopout", a);
+      else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${aud(e.pnl)}. Out of the round.`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
       if (e.kind === "open" && e.leverage! >= WILD) this.pop(e.who, "wild", { lev: e.leverage });
       else if (e.kind === "add") this.pop(e.who, "add", { lev: e.leverage });
@@ -729,7 +742,7 @@ class Market {
       const interest = Math.round(a.interest);
       this.debriefs.set(key(r.who), {
         // The result before financing and interest includes spread and zero-cut protection.
-        // Use whole yen consistently so the displayed money reconciles exactly.
+        // Use whole dollars consistently so the displayed money reconciles exactly.
         beforeFees: r.net - START + financing + interest, financing, interest,
         balance: a.balance, debt: a.debt, net: r.net, cuts: a.cuts,
         ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts }),
@@ -878,9 +891,9 @@ class Market {
       const debt = Math.round(desk.account(who).debt);
       award(this, who, fromCredit(action.kind, debt));
       if (action.kind === "borrow") {
-        this.say(`${nameOf(who)} drew ${yen(STEP)} of emergency credit. Owes ${yen(debt)}.`, "wild", "borrowed", { who: short(who), amount: STEP, debt });
+        this.say(`${nameOf(who)} drew ${aud(STEP)} of emergency credit. Owes ${aud(debt)}.`, "wild", "borrowed", { who: short(who), amount: STEP, debt });
         this.pop(who, "borrow");
-      } else this.say(`${nameOf(who)} repaid credit. Owes ${yen(debt)}.`, "info", "repaid", { who: short(who), debt });
+      } else this.say(`${nameOf(who)} repaid credit. Owes ${aud(debt)}.`, "info", "repaid", { who: short(who), debt });
       log(who, action.kind, { mode: this.mode, debt });
       return null;
     }
@@ -962,7 +975,7 @@ class Market {
         level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
         out: mine?.out ?? false,
         guess: this.guesses.get(who) ?? null,
-        // the credit line (ADR 0080): what is owed now, in whole yen, and whether net worth is under zero
+        // the credit line (ADR 0080): what is owed now, in whole dollars, and whether net worth is under zero
         debt: Math.round(mine?.debt ?? 0),
         credit: Math.max(0, LIMIT - Math.round(mine?.debt ?? 0)),
         broke: mine ? desk.broke(who) : false,

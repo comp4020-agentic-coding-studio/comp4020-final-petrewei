@@ -10,7 +10,8 @@
 
 import { stakeMargin } from "../public/ticket.js";
 
-export const START = 1_000_000;
+// Every account opens with A$10,000 (ADR 0087), about what ¥1,000,000 was, a student's first account.
+export const START = 10_000;
 // A ladder a log-scale slider snaps to (ADR 0024): Japan's retail cap of
 // Australia's 30× for major pairs is on it, offshore 1000× tops it.
 export const LEVERAGES = [1, 3, 10, 30, 100, 300, 1000];
@@ -21,12 +22,12 @@ const STOP_OUT = 0.2;
 // Emergency credit (ADR 0080), which replaced Dad's savings: anyone may draw a STEP at a time, up to LIMIT, and repay it
 // from free cash. What is owed grows by a daily rate that rises with the debt, charged in a tick's share each tick and
 // added to the debt, so a line drawn and left eats a round. A net worth under zero at the bell is bankruptcy.
-export const STEP = 100_000;
-export const LIMIT = 1_000_000;
-// A day's interest on what is owed, by the most owed in that tier (ADR 0085): 0.5% a day up to ¥300,000, 1% to
-// ¥600,000, 1.5% above, about 180% to 550% a year. A loan shark's rate, far over any legal one, as the comic's lenders
+export const STEP = 1_000;
+export const LIMIT = 10_000;
+// A day's interest on what is owed, by the most owed in that tier (ADR 0085): 0.5% a day up to A$3,000, 1% to
+// A$6,000, 1.5% above, about 180% to 550% a year. A loan shark's rate, far over any legal one, as the comic's lenders
 // are; a legal rate would cost nothing in five days, and this costs the whole line about 8% of itself in a round.
-export const TIERS: [number, number][] = [[300_000, 0.005], [600_000, 0.01], [Infinity, 0.015]];
+export const TIERS: [number, number][] = [[3_000, 0.005], [6_000, 0.01], [Infinity, 0.015]];
 export const dailyRate = (debt: number): number => TIERS.find(([upTo]) => debt <= upTo)![1];
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
@@ -41,7 +42,7 @@ export const DISTANCES = [1, 2, 5, 10, 20, 50];
 const inRange = (pct: number): boolean => DISTANCES.includes(pct);
 // The numbers a page shows from the desk's rules, sent with every state so it keeps no copy.
 export const RULES = { cap: CAP, fee: FEE, step: STEP, limit: LIMIT, tiers: TIERS.map(([upTo, rate]) => [Number.isFinite(upTo) ? upTo : null, rate]), distances: DISTANCES };
-export const BROKE = 100_000;
+export const BROKE = 1_000;
 
 export type Side = 1 | -1;
 export type Position = {
@@ -77,7 +78,7 @@ export type Pending = { type: PendingType; side: Side; at: number; leverage: num
 export type PendRequest = { side: Side; at: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 export const PEND_RANGE = 0.5;
-// A closed trade, for the player's own history: how it ended, and its result in yen and as a share of its margin.
+// A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
 export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean };
@@ -380,7 +381,7 @@ export class Desk {
   repay(who: string): string | null {
     const account = this.account(who);
     if (account.debt <= 0) return "You owe nothing.";
-    // whole yen, as the balance is kept; what is owed rounds up, so the last of it is repaid
+    // whole dollars, as the balance is kept; what is owed rounds up, so the last of it is repaid
     const pay = Math.min(STEP, Math.ceil(account.debt), Math.floor(account.balance - this.used(who)));
     if (pay <= 0) return "You have no free cash to repay with.";
     account.balance -= pay;
@@ -394,8 +395,8 @@ export class Desk {
     return this.equity(who) - account.debt < 0;
   }
 
-  // Close everything at the last price and rank by balance less debt. What is owed is settled to the whole yen, and
-  // the interest with it, so the bell's account adds up in the yen it shows (ADR 0080).
+  // Close everything at the last price and rank by balance less debt. What is owed is settled to the whole dollars, and
+  // the interest with it, so the bell's account adds up in the dollars it shows (ADR 0080).
   settle(): { who: string; balance: number; net: number }[] {
     for (const [who, account] of this.accounts) if (account.pos) this.settleOne(who, "close");
     for (const account of this.accounts.values()) {

@@ -10,7 +10,7 @@ const unit = (x) => Math.min(1, Math.max(0, x));
 
 // What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
 export const STAKES = [0.25, 0.5, 0.75, 1];
-// The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole yen, never below nothing.
+// The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole dollars, never below nothing.
 // The desk's rule (src/fx.ts calls it for every order); the ticket calls it too, to show the amount beforehand.
 export const stakeMargin = (equity, used, stake) => Math.max(0, Math.floor(Math.min(equity * stake, equity - used)));
 // The stake slider's track as a bar of the whole account (ADR 0077): what is already in use and what this order would
@@ -22,7 +22,7 @@ export function stakeBar(equity, used, stake) {
   const inUse = whole ? unit(used / whole) : 0;
   const margin = stakeMargin(equity, used, stake);
   const order = whole ? margin / whole : 0;
-  // cut when what goes in is less than the whole share asked for, in yen as the desk counts it, or is nothing at all
+  // cut when what goes in is less than the whole share asked for, in dollars as the desk counts it, or is nothing at all
   return { used: inUse, order: unit(inUse + order) - inUse, cut: margin === 0 || margin < Math.floor(whole * stake) };
 }
 

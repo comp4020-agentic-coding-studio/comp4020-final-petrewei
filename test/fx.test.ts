@@ -73,8 +73,8 @@ describe("the trading desk", () => {
     expect(first).toBe(START / 4);
     desk.order("a", 1, 10, 0.25);
     // a second quarter is a quarter of the account again, not a quarter of the three quarters left
-    expect(desk.used("a") - first).toBeCloseTo(desk.equity("a") / 4, -3);
-    expect(desk.used("a") - first).toBeGreaterThan((START * 3) / 16 + 1000);
+    expect(desk.used("a") - first).toBeCloseTo(desk.equity("a") / 4, -1);
+    expect(desk.used("a") - first).toBeGreaterThan((START * 3) / 16 + 10);
   });
 
   it("cuts a stake to what is free when the share asked for is more", () => {
@@ -536,15 +536,15 @@ describe("emergency credit", () => {
     desk.dayTicks = 10;
     desk.borrow("a");
     for (let i = 0; i < 10; i++) desk.mark(100);
-    // 0.5% a day on ¥100,000, compounded over ten ticks
+    // 0.5% a day on A$1,000, compounded over ten ticks
     expect(desk.account("a").debt).toBeCloseTo(STEP * (1 + 0.005 / 10) ** 10, 6);
     expect(desk.account("a").interest).toBeCloseTo(desk.account("a").debt - STEP, 6);
   });
   it("charges more a day the more is owed", () => {
-    expect(dailyRate(100_000)).toBe(0.005);
-    expect(dailyRate(300_000)).toBe(0.005);
-    expect(dailyRate(300_001)).toBe(0.01);
-    expect(dailyRate(600_001)).toBe(0.015);
+    expect(dailyRate(1_000)).toBe(0.005);
+    expect(dailyRate(3_000)).toBe(0.005);
+    expect(dailyRate(3_001)).toBe(0.01);
+    expect(dailyRate(6_001)).toBe(0.015);
     expect(dailyRate(LIMIT)).toBe(0.015);
     // far over any legal rate, a loan shark's: well over 100% a year even at the lowest tier
     expect(dailyRate(STEP) * 365).toBeGreaterThan(1);

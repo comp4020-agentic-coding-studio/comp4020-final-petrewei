@@ -1,6 +1,6 @@
 // The operator's live view, for narrating a crit: re-reads /api/log every
 // second, which is plenty for a person and keeps it off the game's stream.
-import { quoted, yen } from "/format.js";
+import { quoted, aud } from "/format.js";
 
 const $ = (id) => document.getElementById(id);
 const time = new Intl.DateTimeFormat("en-AU", { timeStyle: "medium" });
@@ -14,18 +14,18 @@ function say(l) {
     // Lines saved before page visits were renamed join/leave carry no price.
     case "open": return l.price === undefined ? "opened the page" : `${l.side === "buy" ? "bought" : "sold"} ${l.pair} at ${quoted(l.price)}, ${l.leverage}×`;
     case "add": return `added to a ${l.side} on ${l.pair} at ${quoted(l.price)}, now ${l.leverage}×`;
-    case "close": return l.price === undefined ? "closed the page" : `closed on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
-    case "stop": return `stop filled on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
+    case "close": return l.price === undefined ? "closed the page" : `closed on ${l.pair} at ${quoted(l.price)}: ${aud(l.pnl)}`;
+    case "stop": return `stop filled on ${l.pair} at ${quoted(l.price)}: ${aud(l.pnl)}`;
     case "stop-set": return l.at === null ? "removed their stop" : `set a stop at ${quoted(l.at)}`;
     case "call": return `got a margin call on ${l.pair} at ${quoted(l.price)}`;
-    case "stopout": return `was stopped out on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
-    case "zerocut": return `was wiped out on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
-    case "borrow": return `drew emergency credit, owing ${yen(l.debt)}`;
-    case "repay": return `repaid credit, owing ${yen(l.debt)}`;
+    case "stopout": return `was stopped out on ${l.pair} at ${quoted(l.price)}: ${aud(l.pnl)}`;
+    case "zerocut": return `was wiped out on ${l.pair} at ${quoted(l.price)}: ${aud(l.pnl)}`;
+    case "borrow": return `drew emergency credit, owing ${aud(l.debt)}`;
+    case "repay": return `repaid credit, owing ${aud(l.debt)}`;
     case "pray": return `prayed for a ${l.way} (×${l.times})`;
     case "refused": return `tried to ${l.action}; refused: ${l.why}`;
     case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.source === "simulation" || l.simulated ? " (simulation)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;
-    case "end": return `${l.mode ?? ""} round ended: ${l.ranking.map(([w, n]) => `${w} ${yen(n)}`).join(", ")}`;
+    case "end": return `${l.mode ?? ""} round ended: ${l.ranking.map(([w, n]) => `${w} ${aud(n)}`).join(", ")}`;
     case "rates": return `fetched today's rates (${l.date})`;
     default: return l.ev;
   }

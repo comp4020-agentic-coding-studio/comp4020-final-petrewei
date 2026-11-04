@@ -116,7 +116,7 @@ it("puts the debugger in a margin call or a losscut, to see the warnings", async
     expect(cut.you.cuts).toBe(1);
     // and puts the money back
     expect((await debug(cookie, { kind: "reset-me", mode: "replay" })).status).toBe(200);
-    expect((await state(me)).you).toMatchObject({ balance: 1_000_000, cuts: 0, debt: 0, pos: null });
+    expect((await state(me)).you).toMatchObject({ balance: 10_000, cuts: 0, debt: 0, pos: null });
   } finally {
     tab.close();
   }

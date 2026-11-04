@@ -21,7 +21,7 @@ type Lesson = {
   // look at something, set a slider to a value the page checks, or press the
   // control that takes the lesson's action, each with the words shown for it.
   plan: Step[];
-  // Whether the lesson starts from a fresh ¥1,000,000.
+  // Whether the lesson starts from a fresh A$10,000.
   fresh?: boolean;
   // Null if the move is the one this lesson teaches, else a hint.
   allow: (m: Move, t: Tutorial) => string | null;
@@ -53,7 +53,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "welcome",
     title: "Welcome to the Trading Floor",
-    text: "Forex is trading one currency for another. This chart is USD/JPY: how many yen one dollar costs. You have ¥1,000,000 of practice money, and nothing here is real.",
+    text: "Forex is trading one currency for another. This chart is USD/JPY: how many yen one dollar costs. You have A$10,000 of practice money, and nothing here is real.",
     task: "Look at the price and your Net Worth. A click moves on.",
     plan: [
       { target: "chart", until: "look", say: "The price of one dollar, in yen." },
@@ -109,7 +109,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "leverage",
     title: "Leverage: The Magnifying Glass",
-    text: "At 30× your ¥1,000,000 controls ¥30,000,000, so a 1% move changes your money by 30%, either way. 30× is Australia's legal cap for retail traders.",
+    text: "At 30× your A$10,000 controls A$300,000, so a 1% move changes your money by 30%, either way. 30× is Australia's legal cap for retail traders.",
     task: "Set Leverage to 30× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
@@ -163,7 +163,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "highest",
     title: "The Highest Leverage: 1000×",
-    text: "Offshore brokers offer 1000×: your ¥1,000,000 controls ¥1,000,000,000, so a 0.1% move is your whole account. The spread alone costs a fifth the moment you buy.",
+    text: "Offshore brokers offer 1000×: your A$10,000 controls A$10,000,000, so a 0.1% move is your whole account. The spread alone costs a fifth the moment you buy.",
     task: "Set Leverage to 1000× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=1000", say: "Slide Leverage to 1000×, the highest." },
@@ -180,7 +180,7 @@ export const LESSONS: Lesson[] = [
   {
     id: "dad",
     title: "Emergency Credit",
-    text: "Margin call at 50%, stop-out at 20%: your round is over, unless you borrow. Emergency credit lends ¥100,000 at a time, and charges interest every day on what you owe, more the more you owe.",
+    text: "Margin call at 50%, stop-out at 20%: your round is over, unless you borrow. Emergency credit lends A$1,000 at a time, and charges interest every day on what you owe, more the more you owe.",
     task: "Draw emergency credit in the pop-up.",
     plan: [
       { target: "level", until: "look", say: "Margin Level hit 20%: the broker stopped you out." },
@@ -378,7 +378,7 @@ export class Tutorial {
     if (!this.finished()) this.snapshot();
   }
 
-  // A fresh ¥1,000,000 at the current price.
+  // A fresh A$10,000 at the current price.
   private fresh(): void {
     this.desk = new Desk(this.prices.at(-1) ?? START_PRICE);
     this.desk.join(ME);
@@ -392,7 +392,7 @@ export class Tutorial {
 
   // What just happened, in plain words for a beginner.
   describe(events: Fill[]): void {
-    const yen = (n: number): string => `${n < 0 ? "−" : "+"}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
+    const cash = (n: number): string => `${n < 0 ? "−" : "+"}A$${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
     for (const e of events) {
       const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
       const say = (text: string, kind: string, key: string): void => {
@@ -400,11 +400,11 @@ export class Tutorial {
         this.feed.splice(10);
       };
       if (e.kind === "open") say(`You ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×.`, "trade", e.side === 1 ? "you-bought" : "you-sold");
-      else if (e.kind === "close") say(`You closed: ${yen(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
-      else if (e.kind === "stop") say(`Your stop filled at ${quoted(e.price)}: ${yen(e.pnl)}.`, "loss", "you-stopped");
+      else if (e.kind === "close") say(`You closed: ${cash(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
+      else if (e.kind === "stop") say(`Your stop filled at ${quoted(e.price)}: ${cash(e.pnl)}.`, "loss", "you-stopped");
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
-      else if (e.kind === "stopout") say(`強制ロスカット: stopped out at 20%, the broker closed you: ${yen(e.pnl)}. You are out unless you borrow.`, "bust", "you-stopout");
-      else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
+      else if (e.kind === "stopout") say(`強制ロスカット: stopped out at 20%, the broker closed you: ${cash(e.pnl)}. You are out unless you borrow.`, "bust", "you-stopout");
+      else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${cash(e.pnl)}.`, "bust", "you-zerocut");
     }
   }
 }
