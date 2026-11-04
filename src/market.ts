@@ -9,7 +9,10 @@ import { dayOf, normal, span, TICKS_PER_DAY } from "./bridge.ts";
 
 // The pairs a Simulation may start from: every one is two of the six currencies the ECB
 // publishes, so each has its real history since 1999 (the yuan since April 2005).
-export const PAIRS = ["USD/JPY", "EUR/USD", "GBP/USD", "AUD/USD", "USD/CHF", "EUR/CHF", "USD/CNY", "AUD/JPY", "EUR/JPY", "GBP/JPY", "EUR/GBP", "EUR/AUD", "GBP/CHF", "GBP/AUD"] as const;
+// Every pair of the seven currencies (ADR 0085), each written with the base the market uses: the euro first, then
+// sterling, the Australian dollar, the US dollar, the franc, the yuan and the yen last. Twenty-one, so Simulation's two
+// menus make any pair; any of them is worked out from the euro's rates.
+export const PAIRS = ["EUR/GBP", "EUR/AUD", "EUR/USD", "EUR/CHF", "EUR/CNY", "EUR/JPY", "GBP/AUD", "GBP/USD", "GBP/CHF", "GBP/CNY", "GBP/JPY", "AUD/USD", "AUD/CHF", "AUD/CNY", "AUD/JPY", "USD/CHF", "USD/CNY", "USD/JPY", "CHF/CNY", "CHF/JPY", "CNY/JPY"] as const;
 export type Pair = (typeof PAIRS)[number];
 // A Simulation's plan, headlines and news count in units, thirty of them a round: a candle each.
 export const UNITS = 30;

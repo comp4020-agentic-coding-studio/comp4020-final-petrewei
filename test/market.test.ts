@@ -15,6 +15,10 @@ describe("the price history", () => {
 
   it("covers every pair it offers", () => {
     for (const pair of PAIRS) expect(history.series(pair).length).toBeGreaterThan(5000);
+    // every pair of the seven currencies, each once, the base as the market writes it (ADR 0085)
+    const currencies = ["EUR", "GBP", "AUD", "USD", "CHF", "CNY", "JPY"];
+    expect(PAIRS).toHaveLength((currencies.length * (currencies.length - 1)) / 2);
+    for (const [i, a] of currencies.entries()) for (const b of currencies.slice(i + 1)) expect(PAIRS, `${a}/${b}`).toContain(`${a}/${b}`);
   });
 
   it("has no yuan before April 2005", () => {

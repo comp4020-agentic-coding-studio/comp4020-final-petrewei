@@ -299,23 +299,28 @@ function saveCareer(): void {
 const seed = Date.now() % 2 ** 31;
 const rnd = random(seed);
 
-// Today's real rates for live rounds, fetched at most every hour, falling
-// back to the newest ECB row in the bundled history.
+// Today's real rates for live rounds (ADR 0085): fetched again when a Simulation round is set up and the last fetch is
+// ten minutes old, so a refresh brings the latest; a failed fetch is tried again after a minute rather than an hour.
+// Without them, the newest ECB row in the bundled history.
 let today: { date: string; rates: Record<string, number> } | null = null;
 let fetched = 0;
+let failed = 0;
 let refreshing: Promise<void> | null = null;
+const FRESH_MS = 600_000;
+const RETRY_MS = 60_000;
 function refreshToday(): Promise<void> {
   if (refreshing) return refreshing;
-  if (Date.now() - fetched < 3_600_000) return Promise.resolve();
-  fetched = Date.now();
+  if (Date.now() - fetched < FRESH_MS || Date.now() - failed < RETRY_MS) return Promise.resolve();
   refreshing = (async () => {
     try {
       const res = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY,GBP,CHF,AUD,CNY", { signal: AbortSignal.timeout(5_000) });
       if (!res.ok) throw new Error(`rates returned HTTP ${res.status}`);
       const data = (await res.json()) as { date: string; rates: Record<string, number> };
       today = { date: data.date, rates: { EUR: 1, ...data.rates } };
+      fetched = Date.now();
       log(null, "rates", { date: data.date });
     } catch (error) {
+      failed = Date.now();
       console.error("could not fetch today's rates:", error);
     }
   })().finally(() => { refreshing = null; });
@@ -1331,6 +1336,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       broadcastPresence();
     });
     broadcastPresence(listener);
+    // a page opened or refreshed on Simulation's lobby brings the latest rate, without holding the page for the fetch
+    // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
+    if (market.mode === "simulation" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
     return;
   }
 
