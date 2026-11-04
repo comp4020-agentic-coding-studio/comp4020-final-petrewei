@@ -52,11 +52,11 @@
                0024, 0039, 0060): pause, and, for whoever pressed Start, end it
                for everyone. Icons, each named by its tip. -->
           <div class="round-ctl" id="round-ctl">
+            <!-- Double speed (ADRs 0085, 0086), left of pause: whoever rules the round speeds it up for everyone; everyone sees it is on. -->
+            <button id="speed" class="ctl speed" type="button" aria-pressed="false" data-tip="speedUp" data-t-aria="speedUp" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z" fill="currentColor"/></svg></button>
             <button id="pause" class="ctl" type="button" data-tip="pause" data-t-aria="pause" hidden>
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
             </button>
-            <!-- 2× (ADR 0085): whoever rules the round speeds it up for everyone; everyone sees it is on. -->
-            <button id="speed" class="ctl speed" type="button" aria-pressed="false" data-tip="speedUp" data-t-aria="speedUp" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M4 6l7 6-7 6zM13 6l7 6-7 6z" fill="currentColor"/></svg><b>2×</b></button>
             <button id="finish" class="ctl danger" type="button" data-tip="finish" data-t-aria="finish" hidden>
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
             </button>
@@ -219,8 +219,8 @@
         <!-- Each switch with its name and distance on a row of its own over the joined track, the stop loss on the left
              and the take profit on the right (ADR 0085). -->
         <div class="exit-heads">
-          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slShort">SL</span> <b id="sl-pct" class="pct"></b></button>
-          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="tp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slFull">Stop Loss</span> <b id="sl-pct" class="pct"></b></button>
+          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="tp-pct" class="pct"></b> <span class="name" data-t="tpFull">Take Profit</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
           <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
         </div>
         <div class="exit-track" data-sl="false" data-tp="false">
@@ -255,15 +255,15 @@
     <section class="panel positions" data-fold="position" aria-label="Your position">
       <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
       <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thExits">Stop Loss / Take Profit</th><th data-t="thCut">Stop-out at</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th></th></tr></thead>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thExits" data-tip="thExits">SL / TP</th><th data-t="thCut">Stop-out</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th></th></tr></thead>
         <tbody>
           <tr id="pos-row" hidden>
             <td id="pos-side"></td>
             <td id="pos-entry" data-label="Entry" data-t-label="thEntry"></td>
             <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
             <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
-            <td id="pos-exit" data-label="Stop Loss / Take Profit" data-t-label="thExits"></td>
-            <td id="pos-cut" data-label="Stop-out at" data-t-label="thCut"></td>
+            <td id="pos-exit" data-label="SL / TP" data-t-label="thExits"></td>
+            <td id="pos-cut" data-label="Stop-out" data-t-label="thCut"></td>
             <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
             <td id="pos-pct" class="pct-big" data-label="P&amp;L %" data-t-label="thPnlPct"></td>
             <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
@@ -312,15 +312,15 @@
     <section class="panel credit" id="credit" data-fold="credit" aria-label="Emergency credit">
       <h2><span class="ico" aria-hidden="true">💰</span><span data-t="dadTitle">Emergency Credit</span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button></h2>
       <div class="credit-body">
-        <div class="credit-figs">
-          <div><span class="credit-label" data-t="creditOweLabel">Owed</span><strong class="credit-owe" id="credit-owe"></strong></div>
-          <div><span class="credit-label" data-t="creditRateLabel">Interest</span><span class="credit-rate" id="credit-rate"></span></div>
+        <!-- one row, as the position's empty line: what is owed (or nothing) and its rate, Borrow at the end; while
+             anything is owed, Repay joins it and a bar shows how much of the line is drawn -->
+        <div class="credit-row">
+          <strong class="credit-owe" id="credit-owe"></strong>
+          <span class="credit-rate" id="credit-rate"></span>
+          <button type="button" class="ghost" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
+          <button type="button" class="borrow" id="credit-borrow" data-tip="borrow"></button>
         </div>
         <div class="credit-meter" aria-hidden="true"><span id="credit-used"></span></div>
-        <div class="credit-go">
-          <button type="button" class="borrow" id="credit-borrow" data-tip="borrow"></button>
-          <button type="button" class="ghost" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
-        </div>
       </div>
     </section>
     <section class="panel feed" data-fold="feed" aria-label="Feed">

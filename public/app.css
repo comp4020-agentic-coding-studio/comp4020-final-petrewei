@@ -210,7 +210,7 @@ button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[dat
 main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "chart desk" "position credit" "feed room" "fame fame"; align-items: start; }
 .chart-panel { grid-area: chart; }
 .desk { grid-area: desk; }
-.positions { grid-area: position; }
+.positions { grid-area: position; container: position / inline-size; }
 .feed { grid-area: feed; }
 .room { grid-area: room; }
 .fame { grid-area: fame; }
@@ -263,9 +263,6 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .clock { flex: none; max-width: 7.5rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
 .chart-box { position: relative; }
 /* 2× (ADR 0085): a lit button while the round runs fast */
-.ctl.speed { display: inline-flex; align-items: center; gap: 0.15rem; width: auto; padding: 0 0.4rem; }
-.ctl.speed[hidden] { display: none; }
-.ctl.speed b { font: 700 0.72rem var(--mono); }
 .ctl.speed[aria-pressed="true"] { background: var(--call); border-color: var(--call); color: var(--on-fill); }
 .ctl.speed:disabled { opacity: 1; cursor: default; }
 /* The candle under the pointer (ADR 0083): a small reading that never takes the pointer's clicks. */
@@ -528,18 +525,18 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .credit { grid-area: credit; border-color: var(--call); background: linear-gradient(160deg, var(--loan-bg), var(--panel) 70%); }
 .credit > h2 { color: var(--loan-ink); border-bottom-color: color-mix(in srgb, var(--call) 40%, transparent); }
 .credit:has(.owing) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--call) 45%, transparent); }
-.credit-body { display: grid; gap: 0.55rem; padding: 0.7rem 0.9rem 0.8rem; }
-.credit-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-.credit-figs > div { display: grid; gap: 0.1rem; }
-.credit-label { font-size: 0.72rem; color: var(--muted); }
-.credit-owe { font: 700 1.05rem var(--mono); color: var(--soft); }
+.credit-body { display: grid; gap: 0.35rem; padding: 0.25rem 0.9rem; }
+.credit-row { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.credit-owe { font: 700 0.9rem var(--mono); color: var(--soft); white-space: nowrap; }
 .credit-owe.owing { color: var(--call); }
-.credit-rate { font: 600 0.82rem var(--mono); color: var(--loan-ink); }
-.credit-meter { height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--call) 18%, transparent); overflow: hidden; }
+.credit-rate { flex: 1; min-width: 0; font: 600 0.76rem var(--mono); color: var(--loan-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.credit-row button { flex: none; height: 1.75rem; min-height: 0; padding: 0 0.6rem; font-size: 0.8rem; white-space: nowrap; }
+.credit-row button:disabled { opacity: 0.45; cursor: default; }
+/* nothing owed: no Repay and no bar, so the card is one line, the height of the position's empty line */
+.credit:not(:has(.owing)) #credit-repay, .credit:not(:has(.owing)) .credit-meter { display: none; }
+.credit:not(:has(.owing)) .credit-body { gap: 0; }
+.credit-meter { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--call) 18%, transparent); overflow: hidden; }
 .credit-meter span { display: block; height: 100%; background: var(--call); transition: width 0.3s; }
-.credit-go { display: flex; gap: 0.5rem; }
-.credit-go .borrow { flex: 1; }
-.credit-go button:disabled { opacity: 0.45; cursor: default; }
 /* Dad's savings, a pop-up beside the ticket after a margin call or a cut. */
 .dad { position: fixed; inset: auto 1rem 3rem auto; margin: 0; z-index: 43; width: min(22rem, calc(100vw - 2rem)); padding: 1rem 1.1rem; border: 2px solid var(--call); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 8px 28px rgb(0 0 0 / 0.4); }
 .dad:not([open]) { display: none; }
@@ -562,6 +559,14 @@ th { text-align: right; font-weight: 400; font-size: 0.75rem; color: var(--muted
 td { text-align: right; padding: 0.55rem 0.9rem; font-family: var(--mono); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 #pos-row[hidden], #pos-empty[hidden], #pend-row[hidden] { display: none; }
+/* one line of headings (ADR 0086); where the panel is narrow, Now and Margin, which the chart and the account show,
+   give their room to the rest */
+.positions th { white-space: nowrap; }
+@container position (max-width: 900px) {
+  .positions > table th:nth-child(3), #pos-row td:nth-child(3), .positions > table th:nth-child(4), #pos-row td:nth-child(4) { display: none; }
+  #pend-row-what { min-width: 0; }
+  .positions th, .positions td { padding-left: 0.5rem; padding-right: 0.5rem; }
+}
 /* Column names only over rows they name (ADR 0079): none over "No open position", and an empty hall shows only its line. */
 .positions:has(#pos-row[hidden]):has(#pend-row[hidden]) > table thead { display: none; }
 .fame:has(#career:empty) > table { display: none; }
@@ -939,6 +944,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .lobby .lobby-title { font-size: 1.3rem; }
   .lobby p { font-size: 0.85rem; }
   .fame { overflow-x: auto; grid-template-columns: minmax(0, 1fr); }
+  /* on a phone the rate takes a line of its own rather than being cut */
+  .credit-row { flex-wrap: wrap; }
+  .credit-rate { order: 3; flex-basis: 100%; white-space: normal; }
   .fame-chart { border-left: 0; border-top: 1px solid var(--line); }
   .fame th, .fame td { padding: 0.45rem 0.4rem; }
   .fame th:first-child, .fame td:first-child { padding-left: 0.9rem; }

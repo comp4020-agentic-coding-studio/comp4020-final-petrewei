@@ -99,9 +99,11 @@ it("gives the stop loss and the take profit a toggle each, one on the left and o
 
 // Peter's choice (ADR 0078): the switches beside the exits' track are labelled SL and TP, the one place an abbreviation
 // stands, so the track keeps room to read; everywhere else, and as each switch's own name, the words are whole.
-it("abbreviates stop loss and take profit only on the switches beside their track, never in a tip or a sentence", () => {
+// ADR 0086: the short forms are for the position's switches and its column only, where room is short; the order card
+// names them in full, and no tip or sentence abbreviates them.
+it("abbreviates stop loss and take profit only on the position's switches and column, never in a tip or a sentence", () => {
   const abbrev = /\b(SL|TP)\b|S\/L|T\/P/;
-  const short = new Set(["slShort", "tpShort"]);
+  const short = new Set(["slShort", "tpShort", "thExits"]);
   for (const lang of LANGS) {
     for (const part of ["ui", "tips"] as const) {
       for (const [k, v] of Object.entries(T[lang][part] as Record<string, unknown>)) {
@@ -110,7 +112,8 @@ it("abbreviates stop loss and take profit only on the switches beside their trac
     }
   }
   for (const id of ["sl-on", "tp-on", "psl-on", "ptp-on"]) expect(page.getElementById(id)!.getAttribute("aria-label"), id).toMatch(/Stop Loss|Take Profit/);
-  const html = [...page.body.querySelectorAll("*")].filter((e) => !e.closest(".exit-heads .toggle")).map((e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("")).join(" ");
+  expect(page.querySelector("#sl-on .name")?.getAttribute("data-t"), "the order card names it in full").toBe("slFull");
+  const html = [...page.body.querySelectorAll("*")].filter((e) => !e.closest("#pexits .toggle, .positions thead, .positions [data-t-label]")).map((e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("")).join(" ");
   expect(html).not.toMatch(abbrev);
   expect(readFileSync("src/tutorial.ts", "utf8")).not.toMatch(abbrev);
   // the tutorial's lessons and its refusals, in every language
@@ -172,8 +175,8 @@ it("puts pause and end in the quote line, between the price and the clock", () =
   const order = [...quote.children].map((e) => e.id || e.className);
   expect(order.indexOf("round-ctl")).toBeGreaterThan(order.indexOf("price"));
   expect(order.indexOf("round-ctl")).toBeLessThan(order.indexOf("clock"));
-  // pause, then 2× (ADR 0085), then end
-  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "speed", "finish"]);
+  // double speed left of pause (ADR 0086), then pause, then end
+  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["speed", "pause", "finish"]);
   expect(page.querySelectorAll("#pause, #finish")).toHaveLength(2);
   expect(page.querySelector(".ticket #pause, .ticket #finish")).toBeNull();
 });

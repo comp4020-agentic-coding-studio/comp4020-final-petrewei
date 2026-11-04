@@ -67,7 +67,8 @@ function translate() {
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
   // the row's button is the step alone, signed, to keep the row on one line; its name and tip say it borrows
-  $("credit-borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 20) }), t("borrow", { amount: money(lang, broker.step) }));
+  // words only, so the row holds what is owed, the rate and the button on one line, as the position's empty line does
+  $("credit-borrow").textContent = t("borrow", { amount: money(lang, broker.step) });
   $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   if (state?.lesson) lesson(state);
   retip();
@@ -1611,7 +1612,7 @@ function render(s) {
   // Pause: anyone may, in a trading round that isn't ironman; a pause veils
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
-  $("round-ctl").hidden = ["pause", "finish"].every((id) => $(id).hidden);
+  $("round-ctl").hidden = ["speed", "pause", "finish"].every((id) => $(id).hidden);
   // Name that year opens halfway through a replay; your guess is shown
   // back to you, and to nobody else, until the bell.
   const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2;
