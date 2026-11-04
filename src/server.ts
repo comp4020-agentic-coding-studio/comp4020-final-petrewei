@@ -1018,7 +1018,15 @@ class Market {
 const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
 // Marathon (ADR 0087): one market on real prices that never closes, its accounts kept on the volume.
 const marathonHere = (): number => new Set([...listeners].filter((l) => l.mode === "marathon").map((l) => l.who)).size;
-const marathon = new Marathon(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt }, {
+// A person's name and draw from their career key alone, for Marathon's board after a restart: what they chose, or the
+// draw their cookie's hash gives, whose second byte is the key's third and fourth hex characters.
+const nameAt = (k: string): { name: string; draw: Draw | null } => {
+  const c = chosen[k];
+  if (typeof c === "string") return { name: c, draw: null };
+  const draw = c ?? Number.parseInt(k.slice(2, 4), 16) % GIVEN.length;
+  return { name: drawn("en", draw), draw };
+};
+const marathon = new Marathon(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
   watching: marathonHere,
   onChange: () => sendMarathon(),
   log: (who, ev, fields) => log(who, ev, fields),

@@ -17,7 +17,7 @@ import { PAIRS, type Pair } from "./market.ts";
 
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
 type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
-export type Who = { named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
+export type Who = { nameAt: (k: string) => { name: string; draw: number | null }; named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
 export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number> };
 
 const POLL_MS = Number(process.env.MARATHON_POLL_MS ?? 5_000);
@@ -251,7 +251,7 @@ export class Marathon {
 
   board(now = Date.now()): (Run & { you?: boolean })[] {
     const usd = this.live.latest();
-    const running: Run[] = usd ? [...this.accounts].map(([k, a]) => ({ key: k, name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? null, face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
+    const running: Run[] = usd ? [...this.accounts].map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
     // longest-lasting first: the marathon's measure is how long an account survives
     return [...running, ...this.runs].sort((a, b) => b.ended - b.opened - (a.ended - a.opened)).slice(0, BOARD);
   }
