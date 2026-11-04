@@ -1,6 +1,6 @@
 # ADR 0076: One Screen, and a Stake of the Whole Account
 
-Status: accepted, 4 November 2026. Changes the stake slider's meaning in [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md) and the account's own panel. Peter asked for the stake to manage the whole account, for the chart, the order, the account and the position to fit one desktop screen, and then for the order and the account to merge.
+Status: accepted, 4 November 2026; Sell's and Buy's notes are back at every size, and the card leaner, by [ADR 0077](0077-the-account-in-the-stake-and-a-leaner-card.md). Changes the stake slider's meaning in [ADR 0024](0024-pause-ironman-and-a-trading-ticket.md) and the account's own panel. Peter asked for the stake to manage the whole account, for the chart, the order, the account and the position to fit one desktop screen, and then for the order and the account to merge.
 
 ## 1 Context
 
