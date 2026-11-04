@@ -150,7 +150,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--soft); font-size: 0.85rem; }
 /* Each language has its own logo; it never wraps, so the bar keeps its height. */
 .logo { font-weight: 800; font-size: 1.45rem; letter-spacing: -0.01em; color: var(--pink); transform: rotate(-3deg); display: inline-block; white-space: nowrap; text-shadow: 2px 2px 0 var(--logo-shadow); }
-.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
+.tabs { display: grid; grid-template-columns: repeat(4, auto); gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
 .tabs button { border: none; background: none; border-radius: 7px; padding: 0.35rem 0.4rem; color: var(--soft); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tabs button[aria-selected="true"] { background: var(--pink); color: var(--on-pink); }
 /* Who is on each tab, as a small count badge. */
@@ -861,7 +861,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .top { grid-template-columns: minmax(0, 1fr) auto; }
   .brand { grid-column: 1; grid-row: 1; }
   .end { grid-column: 2; grid-row: 1; }
-  .tabs { grid-column: 1 / -1; grid-row: 2; justify-self: center; width: 580px; max-width: 100%; }
+  .tabs { grid-column: 1 / -1; grid-row: 2; justify-self: center; width: auto; max-width: 100%; }
 }
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */

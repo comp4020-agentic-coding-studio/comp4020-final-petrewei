@@ -16,7 +16,7 @@ import { News } from "./news.ts";
 import { PAIRS, type Pair } from "./market.ts";
 
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
-type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number };
+type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
 export type Who = { named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
 export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number> };
 
@@ -30,6 +30,8 @@ export class Marathon {
   news: News;
   private file: string;
   accounts = new Map<string, BookAccount>();
+  private names = new Map<string, string>();
+  private draws = new Map<string, number | null>();
   runs: Run[] = [];
   // a bankrupt player's key, and when their next account opens
   waits = new Map<string, number>();
@@ -61,6 +63,11 @@ export class Marathon {
       this.runs = s.runs ?? [];
       this.waits = new Map(Object.entries(s.waits ?? {}));
       this.slot = s.slot ?? 0;
+      // the names last seen, so the board names a player who has not looked in since a restart
+      for (const [k, [n, d]] of Object.entries(s.names ?? {})) {
+        this.names.set(k, n);
+        this.draws.set(k, d);
+      }
     }
     setInterval(() => this.save(), 5_000).unref();
   }
@@ -69,7 +76,7 @@ export class Marathon {
     if (!this.dirty && !force) return;
     this.dirty = false;
     try {
-      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot };
+      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])) };
       writeFileSync(`${this.file}.tmp`, JSON.stringify(data));
       renameSync(`${this.file}.tmp`, this.file);
     } catch (e) {
@@ -176,10 +183,9 @@ export class Marathon {
   }
 
   // Names by key, kept from the last time each person was seen, for the feed and the board.
-  private names = new Map<string, string>();
-  private draws = new Map<string, number | null>();
   private seen(who: string): string {
     const k = this.w.key(who);
+    if (this.names.get(k) !== this.w.name(who)) this.dirty = true;
     this.names.set(k, this.w.name(who));
     this.draws.set(k, this.w.draw(who));
     return k;
@@ -269,7 +275,8 @@ export class Marathon {
       pair,
       pairs: PAIRS,
       currencies: CURRENCIES,
-      digits: 5,
+      // a yen pair is priced to two places and its pip is 0.01; the page reads the pip from this (3 for yen pairs)
+      digits: pair.endsWith("/JPY") ? 3 : 5,
       // the chart's prices: the pair's closes, the newest moving; the slot is the clock, 96 a day
       prices,
       from: 0,
