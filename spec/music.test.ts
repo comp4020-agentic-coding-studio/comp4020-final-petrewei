@@ -36,7 +36,8 @@ it("serves a range, so playback starts and seeks without the whole file", async 
 
 it("offers a music switch that starts off and never loads the track by itself", async () => {
   const html = await (await fetch(new URL("/", baseUrl))).text();
-  expect(html).toMatch(/<button[^>]*id="music"[^>]*aria-pressed="false"/);
+  // on the market the switch is in Settings (ADR 0083), off at first
+  expect(html).toMatch(/<button[^>]*id="set-music"[^>]*role="switch"[^>]*aria-checked="false"/);
   expect(html).toMatch(/<audio[^>]*id="bgm"[^>]*preload="none"/);
   expect(html).not.toMatch(/<audio[^>]*autoplay/);
 });

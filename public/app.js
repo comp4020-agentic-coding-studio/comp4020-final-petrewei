@@ -432,7 +432,7 @@ const theme = () => document.documentElement.dataset.theme ?? (dark.matches ? "d
 function label() {
   document.documentElement.dataset.modeShown = theme();
   const name = theme() === "dark" ? t("toLight") : t("toDark");
-  for (const id of ["theme", "n-theme"]) {
+  for (const id of ["n-theme"]) {
     $(id).dataset.tip = theme() === "dark" ? "toLight" : "toDark";
     $(id).setAttribute("aria-label", name);
   }
@@ -446,9 +446,10 @@ const switchTheme = () => {
     // a private window: the choice lasts this visit
   }
   label();
+  $("set-dark").setAttribute("aria-checked", String(theme() === "dark"));
   if (state) draw(state);
 };
-$("theme").onclick = $("n-theme").onclick = switchTheme;
+$("n-theme").onclick = switchTheme;
 dark.addEventListener("change", () => {
   label();
   if (state) draw(state);
@@ -458,6 +459,67 @@ let ironman = false;
 $("ironman").onclick = () => $("ironman").setAttribute("aria-checked", String((ironman = !ironman)));
 $("start").onclick = () => act("start", { ironman });
 
+// Settings (ADR 0083), each kept in this browser: sound effects, off until chosen, made in the page with no files;
+// a calm screen, the page's own reduced-motion rules on demand; and the music and theme switches, the same ones the
+// header has.
+const prefs = (() => {
+  try {
+    return { sound: false, calm: false, ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
+  } catch {
+    return { sound: false, calm: false };
+  }
+})();
+const savePrefs = () => {
+  try {
+    localStorage.setItem("prefs", JSON.stringify(prefs));
+  } catch {
+    // a private window: the choice lasts this visit
+  }
+};
+const showPrefs = () => {
+  $("set-sound").setAttribute("aria-checked", String(prefs.sound));
+  $("set-calm").setAttribute("aria-checked", String(prefs.calm));
+  document.documentElement.classList.toggle("calm", prefs.calm);
+};
+showPrefs();
+for (const k of ["sound", "calm"]) $(`set-${k}`).onclick = () => {
+  prefs[k] = !prefs[k];
+  savePrefs();
+  showPrefs();
+  if (k === "sound" && prefs.sound) sound("fill");
+};
+$("settings-btn").onclick = () => {
+  $("set-dark").setAttribute("aria-checked", String(theme() === "dark"));
+  $("settings").showModal();
+};
+$("settings-close").onclick = () => $("settings").close();
+$("set-dark").onclick = switchTheme;
+// A short tone for a moment: a click for a fill, a two-note chime for a profit, a low thud for a forced cut, a buzz
+// for a margin call. Made with the page's own audio, so nothing is fetched, and only once a player has turned it on.
+let audio = null;
+const TONES = { fill: [[880, 0.05]], win: [[660, 0.08], [990, 0.12]], cut: [[110, 0.35]], call: [[220, 0.12], [220, 0.12]] };
+function sound(kind) {
+  if (!prefs.sound) return;
+  try {
+    audio ??= new AudioContext();
+    let at = audio.currentTime;
+    for (const [freq, len] of TONES[kind]) {
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = kind === "cut" ? "triangle" : "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.12, at);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + len);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + len);
+      at += len + 0.03;
+    }
+  } catch {
+    // no audio here; the game is the same without it
+  }
+}
+
 // Optional background music (ADR 0020): off until the player turns it on,
 // and only then is the track fetched. The choice is remembered, but a
 // browser lets sound start only from a click, so a returning player who
@@ -466,11 +528,12 @@ const bgm = $("bgm");
 bgm.volume = 0.35;
 const musicLabel = () => {
   const on = !bgm.paused;
-  for (const id of ["music", "n-music"]) {
+  for (const id of ["n-music"]) {
     $(id).setAttribute("aria-pressed", String(on));
     $(id).dataset.tip = on ? "musicOff" : "musicOn";
     $(id).setAttribute("aria-label", t(on ? "musicOff" : "musicOn"));
   }
+  $("set-music").setAttribute("aria-checked", String(on));
 };
 const remember = (on) => {
   try {
@@ -493,14 +556,14 @@ const toggleMusic = async () => {
   }
   musicLabel();
 };
-$("music").onclick = $("n-music").onclick = toggleMusic;
+$("n-music").onclick = $("set-music").onclick = toggleMusic;
 bgm.addEventListener("play", musicLabel);
 bgm.addEventListener("pause", musicLabel);
 try {
   if (localStorage.getItem("music") === "on") {
     addEventListener("pointerdown", function resume(e) {
       removeEventListener("pointerdown", resume, true);
-      if (bgm.paused && !e.target.closest?.("#music, #n-music")) bgm.play().catch(() => {});
+      if (bgm.paused && !e.target.closest?.("#set-music, #n-music")) bgm.play().catch(() => {});
     }, true);
   }
 } catch {
@@ -1127,6 +1190,33 @@ function faceImage(face) {
   }
   return img;
 }
+// The colour class of a gain or a loss.
+const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
+// The candles last drawn, each with its centre on the chart and its prices, for the pointer's reading (ADR 0083).
+let candlesShown = [];
+// A pointer over the chart reads the candle under it: its open, high, low and close, and its change, in a box that
+// keeps clear of the pointer. Nothing is drawn on the chart, so moving the pointer never redraws it.
+function readCandle(e) {
+  const box = $("chart").getBoundingClientRect();
+  const px = e.clientX - box.left;
+  const py = e.clientY - box.top;
+  const c = candlesShown.find((c) => Math.abs(c.cx - px) <= Math.max(c.half, 3));
+  if (!c || py > c.top) return void ($("ohlc").hidden = true);
+  const change = c.close / c.open - 1;
+  $("ohlc").replaceChildren(...[["O", c.open], ["H", c.high], ["L", c.low], ["C", c.close]].map(([k, v]) => {
+    const row = document.createElement("span");
+    row.append(Object.assign(document.createElement("i"), { textContent: k }), quoted(v));
+    return row;
+  }), Object.assign(document.createElement("b"), { className: tone(change), textContent: pct(change) }));
+  $("ohlc").hidden = false;
+  // beside the pointer, on the side away from the price scale when there is room
+  const left = px + 14 + $("ohlc").offsetWidth < box.width - 70 ? px + 14 : px - 14 - $("ohlc").offsetWidth;
+  $("ohlc").style.left = `${Math.max(4, left)}px`;
+  $("ohlc").style.top = `${Math.max(4, py - 20)}px`;
+}
+$("chart").addEventListener("pointermove", readCandle);
+$("chart").addEventListener("pointerleave", () => ($("ohlc").hidden = true));
+
 function draw(full) {
   const s = windowed(full);
   const canvas = $("chart");
@@ -1267,13 +1357,16 @@ function draw(full) {
     ctx.fillStyle = l.colour;
     ctx.fillText(l.text, w - 70 - lw - 6, l.at);
   }
-  // One candle a day, then the price line through today's ticks.
+  // One candle a day, then the price line through today's ticks. Each is kept, its centre and its prices, for the
+  // reading a pointer over the chart shows (ADR 0083).
+  candlesShown = [];
   for (let d = 0; d * k < prices.length - 1; d++) {
     const day = prices.slice(d * k, d * k + k + 1);
     const open = day[0];
     const close = day.at(-1);
     const colour = close >= open ? up : down;
     const cx = x(d * k + k / 2);
+    candlesShown.push({ cx, open, high: Math.max(...day), low: Math.min(...day), close, half: (x(k) - x(0)) / 2, top: h });
     ctx.strokeStyle = colour;
     ctx.beginPath();
     ctx.moveTo(cx, y(Math.max(...day)));
@@ -1448,6 +1541,8 @@ function effects(s, price) {
   if (popped !== null) {
     for (const p of list) {
       if (p.n <= popped) continue;
+      // your own moments have a sound, when sound is on (ADR 0083)
+      if (p.who === s.you.code) sound(p.kind === "close" ? (p.pnl > 0 ? "win" : "fill") : p.kind === "call" ? "call" : p.kind === "stopout" || p.kind === "zerocut" ? "cut" : "fill");
       const at = popAt(p, s);
       if (!at) continue;
       // Your own losscut has the full-screen stamp; a bubble would only cover it.
@@ -1596,7 +1691,6 @@ function render(s) {
   // reads: net worth against the starting money, open P&L against the
   // margin put up for it.
   const worth = y.equity - y.debt;
-  const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
   $("equity").textContent = yen(worth);
   $("equity-pct").textContent = pct(worth / s.start - 1);
   $("equity-pct").className = `rate ${tone(worth - s.start)}`;
@@ -1851,6 +1945,8 @@ function render(s) {
     const d = s.result.debrief;
     const details = $("debrief");
     details.hidden = !d;
+    // a picture only of a round you traded in
+    $("share").hidden = !d;
     if (d) {
       $("debrief-score").textContent = pts(d.score);
       const lines = [
@@ -1958,6 +2054,89 @@ connected = true;
 
 // The bell's reveal in this language: the pair and dates, then the
 // famous day hidden in it, if any. English is the server's own sentence.
+// A picture of the round, saved from the bell (ADR 0083): the result as a share of the start, the score and the rank,
+// what the round was (shown only after the bell, so it gives nothing away), and the account through the round's closed
+// trades as a line. Drawn in the page from what it already has, and saved to the player's own device; nothing is sent.
+function shareCard(s) {
+  const r = s.result;
+  const d = r.debrief;
+  const mine = r.ranking.find((x) => x.you);
+  if (!d || !mine) return;
+  const css = getComputedStyle(document.documentElement);
+  const c = document.createElement("canvas");
+  const [W, H] = [720, 420];
+  [c.width, c.height] = [W * 2, H * 2];
+  const g = c.getContext("2d");
+  g.scale(2, 2);
+  g.fillStyle = css.getPropertyValue("--panel");
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = css.getPropertyValue("--pink");
+  g.fillRect(0, 0, W, 6);
+  const ink = css.getPropertyValue("--ink");
+  const muted = css.getPropertyValue("--muted");
+  const round = css.getPropertyValue("--round") || "sans-serif";
+  const mono = "'JetBrains Mono', ui-monospace, monospace";
+  g.fillStyle = css.getPropertyValue("--pink");
+  g.font = `800 28px ${round}`;
+  g.fillText(t("logo"), 32, 52);
+  g.fillStyle = muted;
+  g.font = `14px ${round}`;
+  g.fillText(`${t("shareTitle")} · ${me}`, 32, 78);
+  const change = d.net / s.start - 1;
+  g.fillStyle = css.getPropertyValue(change >= 0 ? "--up" : "--down");
+  g.font = `800 64px ${mono}`;
+  g.fillText(pct(change), 32, 160);
+  g.fillStyle = ink;
+  g.font = `600 18px ${mono}`;
+  g.fillText(`${t("shareScore")} ${pts(d.score)}`, 32, 194);
+  g.fillText(t("shareRank", { n: r.ranking.indexOf(mine) + 1, of: r.ranking.length }), 32, 220);
+  // the account after each closed trade, from the start, as a line on the right
+  const trades = [...(s.you.trades ?? [])].reverse();
+  const path = [s.start];
+  for (const tr of trades) path.push(path.at(-1) + tr.pnl);
+  path.push(d.net);
+  const [bx, by, bw, bh] = [380, 100, 300, 130];
+  const lo = Math.min(...path, s.start);
+  const hi = Math.max(...path, s.start);
+  const py = (v) => by + bh - ((v - lo) / (hi - lo || 1)) * bh;
+  g.strokeStyle = css.getPropertyValue("--line");
+  g.beginPath();
+  g.moveTo(bx, py(s.start));
+  g.lineTo(bx + bw, py(s.start));
+  g.stroke();
+  g.strokeStyle = css.getPropertyValue(change >= 0 ? "--up" : "--down");
+  g.lineWidth = 3;
+  g.beginPath();
+  path.forEach((v, i) => (i ? g.lineTo(bx + (i / (path.length - 1)) * bw, py(v)) : g.moveTo(bx, py(v))));
+  g.stroke();
+  // what the round was, wrapped to the card
+  g.fillStyle = ink;
+  g.font = `14px ${round}`;
+  const words = reveal(r).split(/(?<=\s)|(?<=[、。，．])/);
+  let line = "";
+  let y = 280;
+  for (const w of words) {
+    if (g.measureText(line + w).width > W - 64 && line) {
+      g.fillText(line.trim(), 32, y);
+      line = "";
+      y += 20;
+      if (y > H - 50) break;
+    }
+    line += w;
+  }
+  if (y <= H - 50) g.fillText(line.trim(), 32, y);
+  g.fillStyle = muted;
+  g.font = `12px ${round}`;
+  g.fillText(t("shareFoot"), 32, H - 20);
+  c.toBlob((blob) => {
+    if (!blob) return;
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `losscut-${s.mode}.png` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+}
+$("share").onclick = () => state?.result && shareCard(state);
+
 function reveal(result) {
   if (lang === "en") return result.reveal;
   const f = result.facts;

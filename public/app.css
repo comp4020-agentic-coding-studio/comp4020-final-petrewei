@@ -262,6 +262,12 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock { flex: none; max-width: 7.5rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
 .chart-box { position: relative; }
+/* The candle under the pointer (ADR 0083): a small reading that never takes the pointer's clicks. */
+.ohlc { position: absolute; z-index: 4; display: grid; gap: 0.05rem; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel) 94%, transparent); font: 0.75rem var(--mono); color: var(--ink); pointer-events: none; box-shadow: 0 4px 14px rgb(0 0 0 / 0.18); }
+.ohlc[hidden] { display: none; }
+.ohlc span { display: flex; justify-content: space-between; gap: 0.7rem; }
+.ohlc i { font-style: normal; color: var(--muted); }
+.ohlc b { text-align: right; font-weight: 700; }
 /* The chart's box sets its size and the page draws to fit it (ADR 0076): its old shape, 900 by 380, wherever no layout
    gives it a height, so the drawing never sizes the box it is drawn into. */
 canvas { display: block; width: 100%; aspect-ratio: 900 / 380; background: var(--chart); }
@@ -937,6 +943,19 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .spark { display: none; }
   #meter { transition: none; }
 }
+/* the same calm, chosen in Settings rather than the system's (ADR 0083) */
+:root.calm .losscut, :root.calm .focus, :root.calm .tick-up, :root.calm .tick-down, :root.calm .warn.calling, :root.calm #level-box.alarm dd, :root.calm .bell-art, :root.calm .tip { animation: none; }
+:root.calm .bubble { animation: fade 2.6s step-end forwards; }
+:root.calm .spark { display: none; }
+:root.calm #meter { transition: none; }
+/* Settings (ADR 0083): one switch a row, its name and what it does. */
+.settings { width: min(26rem, calc(100vw - 2rem)); }
+.set-list { display: grid; margin: 0.4rem 0 0.8rem; padding: 0; list-style: none; }
+.set-list li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.1rem 0.8rem; padding: 0.6rem 0; border-bottom: 1px solid var(--line); }
+.set-list b { font: 700 0.88rem var(--round); color: var(--ink); }
+.set-list small { grid-column: 1; font-size: 0.76rem; color: var(--muted); }
+.set-list .toggle, .set-list select { grid-column: 2; grid-row: 1 / 3; }
+.set-list .toggle[aria-checked="true"] .track { background: var(--pink); border-color: var(--pink); }
 
 /* The info button (ADR 0049): a small circled i beside a term's label. Its
    explanation opens on hover, focus or a tap. */

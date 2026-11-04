@@ -32,6 +32,8 @@
           <button id="warn-close" type="button" data-t="warnClose" data-tip="warnClose">Close now</button>
         </div>
         <canvas id="chart" width="900" height="380" aria-label="Price chart"></canvas>
+        <!-- The candle under the pointer: open, high, low, close and its change (ADR 0083). -->
+        <div class="ohlc" id="ohlc" aria-hidden="true" hidden></div>
         <!-- The price, its change, the round's controls and the clock float over the
              chart's top, not above it, to give the chart the room (ADR 0062). -->
         <div class="quote">
@@ -185,6 +187,7 @@
       </div>
       <div class="bell-foot">
         <p class="bell-next" id="bell-next"></p>
+        <button id="share" class="ghost" type="button" data-t="share" data-tip="share">Save image</button>
         <button id="hold" class="ghost" type="button" data-t="hold" data-tip="hold">Hold</button>
         <button id="dismiss" class="ghost" type="button" data-t="dismiss" data-tip="dismiss">Close</button>
       </div>
@@ -391,6 +394,21 @@
     <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
     <ul class="feat-list" id="feat-list"></ul>
     <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
+  </dialog>
+  <!-- Settings (ADR 0083): kept in this browser only. -->
+  <dialog id="settings" class="card settings" aria-labelledby="settings-title">
+    <h2 id="settings-title" data-t="settingsTitle">Settings</h2>
+    <ul class="set-list">
+      <li><b data-t="setSound">Sound effects</b><small data-t="setSoundNote">A click for a fill, a thud for a cut.</small>
+        <button id="set-sound" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setSound"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
+      <li><b data-t="setCalm">Calm screen</b><small data-t="setCalmNote">No shaking, flashing or blinking.</small>
+        <button id="set-calm" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setCalm"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
+      <li><b data-t="setMusic">Music</b><small data-t="setMusicNote">The background track.</small>
+        <button id="set-music" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setMusic"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
+      <li><b data-t="setDark">Dark theme</b><small data-t="setDarkNote">Easier on the eyes at night.</small>
+        <button id="set-dark" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setDark"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
+    </ul>
+    <div class="row"><button type="button" class="ghost" id="settings-close" data-t="featsDone">Done</button></div>
   </dialog>
   <dialog id="dad" class="dad" aria-labelledby="dad-title">
     <h2 id="dad-title" data-t="dadTitle">Emergency Credit</h2>
