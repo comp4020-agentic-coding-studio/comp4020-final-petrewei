@@ -29,7 +29,7 @@ describe("Kurumi", () => {
     }
   });
 
-  it("borrows from Dad once she is broke", () => {
+  it("draws emergency credit once she is broke", () => {
     const desk = new Desk(100);
     desk.join(hana.id);
     desk.order(hana.id, 1, 1000);

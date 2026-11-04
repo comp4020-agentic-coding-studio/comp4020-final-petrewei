@@ -378,12 +378,10 @@ it("shows Borrow in the tutorial when the player is broke, not only in a trading
   const lending = app.match(/const lending = (.*);/)![1];
   expect(lending, "a tutorial lends while the price stands still").toMatch(/tutorial \? s\.phase === "waiting"/);
   expect(lending, "a market lends while it trades").toMatch(/s\.phase === "trade"/);
-  // Borrow is offered, in a pop-up (ADR 0057), to a player who is broke or under a margin call
+  // the pop-up offers credit (ADR 0080) to a player who is broke, while the line has room
   const rule = app.match(/const offer = (.*);/)![1];
   expect(rule).toMatch(/y\.broke/);
-  expect(rule).toMatch(/y\.called/);
-  expect(rule).toMatch(/loansLeft/);
-  expect(rule, "nobody Dad has caught is offered it again").toMatch(/!y\.caught/);
+  expect(rule, "never past the credit line").toMatch(/y\.credit > 0/);
   expect(rule, "Borrow must follow the rule above, not a bare trade phase").toMatch(/\blending\b/);
   expect(rule).not.toMatch(/s\.phase === "trade"/);
 });
@@ -426,17 +424,22 @@ it("puts the lesson in the chart's box, with the words on the left, and four tra
 
 // ADRs 0057 to 0059: Dad's savings in a pop-up, the account in a panel of its own,
 // the sliders' notes, colours and fee, and a plain line on Buy and Sell.
-describe("the ticket, the account and Dad's pop-up", () => {
+describe("the ticket, the account and the credit pop-up", () => {
   const doc = new JSDOM(lessonHtml).window.document;
-  it("keeps Borrow in a pop-up, not in a panel, and says it in quotation marks in every language", () => {
+  // ADR 0080: emergency credit is a real loan, drawn and repaid from the account's own row any time, and offered in a
+  // pop-up once a player is cut out or broke; no longer Dad's savings in quotation marks.
+  it("keeps credit in the account, offers it in a pop-up when broke, and names it plainly in every language", () => {
+    const account = doc.querySelector('.panel[data-fold="account"]')!;
+    for (const id of ["credit-owe", "credit-rate", "credit-borrow", "credit-repay"]) expect(account.querySelector("#" + id), id).not.toBeNull();
     const dad = doc.getElementById("dad")!;
     expect(dad.tagName).toBe("DIALOG");
     expect(dad.querySelector("#borrow")).not.toBeNull();
-    expect(doc.querySelector(".panel #borrow"), "no Borrow button in a panel").toBeNull();
     for (const lang of LANGS) {
-      for (const k of ["borrow", "dadText"]) expect(T[lang].ui[k], `${lang} ${k}`).toMatch(/["“「]/);
-      for (const k of ["caughtText", "caughtBig", "dadTitle", "dadNo"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
-      expect(T[lang].news.caught, lang).toContain("{who}");
+      for (const k of ["borrow", "dadText", "dadTitle", "dadNo", "repay", "bankruptText", "bankruptBig", "creditOwe", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      expect(T[lang].ui.dadText, lang).toContain("{rate}");
+      expect(T[lang].news.borrowed, lang).toContain("{debt}");
+      // Dad's savings are gone from the money's words
+      for (const k of ["borrow", "dadText", "dadTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).not.toMatch(/Dad|パパ|老爹/);
     }
   });
 

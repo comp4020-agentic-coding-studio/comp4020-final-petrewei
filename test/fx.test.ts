@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BORROW, BROKE, Desk, LOANS, SPREAD, START } from "../src/fx.ts";
+import { BROKE, Desk, LIMIT, SPREAD, START, STEP, dailyRate } from "../src/fx.ts";
 
 it("keeps financing paid across closes, adds and cloned tutorial checkpoints, then resets for a fresh account", () => {
   const desk = new Desk(100);
@@ -127,7 +127,7 @@ describe("the trading desk", () => {
     expect(desk.order("a", 1, 3)).toBe("You are out of the market until next round.");
   });
 
-  it("lets a stopped-out player back in only on Dad's money, and a second cut on it ends the round", () => {
+  it("lets a stopped-out player back in on emergency credit, a step at a time, until the line is used up", () => {
     const desk = new Desk(100);
     desk.join("a");
     desk.order("a", 1, 100);
@@ -136,17 +136,14 @@ describe("the trading desk", () => {
     // the money left after the cut is still theirs, and counts at the bell
     const left = desk.account("a").balance;
     expect(desk.borrow("a")).toBeNull();
-    expect(desk.account("a")).toMatchObject({ out: false, balance: left + BORROW, debt: BORROW });
+    expect(desk.account("a")).toMatchObject({ out: false, balance: left + STEP, debt: STEP });
     expect(desk.order("a", 1, 100)).toEqual([expect.objectContaining({ kind: "open" })]);
-    desk.mark(98.4);
-    expect(desk.account("a").out).toBe(true);
-    expect(desk.borrow("a")).toBeNull();
-    desk.order("a", 1, 100);
-    desk.mark(97.6);
-    expect(desk.account("a").out).toBe(true);
-    expect(desk.borrow("a")).toBe("Dad's savings are gone.");
-    expect(desk.account("a").cuts).toBe(3);
+    desk.close("a");
+    // the line is LIMIT, drawn STEP by step; past it, a refusal
+    while (desk.account("a").debt + STEP <= LIMIT) expect(desk.borrow("a")).toBeNull();
+    expect(desk.borrow("a")).toMatch(/used up/);
   });
+;
 
   it("does not send out a player whose own stop or close takes a loss", () => {
     const desk = new Desk(100);
@@ -287,7 +284,7 @@ describe("the trading desk", () => {
     expect(desk.account("a").pos).toBeNull();
   });
 
-  it("lends a wiped-out player Dad's savings, but counts the debt against them", () => {
+  it("lends a wiped-out player credit, and ranks them by what they have less what they owe", () => {
     const desk = new Desk(1.2);
     desk.join("a");
     desk.join("b");
@@ -295,21 +292,17 @@ describe("the trading desk", () => {
     desk.mark(1.1);
     expect(desk.account("a").out).toBe(true);
     expect(desk.borrow("a")).toBeNull();
-    expect(desk.account("a")).toMatchObject({ balance: BORROW, debt: BORROW, out: false });
-    for (let i = 1; i < LOANS; i++) {
-      desk.order("a", 1, 1000);
-      desk.mark(desk.price * 0.95);
-      desk.borrow("a");
-    }
+    expect(desk.account("a")).toMatchObject({ balance: STEP, debt: STEP, out: false });
     desk.order("a", 1, 1000);
     desk.mark(desk.price * 0.95);
-    expect(desk.borrow("a")).toBe("Dad's savings are gone.");
+    expect(desk.bankrupt("a"), "wiped out again, still owing the step").toBe(true);
     const ranking = desk.settle();
     expect(ranking.map((r) => r.who)).toEqual(["b", "a"]);
-    expect(ranking[1].net).toBe(-BORROW * LOANS);
+    expect(ranking[1].net).toBeLessThan(0);
   });
+;
 
-  it("lends to a player left with crumbs after closing at a loss, once nothing is open", () => {
+  it("lends to a player left with crumbs after closing at a loss", () => {
     const desk = new Desk(100);
     desk.join("a");
     // two losing closes at 1000×, each taken by hand above the cut
@@ -323,13 +316,14 @@ describe("the trading desk", () => {
     expect(desk.account("a").balance).toBeLessThan(BROKE);
     expect(desk.account("a").out).toBe(false);
     expect(desk.borrow("a")).toBeNull();
-    expect(desk.account("a").debt).toBe(BORROW);
+    expect(desk.account("a").debt).toBe(STEP);
   });
 
-  it("only lends to a player who is broke", () => {
+  it("lends to anyone who asks, broke or not, as a credit line does", () => {
     const desk = new Desk(1.2);
     desk.join("a");
-    expect(desk.borrow("a")).toBe("You still have money. For now.");
+    expect(desk.borrow("a")).toBeNull();
+    expect(desk.account("a")).toMatchObject({ balance: START + STEP, debt: STEP });
   });
 });
 
@@ -513,57 +507,51 @@ describe("stop loss and take profit", () => {
   });
 });
 
-// ADR 0057 and 0058: "borrowing" from Dad is open to a player under a margin
-// call, he finds out, and the financing fee grows with the leverage squared.
-describe("Dad's savings", () => {
-  it("lets a player under a margin call take the money, before anything is lost", async () => {
-    const { Desk, BORROW } = await import("../src/fx.ts");
+// ADR 0080: emergency credit, which replaced Dad's savings. Interest is charged each tick, a tick's share of a daily
+// rate that rises with the debt, and added to what is owed; a step is repaid from free cash; owing more than you have is
+// bankruptcy.
+describe("emergency credit", () => {
+  it("charges a day's interest over a day's ticks, at the rate for what is owed, and adds it to the debt", () => {
     const desk = new Desk(100);
     desk.join("a");
-    desk.order("a", 1, 1000);
-    expect(desk.borrow("a")).toMatch(/still have money/);
-    desk.mark(99.965);
-    expect(desk.called("a")).toBe(true);
-    expect(desk.borrow("a")).toBeNull();
-    expect(desk.account("a").debt).toBe(BORROW);
-  });
-  it("keeps the offer for a few ticks after a margin call lifts, so a bouncing position can still take it", async () => {
-    const { Desk, RECALL } = await import("../src/fx.ts");
-    const desk = new Desk(100);
-    desk.join("a");
-    desk.order("a", 1, 1000);
-    desk.mark(99.965);
-    expect(desk.called("a")).toBe(true);
-    // the price bounces back well over the call line
-    desk.mark(100.2);
-    expect(desk.level("a")).toBeGreaterThan(0.5);
-    for (let i = 0; i < RECALL - 2; i++) {
-      expect(desk.called("a"), `tick ${i}`).toBe(true);
-      desk.mark(100.2);
-    }
-    // and then it is forgotten
-    for (let i = 0; i < 4; i++) desk.mark(100.2);
-    expect(desk.called("a")).toBe(false);
-    expect(desk.borrow("a")).toMatch(/still have money/);
-  });
-  it("is found out: the position is closed, the player is grounded, and it counts once", async () => {
-    const { Desk } = await import("../src/fx.ts");
-    const desk = new Desk(100);
-    desk.join("a");
-    expect(desk.discover("a"), "nothing taken, nothing found").toEqual([]);
-    desk.order("a", 1, 10);
-    desk.mark(90);
-    desk.account("a").balance = 50_000;
-    desk.account("a").pos = null;
+    desk.dayTicks = 10;
     desk.borrow("a");
-    desk.order("a", 1, 1);
-    const found = desk.discover("a");
-    expect(found.map((f) => f.kind)).toEqual(["close", "caught"]);
-    expect(desk.account("a").pos).toBeNull();
-    expect(desk.account("a").out).toBe(true);
-    expect(desk.account("a").caught).toBe(1);
-    expect(desk.discover("a"), "found out only once").toEqual([]);
-    expect(desk.borrow("a")).toMatch(/hidden/);
+    for (let i = 0; i < 10; i++) desk.mark(100);
+    // 2% a day on ¥100,000, compounded over ten ticks
+    expect(desk.account("a").debt).toBeCloseTo(STEP * (1 + 0.02 / 10) ** 10, 6);
+    expect(desk.account("a").interest).toBeCloseTo(desk.account("a").debt - STEP, 6);
+  });
+  it("charges more a day the more is owed", () => {
+    expect(dailyRate(100_000)).toBe(0.02);
+    expect(dailyRate(300_000)).toBe(0.02);
+    expect(dailyRate(300_001)).toBe(0.04);
+    expect(dailyRate(600_001)).toBe(0.06);
+    expect(dailyRate(LIMIT)).toBe(0.06);
+    // the whole line, left a five-day round, costs over a third of itself
+    expect((1 + dailyRate(LIMIT)) ** 5 - 1).toBeGreaterThan(0.33);
+  });
+  it("repays a step from free cash, never from the margin in use, and refuses with nothing owed or free", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.repay("a")).toMatch(/owe nothing/);
+    desk.borrow("a");
+    desk.borrow("a");
+    expect(desk.repay("a")).toBeNull();
+    expect(desk.account("a")).toMatchObject({ debt: STEP, balance: START + STEP });
+    // everything in a position: nothing free to repay with
+    desk.order("a", 1, 10, 1);
+    expect(desk.repay("a")).toMatch(/no free cash/);
+    desk.close("a");
+    expect(desk.repay("a")).toBeNull();
+    expect(desk.account("a").debt).toBe(0);
+  });
+  it("is bankrupt only when what you have, less what you owe, is under nothing", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.borrow("a");
+    expect(desk.bankrupt("a")).toBe(false);
+    desk.account("a").balance = STEP - 1;
+    expect(desk.bankrupt("a")).toBe(true);
   });
 });
 describe("the financing fee", () => {

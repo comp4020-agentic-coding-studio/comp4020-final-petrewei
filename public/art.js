@@ -11,9 +11,9 @@ export const ICONS = {
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "scenario-round": "📡", "replay-round": "📼", "replay-bridged-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
-    call: "📞", stopout: "💀", zerocut: "🕳️", "prayed-rise": "🙏", "prayed-fall": "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
+    call: "📞", stopout: "💀", zerocut: "🕳️", "prayed-rise": "🙏", "prayed-fall": "🙏", borrowed: "🐷", repaid: "💴", bankrupt: "🚨", entered: "👋",
   },
-  pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷", caught: "🚨" },
+  pops: { wild: "🎰", add: "➕", call: "📞", stopout: "💀", zerocut: "🕳️", borrow: "🐷" },
 };
 
 // k is the outline and w white, in every prop; each adds its own colours.
@@ -86,7 +86,7 @@ export const PROPS = {
       "................",
     ],
   },
-  // Dad's savings, for a loan.
+  // A piggy bank, on the emergency credit button.
   piggy: {
     colors: { p: "#ff9fb8", P: "#e0708f", c: "#f2c14e" },
     rows: [

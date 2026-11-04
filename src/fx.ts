@@ -18,16 +18,14 @@ export const LEVERAGES = [1, 3, 10, 30, 100, 300, 1000];
 export const SPREAD = 0.0002;
 export const CALL = 0.5;
 const STOP_OUT = 0.2;
-// A player in trouble, under a margin call or wiped out or left with crumbs
-// and nothing open, may "borrow" from Dad's savings, twice a round. It is
-// the dresser at home, not a loan: Dad is never asked, and finds out (ADR
-// 0057). It gets them back in the game, but the debt comes off their result.
-export const BORROW = 300_000;
-export const LOANS = 2;
-// A margin call is remembered this many ticks after it lifts, so Dad's savings
-// are still offered, and still taken, if a volatile position bounces back over
-// the call line before the player has pressed the button (ADR 0059).
-export const RECALL = 10;
+// Emergency credit (ADR 0080), which replaced Dad's savings: anyone may draw a STEP at a time, up to LIMIT, and repay it
+// from free cash. What is owed grows by a daily rate that rises with the debt, charged in a tick's share each tick and
+// added to the debt, so a line drawn and left eats a round. A net worth under zero at the bell is bankruptcy.
+export const STEP = 100_000;
+export const LIMIT = 1_000_000;
+// A day's interest on what is owed, by the most owed in that tier: 2% a day up to ¥300,000, 4% to ¥600,000, 6% above.
+export const TIERS: [number, number][] = [[300_000, 0.02], [600_000, 0.04], [Infinity, 0.06]];
+export const dailyRate = (debt: number): number => TIERS.find(([upTo]) => debt <= upTo)![1];
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
 // the fee eats the account: over a round of 360 ticks, 0.03% of the margin at
@@ -40,7 +38,7 @@ export const CAP = 30;
 export const DISTANCES = [1, 2, 5, 10, 20, 50];
 const inRange = (pct: number): boolean => DISTANCES.includes(pct);
 // The numbers a page shows from the desk's rules, sent with every state so it keeps no copy.
-export const RULES = { cap: CAP, fee: FEE, borrow: BORROW, distances: DISTANCES };
+export const RULES = { cap: CAP, fee: FEE, step: STEP, limit: LIMIT, tiers: TIERS.map(([upTo, rate]) => [Number.isFinite(upTo) ? upTo : null, rate]), distances: DISTANCES };
 export const BROKE = 100_000;
 
 export type Side = 1 | -1;
@@ -64,8 +62,8 @@ export type Position = {
 // cleared by a loan; `cuts`
 // counts forced closes, so a page can tell when a new one happens;
 // `traded` says whether the player placed an order this round at all.
-// `caught` counts the loans Dad has found out about (ADR 0057); it equals the
-// loans once he has, and a caught player is grounded: out for the round.
+// `debt` is what is owed on the emergency credit line, interest included; `interest` is the round's interest so far,
+// for the bell's account.
 // A pending order (ADR 0078, 0079), the FX entry order: buy or sell when the price reaches `at`, the level the player
 // typed. The level is only a trigger: the order fills at the desk's own price on the tick that reaches it, as a click
 // would, with what it was set with. Its name says which side and where the level sits against the price when set:
@@ -75,8 +73,8 @@ export type Pending = { type: PendingType; side: Side; at: number; leverage: num
 export type PendRequest = { side: Side; at: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 export const PEND_RANGE = 0.5;
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number; financing: number; pending: Pending | null };
-export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
+export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null };
+export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
@@ -87,6 +85,9 @@ export const quote = (mid: number): { bid: number; ask: number } => ({ bid: fill
 export class Desk {
   price: number;
   private accounts = new Map<string, Account>();
+
+  // Ticks in a trading day, for the credit line's daily interest; the server's clock sets it.
+  dayTicks = 48;
 
   constructor(price: number) {
     this.price = price;
@@ -277,7 +278,7 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0, financing: 0, pending: null });
+    this.accounts.set(who, { balance: START, debt: 0, interest: 0, pos: null, out: false, cuts: 0, traded: false, financing: 0, pending: null });
   }
 
   // Move the price and enforce the rules on every account, in join order.
@@ -285,8 +286,12 @@ export class Desk {
     this.price = price;
     // the broker's rules on what is open first, then any pending order the price has reached
     const fills = [...this.accounts.keys()].flatMap((who) => [...this.enforce(who), ...this.trigger(who)]);
-    // A margin call is remembered a few ticks, then forgotten.
-    for (const account of this.accounts.values()) if (account.recall > 0) account.recall--;
+    // Interest on the credit line, a tick's share of a day's rate, added to what is owed (ADR 0080).
+    for (const account of this.accounts.values()) if (account.debt > 0) {
+      const due = (account.debt * dailyRate(account.debt)) / this.dayTicks;
+      account.debt += due;
+      account.interest += due;
+    }
     // The fee is charged after the rules have acted, so the call and cut
     // prices a page shows are the ones the next mark acts at.
     for (const account of this.accounts.values()) if (account.pos) {
@@ -311,7 +316,6 @@ export class Desk {
     if (pos.take !== null && (pos.side === 1 ? price >= pos.take : price <= pos.take)) return [this.settleOne(who, "take")];
     const level = this.level(who);
     if (level <= STOP_OUT) return [this.settleOne(who, "stopout")];
-    if (level <= CALL) this.account(who).recall = RECALL;
     if (level <= CALL && !pos.called) {
       pos.called = true;
       return [{ kind: "call", who, price, pnl: this.pnl(who) }];
@@ -346,42 +350,46 @@ export class Desk {
     return !account.pos && (account.out || account.balance < BROKE);
   }
 
-  // Whether the player is under a margin call, for Dad's savings: the level is
-  // at or under the call line now, or was in the last few ticks, so that a
-  // position bouncing over the line does not take the offer away mid-press.
-  called(who: string): boolean {
-    const account = this.account(who);
-    return !!account.pos && (this.level(who) <= CALL || account.recall > 0);
-  }
-
+  // Draw a step of emergency credit (ADR 0080): it is paid into the account at once, and back in the market a player
+  // cut out of it, since the credit is what lets them trade again.
   borrow(who: string): string | null {
     const account = this.account(who);
-    if (account.caught) return "Dad has hidden the rest of the savings.";
-    if (!this.broke(who) && !this.called(who)) return "You still have money. For now.";
-    if (account.debt >= BORROW * LOANS) return "Dad's savings are gone.";
-    account.balance += BORROW;
-    account.debt += BORROW;
+    const room = Math.floor(LIMIT - account.debt);
+    if (room <= 0) return "Your credit line is used up.";
+    const take = Math.min(STEP, room);
+    account.balance += take;
+    account.debt += take;
     account.out = false;
     return null;
   }
 
-  // Dad finds the missing money (ADR 0057): everything open is closed, the
-  // player is grounded for the round, and every loan so far is found out.
-  // Nothing happens to someone who took nothing.
-  discover(who: string): Fill[] {
+  // Repay a step, or what is owed if less, from free cash, which is the balance less the margin in use.
+  repay(who: string): string | null {
     const account = this.account(who);
-    const loans = Math.round(account.debt / BORROW);
-    if (loans <= account.caught) return [];
-    const fills: Fill[] = account.pos ? [this.settleOne(who, "close")] : [];
-    account.caught = loans;
-    account.out = true;
-    account.pending = null;
-    return [...fills, { kind: "caught", who, price: this.price, pnl: 0 }];
+    if (account.debt <= 0) return "You owe nothing.";
+    // whole yen, as the balance is kept; what is owed rounds up, so the last of it is repaid
+    const pay = Math.min(STEP, Math.ceil(account.debt), Math.floor(account.balance - this.used(who)));
+    if (pay <= 0) return "You have no free cash to repay with.";
+    account.balance -= pay;
+    account.debt = Math.max(0, account.debt - pay);
+    return null;
   }
 
-  // Close everything at the last price and rank by balance less debt.
+  // Bankrupt: what you have, less what you owe, is under nothing.
+  bankrupt(who: string): boolean {
+    const account = this.account(who);
+    return this.equity(who) - account.debt < 0;
+  }
+
+  // Close everything at the last price and rank by balance less debt. What is owed is settled to the whole yen, and
+  // the interest with it, so the bell's account adds up in the yen it shows (ADR 0080).
   settle(): { who: string; balance: number; net: number }[] {
     for (const [who, account] of this.accounts) if (account.pos) this.settleOne(who, "close");
+    for (const account of this.accounts.values()) {
+      const whole = Math.round(account.debt);
+      account.interest += whole - account.debt;
+      account.debt = whole;
+    }
     return [...this.accounts].map(([who, a]) => ({ who, balance: a.balance, net: a.balance - a.debt })).sort((a, b) => b.net - a.net);
   }
 }

@@ -20,7 +20,8 @@ function say(l) {
     case "call": return `got a margin call on ${l.pair} at ${quoted(l.price)}`;
     case "stopout": return `was stopped out on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
     case "zerocut": return `was wiped out on ${l.pair} at ${quoted(l.price)}: ${yen(l.pnl)}`;
-    case "borrow": return `borrowed from Dad, owing ${yen(l.debt)}`;
+    case "borrow": return `drew emergency credit, owing ${yen(l.debt)}`;
+    case "repay": return `repaid credit, owing ${yen(l.debt)}`;
     case "pray": return `prayed for a ${l.way} (×${l.times})`;
     case "refused": return `tried to ${l.action}; refused: ${l.why}`;
     case "start": return `${l.mode ?? ""} round began: ${l.pair}${l.source === "simulation" || l.simulated ? " (simulation)" : ` from ${l.from}${l.event ? `, hiding ${l.event}` : ""}`}`;

@@ -12,7 +12,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts";
-import { BORROW, Desk, type Fill, LEVERAGES, LOANS, quote, RULES, START } from "./fx.ts";
+import { Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { quoted, yen } from "../public/format.js";
@@ -54,9 +54,6 @@ const HOLD_TICKS = Math.round(30_000 / TICK_MS);
 const BREAK_MAX = Math.round(300_000 / TICK_MS);
 // After Start, five seconds for others on the tab to join, and to place
 // an order at the opening price, before the price moves.
-// Dad finds the missing money this long after a "loan", or at the bell if
-// the round ends first (ADR 0057).
-const DAD_TICKS = Number(process.env.DAD_TICKS ?? Math.round(30_000 / TICK_MS));
 const COUNTDOWN_TICKS = Number(process.env.COUNTDOWN_TICKS ?? 10);
 // A pause halts the price and the orders for everyone; anyone on the tab
 // may pause or resume, and a pause ends by itself after a minute so
@@ -375,7 +372,7 @@ type Mode = (typeof MODES)[number];
 type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" };
 type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
 type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; scenario?: string };
-type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; balance: number; debt: number; net: number; cuts: number; loans: number; caught: number; bonus: number; score: number };
+type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
 const listeners = new Set<Listener>();
 
 class Market {
@@ -409,8 +406,6 @@ class Market {
   // translation, plus a key and values a page translates from.
   feed: News[] = [];
   prays = new Map<string, number>();
-  // When Dad finds out about each trader's "loan": a tick, set by the first.
-  dad = new Map<string, number>();
   // Moments every page on the tab pops a bubble for: a prayer, a big bet,
   // a banked result, a margin call, a cut, a loan. Numbered so a page
   // shows each once; only the last few seconds are kept, and each names
@@ -480,6 +475,8 @@ class Market {
       this.facts = { pair: round.pair, simulated: false, from: round.days[0], to: round.days.at(-1)!, event: round.event ? { date: round.event.date, title: round.event.title, note: round.event.note } : null };
     }
     this.desk = new Desk(this.round.prices[0]);
+    // the credit line's interest is by the day, so the desk is told the round's day (ADR 0080)
+    this.desk.dayTicks = DAY_TICKS;
     for (const b of BOTS) this.desk.join(b.id);
     for (const l of this.listeners()) this.desk.join(l.who);
     this.tick = 0;
@@ -490,7 +487,6 @@ class Market {
     this.headline = null;
     this.guesses.clear();
     this.prays.clear();
-    this.dad.clear();
     this.pops = [];
     this.marks = [];
   }
@@ -632,11 +628,10 @@ class Market {
       else if (e.kind === "call") this.say(`MARGIN CALL for ${name}!`, "call", "call", a);
       else if (e.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out: ${yen(e.pnl)}. Out of the round.`, "bust", "stopout", a);
       else if (e.kind === "zerocut") this.say(`${name} was wiped out and leaves the market.`, "bust", "zerocut", a);
-      else if (e.kind === "caught") this.say(`Dad found the money gone from the dresser. ${name} is grounded.`, "bust", "caught", a);
       if (e.kind === "open" && e.leverage! >= WILD) this.pop(e.who, "wild", { lev: e.leverage });
       else if (e.kind === "add") this.pop(e.who, "add", { lev: e.leverage });
       else if (e.kind === "close" || e.kind === "stop" || e.kind === "take") this.pop(e.who, "close", { pnl: Math.round(e.pnl) });
-      else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut" || e.kind === "caught") this.pop(e.who, e.kind);
+      else if (e.kind === "call" || e.kind === "stopout" || e.kind === "zerocut") this.pop(e.who, e.kind);
       if (e.kind === "stopout" || e.kind === "zerocut") {
         const c = record(e.who);
         if (c) c.busts++;
@@ -655,34 +650,30 @@ class Market {
     // The bell ends a pause as well as trading; Resume only belongs to a live round.
     this.paused = 0;
     const desk = this.desk;
-    // Dad finds out about every "loan" by the bell, whether the round lasted
-    // long enough or not (ADR 0057), and the score counts it.
-    for (const who of desk.players()) this.report(desk.discover(who));
-    this.dad.clear();
     const ranking = desk.settle();
     // Watchers are on the desk but never ordered, so they get no career.
-    // Each trader's score: the % result less the cost of each forced cut
-    // and each loan from Dad (ADR 0029); the bell ranks by it.
+    // Each trader's score: the % result less the cost of each forced cut and of ending bankrupt (ADR 0029, 0080); the
+    // bell ranks by it.
     // A replay's year, named right before the bell, adds its bonus.
     // The year a replay is "from": its plot's.
     const year = this.mode === "replay" ? Number(this.round.event!.date.slice(0, 4)) : 0;
     const bonus = (who: string): number => (year ? guessBonus(this.guesses.get(who) ?? null, year) : 0);
     const points = (who: string): number => {
       const a = desk.account(who);
-      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts, loans: a.debt / BORROW, caught: a.caught }) + bonus(who);
+      return score({ start: START, net: a.balance - a.debt, cuts: a.cuts }) + bonus(who);
     };
     ranking.sort((a, b) => points(b.who) - points(a.who));
     const humans = ranking.filter((r) => !bot(r.who) && desk.account(r.who).traded);
     for (const r of humans) {
       const a = desk.account(r.who);
       const financing = Math.round(a.financing);
-      const loans = a.debt / BORROW;
+      const interest = Math.round(a.interest);
       this.debriefs.set(key(r.who), {
-        // The result before financing includes spread and zero-cut protection.
+        // The result before financing and interest includes spread and zero-cut protection.
         // Use whole yen consistently so the displayed money reconciles exactly.
-        beforeFees: r.net - START + financing, financing,
-        balance: a.balance, debt: a.debt, net: r.net, cuts: a.cuts, loans, caught: a.caught,
-        ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts, loans, caught: a.caught }),
+        beforeFees: r.net - START + financing + interest, financing, interest,
+        balance: a.balance, debt: a.debt, net: r.net, cuts: a.cuts,
+        ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts }),
         bonus: bonus(r.who), score: Math.round(points(r.who) * 10) / 10,
       });
       const c = record(r.who)!;
@@ -738,12 +729,6 @@ class Market {
     }
     this.tick++;
     this.report(this.desk.mark(this.round.prices[this.tick]));
-    // Dad's discoveries fall due, a round's worth of players at a time.
-    for (const [who, at] of this.dad) {
-      if (this.tick < at) continue;
-      this.dad.delete(who);
-      this.report(this.desk.discover(who));
-    }
     // Headlines, each on its day: a Simulation's situation (ADR 0027), or a
     // replay's clues before its famous day (ADR 0030); enough, read with
     // care, to see it coming.
@@ -788,7 +773,7 @@ class Market {
     if (this.phase === "lobby") return "The market is closed. Press Start to begin a round.";
     // In the countdown the price stands at the open: a player may place
     // and take back an order, but not pray to or borrow against it.
-    if (this.phase === "countdown" && (action.kind === "pray" || action.kind === "borrow")) return "Trading opens when the countdown ends.";
+    if (this.phase === "countdown" && (action.kind === "pray" || action.kind === "borrow" || action.kind === "repay")) return "Trading opens when the countdown ends.";
     if (this.phase !== "trade" && this.phase !== "countdown") return "The market is closed. Next round soon.";
     if (this.paused) return "The round is paused. Orders wait until it resumes.";
     const desk = this.desk;
@@ -818,14 +803,16 @@ class Market {
       if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, stake: p.stake } : {}) });
       return refused;
     }
-    if (action.kind === "borrow") {
-      const refused = desk.borrow(who);
+    // Emergency credit (ADR 0080): a step drawn or repaid, said in the feed, since a room sees who is in debt.
+    if (action.kind === "borrow" || action.kind === "repay") {
+      const refused = action.kind === "borrow" ? desk.borrow(who) : desk.repay(who);
       if (refused) return refused;
-      const first = desk.account(who).debt === BORROW;
-      if (!this.dad.has(who)) this.dad.set(who, this.tick + DAD_TICKS);
-      this.say(first ? `${nameOf(who)} "borrowed" ${yen(BORROW)} from Dad's savings. He wasn't home.` : `${nameOf(who)} "borrowed" from Dad again. That was the last of it.`, "wild", first ? "borrowed" : "borrowed-again", { who: short(who), amount: BORROW });
-      this.pop(who, "borrow");
-      log(who, "borrow", { mode: this.mode, debt: desk.account(who).debt });
+      const debt = Math.round(desk.account(who).debt);
+      if (action.kind === "borrow") {
+        this.say(`${nameOf(who)} drew ${yen(STEP)} of emergency credit. Owes ${yen(debt)}.`, "wild", "borrowed", { who: short(who), amount: STEP, debt });
+        this.pop(who, "borrow");
+      } else this.say(`${nameOf(who)} repaid credit. Owes ${yen(debt)}.`, "info", "repaid", { who: short(who), debt });
+      log(who, action.kind, { mode: this.mode, debt });
       return null;
     }
     const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake, { sl: action.sl, tp: action.tp });
@@ -902,11 +889,11 @@ class Market {
         level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
         out: mine?.out ?? false,
         guess: this.guesses.get(who) ?? null,
-        debt: mine?.debt ?? 0,
-        loansLeft: LOANS - (mine?.debt ?? 0) / BORROW,
+        // the credit line (ADR 0080): what is owed now, in whole yen, and whether net worth is under zero
+        debt: Math.round(mine?.debt ?? 0),
+        credit: Math.max(0, LIMIT - Math.round(mine?.debt ?? 0)),
         broke: mine ? desk.broke(who) : false,
-        called: mine ? desk.called(who) : false,
-        caught: mine?.caught ?? 0,
+        bankrupt: mine ? desk.bankrupt(who) : false,
         cuts: mine?.cuts ?? 0,
         pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
         pending: mine?.pending ?? null,
@@ -992,11 +979,10 @@ function tutorialView(who: string) {
       pnl: Math.round(t.desk.pnl("me")),
       level: a.pos ? Math.round(t.desk.level("me") * 100) : null,
       out: a.out,
-      debt: a.debt,
-      loansLeft: LOANS - a.debt / BORROW,
+      debt: Math.round(a.debt),
+      credit: Math.max(0, LIMIT - Math.round(a.debt)),
       broke: t.desk.broke("me"),
-      called: t.desk.called("me"),
-      caught: a.caught,
+      bankrupt: t.desk.bankrupt("me"),
       cuts: a.cuts,
       pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...t.desk.lines("me") } : null,
     },
@@ -1362,7 +1348,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
       action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake, sl: dist(input.sl), tp: dist(input.tp) };
     } else if (kind === "pray") action = { kind, way: input.way === -1 ? -1 : 1 };
-    else if (kind === "close" || kind === "borrow" || kind === "unpend") action = { kind };
+    else if (kind === "close" || kind === "borrow" || kind === "repay" || kind === "unpend") action = { kind };
     // A pending order (ADR 0079) is asked for at a typed level, which is only a trigger: it fills at the server's own
     // price on the tick that reaches it, as a click would, so the page still never sets the price of a fill.
     else if (kind === "pend") {

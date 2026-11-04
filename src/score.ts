@@ -1,15 +1,12 @@
-// The score (ADR 0029). A round is scored by its percentage result, net of
-// debt, less a cost for each forced losscut and each loan from Dad: the
-// money already counts those, but the score marks them too, so a lucky
-// all-in can't beat steady play on money alone. The hall of fame ranks by
-// average score per round, and only once a player has enough rounds that
-// one big round can't carry them.
+// The score (ADR 0029, 0080). A round is scored by its percentage result, net of debt, less a cost for each forced
+// losscut and a heavy one for ending bankrupt, owing more than you have: the money already counts both, but the score
+// marks them too, so a lucky all-in can't beat steady play on money alone. Emergency credit costs its interest in the
+// money, so it has no cost of its own. The hall of fame ranks by average score per round, and only once a player has
+// enough rounds that one big round can't carry them.
 
 export const CUT_COST = 10;
-export const LOAN_COST = 5;
-// Dad's punishment for each loan he finds out about (ADR 0057), which the bell
-// applies to every loan, found out in the round or not.
-export const CAUGHT_COST = 10;
+// Ending a round with a net worth under zero (ADR 0080).
+export const BANKRUPT_COST = 50;
 export const MIN_ROUNDS = 3;
 // Naming a replay's year before the bell (ADR 0030): the right year, or
 // one off.
@@ -21,20 +18,19 @@ export function guessBonus(guess: number | null, year: number): number {
   return guess === year ? YEAR_BONUS : Math.abs(guess - year) === 1 ? NEAR_BONUS : 0;
 }
 
-type Result = { start: number; net: number; cuts: number; loans: number; caught?: number };
+type Result = { start: number; net: number; cuts: number };
 
 export function scoreBreakdown(r: Result) {
   return {
     returnPct: ((r.net - r.start) / r.start) * 100,
     cutPenalty: r.cuts * CUT_COST,
-    loanPenalty: r.loans * LOAN_COST,
-    caughtPenalty: (r.caught ?? 0) * CAUGHT_COST,
+    bankruptPenalty: r.net < 0 ? BANKRUPT_COST : 0,
   };
 }
 
 export function score(r: Result): number {
   const b = scoreBreakdown(r);
-  return b.returnPct - b.cutPenalty - b.loanPenalty - b.caughtPenalty;
+  return b.returnPct - b.cutPenalty - b.bankruptPenalty;
 }
 
 // The hall: players with enough rounds, best average first, then the rest,

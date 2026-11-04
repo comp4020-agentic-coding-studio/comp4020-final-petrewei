@@ -168,60 +168,49 @@ it("never puts a replay's famous date on the wire before the bell, in a clue or 
   }
 }, 120_000);
 
-// ADR 0057: in a real market, a player who "borrows" from Dad's savings is
-// found out after a while, or at the bell if the round ends first, whichever
-// comes first: everything is closed, they are grounded, the room is told, and
-// the score is docked. The same rule as the tutorial's, in every mode. The
-// margin call is forced through the debug route (ADR 0019), so the check does
-// not depend on where a random price goes.
-const KEY = "test-key-rounds-0123456789abcdef";
-async function inACall(port: number, env: Record<string, string>) {
-  s = await server(port, { TICK_MS: "20", COUNTDOWN_TICKS: "2", STATS_KEY: KEY, ...env });
+// ADR 0080: in a real market, emergency credit is drawn and repaid a step at a time; the room is told, what is owed
+// grows by the tick with its daily interest, and the bell docks the score of anyone left owing more than they have.
+async function onCredit(port: number) {
+  s = await server(port, { TICK_MS: "20", COUNTDOWN_TICKS: "2" });
   const { visitor, page, act, until, look } = app();
   const me = await visitor();
   const tab = await page(me, "simulation");
-  const set = (await fetch(`${s.base}/?debug=${KEY}`, { headers: { cookie: me }, redirect: "manual" })).headers.get("set-cookie") ?? "";
-  const cookie = `${me}; ${set.match(/dbg=[^;]+/)![0]}`;
-  const debug = (body: unknown) => fetch(`${s.base}/api/debug`, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) });
   await act(me, { kind: "start", mode: "simulation" });
   await until(me, (x) => x.phase === "trade", 10_000, "simulation");
-  const bought = await act(me, { kind: "buy", leverage: 1, mode: "simulation" });
-  expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
-  const called = await debug({ kind: "call", mode: "simulation" });
-  expect(called.status, JSON.stringify(await called.clone().json())).toBe(200);
   const lent = await act(me, { kind: "borrow", mode: "simulation" });
   expect(lent.status, JSON.stringify(await lent.clone().json())).toBe(200);
   return { me, tab, act, until, look };
 }
+type Owing = Seen & { you: { debt: number; credit: number; bankrupt: boolean } };
 
-it("has Dad find out about a \"loan\" in a market round, and tells the room", async () => {
-  const { me, tab, act, until, look } = await inACall(8096, { DAD_TICKS: "6" });
+it("lends a step of credit in a market round, tells the room, and grows what is owed by the tick", async () => {
+  const { me, tab, act, until, look } = await onCredit(8096);
   try {
-    const caught = await until(me, (x) => x.feed.some((f) => f.key === "caught"), 10_000, "simulation");
-    expect(caught.feed.map((f) => f.key)).toContain("caught");
-    const after = (await look(me, "simulation")) as Seen & { you: { out: boolean; caught: number; pos: unknown } };
-    expect(after.you.caught).toBe(1);
-    expect(after.you.out).toBe(true);
-    expect(after.you.pos).toBeNull();
-    // and a second "loan" is refused: Dad has hidden the rest
-    const again = await act(me, { kind: "borrow", mode: "simulation" });
-    expect(again.status).toBe(409);
-    expect((await again.json()).error).toMatch(/hidden|gone/);
+    const first = (await look(me, "simulation")) as Owing;
+    expect(first.feed.map((f) => f.key)).toContain("borrowed");
+    expect(first.you.debt).toBeGreaterThanOrEqual(100_000);
+    const later = (await until(me, (x) => (x as Owing).you.debt > first.you.debt, 10_000, "simulation")) as Owing;
+    expect(later.you.debt, "interest is added to what is owed").toBeGreaterThan(first.you.debt);
+    expect(later.you.credit).toBe(1_000_000 - later.you.debt);
+    // repaid a step from the cash it put in, which leaves only the interest owed
+    expect((await act(me, { kind: "repay", mode: "simulation" })).status).toBe(200);
+    const after = (await look(me, "simulation")) as Owing;
+    expect(after.you.debt).toBeLessThan(later.you.debt);
+    expect(after.feed.map((f) => f.key)).toContain("repaid");
   } finally {
     tab.close();
   }
 }, 40_000);
 
-it("has Dad find out at the bell if the round ends before he would have, and docks the score", async () => {
-  // Dad's delay is far longer than the round, so only the bell can reveal it
-  const { me, tab, until, look } = await inACall(8096, { DAD_TICKS: "100000" });
+it("counts the interest against a borrower at the bell, with no bankruptcy cost while they are worth more than nothing", async () => {
+  const { me, tab, until } = await onCredit(8096);
   try {
-    expect(((await look(me, "simulation")) as Seen & { you: { caught: number } }).you.caught, "not found out yet").toBe(0);
     const bell = await until(me, (x) => x.phase === "break", 30_000, "simulation");
-    expect(bell.feed.map((f) => f.key), "Dad found out at the bell").toContain("caught");
-    const mine = bell.result!.ranking.find((r) => r.you)! as Row & { score: number };
-    // the loan and Dad's punishment are both in the score
-    expect(mine.score).toBeLessThan(-14);
+    const mine = bell.result!.ranking.find((r) => r.you)! as Row & { score: number; balance: number };
+    // never traded, so the step sits as cash and the interest is the whole loss
+    expect(mine.balance).toBeLessThan(1_000_000);
+    expect(mine.balance).toBeGreaterThan(0);
+    expect(mine.score).toBeCloseTo(Math.round((mine.balance / 1_000_000 - 1) * 1000) / 10, 1);
   } finally {
     tab.close();
   }

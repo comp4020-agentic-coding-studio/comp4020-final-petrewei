@@ -1,15 +1,15 @@
 import { afterEach, expect, it } from "vitest";
-import { BORROW, START } from "../src/fx.ts";
-import { CAUGHT_COST, CUT_COST, LOAN_COST } from "../src/score.ts";
+import { START, STEP } from "../src/fx.ts";
+import { BANKRUPT_COST, CUT_COST } from "../src/score.ts";
 import { client } from "../spec/helpers.ts";
 import { server, type Server } from "./server.ts";
 
 let s: Server;
 afterEach(() => s?.stop());
-type Debrief = { beforeFees: number; financing: number; balance: number; debt: number; net: number; returnPct: number; cuts: number; loans: number; caught: number; cutPenalty: number; loanPenalty: number; caughtPenalty: number; bonus: number; score: number };
+type Debrief = { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; returnPct: number; cuts: number; cutPenalty: number; bankruptPenalty: number; bonus: number; score: number };
 type Bell = { result: { debrief: Debrief | null; ranking: { you: boolean; balance: number; score: number }[] } };
 
-it("gives each player a private bell breakdown that reconciles money, fees, loans and the ranked score", async () => {
+it("gives each player a private bell breakdown that reconciles money, fees, credit and the ranked score", async () => {
   s = await server(8191, { TICK_MS: "50", COUNTDOWN_TICKS: "1" });
   const c = client(s.base);
   const me = await c.visitor();
@@ -34,14 +34,12 @@ it("gives each player a private bell breakdown that reconciles money, fees, loan
     // financing is charged each tick the position is open, so it is there unless the market cut
     // the position before its first whole yen
     if (d.cuts === 0) expect(d.financing).toBeGreaterThan(0);
-    expect(d.balance - d.debt).toBe(d.net);
-    expect(START + d.beforeFees - d.financing).toBe(d.net);
+    expect(Math.round(d.balance - d.debt)).toBe(d.net);
+    expect(START + d.beforeFees - d.financing - d.interest).toBe(d.net);
     expect(d.returnPct).toBeCloseTo((d.net / START - 1) * 100);
     expect(d.cutPenalty).toBe(d.cuts * CUT_COST);
-    expect(d.loanPenalty).toBe(d.loans * LOAN_COST);
-    expect(d.caughtPenalty).toBe(d.caught * CAUGHT_COST);
-    expect(d.debt).toBe(d.loans * BORROW);
-    expect(d.score).toBeCloseTo(Math.round((d.returnPct - d.cutPenalty - d.loanPenalty - d.caughtPenalty + d.bonus) * 10) / 10);
+    expect(d.bankruptPenalty).toBe(d.net < 0 ? BANKRUPT_COST : 0);
+    expect(d.score).toBeCloseTo(Math.round((d.returnPct - d.cutPenalty - d.bankruptPenalty + d.bonus) * 10) / 10);
     expect(bell.result.ranking.find((r) => r.you)).toMatchObject({ balance: d.net, score: d.score });
     expect((await c.state(watcher) as unknown as Bell).result.debrief).toBeNull();
     expect(bell.result.ranking.every((r) => !("financing" in r) && !("debrief" in r))).toBe(true);
@@ -51,7 +49,7 @@ it("gives each player a private bell breakdown that reconciles money, fees, loan
   }
 });
 
-it("explains a forced cut and a discovered loan without deducting the loan twice", async () => {
+it("explains a forced cut and emergency credit, with its interest, without deducting the debt twice", async () => {
   const debugKey = "debrief-test-only";
   s = await server(8191, { TICK_MS: "100", COUNTDOWN_TICKS: "1", STATS_KEY: debugKey });
   const c = client(s.base);
@@ -68,10 +66,13 @@ it("explains a forced cut and a discovered loan without deducting the loan twice
     expect((await c.act(me, { kind: "borrow" })).status).toBe(200);
     await c.act(me, { kind: "finish" });
     const d = (await c.state(me) as unknown as Bell).result.debrief!;
-    expect(d).toMatchObject({ cuts: 1, loans: 1, caught: 1, debt: BORROW, cutPenalty: CUT_COST, loanPenalty: LOAN_COST, caughtPenalty: CAUGHT_COST });
-    expect(d.net).toBe(d.balance - BORROW);
-    expect(START + d.beforeFees - d.financing).toBe(d.net);
-    expect(d.score).toBe(Math.round((d.returnPct - CUT_COST - LOAN_COST - CAUGHT_COST) * 10) / 10);
+    expect(d).toMatchObject({ cuts: 1, cutPenalty: CUT_COST });
+    // what is owed is the step and the interest it has run up since, which the breakdown names
+    expect(d.debt).toBeGreaterThanOrEqual(STEP);
+    expect(d.interest).toBe(Math.round(d.debt - STEP));
+    expect(Math.round(d.balance - d.debt)).toBe(d.net);
+    expect(START + d.beforeFees - d.financing - d.interest).toBe(d.net);
+    expect(d.score).toBe(Math.round((d.returnPct - CUT_COST - d.bankruptPenalty) * 10) / 10);
     // The next round has no prior private breakdown, even for a past trader.
     await c.act(me, { kind: "dismiss" });
     await c.act(me, { kind: "start" });

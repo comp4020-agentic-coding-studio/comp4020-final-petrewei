@@ -110,7 +110,7 @@ it("sends the desk's own numbers with every state, so a page keeps no copy", asy
   for (const mode of ["replay", "simulation"] as const) {
     const s = await state(undefined, mode);
     // what the desk itself says: tuning one of these changes this, and nothing else
-    expect(s.desk, mode).toMatchObject({ cap: RULES.cap, fee: RULES.fee, borrow: RULES.borrow });
+    expect(s.desk, mode).toMatchObject({ cap: RULES.cap, fee: RULES.fee, step: RULES.step, limit: RULES.limit, tiers: RULES.tiers });
     expect(s.desk.ticksPerMinute, mode).toBeGreaterThan(0);
     expect(s.leverages, mode).toEqual(LEVERAGES);
     expect(s.desk.distances, mode).toEqual(RULES.distances);

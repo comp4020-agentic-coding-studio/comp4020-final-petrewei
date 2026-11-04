@@ -179,35 +179,35 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "dad",
-    title: "Dad's Savings",
-    text: "Margin call at 50%, forced loss cut at 20%: your round is over. Now you may \"borrow\" from Dad's savings. In the comic that means taking it from the dresser while he is out.",
-    task: "\"Borrow\" from Dad's savings in the pop-up.",
+    title: "Emergency Credit",
+    text: "Margin call at 50%, forced loss cut at 20%: your round is over, unless you borrow. Emergency credit lends ¥100,000 at a time, and charges interest every day on what you owe, more the more you owe.",
+    task: "Draw emergency credit in the pop-up.",
     plan: [
       { target: "level", until: "look", say: "Margin Level hit 20%: the broker cut you." },
-      { target: "borrow", until: "press", say: "\"Borrow\" from Dad's savings." },
+      { target: "borrow", until: "press", say: "Draw emergency credit." },
     ],
-    allow: only("borrow", "\"Borrow\" from Dad's savings in the pop-up first."),
+    allow: only("borrow", "Draw emergency credit in the pop-up first."),
     done: (t) => t.desk.account(ME).debt > 0,
     solve: () => ({ kind: "borrow" }),
   },
   {
     id: "gap",
     title: "A Gap and a Wipe-Out",
-    text: "Same setting, buy again. The price gaps through every stop and loss cut, as the franc did on 15 January 2015. You are wiped out, and Dad finds the money gone. Keep leverage low.",
+    text: "Same setting, buy again. The price gaps through every stop and loss cut, as the franc did on 15 January 2015. You are wiped out and still owe the credit: bankrupt. Keep leverage low.",
     task: "Press Buy again. Leverage and Stake stay as they are.",
     plan: [
       { target: "buy", until: "press", say: "Press Buy again, same setting." },
       { target: "chart", until: "look", say: "The price gapped past every stop." },
-      { target: "equity", until: "look", say: "Bankrupt, and Dad found out." },
+      { target: "equity", until: "look", say: "Bankrupt: you owe more than you have." },
     ],
-    allow: (m, t) => (t.desk.account(ME).caught ? only("next", "Click anywhere to finish.")(m) : order(1, 1000, true)(m)),
+    allow: (m, t) => (t.desk.account(ME).out ? only("next", "Click anywhere to finish.")(m) : order(1, 1000, true)(m)),
     path: [1.001, 0.85, 0.86],
-    // Dad finds out once the trade has been wiped out
+    // once wiped out with the credit still owed, the feed says so (ADR 0080)
     settle: (t) => {
-      if (t.desk.account(ME).out && t.desk.account(ME).debt > 0 && t.desk.account(ME).caught === 0) t.describe(t.desk.discover(ME));
+      if (t.desk.account(ME).out && t.desk.bankrupt(ME) && !t.feed.some((f) => f.key === "you-bankrupt")) t.bankrupt();
     },
-    done: (t) => t.desk.account(ME).caught > 0 && t.nexted,
-    solve: (t) => (t.desk.account(ME).caught ? { kind: "next" } : { kind: "order", side: 1, leverage: 1000, stake: 1 }),
+    done: (t) => t.desk.account(ME).out && t.nexted,
+    solve: (t) => (t.desk.account(ME).out ? { kind: "next" } : { kind: "order", side: 1, leverage: 1000, stake: 1 }),
   },
 ];
 
@@ -384,6 +384,12 @@ export class Tutorial {
     this.desk.join(ME);
   }
 
+  // Wiped out with the credit still owed: bankrupt, said once (ADR 0080).
+  bankrupt(): void {
+    this.feed.unshift({ text: "Bankrupt: you owe more than you have.", kind: "bust", key: "you-bankrupt", args: { pnl: 0, lev: 0, price: quoted(this.desk.price) } });
+    this.feed.splice(10);
+  }
+
   // What just happened, in plain words for a beginner.
   describe(events: Fill[]): void {
     const yen = (n: number): string => `${n < 0 ? "−" : "+"}¥${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
@@ -399,7 +405,6 @@ export class Tutorial {
       else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
       else if (e.kind === "stopout") say(`強制ロスカット: the broker closed you at 20%: ${yen(e.pnl)}. You are out until you borrow.`, "bust", "you-stopout");
       else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${yen(e.pnl)}.`, "bust", "you-zerocut");
-      else if (e.kind === "caught") say("Dad found the money gone from the dresser. You are grounded.", "bust", "you-caught");
     }
   }
 }

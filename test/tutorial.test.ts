@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BORROW, START } from "../src/fx.ts";
+import { STEP, START } from "../src/fx.ts";
 import { LESSONS, Tutorial } from "../src/tutorial.ts";
 
 // The tutorial is one player's private market, run lesson by lesson. Each
@@ -361,10 +361,9 @@ describe("what the tutorial does for a player who waits", () => {
 });
 
 
-// ADR 0057, 0059: the last three lessons set the leverage and stake once, take
-// them through a margin call and a forced cut, let the player "borrow" from
-// Dad's savings, trade again on the same setting into a gap, and have Dad find
-// out.
+// ADR 0057, 0059, 0080: the last three lessons set the leverage and stake once, take them through a margin call and a
+// forced cut, let the player draw emergency credit, and trade again on the same setting into a gap that leaves them
+// bankrupt.
 describe("the last three lessons", () => {
   const at = (id: string): Tutorial => {
     const t = playing();
@@ -395,14 +394,14 @@ describe("the last three lessons", () => {
     expect(t.lesson().id, "the cut ends the first lesson").toBe("dad");
     expect(t.desk.account("me").balance, "about a tenth is left").toBeLessThan(150_000);
   });
-  it("accepts nothing but the \"borrow\" after the cut", () => {
+  it("accepts nothing but drawing credit after the cut", () => {
     const t = at("dad");
     expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toMatch(/pop-up/);
     expect(t.act({ kind: "borrow" })).toBeNull();
-    expect(t.desk.account("me").debt).toBe(BORROW);
+    expect(t.desk.account("me").debt).toBe(STEP);
     expect(t.lesson().id).toBe("gap");
   });
-  it("buys again on the same setting, gaps through everything, and Dad finds out", () => {
+  it("buys again on the same setting, gaps through everything, and leaves the player bankrupt", () => {
     const t = at("gap");
     expect(t.act({ kind: "order", side: 1, leverage: 300, stake: 1 }), "the setting is the same").toMatch(/1000/);
     expect(t.act({ kind: "order", side: 1, leverage: 1000, stake: 1 })).toBeNull();
@@ -410,9 +409,9 @@ describe("the last three lessons", () => {
     while (t.moving()) kinds.push(...t.step().map((e) => e.kind));
     expect(kinds).toContain("zerocut");
     const account = t.desk.account("me");
-    expect(account.caught).toBe(1);
     expect(account.out).toBe(true);
-    expect(t.feed.some((f) => f.key === "you-caught")).toBe(true);
+    expect(t.desk.bankrupt("me"), "wiped out, still owing the credit").toBe(true);
+    expect(t.feed.some((f) => f.key === "you-bankrupt")).toBe(true);
     expect(t.finished(), "the lesson ends on the player's click, after they have seen it").toBe(false);
     expect(t.act({ kind: "next" })).toBeNull();
     expect(t.finished()).toBe(true);

@@ -53,16 +53,16 @@ export const LESSONS = {
       steps: ["レバレッジを最大の1000倍に。", "投入額を100%に。", "「買い」を押して、見ていてください。"],
     },
     dad: {
-      title: "パパの貯金",
-      text: "追証は50%、強制ロスカットは20%で、このラウンドは退場です。ここでパパの貯金を「借り」られます。漫画では、パパの留守にタンスから持ち出すことです。",
-      task: "ポップアップでパパの貯金を「借り」てください。",
-      steps: ["維持率が20%に。ブローカーに切られました。", "パパの貯金を「借り」ます。"],
+      title: "緊急クレジット",
+      text: "追証は50%、強制ロスカットは20%で、借りなければこのラウンドは退場です。緊急クレジットは¥10万ずつ貸し、借りている額に毎日利息がつきます。借りるほど利率は上がります。",
+      task: "ポップアップで緊急クレジットを借りてください。",
+      steps: ["維持率が20%に。ブローカーに切られました。", "緊急クレジットを借ります。"],
     },
     gap: {
       title: "窓が開いて破産",
-      text: "同じ設定でもう一度買います。2015年1月15日のスイスフランのように、価格が窓を開け、すべての逆指値とロスカットを飛び越えます。破産し、パパにバレます。レバレッジは低く。",
+      text: "同じ設定でもう一度買います。2015年1月15日のスイスフランのように、価格が窓を開け、すべての逆指値とロスカットを飛び越えます。資金はゼロ、クレジットの借金だけが残り、破産です。レバレッジは低く。",
       task: "もう一度「買い」を押してください。レバレッジと投入額はそのままです。",
-      steps: ["同じ設定で、もう一度「買い」を押します。", "価格がすべての逆指値を飛び越えました。", "破産して、パパにバレました。"],
+      steps: ["同じ設定で、もう一度「買い」を押します。", "価格がすべての逆指値を飛び越えました。", "破産：持っているより多く借りています。"],
     },
   },
   zh: {
@@ -115,16 +115,16 @@ export const LESSONS = {
       steps: ["把杠杆滑到最高的1000倍。", "把投入设为100%。", "按“买入”，然后看着。"],
     },
     dad: {
-      title: "老爹的存款",
-      text: "追保在50%，强平在20%，本局到此为止。这时你可以“借”老爹的存款。在漫画里，那就是趁老爹不在，从家里的柜子里拿钱。",
-      task: "在弹窗里“借”老爹的存款。",
-      steps: ["保证金比例到了20%，被平台强平。", "“借”老爹的存款。"],
+      title: "应急信贷",
+      text: "追保在50%，强平在20%，不借钱本局就到此为止。应急信贷每次借¥10万，按欠款每天计息，欠得越多利率越高。",
+      task: "在弹窗里借应急信贷。",
+      steps: ["保证金比例到了20%，被平台强平。", "借应急信贷。"],
     },
     gap: {
       title: "跳空与破产",
-      text: "同样的设置，再买一次。就像2015年1月15日的瑞士法郎，价格跳空越过所有止损和强平。你破产了，老爹也发现了。杠杆要低。",
+      text: "同样的设置，再买一次。就像2015年1月15日的瑞士法郎，价格跳空越过所有止损和强平。你的本金清零，只剩信贷欠款：破产了。杠杆要低。",
       task: "再按一次“买入”。杠杆和投入保持不变。",
-      steps: ["同样的设置，再按一次“买入”。", "价格跳空越过了所有止损。", "破产了，老爹发现了。"],
+      steps: ["同样的设置，再按一次“买入”。", "价格跳空越过了所有止损。", "破产：你欠的比你有的还多。"],
     },
   },
 };
@@ -274,7 +274,7 @@ export const CLUES = {
 
 // What each house trader says, in character, at the moments a pop marks
 // (ADR 0031): a big bet, doubling down, a win or a loss banked, a margin
-// call, a forced cut, a wipe-out, a loan from Dad, a prayer. Original
+// call, a forced cut, a wipe-out, drawing emergency credit, a prayer. Original
 // lines in each character's voice, in each language's own; never the
 // comic's words, and never the family's grief.
 export const LINES = {
@@ -287,7 +287,7 @@ export const LINES = {
       call: ["A margin call is just a suggestion, right?", "Wait, wait, wait…"],
       stopout: ["No, no, it was about to turn!", "That broker hates me."],
       zerocut: ["…Did I just lose everything?", "Okay. Okay. New plan."],
-      borrow: ["Just until it turns, Dad. Promise!", "I'll pay it back double!"],
+      borrow: ["Just until it turns. Promise!", "I'll pay it back double!"],
       pray: ["Chart-sama, please, just once!", "Go up go up go up…"],
     },
     "bot:mochiko": {
@@ -320,7 +320,7 @@ export const LINES = {
       call: ["Huh? A call? Can it wait?", "I was asleep…"],
       stopout: ["The interest wasn't worth that.", "I'll get a part-time job. Maybe."],
       zerocut: ["I'll think about it tomorrow.", "So much for not working."],
-      borrow: ["Just a little more, Dad.", "I'll pay you back in interest."],
+      borrow: ["Just a little more credit.", "The interest is a rounding error."],
       pray: ["Please let the swap cover it.", "Zzz… go up… zzz…"],
     },
     "bot:inago": {
@@ -353,7 +353,7 @@ export const LINES = {
       call: ["…Okay, that one stings.", "Not part of the plan."],
       stopout: ["Freedom costs more than I thought.", "Back to the office on Monday…"],
       zerocut: ["…There goes the beach house.", "Maybe a million first."],
-      borrow: ["Invest in me, Dad. Big returns!", "Seed money for a billion!"],
+      borrow: ["Credit is just leverage on leverage!", "Seed money for a billion!"],
       pray: ["One big win. Just one.", "Make me free!"],
     },
   },
@@ -366,7 +366,7 @@ export const LINES = {
       call: ["追証ってただのお知らせだよね？", "待って待って待って…"],
       stopout: ["やだ、今から上がるとこだったのに！", "このブローカー、私のこと嫌いでしょ"],
       zerocut: ["…え、全部なくなった？", "よし、よし、次の作戦…"],
-      borrow: ["パパ、戻るまでだから！約束！", "倍にして返すから！"],
+      borrow: ["戻るまでだから！約束！", "倍にして返すから！"],
       pray: ["チャート様、お願い、一回だけ！", "上がれ上がれ上がれ…"],
     },
     "bot:mochiko": {
@@ -399,7 +399,7 @@ export const LINES = {
       call: ["え、追証？あとでいい？", "寝てた…"],
       stopout: ["スワップじゃ割に合わなかった。", "バイトでもしようかな。たぶん。"],
       zerocut: ["明日考える。", "働かない作戦、失敗。"],
-      borrow: ["パパ、あとちょっとだけ。", "スワップで返すから。"],
+      borrow: ["あとちょっとだけ借りる。", "利息なんて誤差だよ。"],
       pray: ["スワップで埋まりますように。", "Zzz…上がって…Zzz…"],
     },
     "bot:inago": {
@@ -432,7 +432,7 @@ export const LINES = {
       call: ["…これは痛い。", "計画にない。"],
       stopout: ["自由って思ったより高い。", "月曜はまた出社か…"],
       zerocut: ["…海辺の家が遠のいた。", "まずは百万から…"],
-      borrow: ["パパ、私に投資して。大きく返すから！", "億への種銭！"],
+      borrow: ["借金もレバレッジのうち！", "億への種銭！"],
       pray: ["一発だけ。一発だけでいい。", "私を自由にして！"],
     },
   },
@@ -445,7 +445,7 @@ export const LINES = {
       call: ["追保只是个提醒，对吧？", "等等等等…"],
       stopout: ["不要！马上就要反弹了！", "这平台肯定讨厌我。"],
       zerocut: ["…我是不是全亏光了？", "好，好，换个计划…"],
-      borrow: ["老爹，就借到行情回来！保证！", "我翻倍还你！"],
+      borrow: ["就借到行情回来！保证！", "我翻倍还你！"],
       pray: ["K线大人，求你了，就一次！", "涨涨涨涨…"],
     },
     "bot:mochiko": {
@@ -478,7 +478,7 @@ export const LINES = {
       call: ["啊？追保？能等会儿吗？", "我刚在睡觉…"],
       stopout: ["这点利息不值啊。", "要不去打个工吧。也许。"],
       zerocut: ["明天再想吧。", "躺平计划失败。"],
-      borrow: ["老爹，再借一点点。", "我用利息还你。"],
+      borrow: ["再借一点点。", "利息就是个零头。"],
       pray: ["希望利息能填上。", "呼…涨吧…呼…"],
     },
     "bot:inago": {
@@ -511,7 +511,7 @@ export const LINES = {
       call: ["…这下疼了。", "不在计划里。"],
       stopout: ["自由比想象的贵。", "周一又得去上班了…"],
       zerocut: ["…海边别墅泡汤了。", "先赚一百万吧…"],
-      borrow: ["老爹，投资我吧，回报大大的！", "一亿的本金！"],
+      borrow: ["借钱也是杠杆的一种！", "一亿的本金！"],
       pray: ["来一把大的，就一把。", "让我自由吧！"],
     },
   },

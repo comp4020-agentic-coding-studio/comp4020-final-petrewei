@@ -1,25 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { CUT_COST, LOAN_COST, MIN_ROUNDS, hall, score } from "../src/score.ts";
+import { BANKRUPT_COST, CUT_COST, MIN_ROUNDS, hall, score } from "../src/score.ts";
 
-// ADR 0029: a fairer score. A round is scored by its percentage result,
-// less a cost for each forced losscut and each loan from Dad, so a lucky
+// ADR 0029, 0080: a fairer score. A round is scored by its percentage result,
+// less a cost for each forced losscut and for ending bankrupt, so a lucky
 // all-in can't beat steady play on money alone; the hall ranks by average
 // score over at least three rounds, so one big round can't top it.
 describe("a round's score", () => {
   it("is the percentage result when nothing went wrong", () => {
-    expect(score({ start: 1_000_000, net: 1_100_000, cuts: 0, loans: 0 })).toBeCloseTo(10);
-    expect(score({ start: 1_000_000, net: 950_000, cuts: 0, loans: 0 })).toBeCloseTo(-5);
+    expect(score({ start: 1_000_000, net: 1_100_000, cuts: 0 })).toBeCloseTo(10);
+    expect(score({ start: 1_000_000, net: 950_000, cuts: 0 })).toBeCloseTo(-5);
   });
 
-  it("costs points for each forced cut and each loan, on top of the money", () => {
-    const clean = score({ start: 1_000_000, net: 500_000, cuts: 0, loans: 0 });
-    expect(score({ start: 1_000_000, net: 500_000, cuts: 1, loans: 0 })).toBeCloseTo(clean - CUT_COST);
-    expect(score({ start: 1_000_000, net: 500_000, cuts: 2, loans: 1 })).toBeCloseTo(clean - 2 * CUT_COST - LOAN_COST);
+  it("costs points for each forced cut, on top of the money", () => {
+    const clean = score({ start: 1_000_000, net: 500_000, cuts: 0 });
+    expect(score({ start: 1_000_000, net: 500_000, cuts: 1 })).toBeCloseTo(clean - CUT_COST);
+    expect(score({ start: 1_000_000, net: 500_000, cuts: 2 })).toBeCloseTo(clean - 2 * CUT_COST);
   });
 
   it("ranks a careful loss above the same loss taken by a forced cut", () => {
-    const own = score({ start: 1_000_000, net: 500_000, cuts: 0, loans: 0 });
-    const forced = score({ start: 1_000_000, net: 500_000, cuts: 1, loans: 0 });
+    const own = score({ start: 1_000_000, net: 500_000, cuts: 0 });
+    const forced = score({ start: 1_000_000, net: 500_000, cuts: 1 });
     expect(own).toBeGreaterThan(forced);
   });
 });
@@ -61,10 +61,11 @@ describe("naming the year", () => {
   });
 });
 
-// ADR 0057: Dad's punishment is in the score, for each loan he found out.
-import { CAUGHT_COST, score as scored } from "../src/score.ts";
-it("docks a score for each loan Dad found out about, on top of the loans", () => {
-  const base = { start: 1_000_000, net: 1_000_000, cuts: 0, loans: 2 };
-  expect(scored({ ...base, caught: 2 })).toBe(scored(base) - 2 * CAUGHT_COST);
-  expect(scored({ ...base, caught: 0 })).toBe(scored(base));
+// ADR 0080: ending a round owing more than you have is bankruptcy, which costs heavily on top of the money; owing
+// less than you have costs nothing of its own, since the interest is already in the money.
+it("docks a heavy cost for ending bankrupt, and none at nothing or above", () => {
+  const base = { start: 1_000_000, cuts: 0 };
+  expect(score({ ...base, net: -1 })).toBeCloseTo(-100 - BANKRUPT_COST, 3);
+  expect(score({ ...base, net: 0 })).toBeCloseTo(-100);
+  expect(BANKRUPT_COST, "worse than any forced cut").toBeGreaterThan(CUT_COST);
 });

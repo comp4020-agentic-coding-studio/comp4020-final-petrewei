@@ -64,7 +64,10 @@ function translate() {
   if (ladder.length) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = $("n-lang").value = lang;
-  $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.borrow) }));
+  $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
+  // the row's button is the step alone, signed, to keep the row on one line; its name and tip say it borrows
+  $("credit-borrow").textContent = `+${money(lang, broker.step)}`;
+  $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   if (state?.lesson) lesson(state);
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
@@ -78,7 +81,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -102,7 +105,7 @@ function connection(status) {
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
 // Loans Dad has found out about, as last seen; null before the first state.
-let caught = null;
+let bankrupt = null;
 // The last pop shown, by number; the first message's pops are old news.
 let popped = null;
 let lastPrice = null;
@@ -157,7 +160,7 @@ let seated = false;
 // The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
 // amount Dad's savings offer, so the page keeps no copy of them.
 let ladder = [];
-let broker = { cap: 1, fee: 0, borrow: 0, ticksPerMinute: 120, distances: [1] };
+let broker = { cap: 1, fee: 0, step: 0, limit: 0, tiers: [[null, 0]], ticksPerMinute: 120, distances: [1] };
 // A scale's marks, each at its place on the track, with the joke it carries on hover.
 function ticks(id, marks) {
   $(id).replaceChildren(
@@ -375,7 +378,13 @@ for (const [id, way, emoji] of [["pray-rise", 1, "ðŸš€"], ["pray-fall", -1, "ðŸ“
     act("pray", { way });
   };
 }
-// "Borrow" is taken from a pop-up, which closes once it is (ADR 0057).
+// The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
+const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];
+const ratePct = (r) => `${+(r * 100).toFixed(2)}%`;
+// Emergency credit is drawn from its row any time, or from a pop-up once a player is cut out or broke, which closes
+// once it is (ADR 0080).
+$("credit-borrow").onclick = () => act("borrow");
+$("credit-repay").onclick = () => act("repay");
 $("borrow").onclick = () => {
   act("borrow");
   dadAsked = true;
@@ -1597,17 +1606,23 @@ function render(s) {
   }
   // the call and the cut can sit close together; then the cut's words drop a line, so the two never run into each other
   $("mark-cut").classList.toggle("low", Math.abs((places["mark-call"] ?? 1) - (places["mark-cut"] ?? 0)) < 0.22);
-  // Dad's savings are offered in a pop-up, to a player under a margin call
-  // or out of money, while the round trades (the tutorial, whenever the price
-  // stands still), in every mode (ADR 0057).
-  const lending = tutorial ? s.phase === "waiting" : s.phase === "trade";
-  const offer = (y.broke || y.called) && y.loansLeft > 0 && !y.caught && lending && !s.paused;
+  // Emergency credit (ADR 0080): its row says what is owed and at what daily rate, the rate the next step would cost
+  // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
+  // whenever the price stands still).
+  // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
+  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade";
+  $("credit-owe").textContent = y.debt ? t("creditOwe", { debt: yen(y.debt) }) : t("creditFree");
+  $("credit-owe").classList.toggle("owing", y.debt > 0);
+  $("credit-rate").textContent = t("creditRate", { rate: ratePct(creditRate(y.debt || broker.step)) });
+  $("credit-borrow").disabled = !lending || !!s.paused || y.credit <= 0;
+  $("credit-repay").disabled = !lending || !!s.paused || !y.debt;
+  const offer = y.broke && y.credit > 0 && lending && !s.paused;
   $("borrow").hidden = !offer;
   if (!offer) {
     dadAsked = false;
     if ($("dad").open) $("dad").close();
   } else if (!dadAsked && !$("dad").open && !document.querySelector("dialog[open]:not(#dad)")) {
-    $("dad-text").textContent = t("dadText", { amount: yen(broker.borrow) });
+    $("dad-text").textContent = t("dadText", { amount: yen(broker.step), rate: ratePct(creditRate(y.debt + broker.step)) });
     $("dad").show();
   }
   warn(s, open);
@@ -1635,7 +1650,7 @@ function render(s) {
     }
     paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
   } else {
-    $("position").textContent = t(y.broke && y.loansLeft > 0 && !y.caught ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+    $("position").textContent = t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
   const waiting = y.pending;
@@ -1674,15 +1689,15 @@ function render(s) {
     setTimeout(() => ($("losscut").hidden = true), 2200);
   }
   cuts = y.cuts;
-  // Dad finds out: the same stamp, for being found out (ADR 0057).
-  if (caught !== null && y.caught > caught) {
-    $("losscut-sub").textContent = t("caughtText");
-    $("losscut-big").textContent = t("caughtBig");
+  // Bankrupt, owing more than you have: the same stamp, once each time it begins (ADR 0080).
+  if (bankrupt === false && y.bankrupt) {
+    $("losscut-sub").textContent = t("bankruptText");
+    $("losscut-big").textContent = t("bankruptBig");
     $("losscut-big").lang = lang === "zh" ? "zh-CN" : lang;
     $("losscut").hidden = false;
     setTimeout(() => ($("losscut").hidden = true), 3200);
   }
-  caught = y.caught;
+  bankrupt = y.bankrupt;
 
   const humans = s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
@@ -1791,12 +1806,12 @@ function render(s) {
         [t("startingFunds"), yen(s.start)],
         [t("resultBeforeFees"), yen(d.beforeFees)],
         [t("financingPaid"), yen(-d.financing)],
+        ...(d.interest ? [[t("interestPaid"), yen(-d.interest)]] : []),
         [t("netWorth"), yen(d.net)],
         [t("loansOwed"), yen(d.debt)],
         [t("returnPoints"), pts(d.returnPct)],
         ...(d.cuts ? [[t("cutPenalty", { n: d.cuts }), pts(-d.cutPenalty)]] : []),
-        ...(d.loans ? [[t("loanPenalty", { n: d.loans }), pts(-d.loanPenalty)]] : []),
-        ...(d.caught ? [[t("caughtPenalty", { n: d.caught }), pts(-d.caughtPenalty)]] : []),
+        ...(d.bankruptPenalty ? [[t("bankruptPenalty"), pts(-d.bankruptPenalty)]] : []),
         ...(d.bonus ? [[t("yearBonus"), pts(d.bonus)]] : []),
         [t("finalScore"), pts(d.score)],
       ];
@@ -1854,7 +1869,7 @@ function watch(next) {
   clearPointer();
   shown = null;
   cuts = null;
-  caught = null;
+  bankrupt = null;
   popped = null;
   dadAsked = false;
   $("error").textContent = "";

@@ -158,6 +158,16 @@
           </div>
           <button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button>
         </div>
+        <!-- Emergency credit (ADR 0080): what is owed and its daily rate, borrowed or repaid a step at a time; the server
+             sets the amounts. -->
+        <div class="credit" id="credit" data-tip="credit">
+          <span class="credit-name" data-t="creditTitle">Credit</span>
+          <span class="credit-owe" id="credit-owe"></span>
+          <span class="credit-rate" id="credit-rate"></span>
+          <button type="button" class="mini credit-go" id="credit-borrow" data-tip="borrow"></button>
+          <button type="button" class="mini credit-go" id="credit-repay" data-t="repay" data-tip="repay">Repay</button>
+          <button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button>
+        </div>
       </div>
     </section>
     <!-- After the bell, trading is over: the result takes the order
@@ -368,7 +378,7 @@
   <!-- Dad's savings (ADR 0057): a pop-up after a margin call or a cut, not a
        button in a panel. Not modal, so the position can still be closed. -->
   <dialog id="dad" class="dad" aria-labelledby="dad-title">
-    <h2 id="dad-title" data-t="dadTitle">Dad's Savings</h2>
+    <h2 id="dad-title" data-t="dadTitle">Emergency Credit</h2>
     <p id="dad-text"></p>
     <div class="row">
       <button id="borrow" class="borrow" type="button" data-tip="borrow"></button>
