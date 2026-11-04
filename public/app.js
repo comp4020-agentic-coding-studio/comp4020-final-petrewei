@@ -1020,14 +1020,20 @@ function draw(full) {
   const down = css.getPropertyValue("--down");
   ctx.fillStyle = css.getPropertyValue("--muted");
   ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
-  // one line a day (48 ticks), not one a handful of candles, so a day reads as a day
+  // One line a day, found by the tick's own count from the bell and not by its place on screen, so the lines
+  // stay on the day breaks as the window slides; the tutorial has no days and keeps a line every 5 candles.
+  // Each played day is named "D1".."D5" at its line, and the days of history before the bell have no name.
   const dayStep = s.dayTicks ?? 5 * k;
-  for (let d = 0; d <= s.total; d += dayStep) {
-    const xd = x(d);
+  const first = s.tick - (prices.length - 1);
+  for (let i = 0; i < prices.length; i++) {
+    const at = first + i;
+    if (at % dayStep !== 0) continue;
+    const xd = x(i);
     ctx.beginPath();
     ctx.moveTo(xd, 0);
     ctx.lineTo(xd, h + pane);
     ctx.stroke();
+    if (s.dayTicks && at >= 0 && xd < w - 110) ctx.fillText(`D${at / dayStep + 1}`, xd + 4, h - 6);
   }
   // A day's indicator sits at its candle's centre; today's at the price.
   const dayX = (d) => x(Math.min(d * k + k / 2, prices.length - 1));
