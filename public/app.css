@@ -205,11 +205,27 @@ button[data-tip], button[data-tip-text], a[data-tip], input[data-tip], label[dat
 /* The language switch: three short labels, the chosen one filled. */
 
 
-/* The terminal: chart and ticket on top, your position beneath the chart. */
-/* Two columns that stack on their own, so neither waits on the other's
-   height: the market on the left, the ticket and the room on the right. */
-main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
-.col, .screen { display: grid; gap: 0.75rem; min-width: 0; }
+/* The terminal (ADR 0078): one grid. The chart and the Account / Order panel on top; the positions across the width;
+   the feed beside the room at one height; the hall of fame across the width below. */
+main { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "chart desk" "position position" "feed room" "fame fame"; align-items: start; }
+.chart-panel { grid-area: chart; }
+.desk { grid-area: desk; }
+.positions { grid-area: position; }
+.feed { grid-area: feed; }
+.room { grid-area: room; }
+.fame { grid-area: fame; }
+/* the feed and the room share their row's height, the taller setting it, and each scrolls within */
+.feed, .room { align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+.feed > ul, .room > ol { flex: 1; min-height: 0; overflow-y: auto; }
+/* The Account / Order panel holds the account, then the order, or the bell in the order's place: sections of one
+   panel, without boxes or headings of their own, so it reads as one. */
+.desk-body > .panel { border: none; border-radius: 0; background: none; box-shadow: none; }
+.desk-body > .panel > h2 { display: none; }
+.desk-body > .account { border-bottom: 1px solid var(--line); }
+.desk:has(.bell:not([hidden])) { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
+/* a fold this browser remembers on a section the panel holds does not apply: there is no heading to unfold it */
+body:not(.tutorial) .desk-body > .panel.folded > :not(h2) { display: revert; }
+body:not(.tutorial) .desk-body > .account.folded > .account-body, body:not(.tutorial) .desk-body > .ticket.folded > .ticket-body { display: grid; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
 .panel h2 { margin: 0; padding: 0.6rem 0.9rem; font-size: 0.9rem; font-weight: 700; color: var(--soft); border-bottom: 1px solid var(--line); display: flex; align-items: baseline; }
 /* A heading is its icon and label on the left, and an optional note or
@@ -374,10 +390,33 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
    the take profit's from the middle to its thumb. Each is grey while its own
    toggle is off, and still shows its percentage. */
 .exits { display: grid; gap: 0.2rem; }
-.exit-heads { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.5rem; }
-.exit-heads .sl { justify-self: start; }
-.exit-heads .tp { justify-self: end; }
-.exit-heads .pct { font: 700 0.82rem var(--mono); }
+/* The exits on one row (ADR 0078): the stop loss's switch at the track's left end, the take profit's at its right, each
+   with its short name and distance, so the toggles take no row of their own; the scale sits under the track. */
+.exit-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.4rem; }
+.exit-row .pct { font: 700 0.82rem var(--mono); }
+.exit-row .toggle .name { font-size: 0.78rem; }
+.exit-scale { display: grid; gap: 0.1rem; min-width: 0; }
+/* A pending order (ADR 0078): a row that opens to choose a side, a way and a distance, naming the order it makes and
+   the level it would wait at; while one waits, its summary says so, with a Cancel. */
+.pend { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.pend > summary { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--soft); list-style: none; }
+.pend > summary::-webkit-details-marker { display: none; }
+.pend > summary::before { content: ""; width: 0.4rem; height: 0.4rem; border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(-45deg); transition: transform 0.15s; margin-right: 0.15rem; }
+.pend[open] > summary::before { transform: rotate(45deg); }
+.pend-waiting { margin-left: auto; font: 600 0.78rem var(--mono); color: var(--call); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pend-body { display: grid; grid-template-columns: max-content max-content 1fr; align-items: center; gap: 0.45rem 0.4rem; padding-top: 0.5rem; font-size: 0.82rem; color: var(--soft); }
+#pend-pct { justify-self: end; }
+.pend-what { grid-column: 1 / 3; }
+.seg { display: inline-flex; width: max-content; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg [role=radio] { padding: 0.25rem 0.55rem; white-space: nowrap; border: none; border-radius: 0; background: none; color: var(--soft); font-size: 0.8rem; font-weight: 700; }
+.seg [role=radio] + [role=radio] { border-left: 1px solid var(--line); }
+.seg [role=radio][aria-checked="true"] { background: var(--raise); color: var(--ink); }
+#pend-side [aria-checked="true"][data-side="1"] { color: var(--up); }
+#pend-side [aria-checked="true"][data-side="-1"] { color: var(--down); }
+#pend-pct { height: 1.9rem; padding: 0 0.3rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
+.pend-what { min-width: 0; margin: 0; font: 600 0.78rem var(--mono); color: var(--ink); }
+.pend-go { display: flex; gap: 0.4rem; justify-self: end; }
+.pend-go .ghost { height: 1.9rem; padding: 0 0.8rem; font-size: 0.82rem; }
 /* The stake's track is the whole account (ADR 0077): a bar from nothing to all of it, the margin already in use shaded
    at its left, then what this order would add in the stake's heat; the slider lies over its 25% to 100%, so the thumb
    and the marks stand on the shares they mean. Its own track is clear so the bar shows through. */
@@ -731,15 +770,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* One column on a narrow screen: the columns dissolve and the panels
    take the order a phone needs, the ticket right under the chart. */
 @media (max-width: 900px) {
-  main { grid-template-columns: minmax(0, 1fr); }
-  .col, .screen { display: contents; }
-  .chart-panel { order: 1; }
-  .ticket, .bell { order: 2; }
-  .account { order: 2; }
-  .positions { order: 3; }
-  .room { order: 4; }
-  .feed { order: 5; }
-  .fame { order: 6; }
+  main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chart" "desk" "position" "room" "feed" "fame"; }
   /* One column: the words take what is left, the task and buttons a
      fixed row at the bottom. */
     .top { grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; }
@@ -862,40 +893,30 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .slide .label #fee-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .slide .label output { flex: none; }
 
-/* The first screen (ADR 0076). A .screen holds the panels a trader needs at once: on the left the chart with the
-   position under it; on the right the order ticket and the account as one card, or the bell and the account after a
-   round. Below 900px it dissolves with the columns, so the panels keep the phone's order. On a desktop the left is the
-   window's height under the header, the chart growing into what the position leaves, and the card on the right keeps
-   to that height too, scrolling within itself if a short window cannot hold it; the feed, the hall of fame and the
-   room follow below. Text keeps its size: the room comes from the layout and the spacing, never from smaller type. */
+/* The first screen (ADR 0076, 0078). On a desktop the chart and the Account / Order panel are the window's height
+   under the header, side by side: the chart fills its panel, and the Account / Order panel is as tall, scrolling within
+   itself only if a short window cannot hold it. The positions, the feed and the room, and the hall of fame follow below
+   the fold. Text keeps its size: the room comes from the layout and the spacing, never from smaller type. */
 @media (min-width: 1100px) and (min-height: 600px) {
   /* --head is the header's height, which the page measures (65px until it has); --pad is main's own top padding and
-     the gap under the screen; --tall is what the screen may fill: the window, less both */
-  main { --pad: 0.75rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; }
-  .main-col .screen { height: var(--tall); grid-template-rows: minmax(0, 1fr) auto; gap: var(--pad); }
-  .main-col .screen .chart-panel { display: flex; flex-direction: column; min-height: 0; }
+     the gap under the screen; --tall is what the first row fills: the window, less both */
+  main { --pad: 0.75rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; grid-template-rows: var(--tall); }
+  .chart-panel, .desk { height: var(--tall); min-height: 0; }
+  .chart-panel { display: flex; flex-direction: column; }
   /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
   .chart-panel > .chart-box { flex: 1; min-height: 0; }
   .chart-panel canvas { position: absolute; inset: 0; height: 100%; }
-  /* The card: the right column's screen is itself the panel's box, so its edge and corners stay put when it scrolls;
-     the ticket, or the bell, and the account inside are flat, with a line between them. */
-  .side-col .screen { gap: 0; align-content: start; max-height: var(--tall); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-  .side-col .screen > .panel { border: none; border-radius: 0; box-shadow: none; }
-  .side-col .screen > .account { border-top: 1px solid var(--line); }
-  .side-col .screen:has(> .bell:not([hidden])) { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
-  /* inside the card the account's heading is a divider with its name, so it is slimmer than a card's own head */
-  /* inside the card the account needs no title: its figures name themselves, and the line above it divides the two */
-  .side-col .screen > .account > h2 { display: none; }
-  /* with no heading it cannot be unfolded, so a fold this browser remembers from a narrower window does not apply */
-  .side-col .screen > .account.folded > :not(h2) { display: revert; }
-  .side-col .screen > .account.folded > .account-body { display: grid; }
-  /* spacing the narrower column needed and this one does not: tighter gaps, and two lines of preview, which fit
-     unwrapped at this width */
+  /* the heading stays; what is under it scrolls in place if a short window cannot hold it */
+  .desk { display: flex; flex-direction: column; }
+  .desk-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  /* the feed and the room take a screen's height between them, so a long feed scrolls in place */
+  .feed, .room { max-height: calc(var(--tall) * 0.7); }
+  /* spacing the narrower column needed and this one does not */
   .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
   .field { gap: 0.25rem; }
-  /* a refusal stands in for the preview while it shows, rather than adding a line to the card */
+  /* a refusal stands in for the preview while it shows, rather than adding a line to the panel */
   .ticket-body:has(#error:not(:empty)) #preview { display: none; }
-  .account-body { gap: 0.45rem; padding: 0.5rem 0.9rem 0.6rem; }
+  .account-body { gap: 0.45rem; padding: 0.6rem 0.9rem 0.7rem; }
   .meter { margin-bottom: 0.95rem; }
   /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing and
      slimmer headings. Sell's and Buy's notes stay at every size: they say which way each one wins. */

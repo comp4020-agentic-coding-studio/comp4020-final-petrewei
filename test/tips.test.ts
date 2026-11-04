@@ -81,8 +81,9 @@ it("gives the stop loss and the take profit a toggle each, one on the left and o
   expect(exits).not.toBeNull();
   // stop loss first in the page, so on the left; take profit after, on the right
   expect([...exits.querySelectorAll("[role=switch]")].map((s) => s.id)).toEqual(["sl-on", "tp-on"]);
-  expect(appCss).toMatch(/\.exit-heads \.sl \{[^}]*justify-self: start/);
-  expect(appCss).toMatch(/\.exit-heads \.tp \{[^}]*justify-self: end/);
+  // on one row (ADR 0078): the stop loss's switch, the one track, the take profit's switch, in that order
+  const row = [...exits.querySelector(".exit-row")!.children].map((c) => c.id || c.className.split(" ")[0]);
+  expect(row.slice(0, 3)).toEqual(["sl-on", "exit-scale", "tp-on"]);
   // one track, both thumbs on it, never hidden by a toggle
   expect(exits.querySelectorAll(".exit-track")).toHaveLength(1);
   const thumbs = [...exits.querySelectorAll(".exit-track input[type=range]")] as HTMLInputElement[];
@@ -94,16 +95,20 @@ it("gives the stop loss and the take profit a toggle each, one on the left and o
   expect(exits.querySelector("#sl-out, #tp-out")).toBeNull();
 });
 
-it("never abbreviates stop loss or take profit in any language", () => {
+// Peter's choice (ADR 0078): the switches beside the exits' track are labelled SL and TP, the one place an abbreviation
+// stands, so the track keeps room to read; everywhere else, and as each switch's own name, the words are whole.
+it("abbreviates stop loss and take profit only on the switches beside their track, never in a tip or a sentence", () => {
   const abbrev = /\b(SL|TP)\b|S\/L|T\/P/;
+  const short = new Set(["slShort", "tpShort"]);
   for (const lang of LANGS) {
     for (const part of ["ui", "tips"] as const) {
       for (const [k, v] of Object.entries(T[lang][part] as Record<string, unknown>)) {
-        if (typeof v === "string") expect(v, `${lang}.${part}.${k}`).not.toMatch(abbrev);
+        if (typeof v === "string" && !short.has(k)) expect(v, `${lang}.${part}.${k}`).not.toMatch(abbrev);
       }
     }
   }
-  const html = page.body.textContent ?? "";
+  for (const id of ["sl-on", "tp-on", "psl-on", "ptp-on"]) expect(page.getElementById(id)!.getAttribute("aria-label"), id).toMatch(/Stop Loss|Take Profit/);
+  const html = [...page.body.querySelectorAll("*")].filter((e) => !e.closest(".exit-row .toggle")).map((e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("")).join(" ");
   expect(html).not.toMatch(abbrev);
   expect(readFileSync("src/tutorial.ts", "utf8")).not.toMatch(abbrev);
   // the tutorial's lessons and its refusals, in every language
@@ -437,13 +442,15 @@ describe("the ticket, the account and Dad's pop-up", () => {
 
   // ADR 0076: the account joins the ticket as one card on the first screen, the order over what it does to the whole
   // account; it stays a section of its own, so the bell can take the ticket's place and leave the account in view.
-  it("joins the account to the ticket on the first screen, as a section the bell leaves in view", () => {
+  it("puts the account over the order in one panel, a section the bell leaves in view", () => {
     const panel = doc.querySelector('.panel[data-fold="account"]')!;
     for (const id of ["equity", "level", "meter"]) expect(panel.querySelector("#" + id), id).not.toBeNull();
     expect(doc.querySelector(".ticket #equity"), "the figures are the account's, not the ticket's").toBeNull();
-    const screen = doc.querySelector(".side-col .screen")!;
-    expect([...screen.children].map((c) => c.classList.contains("bell") ? "bell" : c.classList.contains("ticket") ? "ticket" : c.classList.contains("account") ? "account" : "other")).toEqual(["bell", "ticket", "account"]);
-    expect(doc.querySelector(".main-col .screen .positions"), "the position is under the chart").not.toBeNull();
+    // ADR 0078: one Account / Order panel, the account on top, then the bell in the order's place, then the order
+    const desk = doc.querySelector(".desk")!;
+    expect([...desk.querySelectorAll(":scope > .desk-body > section")].map((c) => c.classList.contains("bell") ? "bell" : c.classList.contains("ticket") ? "ticket" : c.classList.contains("account") ? "account" : "other")).toEqual(["account", "bell", "ticket"]);
+    const order = [...doc.querySelector("main")!.children].map((c) => c.classList[1]);
+    expect(order.indexOf("positions"), "the position comes after the chart and the panel").toBeGreaterThan(order.indexOf("desk"));
   });
 
   it("writes a different note for every rung, naming Australia's cap at 30×, in every language", async () => {

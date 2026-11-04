@@ -17,10 +17,10 @@
 
   <p id="connection" class="connection" role="status" data-t="connectionConnecting" hidden>Connecting…</p>
   <main>
-    <div class="col main-col">
-    <!-- The first screen (ADR 0076): on a desktop the chart and the position, beside the ticket and the account,
-         fill the window under the header together; what follows is below the fold. -->
-    <div class="screen">
+    <!-- One grid (ADR 0078). The first screen: the chart, and beside it one Account / Order panel as tall as it, the
+         account on top, then the order, or the bell's result in the order's place once a round has ended. Under them,
+         the full width: the positions, then the feed beside the room, at one height, then the hall of fame. On a phone
+         the panels stack in the order a phone needs. -->
     <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
       <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
       <div class="chart-box">
@@ -127,58 +127,32 @@
         </div>
       </div>
     </section>
-
-    <section class="panel positions" data-fold="position" aria-label="Your position">
-      <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
-      <table>
-        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
-        <tbody>
-          <tr id="pos-row" hidden>
-            <td id="pos-side"></td>
-            <td id="pos-entry" data-label="Entry" data-t-label="thEntry"></td>
-            <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
-            <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
-            <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
-            <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
-          </tr>
-          <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
-        </tbody>
-      </table>
-      <!-- The same two toggles and joined track as the ticket, bound to the
-           open position: a toggle sets or removes the exit, and letting go of a
-           thumb places it (ADR 0037). -->
-      <div class="pos-exits" id="pos-exits" hidden>
-        <div class="exits" id="pexits">
-        <div class="exit-heads">
-          <button id="psl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop Loss</span> <b id="psl-pct" class="pct"></b></button>
-          <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
-          <button id="ptp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take Profit</span> <b id="ptp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+    <section class="panel desk" aria-label="Account and order">
+      <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="deskTitle">Account / Order</span> <span class="aside spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></span></h2>
+      <div class="desk-body">
+    <section class="panel account" data-fold="account" aria-label="Account">
+      <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="accountTitle">Account</span></h2>
+      <div class="account-body">
+        <dl class="acct">
+          <div data-tip="netWorth"><dt><span data-t="netWorth">Net Worth</span><button class="info" type="button" data-info="netWorth" data-t-aria="info_netWorth" aria-expanded="false">ⓘ</button></dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
+          <div id="pnl-box" data-tip="pnl"><dt><span data-t="pnl">Open P&amp;L</span><button class="info" type="button" data-info="pnl" data-t-aria="info_pnl" aria-expanded="false">ⓘ</button></dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
+          <div id="level-box" data-tip="level"><dt><span data-t="level">Margin Level</span><button class="info" type="button" data-info="level" data-t-aria="info_level" aria-expanded="false">ⓘ</button></dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
+        </dl>
+        <!-- Net worth against the starting money: losses run left in red,
+             profit right in green, on a log scale centred on the start. With a
+             position open, where a margin call and the losscut would land. -->
+        <!-- The bar's own ⓘ sits at its end; its marks name the levels they stand for (call 50%, cut 20%). -->
+        <div class="meter-row">
+          <div class="meter" id="meter-box" data-tip="meter">
+            <div class="fill" id="meter"></div>
+            <span class="mark zero">±0</span>
+            <span class="mark call" id="mark-call" hidden data-t="markCall">call 50%</span>
+            <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut 20%</span>
+          </div>
+          <button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button>
         </div>
-        <div class="exit-track" data-sl="false" data-tp="false">
-          <span class="fill sl" id="psl-fill" aria-hidden="true"></span>
-          <span class="fill tp" id="ptp-fill" aria-hidden="true"></span>
-          <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
-          <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
-          <div class="exit-line" aria-hidden="true"></div>
-        </div>
-        <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
-      </div>
       </div>
     </section>
-    </div>
-
-    <section class="panel feed" data-fold="feed" aria-label="Feed">
-      <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
-      <ul id="feed"></ul>
-    </section>
-
-    <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
-      <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
-      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
-    </section>
-    </div>
-    <div class="col side-col">
-    <div class="screen">
     <!-- After the bell, trading is over: the result takes the order
          ticket's place in the right column, and the chart stays in view. -->
     <section id="bell" class="panel bell" aria-label="The bell" aria-live="polite" hidden>
@@ -199,7 +173,7 @@
       </div>
     </section>
     <section class="panel ticket" data-fold="ticket" aria-label="Order ticket">
-      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span> <span class="aside spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></span></h2>
+      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span></h2>
       <div class="ticket-body">
       <div class="quotes">
         <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong><small data-t="sellNote">Earns when the price falls</small></button>
@@ -230,21 +204,44 @@
            profit on the right, over one joined track with a thumb each,
            grey when its toggle is off. Each shows only its percentage. -->
       <div class="exits" id="exits">
-        <div class="exit-heads">
-          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn"><span class="track" aria-hidden="true"><span class="knob"></span></span><span data-t="slFull">Stop Loss</span> <b id="sl-pct" class="pct"></b></button>
+        <div class="exit-row">
+          <button id="sl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slShort">SL</span> <b id="sl-pct" class="pct"></b></button>
+          <div class="exit-scale">
+            <div class="exit-track" data-sl="false" data-tp="false">
+              <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
+              <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
+              <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
+              <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
+              <div class="exit-line" aria-hidden="true"></div>
+            </div>
+            <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
+          </div>
+          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="tp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
           <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
-          <button id="tp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn"><span data-t="tpFull">Take Profit</span> <b id="tp-pct" class="pct"></b><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
         </div>
-        <div class="exit-track" data-sl="false" data-tp="false">
-          <span class="fill sl" id="sl-fill" aria-hidden="true"></span>
-          <span class="fill tp" id="tp-fill" aria-hidden="true"></span>
-          <input id="sl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
-          <input id="tp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
-          <div class="exit-line" aria-hidden="true"></div>
-        </div>
-        <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
+      <!-- A pending order (ADR 0078): this order, with its leverage, stake and exits, placed later when the price reaches
+           a level a distance away. The page asks for a side, a way and a distance; the server sets the level. -->
+      <details class="pend" id="pend">
+        <summary data-tip="pendTitle"><span data-t="pendTitle">Pending order</span><button class="info" type="button" data-info="pend" data-t-aria="info_pend" aria-expanded="false">ⓘ</button><span class="pend-waiting" id="pend-waiting"></span></summary>
+        <div class="pend-body">
+          <div class="seg" role="radiogroup" data-t-aria="pendSide" id="pend-side" data-tip="pendSide">
+            <button type="button" role="radio" aria-checked="true" data-side="1" data-t="buy">Buy</button>
+            <button type="button" role="radio" aria-checked="false" data-side="-1" data-t="sell">Sell</button>
+          </div>
+          <div class="seg" role="radiogroup" data-t-aria="pendWay" id="pend-way" data-tip="pendWay">
+            <button type="button" role="radio" aria-checked="false" data-toward="1" data-t="pendRises">rises</button>
+            <button type="button" role="radio" aria-checked="true" data-toward="-1" data-t="pendFalls">falls</button>
+          </div>
+          <select id="pend-pct" data-t-aria="pendBy" data-tip="pendBy"></select>
+          <p class="pend-what" id="pend-what"></p>
+          <div class="pend-go">
+            <button type="button" class="ghost" id="pend-place" data-t="pendPlace" data-tip="pendPlace">Place</button>
+            <button type="button" class="ghost danger" id="pend-cancel" data-t="pendCancel" data-tip="pendCancel" hidden>Cancel</button>
+          </div>
+        </div>
+      </details>
       <!-- Name that year (ADR 0030): in a replay's second half, a private
            guess at the year it is from, scored at the bell. -->
       <form class="guess" id="guess" hidden>
@@ -255,37 +252,59 @@
       <p id="error" class="error" role="status"></p>
       </div>
     </section>
-    <!-- The account, joined to the ticket as one card (ADR 0076): the order and what it does to the whole account,
-         read together. It stays when the bell takes the ticket's place, so the result shows beside the money. -->
-    <section class="panel account" data-fold="account" aria-label="Account">
-      <h2><span class="ico" aria-hidden="true">🏦</span><span data-t="accountTitle">Account</span></h2>
-      <div class="account-body">
-        <dl class="acct">
-          <div data-tip="netWorth"><dt><span data-t="netWorth">Net Worth</span><button class="info" type="button" data-info="netWorth" data-t-aria="info_netWorth" aria-expanded="false">ⓘ</button></dt><dd id="equity">—</dd><dd class="rate" id="equity-pct"></dd></div>
-          <div id="pnl-box" data-tip="pnl"><dt><span data-t="pnl">Open P&amp;L</span><button class="info" type="button" data-info="pnl" data-t-aria="info_pnl" aria-expanded="false">ⓘ</button></dt><dd id="pnl">—</dd><dd class="rate" id="pnl-pct"></dd></div>
-          <div id="level-box" data-tip="level"><dt><span data-t="level">Margin Level</span><button class="info" type="button" data-info="level" data-t-aria="info_level" aria-expanded="false">ⓘ</button></dt><dd id="level">—</dd><dd class="rate" id="level-note"></dd></div>
-        </dl>
-        <!-- Net worth against the starting money: losses run left in red,
-             profit right in green, on a log scale centred on the start. With a
-             position open, where a margin call and the losscut would land. -->
-        <!-- The bar's own ⓘ sits at its end; its marks name the levels they stand for (call 50%, cut 20%). -->
-        <div class="meter-row">
-          <div class="meter" id="meter-box" data-tip="meter">
-            <div class="fill" id="meter"></div>
-            <span class="mark zero">±0</span>
-            <span class="mark call" id="mark-call" hidden data-t="markCall">call 50%</span>
-            <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut 20%</span>
-          </div>
-          <button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button>
-        </div>
       </div>
     </section>
-    </div>
+    <section class="panel positions" data-fold="position" aria-label="Your position">
+      <h2><span class="ico" aria-hidden="true">💼</span><span data-t="positionTitle">Your Position</span></h2>
+      <table>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thNow">Now</th><th data-t="thMargin">Margin</th><th data-t="thPnl">P&amp;L</th><th></th></tr></thead>
+        <tbody>
+          <tr id="pos-row" hidden>
+            <td id="pos-side"></td>
+            <td id="pos-entry" data-label="Entry" data-t-label="thEntry"></td>
+            <td id="pos-now" data-label="Now" data-t-label="thNow"></td>
+            <td id="pos-margin" data-label="Margin" data-t-label="thMargin"></td>
+            <td id="pos-pnl" data-label="P&amp;L" data-t-label="thPnl"></td>
+            <td><button id="close" class="close" data-t="close" data-tip="close">Close</button></td>
+          </tr>
+          <tr id="pos-empty"><td colspan="6" id="position">No open position. Pick a leverage, then Buy or Sell.</td></tr>
+        </tbody>
+      </table>
+      <!-- The same two toggles and joined track as the ticket, bound to the
+           open position: a toggle sets or removes the exit, and letting go of a
+           thumb places it (ADR 0037). -->
+      <div class="pos-exits" id="pos-exits" hidden>
+        <div class="exits" id="pexits">
+        <div class="exit-row">
+          <button id="psl-on" class="toggle sl" type="button" role="switch" aria-checked="false" data-tip="slOn" data-t-aria="slFull" aria-label="Stop Loss"><span class="track" aria-hidden="true"><span class="knob"></span></span><span class="name" data-t="slShort">SL</span> <b id="psl-pct" class="pct"></b></button>
+          <div class="exit-scale">
+            <div class="exit-track" data-sl="false" data-tp="false">
+          <span class="fill sl" id="psl-fill" aria-hidden="true"></span>
+          <span class="fill tp" id="ptp-fill" aria-hidden="true"></span>
+          <input id="psl-dist" class="sl" type="range" min="0" max="480" step="1" data-t-aria="slFull" data-tip="slDist">
+          <input id="ptp-dist" class="tp" type="range" min="520" max="1000" step="1" data-t-aria="tpFull" data-tip="tpDist">
+          <div class="exit-line" aria-hidden="true"></div>
+        </div>
+            <div class="ticks exit-ticks" id="pexit-ticks" aria-hidden="true"></div>
+          </div>
+          <button id="ptp-on" class="toggle tp" type="button" role="switch" aria-checked="false" data-tip="tpOn" data-t-aria="tpFull" aria-label="Take Profit"><b id="ptp-pct" class="pct"></b> <span class="name" data-t="tpShort">TP</span><span class="track" aria-hidden="true"><span class="knob"></span></span></button>
+          <button class="info" type="button" data-info="exits" data-t-aria="info_exits" aria-expanded="false">ⓘ</button>
+        </div>
+      </div>
+      </div>
+    </section>
+    <section class="panel feed" data-fold="feed" aria-label="Feed">
+      <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
+      <ul id="feed"></ul>
+    </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
     </section>
-    </div>
+    <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
+      <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
+      <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thProfit">Profit</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th></tr></thead><tbody id="career"></tbody></table>
+    </section>
   </main>
 
   <!-- Choosing a trader name: type one, or draw one at random; the face

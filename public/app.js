@@ -78,7 +78,7 @@ let fresh = false;
 let connectionStatus = "connectionConnecting";
 let heardAt = Date.now();
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -142,8 +142,13 @@ function sliders() {
   // The six distances, once for the stop loss on the left of the track and once for the
   // take profit on the right, each rung's number under its place on the track (ADR 0064).
   const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`, "", ui[`${kind}Notes`][d]]));
-  ticks("exit-ticks", marks);
+  // On the ticket the track sits between its two switches and is short, so it names only the nearest, a middle and the
+  // farthest distance; every rung is still a place its thumb snaps to, and the switch beside it shows the one chosen.
+  const named = new Set([broker.distances[0], 5, broker.distances.at(-1)].map(String));
+  ticks("exit-ticks", marks.map((m) => (named.has(m[1]) ? m : [m[0], "", m[2], m[3]])));
   ticks("pexit-ticks", marks);
+  // a pending order's distances are the exits' ladder
+  $("pend-pct").replaceChildren(...broker.distances.map((d) => Object.assign(document.createElement("option"), { value: String(d), textContent: `${d}%`, selected: d === pend.pct })));
 }
 function mark() {
   $("leverage").value = String(ladder.indexOf(choice.leverage));
@@ -168,14 +173,14 @@ function mark() {
 $("leverage").oninput = () => {
   choice.leverage = ladder[Number($("leverage").value)];
   mark();
-  if (state) ticket(state);
+  if (state) (ticket(state), pending(state));
 };
 // Let go, and the thumb settles on the rung it chose.
 $("leverage").onchange = mark;
 $("stake").oninput = () => {
   choice.stake = STAKES[Number($("stake").value)];
   mark();
-  if (state) ticket(state);
+  if (state) (ticket(state), pending(state));
 };
 // The pixel props (ADR 0025), drawn once: they never change.
 $("bell-art").innerHTML = prop("bell", 26);
@@ -250,6 +255,28 @@ $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
 $("mobile-close").onclick = () => act("close");
+// A pending order (ADR 0078): this ticket's order, placed later at a level. The page keeps which side, which way and
+// how far; the server sets the level from its price and sends back what waits.
+const pend = { side: 1, toward: -1, pct: 2 };
+const pendType = (side, toward) => `${side === 1 ? "buy" : "sell"}-${side !== toward ? "limit" : "stop"}`;
+function segment(id, key, value) {
+  for (const b of $(id).querySelectorAll("[role=radio]")) b.setAttribute("aria-checked", String(Number(b.dataset[key]) === value));
+}
+for (const [id, key] of [["pend-side", "side"], ["pend-way", "toward"]]) {
+  $(id).onclick = (e) => {
+    const b = e.target.closest("[role=radio]");
+    if (!b) return;
+    pend[key] = Number(b.dataset[key]);
+    segment(id, key, pend[key]);
+    if (state) pending(state);
+  };
+}
+$("pend-pct").onchange = () => {
+  pend.pct = Number($("pend-pct").value);
+  if (state) pending(state);
+};
+$("pend-place").onclick = () => act("pend", { side: pend.side, toward: pend.toward, pct: pend.pct, leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
+$("pend-cancel").onclick = () => act("unpend");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
@@ -946,11 +973,25 @@ function ticket(s) {
         ? [t("previewAdd1", { same, lev: choice.leverage }), t("previewAdd2", { other })]
         : [t("previewFull1"), t("previewFull2", { other })]
       : margin > 0
-        ? [t("previewOpen1"), t("previewOpen2")]
+        ? [t("previewOpen"), ""]
         : [t("previewNone"), ""];
-  const slots = { margin: yen(margin), controls: yen(controls), away };
+  // what goes in, as a share of the account: the game ranks on percentages, so the ticket speaks in them (ADR 0078)
+  const share = s.you.equity > 0 ? `${Math.round((margin / s.you.equity) * 100)}%` : "0%";
+  const slots = { margin: yen(margin), controls: yen(controls), away, share };
   $("preview-1").replaceChildren(...rich(one, slots));
   $("preview-2").replaceChildren(...rich(two, slots));
+}
+// The pending row: what this order would be as a pending one, or what is waiting, with a Cancel (ADR 0078).
+function pending(s) {
+  const ui = T[lang].ui;
+  const waiting = s.you.pending;
+  const typeName = (type) => ui.pendTypes?.[type] ?? T.en.ui.pendTypes[type];
+  $("pend-cancel").hidden = !waiting;
+  $("pend-waiting").textContent = waiting ? t("pendWaiting", { type: typeName(waiting.type), at: quoted(waiting.at) }) : "";
+  // before it is placed, the level is shown at today's price; the server sets the real one when it is
+  const at = s.prices.at(-1) * (1 + (pend.toward * pend.pct) / 100);
+  const share = `${Math.round(choice.stake * 100)}%`;
+  $("pend-what").textContent = t("pendWhat", { type: typeName(pendType(pend.side, pend.toward)), at: quoted(at), lev: choice.leverage, share });
 }
 const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
 // Text with {slots} left in it, the slots filled as bold nodes, so a
@@ -1459,6 +1500,7 @@ function render(s) {
   }
   draw(s);
   ticket(s);
+  pending(s);
 
   const y = s.you;
   // Each amount with its change as a percentage, which is what a trader
@@ -1538,7 +1580,8 @@ function render(s) {
   }
   if (y.debt) $("position").textContent += t("owe", { amount: yen(y.debt) });
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
-  for (const id of ["buy", "sell"]) $(id).disabled = closed;
+  for (const id of ["buy", "sell", "pend-place"]) $(id).disabled = closed;
+  $("pend-cancel").disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
   $("position-bar").hidden = !y.pos;
