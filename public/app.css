@@ -338,7 +338,9 @@ body.tutorial .studies { display: none; }
 .side.sell { background: var(--down); }
 .side.buy { background: var(--up); align-items: flex-end; text-align: right; }
 .side:active:not(:disabled) { transform: translateY(1px); }
-.spread { margin: -0.4rem 0 0; height: 1.1rem; text-align: center; font-size: 0.74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spread { display: inline-flex; align-items: center; gap: 0.15rem; font-size: 0.74rem; font-weight: 400; white-space: nowrap; }
+/* in the ticket's heading the spread's note takes the room the fold mark leaves */
+.ticket > h2 > .spread { cursor: help; }
 .field { display: grid; gap: 0.35rem; }
 .label { margin: 0; height: 1.25rem; font-size: 0.82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .note { color: var(--muted); }
@@ -376,6 +378,24 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .exit-heads .sl { justify-self: start; }
 .exit-heads .tp { justify-self: end; }
 .exit-heads .pct { font: 700 0.82rem var(--mono); }
+/* The stake's track is the whole account (ADR 0077): a bar from nothing to all of it, the margin already in use shaded
+   at its left, then what this order would add in the stake's heat; the slider lies over its 25% to 100%, so the thumb
+   and the marks stand on the shares they mean. Its own track is clear so the bar shows through. */
+.stake-track { position: relative; height: 1.4rem; }
+.stake-track::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: var(--raise); }
+.stake-track .bar { position: absolute; top: calc(50% - 3px); height: 6px; pointer-events: none; transition: left 0.2s, width 0.2s; }
+.stake-track .bar.used { left: 0; border-radius: 3px 0 0 3px; background: repeating-linear-gradient(135deg, var(--muted) 0 3px, color-mix(in srgb, var(--muted) 45%, transparent) 3px 6px); }
+.stake-track .bar.order { background: var(--heat); }
+.stake-track input[type="range"] { position: absolute; top: 0; left: 25%; width: 75%; height: 100%; -webkit-appearance: none; appearance: none; background: none; }
+.stake-track input[type="range"]::-webkit-slider-runnable-track { background: none; height: 100%; }
+.stake-track input[type="range"]::-moz-range-track { background: none; height: 100%; }
+.stake-track input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: calc(0.7rem - 8px); border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
+.stake-track input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
+.stake-track input[type="range"]:focus-visible { outline: none; }
+.stake-track input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--glow); }
+.stake-track input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--glow); }
+/* the order would take less than the stake asked for, as no more is free: the slider's value says so in the cut colour */
+#stake-box.cut output { color: var(--call); }
 .exit-track { position: relative; height: 1.4rem; }
 .exit-track .fill { position: absolute; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: var(--muted); opacity: 0.55; pointer-events: none; }
 .exit-track[data-sl="true"] .fill.sl { background: var(--down); opacity: 1; }
@@ -407,8 +427,12 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .pos-exits { padding: 0.1rem 0.9rem 0.7rem; }
 /* The preview is two whole phrases, one to a line, so no line ends on a
    stray word; an amount never breaks. Room for each to wrap once. */
-.preview { display: grid; gap: 0.15rem; margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); height: 4.6em; overflow: hidden; }
-.preview span { text-wrap: balance; }
+.preview { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); min-height: 2.8em; }
+/* the two phrases run on one line, joined by a dot, and wrap at the dot if they must, never inside a phrase where
+   one fits on a line (ADR 0077) */
+.preview span { display: inline-block; }
+.preview #preview-1:not(:empty):has(+ #preview-2:not(:empty))::after { content: " ·"; }
+.preview #preview-1:not(:empty) { margin-right: 0.3em; }
 .preview strong { color: var(--soft); font-family: var(--mono); font-weight: 600; white-space: nowrap; }
 .account-body { padding: 0.8rem 0.9rem 0.9rem; display: grid; gap: 0.8rem; }
 .acct { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0; padding-top: 0; }
@@ -433,13 +457,22 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .mark { position: absolute; top: 13px; font-size: 0.66rem; color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
 .mark::before { content: ""; position: absolute; left: 50%; top: -13px; height: 10px; border-left: 1px dashed var(--muted); }
 .mark[hidden] { display: none; }
+/* a mark near an end of the bar hangs its words inward; its line keeps to the exact place */
+.mark[data-edge="start"] { transform: none; }
+.mark[data-edge="start"]::before { left: 0; }
+.mark[data-edge="end"] { transform: translateX(-100%); }
+.mark[data-edge="end"]::before { left: auto; right: 0; }
+.mark.low { top: 25px; }
+.mark.low::before { top: -25px; height: 22px; }
+.meter:has(.mark.low:not([hidden])) { margin-bottom: 1.75rem; }
 .mark.zero { left: 50%; }
 .mark.zero::before { border-left: 2px solid var(--soft); }
 .mark.call { color: var(--call); }
 .mark.call::before { border-left-color: var(--call); }
 .mark.cut { color: var(--down); }
 .mark.cut::before { border-left-color: var(--down); }
-.meter-key { margin: -0.4rem 0 0; height: 1rem; line-height: 1rem; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meter-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.4rem; align-items: start; }
+.meter-row > .info { align-self: start; margin-top: calc(5px - 0.55rem); }
 .borrow { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 2.4rem; padding: 0.3rem 0.8rem; background: var(--loan-bg); border-color: var(--call); color: var(--loan-ink); font-weight: 700; }
 .borrow[hidden] { display: none; }
 /* Dad's savings, a pop-up beside the ticket after a margin call or a cut. */
@@ -851,23 +884,24 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .side-col .screen > .account { border-top: 1px solid var(--line); }
   .side-col .screen:has(> .bell:not([hidden])) { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow); }
   /* inside the card the account's heading is a divider with its name, so it is slimmer than a card's own head */
-  .side-col .screen > .account > h2 { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+  /* inside the card the account needs no title: its figures name themselves, and the line above it divides the two */
+  .side-col .screen > .account > h2 { display: none; }
+  /* with no heading it cannot be unfolded, so a fold this browser remembers from a narrower window does not apply */
+  .side-col .screen > .account.folded > :not(h2) { display: revert; }
+  .side-col .screen > .account.folded > .account-body { display: grid; }
   /* spacing the narrower column needed and this one does not: tighter gaps, and two lines of preview, which fit
      unwrapped at this width */
   .ticket-body { gap: 0.6rem; padding: 0.75rem 0.9rem 0.8rem; }
   .field { gap: 0.25rem; }
-  .preview { height: auto; min-height: 2.8em; }
   /* a refusal stands in for the preview while it shows, rather than adding a line to the card */
   .ticket-body:has(#error:not(:empty)) #preview { display: none; }
   .account-body { gap: 0.45rem; padding: 0.5rem 0.9rem 0.6rem; }
   .meter { margin-bottom: 0.95rem; }
-  /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing,
-     slimmer headings, and, Peter's choice, Sell's and Buy's notes ("Earns when the price falls") go outside the
-     tutorial, where a newcomer first meets them; their tips still say it. */
+  /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing and
+     slimmer headings. Sell's and Buy's notes stay at every size: they say which way each one wins. */
   @media (max-height: 700px) {
     main { --pad: 0.5rem; }
     .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
     .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
-    body:not(.tutorial) .side small { display: none; }
   }
 }

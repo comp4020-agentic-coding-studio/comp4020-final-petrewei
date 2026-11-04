@@ -13,6 +13,18 @@ export const STAKES = [0.25, 0.5, 0.75, 1];
 // The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole yen, never below nothing.
 // The desk's rule (src/fx.ts calls it for every order); the ticket calls it too, to show the amount beforehand.
 export const stakeMargin = (equity, used, stake) => Math.max(0, Math.floor(Math.min(equity * stake, equity - used)));
+// The stake slider's track as a bar of the whole account (ADR 0077): what is already in use and what this order would
+// add, each as a share of net worth, from nothing at the track's left end to all of it at the right, the scale the
+// slider's own marks stand on (a quarter at a quarter of the way). `cut` says the order is less than the stake asked
+// for, because no more is free.
+export function stakeBar(equity, used, stake) {
+  const whole = Math.max(0, equity);
+  const inUse = whole ? unit(used / whole) : 0;
+  const margin = stakeMargin(equity, used, stake);
+  const order = whole ? margin / whole : 0;
+  // cut when what goes in is less than the whole share asked for, in yen as the desk counts it, or is nothing at all
+  return { used: inUse, order: unit(inUse + order) - inUse, cut: margin === 0 || margin < Math.floor(whole * stake) };
+}
 
 // The rungs of the leverage ladder sit evenly along the slider, however far
 // apart they are in leverage (ADR 0059): a rung's place is its number in the

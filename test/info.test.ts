@@ -118,3 +118,20 @@ it("puts a tip below an element that asks for it, and above one that does not", 
   expect(above).toBeLessThan(300);
   expect(below).toBeGreaterThan(300);
 });
+
+// An explanation names what it explains before it explains it ("Leverage: …"), so it reads on its own, away from the
+// label it was opened from. Every ⓘ on the page, in every language.
+it("opens every info explanation with the name of what it explains", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { LANGS, T } = await import("../public/i18n.js");
+  const keys = [...new Set([...readFileSync("public/index.html", "utf8").matchAll(/data-info="([^"]+)"/g)].map((m) => m[1]))];
+  expect(keys.length).toBeGreaterThan(5);
+  for (const lang of LANGS) {
+    for (const k of keys) {
+      const text = (T[lang].info as Record<string, string>)[k];
+      expect(text, `${lang} ${k}`).toMatch(/\S/);
+      // a short name, then ":" (or "：", or a question's own mark), then the explanation
+      expect(text, `${lang} ${k}: ${text.slice(0, 30)}`).toMatch(/^[^:：？。.]{1,24}[:：？]/);
+    }
+  }
+});

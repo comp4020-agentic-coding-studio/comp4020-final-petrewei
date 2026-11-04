@@ -199,13 +199,12 @@
       </div>
     </section>
     <section class="panel ticket" data-fold="ticket" aria-label="Order ticket">
-      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span></h2>
+      <h2><span class="ico" aria-hidden="true">🎫</span><span data-t="ticketTitle">Order Ticket</span> <span class="aside spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></span></h2>
       <div class="ticket-body">
       <div class="quotes">
         <button id="sell" class="side sell" data-tip="sell"><span data-t="sell">Sell</span><strong id="bid">—</strong><small data-t="sellNote">Earns when the price falls</small></button>
         <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong><small data-t="buyNote">Earns when the price rises</small></button>
       </div>
-      <p class="spread" data-tip="spread"><span id="spread"></span><button class="info" type="button" data-info="spread" data-t-aria="info_spread" aria-expanded="false">ⓘ</button></p>
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
            legal caps marked; stake on an even one (ADR 0024). -->
       <div class="field slide" id="leverage-box">
@@ -216,8 +215,15 @@
       </div>
       <div class="field slide" id="stake-box">
         <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" data-t="stakeNote">of your account</span><output id="stake-out" for="stake"></output></p>
-        <input id="stake" type="range" min="0" max="3" step="1" data-t-aria="stake" data-tip="stake">
-        <div class="ticks even" id="stake-ticks" aria-hidden="true"></div>
+        <!-- The track is the whole account (ADR 0077): what is in use, then what this order adds, from nothing at the
+             left to all of it at the right. The slider covers its 25% to 100% so its thumb and marks stand on the
+             shares of the account they mean. -->
+        <div class="stake-track" id="stake-track">
+          <span class="bar used" id="stake-used" aria-hidden="true"></span>
+          <span class="bar order" id="stake-order" aria-hidden="true"></span>
+          <input id="stake" type="range" min="0" max="3" step="1" data-t-aria="stake" data-tip="stake">
+        </div>
+        <div class="ticks even stake-ticks" id="stake-ticks" aria-hidden="true"></div>
       </div>
       <!-- A stop loss and a take profit that ride on the order (ADR 0032,
            0034): a toggle for each, the stop loss on the left and the take
@@ -262,13 +268,16 @@
         <!-- Net worth against the starting money: losses run left in red,
              profit right in green, on a log scale centred on the start. With a
              position open, where a margin call and the losscut would land. -->
-        <div class="meter" id="meter-box" data-tip="meter">
-          <div class="fill" id="meter"></div>
-          <span class="mark zero">±0</span>
-          <span class="mark call" id="mark-call" hidden data-t="markCall">call</span>
-          <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut</span>
+        <!-- The bar's own ⓘ sits at its end; its marks name the levels they stand for (call 50%, cut 20%). -->
+        <div class="meter-row">
+          <div class="meter" id="meter-box" data-tip="meter">
+            <div class="fill" id="meter"></div>
+            <span class="mark zero">±0</span>
+            <span class="mark call" id="mark-call" hidden data-t="markCall">call 50%</span>
+            <span class="mark cut" id="mark-cut" hidden data-t="markCut">cut 20%</span>
+          </div>
+          <button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button>
         </div>
-        <p class="meter-key"><span data-t="meterKey">Margin call at 50%, forced loss cut at 20%</span><button class="info" type="button" data-info="meter" data-t-aria="info_meter" aria-expanded="false">ⓘ</button></p>
       </div>
     </section>
     </div>

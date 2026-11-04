@@ -7,7 +7,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeMargin } from "/ticket.js";
+import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeBar, stakeMargin } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted } from "/format.js";
@@ -137,7 +137,8 @@ function sliders() {
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
   const ui = T[lang].ui;
   ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`, ui.notes[v]]));
-  ticks("stake-ticks", STAKES.map((v, i) => [i / (STAKES.length - 1), `${v * 100}%`, "", ui.stakeNotes[i]]));
+  // each stake marked at its share of the account, the scale the track's bar is drawn on (ADR 0077)
+  ticks("stake-ticks", STAKES.map((v, i) => [v, `${v * 100}%`, "", ui.stakeNotes[i]]));
   // The six distances, once for the stop loss on the left of the track and once for the
   // take profit on the right, each rung's number under its place on the track (ADR 0064).
   const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`, "", ui[`${kind}Notes`][d]]));
@@ -917,7 +918,14 @@ function ticket(s) {
   $("ask").textContent = quoted(s.ask);
   $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
   // the desk's own rule, from the module both share
-  const margin = stakeMargin(s.you.equity, s.you.pos?.margin ?? 0, choice.stake);
+  const used = s.you.pos?.margin ?? 0;
+  const margin = stakeMargin(s.you.equity, used, choice.stake);
+  // the stake's track as the whole account: what is in use, and what this order would add after it (ADR 0077)
+  const bar = stakeBar(s.you.equity, used, choice.stake);
+  $("stake-used").style.width = `${bar.used * 100}%`;
+  $("stake-order").style.left = `${bar.used * 100}%`;
+  $("stake-order").style.width = `${bar.order * 100}%`;
+  $("stake-box").classList.toggle("cut", bar.cut && !s.you.out);
   const controls = margin * choice.leverage;
   // At L× leverage, a move of 1/L against you is everything you put in.
   const wipe = 100 / choice.leverage;
@@ -927,7 +935,7 @@ function ticket(s) {
   const same = pos?.side === 1 ? t("buy") : t("sell");
   const other = pos?.side === 1 ? t("sell") : t("buy");
   const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
-  // Two short lines, each a whole phrase, so no line ends on a stray word:
+  // Two whole phrases on one line, joined by a dot and wrapping only there:
   // what the order puts in, then what it risks or does.
   // Out of the round after a cut (ADR 0026): no order to preview, only
   // the way back in.
@@ -1479,12 +1487,20 @@ function render(s) {
   $("meter").style.left = `${(at < mid ? mid - span : mid) * 100}%`;
   $("meter").style.width = `${span * 100}%`;
   $("meter").className = `fill ${tone(worth - s.start)}`;
+  const places = {};
   for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]]) {
     const show = !!y.pos && open;
     $(id).hidden = !show;
     // Level is equity over margin, so at a level the equity is that share of it.
-    if (show) $(id).style.left = `${gauge((share * y.pos.margin - y.debt) / s.start) * 100}%`;
+    if (!show) continue;
+    const at = gauge((share * y.pos.margin - y.debt) / s.start);
+    places[id] = at;
+    $(id).style.left = `${at * 100}%`;
+    // near an end, the words hang inward from the mark so the bar's edge never cuts them
+    $(id).dataset.edge = at < 0.12 ? "start" : at > 0.88 ? "end" : "";
   }
+  // the call and the cut can sit close together; then the cut's words drop a line, so the two never run into each other
+  $("mark-cut").classList.toggle("low", Math.abs((places["mark-call"] ?? 1) - (places["mark-cut"] ?? 0)) < 0.22);
   // Dad's savings are offered in a pop-up, to a player under a margin call
   // or out of money, while the round trades (the tutorial, whenever the price
   // stands still), in every mode (ADR 0057).

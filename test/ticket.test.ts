@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DISTANCES, LEVERAGES } from "../src/fx.ts";
-import { STAKES, gauge, levAt, levPos, pct, stakeMargin } from "../public/ticket.js";
+import { STAKES, gauge, levAt, levPos, pct, stakeBar, stakeMargin } from "../public/ticket.js";
 
 // ADR 0024: the order ticket's arithmetic, kept out of the page so it can
 // be checked here. The leverage slider runs on a log scale and snaps to
@@ -49,6 +49,24 @@ describe("the stake slider", () => {
     expect(stakeMargin(-50_000, 0, 1), "an account under water stakes nothing").toBe(0);
     expect(stakeMargin(900_000, 1_000_000, 0.5), "margin above net worth leaves nothing free").toBe(0);
     expect(stakeMargin(1_000_001, 0, 0.25), "whole yen").toBe(250_000);
+  });
+
+  // ADR 0077: the stake slider's track is a bar of the whole account, from nothing to all of it.
+  it("draws the stake's track as the account: what is in use, then what this order adds, cut where no more is free", () => {
+    const near = (got: { used: number; order: number; cut: boolean }, want: { used: number; order: number; cut: boolean }) => {
+      expect(got.used).toBeCloseTo(want.used, 3);
+      expect(got.order).toBeCloseTo(want.order, 3);
+      expect(got.cut).toBe(want.cut);
+    };
+    near(stakeBar(1_000_000, 0, 0.25), { used: 0, order: 0.25, cut: false });
+    near(stakeBar(1_000_000, 600_000, 0.25), { used: 0.6, order: 0.25, cut: false });
+    near(stakeBar(1_000_000, 600_000, 1), { used: 0.6, order: 0.4, cut: true });
+    near(stakeBar(1_000_000, 1_000_000, 0.5), { used: 1, order: 0, cut: true });
+    near(stakeBar(0, 0, 0.5), { used: 0, order: 0, cut: true });
+    // a loss can leave the margin in use above net worth: the bar is full, never past its end
+    near(stakeBar(800_000, 1_000_000, 0.5), { used: 1, order: 0, cut: true });
+    // with a profit, half of net worth can still be free beside the margin in use: not cut, whatever the yen rounding
+    near(stakeBar(1_022_803, 500_000, 0.5), { used: 500_000 / 1_022_803, order: Math.floor(1_022_803 / 2) / 1_022_803, cut: false });
   });
 });
 
