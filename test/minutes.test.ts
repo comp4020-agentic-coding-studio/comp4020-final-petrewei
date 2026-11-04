@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { dayOpen, MIN_BARS, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
-import { EVENTS } from "../src/market.ts";
+import { dayOpen, MIN_BARS, PLAYED_DAYS, PRE_DAYS, parseBars, plotDays, plotTicks, rawFile, stamp, SWAN_DAY, TICK_MINUTES, TICKS_PER_DAY, ticksOf, trades } from "../scripts/build-minutes.ts";
+import { EVENTS, Minutes } from "../src/market.ts";
 
 // Replay's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
 // checks hold the cutting to its rules on a small file written here, so they run anywhere, and the shipped
@@ -75,7 +75,7 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
       .split("\n")
       .filter((l) => {
         const [date, time] = l.split(",");
-        const at = Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), +time.slice(0, 2), +time.slice(3, 5)) / 60_000;
+        const at = stamp(date, time);
         return !(at >= shut && at < shut + 1440);
       });
     const days = plotDays("2016-06-24", parseBars(kept.join("\n")));
@@ -98,9 +98,9 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
 });
 
 describe("the plots' real minutes, as shipped in data/minutes.csv", () => {
-  const rows = readFileSync("data/minutes.csv", "utf8").trim().split("\n").slice(1).map((l) => l.split(","));
-  const byPlot = new Map<string, number[]>();
-  for (const [id, , price] of rows) byPlot.set(id, [...(byPlot.get(id) ?? []), Number(price)]);
+  // read as the server reads it, so a check here is a check of what the game plays
+  const minutes = new Minutes(readFileSync("data/minutes.csv", "utf8"));
+  const byPlot = new Map(minutes.ids().map((id) => [id, minutes.of(id)!]));
   const ids = new Set(EVENTS.map((e) => e.id));
 
   it("holds seven days of 30-minute ticks and the last day's closing price for each plot it has, and only for plots that exist", () => {

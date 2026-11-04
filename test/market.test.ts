@@ -58,7 +58,7 @@ describe("a scenario round", () => {
   it("starts from today's rate, labelled simulated, with its scenario named", () => {
     const round = simulation(history, "USD/JPY", 158.45, random(7));
     expect(round.prices[0]).toBe(158.45);
-    expect(round.simulated).toBe(true);
+    expect(round.source).toBe("simulation");
     expect(round.prices.length).toBe(UNITS * UNIT + 1);
     expect(SCENARIOS.map((x) => x.id)).toContain(round.scenario);
   });

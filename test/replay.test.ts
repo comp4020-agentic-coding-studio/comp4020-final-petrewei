@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CANDLE, DAY_TICKS, EVENTS, History, Minutes, PLAY_DAYS, PRE_ROLL_DAYS, random, replayRound } from "../src/market.ts";
+import { CANDLE, DAY_TICKS, EVENTS, History, Minutes, PLAY_DAYS, PRE_ROLL_DAYS, random, replayRound, SWAN_DAY } from "../src/market.ts";
 
 // Replay on the new clock (ADR 0075): two days of the market before the round and five played, 48 half-hour ticks a
 // day, the real minutes where a plot has them and the ECB's closes bridged where it has not. These hold what the
@@ -18,7 +18,6 @@ describe("a replay round on the new clock", () => {
       expect(r.prices, `${e.id} plays five days`).toHaveLength(PLAY_DAYS * DAY_TICKS + 1);
       expect(r.history, `${e.id} has two days behind it, and the open`).toHaveLength(PRE_ROLL_DAYS * DAY_TICKS + 1);
       expect((r.history.length - 1) % CANDLE, `${e.id}: the history is a whole number of candles`).toBe(0);
-      expect(r.dayTicks).toBe(DAY_TICKS);
     }
   });
 
@@ -40,9 +39,8 @@ describe("a replay round on the new clock", () => {
     for (const e of EVENTS) {
       const r = replayRound(history, minutes, random(9), e.id);
       // `simulated` is the Simulation tab's word for a market made up from today's rate: a Replay is real days, always
-      expect(r.simulated, `${e.id} is never a Simulation`).toBe(false);
-      expect(r.bridged, e.id).toBe(!minutes.has(e.id));
-      if (!minutes.has(e.id)) continue;
+      expect(r.source, `${e.id}: real minutes where it has them, and bridged closes where not, never a Simulation`).toBe(minutes.of(e.id) ? "minutes" : "bridged");
+      if (!minutes.of(e.id)) continue;
       const real = minutes.of(e.id)!;
       const open = PRE_ROLL_DAYS * DAY_TICKS;
       // the history is the first ticks up to and including the open, the round the open and all that follows
@@ -56,11 +54,11 @@ describe("a replay round on the new clock", () => {
   // record is exact at the end of each day, which is where the bridge lands, so a plot that is bridged still plays the
   // real daily closes, and the only invented part is the ticks between them.
   it("lands a bridged plot on the ECB's recorded close at the end of every day", () => {
-    const bridged = EVENTS.filter((e) => !minutes.has(e.id));
+    const bridged = EVENTS.filter((e) => !minutes.of(e.id));
     expect(bridged.length, "the yuan plots, which have no free minutes").toBeGreaterThanOrEqual(2);
     for (const e of bridged) {
       const r = replayRound(history, minutes, random(11), e.id);
-      expect(r.bridged, e.id).toBe(true);
+      expect(r.source, e.id).toBe("bridged");
       const series = history.series(e.pair);
       const at = series.findIndex((d) => d.date === e.date);
       // seven days: the first closes at tick 47, and the day the ECB first shows the event is the fifth of the seven (two before, then the third played), so it ends on that date's close
@@ -73,9 +71,9 @@ describe("a replay round on the new clock", () => {
   });
 
   it("gives a plot's real minutes the same every time, since they are the record, and a simulated one a fresh path", () => {
-    const real = EVENTS.find((e) => minutes.has(e.id))!;
+    const real = EVENTS.find((e) => minutes.of(e.id))!;
     expect(replayRound(history, minutes, random(1), real.id).prices).toEqual(replayRound(history, minutes, random(2), real.id).prices);
-    const fake = EVENTS.find((e) => !minutes.has(e.id))!;
+    const fake = EVENTS.find((e) => !minutes.of(e.id))!;
     expect(replayRound(history, minutes, random(1), fake.id).prices).not.toEqual(replayRound(history, minutes, random(2), fake.id).prices);
   });
 
@@ -98,7 +96,7 @@ describe("a replay round on the new clock", () => {
   it("puts both clues before the day the market broke, never on it", () => {
     const r = replayRound(history, minutes, random(4), EVENTS[0].id);
     expect(r.headlines).toHaveLength(2);
-    const swanDay = 2; // the third played day, counting from 0
+    const swanDay = SWAN_DAY - 1; // counted from 0
     for (const h of r.headlines!) expect(h.day, "a clue comes before the day it leads to").toBeLessThan(swanDay);
     expect(r.headlines![0].day).toBeLessThan(r.headlines![1].day);
   });

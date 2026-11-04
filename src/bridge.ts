@@ -23,7 +23,8 @@ const SHARP = Array.from({ length: TICKS_PER_DAY }, (_, i) => ((BLOCK_SHARE[Math
 const MEAN = SHARP.reduce((a, b) => a + b, 0) / TICKS_PER_DAY;
 const PROFILE = SHARP.map((v) => v / MEAN);
 
-const normal = (rnd: () => number): number => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+// A standard normal draw (Box–Muller), shared with market.ts so the bridge and Simulation's closes draw alike.
+export const normal = (rnd: () => number): number => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
 
 // A Student-t draw with four degrees of freedom, scaled to unit variance, for the fat tails. Four, because
 // the session profile and the pinning thin the tails of the draw, and four came out at the measured 4.4.

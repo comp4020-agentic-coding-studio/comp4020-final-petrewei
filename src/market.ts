@@ -5,7 +5,7 @@
 // on a random bridge that always lands on the real close. A Simulation round starts from
 // today's rate and simulates a random market, thirty candles long.
 
-import { dayOf, span } from "./bridge.ts";
+import { dayOf, normal, span, TICKS_PER_DAY } from "./bridge.ts";
 
 // The pairs a Simulation may start from: every one is two of the six currencies the ECB
 // publishes, so each has its real history since 1999 (the yuan since April 2005).
@@ -16,13 +16,15 @@ export const UNITS = 30;
 // The new clock (ADR 0075): a day is 48 half-hour ticks, a chart candle 4 of them (two hours), a plot's round five days
 // and the market before it two, drawn to the left of the open so the chart is never empty and the new price arrives
 // at its right end (ADR 0062).
-export const DAY_TICKS = 48;
+export const DAY_TICKS = TICKS_PER_DAY;
 // the chart's candle: 4 ticks, two hours, twelve to a day and twenty-four across the two days shown
 export const CANDLE = 4;
 // a Simulation's unit, the step its scripts, headlines and news count in: 8 ticks, four hours, two chart candles
 export const UNIT = 8;
 export const PLAY_DAYS = 5;
 export const PRE_ROLL_DAYS = 2;
+// The day the market broke is the third of the five played, so two days of clues come before it.
+export const SWAN_DAY = 3;
 // A day that moved more than this opens with most of its move at once.
 export const GAP = 0.015;
 
@@ -30,7 +32,10 @@ type Day = { date: string; rate: number };
 // `history` is the market in the two days before the open, as ticks ending at
 // the open price, so `prices[0]` follows it; it is part of the chart and of
 // nothing else: no order, score or clock reads it.
-export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; simulated: boolean; scenario?: string; headlines?: Headline[]; news?: News[]; dayTicks?: number; unit: number; bridged?: boolean };
+export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; source: Source; scenario?: string; headlines?: Headline[]; news?: News[]; unit: number };
+// Where a round's prices come from: a made-up market from today's rate (Simulation), a plot's real minutes, or a plot's
+// real daily closes with the ticks between them bridged (the two yuan plots). The feed says which as the round opens.
+export type Source = "simulation" | "minutes" | "bridged";
 
 // The plots of a replay: nineteen real stories in which the market broke, each with the
 // pair it broke on. The day it broke is the third of the five played, with two days to read first.
@@ -66,14 +71,16 @@ export class Minutes {
   constructor(csv: string) {
     for (const line of csv.trim().split("\n").slice(1)) {
       const [id, , price] = line.split(",");
-      this.plots.set(id, [...(this.plots.get(id) ?? []), Number(price)]);
+      let plot = this.plots.get(id);
+      if (!plot) this.plots.set(id, (plot = []));
+      plot.push(Number(price));
     }
   }
   of(id: string): number[] | undefined {
     return this.plots.get(id);
   }
-  has(id: string): boolean {
-    return this.plots.has(id);
+  ids(): string[] {
+    return [...this.plots.keys()];
   }
 }
 
@@ -133,7 +140,6 @@ export function random(seed: number): () => number {
   };
 }
 
-const normal = (rnd: () => number): number => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
 
 // A replay round on the new clock (ADR 0075): the plot's own window of five days, two days of the market before
 // it as the chart's history, 48 half-hour ticks a day. A plot with real minutes plays them as they were. One without,
@@ -142,7 +148,8 @@ const normal = (rnd: () => number): number => Math.sqrt(-2 * Math.log(1 - rnd())
 // of the round, so the chart joins without a jump.
 export function replayRound(history: History, minutes: Minutes, rnd: () => number, pick?: string): Round {
   const event = EVENTS.find((e) => e.id === pick) ?? EVENTS[Math.floor(rnd() * EVENTS.length)];
-  const ticks = minutes.of(event.id) ?? simulated(history, event, rnd);
+  const real = minutes.of(event.id);
+  const ticks = real ?? simulated(history, event, rnd);
   // the open is the first tick of the first day played; the history is the days before it and ends on it, so it
   // is a whole number of candles and a tick longer than the days it holds, as the page's window expects
   const open = PRE_ROLL_DAYS * DAY_TICKS;
@@ -152,13 +159,9 @@ export function replayRound(history: History, minutes: Minutes, rnd: () => numbe
     prices: ticks.slice(open),
     history: ticks.slice(0, open + 1),
     event,
-    // `simulated` is the Simulation tab's own word, for a market made up from today's rate; a Replay plot that has no
-    // real minutes is real days with the ticks between their closes bridged, and says so as `bridged`
-    simulated: false,
-    bridged: !minutes.has(event.id),
-    // two clues, on the first and second days played, so both come before the day the market broke (the third)
-    headlines: [{ day: 0 }, { day: 1 }],
-    dayTicks: DAY_TICKS,
+    source: real ? "minutes" : "bridged",
+    // a clue on each day before the one the market broke, the first and second played; the text is the server's to look up
+    headlines: Array.from({ length: SWAN_DAY - 1 }, (_, day) => ({ day })),
     // a replay's clues are counted in days
     unit: DAY_TICKS,
   };
@@ -169,7 +172,7 @@ export function replayRound(history: History, minutes: Minutes, rnd: () => numbe
 function dayNames(history: History, event: Episode): string[] {
   const series = history.series(event.pair);
   const at = series.findIndex((d) => d.date === event.date);
-  return series.slice(at - 2, at + 3).map((d) => d.date);
+  return series.slice(at - (SWAN_DAY - 1), at - (SWAN_DAY - 1) + PLAY_DAYS).map((d) => d.date);
 }
 
 // A plot with no minutes, from the ECB's daily closes: the two days before the round and the five played, each day
@@ -178,8 +181,8 @@ function dayNames(history: History, event: Episode): string[] {
 function simulated(history: History, event: Episode, rnd: () => number): number[] {
   const series = history.series(event.pair);
   const at = series.findIndex((d) => d.date === event.date);
-  // day d ends on the close d places on, so the third played day (the fifth) must end on the day itself
-  const first = at - (PRE_ROLL_DAYS + 3);
+  // day d ends on the close d places on, so the day the market broke (the fifth of seven) ends on the day itself
+  const first = at - (PRE_ROLL_DAYS + SWAN_DAY);
   // one close more than the days, so the last day is bridged to its own close and the day after supplies the one tick
   // that follows it, as the real plots end on a price past their last day
   const closes = series.slice(first, first + PRE_ROLL_DAYS + PLAY_DAYS + 2).map((d) => d.rate);
@@ -357,10 +360,10 @@ export function simulation(history: History, pair: Pair, rate: number, rnd: () =
   const prices = [closes[0]];
   for (let d = 1; d < closes.length; d++) prices.push(...span(closes[d - 1], closes[d], tickVol, rnd, ((d - 1) * UNIT) % DAY_TICKS, UNIT));
   // The pair's real last days, as daily closes ending on today's rate, each bridged to its own close.
-  const real = [...history.series(pair).slice(-(PRE_ROLL_DAYS + 1)).map((d) => d.rate), rate];
+  const real = [...history.series(pair).slice(-PRE_ROLL_DAYS).map((d) => d.rate), rate];
   const before: number[] = [real[0]];
   for (let d = 1; d < real.length; d++) before.push(...dayOf(before.at(-1)!, real[d], vol, rnd));
-  return { pair, days: closes.map((_, d) => `day ${d}`), prices, history: before.slice(-(PRE_ROLL_DAYS * DAY_TICKS + 1)), event: null, simulated: true, scenario: script.id, headlines: script.headlines, news, dayTicks: DAY_TICKS,
+  return { pair, days: closes.map((_, d) => `day ${d}`), prices, history: before, event: null, source: "simulation", scenario: script.id, headlines: script.headlines, news,
     // a simulation's headlines and news are counted in its units, which are candles
     unit: UNIT };
 }

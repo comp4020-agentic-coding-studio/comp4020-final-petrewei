@@ -9,8 +9,8 @@
 // thing, and the labels and the tips are written from them.
 export const PERIODS = { fast: 6, slow: 12, band: 24, rsi: 14 };
 // What a number of candles is, for a label on the chart: whole days where it is one ("1d"), else the candles.
-const PER_DAY = 12;
-export const spanOf = (candles) => (candles % PER_DAY === 0 ? `${candles / PER_DAY}d` : `${candles}`);
+// `perDay` is the candles in a day, which the market's state gives (dayTicks over steps).
+export const spanOf = (candles, perDay) => (candles % perDay === 0 ? `${candles / perDay}d` : `${candles}`);
 // The same, as words in a language, for a tip: "1 day", "3 days", "2日", "3天"; a count that is not whole days is
 // said as candles ("9 candles"), so a tip never says a day where the line is drawn over something else.
 const WORDS = {
@@ -18,7 +18,7 @@ const WORDS = {
   ja: { day: (n) => `${n}日`, candles: (n) => `${n}本` },
   zh: { day: (n) => `${n}天`, candles: (n) => `${n}根` },
 };
-export const spanIn = (lang, candles) => (candles % PER_DAY === 0 ? WORDS[lang].day(candles / PER_DAY) : WORDS[lang].candles(candles));
+export const spanIn = (lang, candles, perDay) => (candles % perDay === 0 ? WORDS[lang].day(candles / perDay) : WORDS[lang].candles(candles));
 
 // Each day's last price: a day is `steps` ticks, and today's close so far
 // is the latest price.

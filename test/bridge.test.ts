@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayOf, TICKS_PER_DAY } from "../src/bridge.ts";
+import { dayOf, normal as draw, TICKS_PER_DAY } from "../src/bridge.ts";
 import { random } from "../src/market.ts";
 
 // The bridge between two closes is held to what real half-hours did, measured over forty-six ordinary days of
@@ -9,7 +9,7 @@ import { random } from "../src/market.ts";
 const DAYS = 3000;
 const sample = () => {
   const rnd = random(11);
-  const normal = (): number => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+  const normal = (): number => draw(rnd);
   const blocks = Array(6).fill(0);
   const ratios: number[] = [];
   const kurt: number[] = [];

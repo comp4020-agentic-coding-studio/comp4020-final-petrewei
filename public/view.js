@@ -1,5 +1,5 @@
 // What the chart shows (ADR 0062): the market before the round opened, then the
-// round as it plays, as a window of thirty whole days and today's ticks so far.
+// round as it plays, as a window of whole candles, as many as the history holds, and today's ticks so far.
 // Pure, so the page and the checks share it.
 //
 // The window starts on a day boundary of the whole market, so a candle is the same

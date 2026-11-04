@@ -33,7 +33,9 @@ const botName = (id, fallback) => T[lang].bots[id]?.name ?? fallback;
 const nameIn = (name, draw) => (typeof draw === "number" ? drawn(lang, draw) : name);
 // A tip in this language, by key (ADR 0025).
 // the indicators' periods are slots in their tips, so what a tip says is what is drawn (indicators.js)
-const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast: spanIn(lang, PERIODS.fast), slow: spanIn(lang, PERIODS.slow), band: spanIn(lang, PERIODS.band), ...vars });
+// the indicators' spans in words, in the candles a day the market's own state says (12 before the first state arrives)
+const perDay = () => (state?.dayTicks && state?.steps ? state.dayTicks / state.steps : 12);
+const tip = (k, vars = {}) => fill(T[lang].tips[k] ?? T.en.tips[k] ?? "", { fast: spanIn(lang, PERIODS.fast, perDay()), slow: spanIn(lang, PERIODS.slow, perDay()), band: spanIn(lang, PERIODS.band, perDay()), ...vars });
 useWords((k) => tip(k));
 useClauses(clauses);
 // What an info button explains (ADR 0049), in this language, by key.
@@ -1023,7 +1025,7 @@ function draw(full) {
   // One line a day, found by the tick's own count from the bell and not by its place on screen, so the lines
   // stay on the day breaks as the window slides; the tutorial has no days and keeps a line every 5 candles.
   // Each played day is named "D1".."D5" at its line, and the days of history before the bell have no name.
-  const dayStep = s.dayTicks ?? 5 * k;
+  const dayStep = s.dayTicks;
   const first = s.tick - (prices.length - 1);
   for (let i = 0; i < prices.length; i++) {
     const at = first + i;
@@ -1033,7 +1035,7 @@ function draw(full) {
     ctx.moveTo(xd, 0);
     ctx.lineTo(xd, h + pane);
     ctx.stroke();
-    if (s.dayTicks && at >= 0 && xd < w - 110) ctx.fillText(`D${at / dayStep + 1}`, xd + 4, h - 6);
+    if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(`D${at / dayStep + 1}`, xd + 4, h - 6);
   }
   // A day's indicator sits at its candle's centre; today's at the price.
   const dayX = (d) => x(Math.min(d * k + k / 2, prices.length - 1));
@@ -1130,10 +1132,10 @@ function draw(full) {
     const slow = cut(sma(days, PERIODS.slow));
     line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
     line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
-    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast)} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
-    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow)} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
+    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast, s.dayTicks / k)} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
+    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow, s.dayTicks / k)} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
   }
-  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band)},2)`, css.getPropertyValue("--band")]);
+  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band, s.dayTicks / k)},2)`, css.getPropertyValue("--band")]);
   // On a phone the canvas is shrunk to a third, too small for a legend.
   const small = canvas.clientWidth < 600;
   let lx = 10;
@@ -1316,7 +1318,7 @@ function effects(s, price) {
 // The server sends the full history on joining and each phase, and after
 // that only new prices. A gap (a missed message) asks for the whole state.
 let prices = [];
-// The market's thirty days before the round opened, kept across the updates
+// The market's two days before the round opened, kept across the updates
 // that carry only new prices (ADR 0062); the tutorial has none.
 let before = [];
 let roundNo = 0;
@@ -1410,8 +1412,7 @@ function render(s) {
   setTip($("mode"), head ?? "");
   const clockKey = tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
-  const dayTicks = s.dayTicks ?? s.steps;
-  const clockValues = { d: Math.max(1, Math.ceil(s.tick / dayTicks)), of: Math.max(1, Math.round(s.total / dayTicks)), s: s.countdown };
+  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), s: s.countdown };
   $("clock").textContent = t(`${clockKey}Short`, clockValues);
   $("clock").setAttribute("aria-label", t(clockKey, clockValues));
   setTip($("clock"), t(clockKey, clockValues));

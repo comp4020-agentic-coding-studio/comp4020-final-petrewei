@@ -32,6 +32,8 @@ const FACES_FILE = join(DATA_DIR, "faces.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
 // Half a second a tick: five days of 48 ticks is 241 ticks, two minutes.
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
+// The feed's line as a round opens, by where its prices come from; a bridged replay says its moves are simulated.
+const OPENING = { simulation: "scenario-round", minutes: "replay-round", bridged: "replay-bridged-round" } as const;
 // A pop lasts about four seconds on the wire; a busy room keeps 40.
 const POP_TICKS = 8;
 const POPS_MAX = 40;
@@ -587,13 +589,9 @@ class Market {
     this.pick = null;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    const opening = this.round.simulated
-      ? { text: `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.`, key: "scenario-round" }
-      : this.round.bridged
-        ? { text: `Replay: ${this.round.pair}, five real trading days, with the moves between the daily closes simulated. When? Find out at the bell.`, key: "replay-bridged-round" }
-        : { text: `Replay: ${this.round.pair}, five real trading days. When? Find out at the bell.`, key: "replay-round" };
-    this.say(opening.text, "info", opening.key, { pair: this.round.pair });
-    log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
+    const opening = OPENING[this.round.source];
+    this.say(T.en.news[opening].replace("{pair}", this.round.pair), "info", opening, { pair: this.round.pair });
+    log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, source: this.round.source });
     void refreshToday();
   }
 
@@ -746,10 +744,9 @@ class Market {
     if (this.tick % unit === 1) {
       const day = Math.floor((this.tick - 1) / unit);
       const { scenario, event } = this.round;
-      const words = scenario ? T.en.scenarios[scenario].headlines : event ? (T.en.clues[event.date] ?? []) : [];
+      const words = scenario ? T.en.scenarios[scenario].headlines : event ? T.en.clues[event.date] : [];
       this.round.headlines?.forEach((h, i) => {
-        // a clue the table lacks is skipped, never allowed to stop the market: a missing line must not take the room down
-        if (h.day !== day || words[i] === undefined) return;
+        if (h.day !== day) return;
         // A replay's clue goes out by number, not by the date it leads to
         // (ADR 0050): the date is the answer to Name That Year.
         const clue = event ? clueDates("en").indexOf(event.date) : -1;
@@ -867,11 +864,11 @@ class Market {
       replayPlots: this.mode === "replay" ? REPLAY_PLOTS : null,
       replayPlot: this.mode === "replay" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
       digits: this.digits(),
-      simulated: round.simulated,
+      simulated: round.source === "simulation",
       tick,
       total: round.prices.length - 1,
       steps: CANDLE,
-      dayTicks: round.dayTicks ?? DAY_TICKS,
+      dayTicks: DAY_TICKS,
       start: START,
       from,
       // The market's two days before the open, sent whole with the round's first
@@ -960,10 +957,12 @@ function tutorialView(who: string) {
     simulated: true,
     from: 0,
     prices: t.prices,
-    // The chart fits whatever has played so far, a candle every 4 ticks.
+    // The chart fits whatever has played so far, a candle every 4 ticks and a grid line every five candles; the
+    // tutorial has no days, so its "day" is only that grid.
     total: Math.max(40, t.prices.length - 1),
     tick: t.prices.length - 1,
     steps: 4,
+    dayTicks: 20,
     start: START,
     transport: t.transport,
     lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
