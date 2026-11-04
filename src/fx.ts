@@ -66,7 +66,13 @@ export type Position = {
 // `traded` says whether the player placed an order this round at all.
 // `caught` counts the loans Dad has found out about (ADR 0057); it equals the
 // loans once he has, and a caught player is grounded: out for the round.
-export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number; financing: number };
+// A pending order (ADR 0078), the FX entry order: buy or sell when the price reaches `at`, set a distance from the price
+// when asked. Its name says which side and where the level sits: buying below the price is a Buy Limit, above it a Buy
+// Stop; selling above is a Sell Limit, below a Sell Stop. It fills as a click would, with what it was set with.
+export type PendingType = "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop";
+export type Pending = { type: PendingType; side: Side; at: number; pct: number; leverage: number; stake: number; sl: number | null; tp: number | null };
+export type PendRequest = { side: Side; toward: Side; pct: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
+export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number; financing: number; pending: Pending | null };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 const half = SPREAD / 2;
@@ -174,6 +180,42 @@ export class Desk {
     return [{ kind: "add", who, price: this.price, pnl: this.pnl(who), leverage: pos.leverage, side }];
   }
 
+  // Set a pending order, replacing any other (one at a time): `toward` is which way the price must go to reach it.
+  pend(who: string, r: PendRequest): string | null {
+    const account = this.account(who);
+    if (account.out) return "You are out of the market until next round.";
+    if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
+    if (!(r.stake > 0 && r.stake <= 1)) return "Stake must be between 0 and 1.";
+    if (!inRange(r.pct)) return "A pending order must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    if (r.sl != null && !inRange(r.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    if (r.tp != null && !inRange(r.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
+    const limit = r.side !== r.toward;
+    const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
+    account.pending = { type, side: r.side, at: this.price * (1 + (r.toward * r.pct) / 100), pct: r.pct, leverage: r.leverage, stake: r.stake, sl: r.sl ?? null, tp: r.tp ?? null };
+    return null;
+  }
+
+  unpend(who: string): string | null {
+    const account = this.account(who);
+    if (!account.pending) return "There is no pending order to cancel.";
+    account.pending = null;
+    return null;
+  }
+
+  // A pending order whose level the price has reached fills now, at this price, as a click would; it was set on one
+  // side of the price, so the price has reached it once it is on the level or past it.
+  private trigger(who: string): Fill[] {
+    const account = this.account(who);
+    const p = account.pending;
+    if (!p) return [];
+    const reached = p.type === "buy-limit" || p.type === "sell-stop" ? this.price <= p.at : this.price >= p.at;
+    if (!reached) return [];
+    account.pending = null;
+    const out = this.order(who, p.side, p.leverage, p.stake, { sl: p.sl, tp: p.tp });
+    return typeof out === "string" ? [] : out;
+  }
+
   // A stop `pct` percent from the current price on the losing side, or no
   // stop with null: what a player asks for, set from the desk's own price.
   stopAway(who: string, pct: number | null): string | null {
@@ -228,13 +270,14 @@ export class Desk {
 
   // Wipe one account back to the start, for the debug console.
   reset(who: string): void {
-    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0, financing: 0 });
+    this.accounts.set(who, { balance: START, debt: 0, pos: null, out: false, cuts: 0, traded: false, caught: 0, recall: 0, financing: 0, pending: null });
   }
 
   // Move the price and enforce the rules on every account, in join order.
   mark(price: number): Fill[] {
     this.price = price;
-    const fills = [...this.accounts.keys()].flatMap((who) => this.enforce(who));
+    // the broker's rules on what is open first, then any pending order the price has reached
+    const fills = [...this.accounts.keys()].flatMap((who) => [...this.enforce(who), ...this.trigger(who)]);
     // A margin call is remembered a few ticks, then forgotten.
     for (const account of this.accounts.values()) if (account.recall > 0) account.recall--;
     // The fee is charged after the rules have acted, so the call and cut
@@ -286,6 +329,8 @@ export class Desk {
       account.out = true;
     }
     if (account.balance === 0) account.out = true;
+    // out of the round, a waiting order can no longer fill, so it goes
+    if (account.out) account.pending = null;
     return { kind, who, price: this.price, pnl };
   }
 
@@ -323,6 +368,7 @@ export class Desk {
     const fills: Fill[] = account.pos ? [this.settleOne(who, "close")] : [];
     account.caught = loans;
     account.out = true;
+    account.pending = null;
     return [...fills, { kind: "caught", who, price: this.price, pnl: 0 }];
   }
 

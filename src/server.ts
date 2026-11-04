@@ -809,6 +809,12 @@ class Market {
       if (!refused) log(who, `${action.kind}-set`, { mode: this.mode, at: at === null ? null : Number(quoted(at)) });
       return refused;
     }
+    if (action.kind === "pend" || action.kind === "unpend") {
+      const refused = action.kind === "pend" ? desk.pend(who, action) : desk.unpend(who);
+      const p = desk.account(who).pending;
+      if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, stake: p.stake } : {}) });
+      return refused;
+    }
     if (action.kind === "borrow") {
       const refused = desk.borrow(who);
       if (refused) return refused;
@@ -900,6 +906,7 @@ class Market {
         caught: mine?.caught ?? 0,
         cuts: mine?.cuts ?? 0,
         pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
+        pending: mine?.pending ?? null,
       },
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
       feed: this.feed,
@@ -1352,7 +1359,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
       action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake, sl: dist(input.sl), tp: dist(input.tp) };
     } else if (kind === "pray") action = { kind, way: input.way === -1 ? -1 : 1 };
-    else if (kind === "close" || kind === "borrow") action = { kind };
+    else if (kind === "close" || kind === "borrow" || kind === "unpend") action = { kind };
+    // A pending order (ADR 0078) is asked for as a side, the way the price must go and a distance, never a price: the
+    // desk sets its level from its own price, as it does a stop's.
+    else if (kind === "pend") {
+      const dist = (v: unknown) => (typeof v === "number" ? v : null);
+      action = { kind: "pend", side: input.side === -1 ? -1 : 1, toward: input.toward === -1 ? -1 : 1, pct: Number(input.pct), leverage: Number(input.leverage), stake: typeof input.stake === "number" ? input.stake : 1, sl: dist(input.sl), tp: dist(input.tp) };
+    }
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.
     else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
@@ -1370,6 +1383,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       else if (kind === "back") error = t.idle() ?? (t.back(), null);
       else if (kind === "skip") error = t.skip();
       else if (kind === "next") error = t.act({ kind: "next" });
+      else if (action?.kind === "pend" || action?.kind === "unpend") error = "Pending orders aren't part of the tutorial yet. Try one in Replay or Simulation.";
       else if (action && action.kind !== "pray") error = t.act(action as Move);
       else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";
       else return json(res, 400, { error: "Unknown action." });
