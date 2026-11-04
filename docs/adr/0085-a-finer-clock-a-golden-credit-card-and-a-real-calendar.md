@@ -1,0 +1,19 @@
+# ADR 0085: A Finer Clock, a Golden Credit Card, and a Real Calendar
+
+Status: accepted, 5 November 2026. Changes the clock of [ADR 0075](0075-a-shorter-finer-clock.md), the credit's rates and place of [ADR 0080](0080-emergency-credit-replaces-dads-savings.md) and [ADR 0084](0084-a-readable-chart-and-controls-in-plain-sight.md), the exits and preview of [ADR 0078](0078-pending-orders-an-account-order-panel-and-a-page-that-spans.md) and [ADR 0079](0079-a-pending-order-at-a-typed-price-and-a-position-in-view.md), achievements of [ADR 0082](0082-achievements-awarded-by-the-server.md), and Simulation's news of [ADR 0064](0064-thirteen-plots-and-a-lobby-that-chooses.md). Peter asked for each change below.
+
+## 1 Decision
+
+**Margin, not Stake.** The slider that sets how much of the account goes in is called Margin (証拠金, 保证金), the word the game uses for money put in everywhere else.
+
+**The ticket reads in rows.** Each exit's switch, name, distance and definition take a row over the joined track again, the name and distance on one line, on the ticket and under the position. The preview's row is gone: what a move against you costs joins the leverage's note, and with a position open Sell or Buy says it closes or adds to it, where it otherwise says what it earns on. A folded chart or card folds its whole panel, and what is below rises into the room. Tips start each sentence on a line. Music and the theme keep their own header buttons beside the Settings gear.
+
+**A golden card for credit, at a loan shark's rate.** Emergency credit is a card of its own beside the position, with what is owed, the daily rate and the same over a year, and a bar for how much of the line is drawn. Peter asked for a rate high against normal measures, not absurd: 2% to 6% a day had been 730% to 2190% a year. The tiers are now 0.5%, 1% and 1.5% a day, about 180% to 550% a year, far over any legal rate as the comic's lenders are, and the whole line left a round costs about 8% of itself. The definition fills the rates from the broker's numbers.
+
+**Achievements from the hall.** Each row of the hall of fame opens that trader's achievements for anyone, and the hall's heading opens your own. The hall's rows carry the names earned, in the market's page and the tutorial's alike; a career with none had frozen the tutorial when the tutorial's hall lacked the field, which a check now holds.
+
+**A fifteen-minute clock and 2×.** Rounds were too short. A day is now 96 fifteen-minute ticks, a round four minutes at 1×, with two-hour candles. The real minutes are rebuilt from the raw files at fifteen minutes. The bridge is recalibrated to real fifteen-minute moves, measured over 4,995 ordinary days with the method that gives back the half hours' 4.4 (4.3): their kurtosis is 5.0, which a Student-t of five degrees matches at 4.9, and the session shares hold. The financing fee keeps its promise per round, now read from the real round. Whoever rules the round may run it at 2× for everyone; the market takes two ticks a beat while a pause, the countdown and the bell keep to the clock.
+
+**Every pair, at today's rate.** Simulation offers all twenty-one pairs of its seven currencies, each with the base the market writes first, and fetches today's rates when a page opens on its lobby, retrying a failed fetch after a minute.
+
+**News as an economic calendar.** A Simulation's stories are named releases for one of the pair's currencies: rate decisions, inflation, jobs, growth, surveys and elections, listed with their day and hour when the round opens and pinned over the feed. Each is told on its day with an outcome worded to agree with the push the news engine gives the price, so the words never contradict the chart, and a V is told as a surprise walked back when it turns. The engine is unchanged, and the pair's direction is never sent.
