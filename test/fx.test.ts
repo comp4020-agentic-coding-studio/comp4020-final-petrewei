@@ -579,8 +579,11 @@ describe("the financing fee", () => {
   it("is nothing to notice at 1× and costs more than the leverage as it rises", async () => {
     const { feeRate } = await import("../src/fx.ts");
     expect(feeRate(1000) / feeRate(1)).toBeCloseTo(1_000_000, 3);
-    expect(feeRate(100) * 360, "a round at 100× costs under 1% of the margin").toBeLessThan(0.01);
-    expect(feeRate(1000) * 360, "and at 1000× over a third of it").toBeGreaterThan(0.3);
+    // a round's ticks, from the clock itself, so the promise holds however the clock is cut
+    const { DAY_TICKS, PLAY_DAYS } = await import("../src/market.ts");
+    const round = DAY_TICKS * PLAY_DAYS;
+    expect(feeRate(100) * round, "a round at 100× costs under 1% of the margin").toBeLessThan(0.01);
+    expect(feeRate(1000) * round, "and at 1000× over a third of it").toBeGreaterThan(0.3);
   });
   it("is charged each tick on the open position, and counts against its profit", async () => {
     const { Desk, feeRate } = await import("../src/fx.ts");

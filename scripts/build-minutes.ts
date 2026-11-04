@@ -5,7 +5,7 @@
 //   node scripts/build-minutes.ts
 //
 // For each plot it cuts seven trading days, the two before and the five that are played, so the day the
-// market broke is the third of the five, and it writes one price every 30 minutes (48 a day). A
+// market broke is the third of the five, and it writes one price every 15 minutes (96 a day). A
 // day here is an FX day, which opens at 17:00 New York standard time the evening before, as the
 // files' own clock does (they are fixed at UTC-5 and never move for daylight saving). The days that
 // open on a Friday and a Saturday evening have no trade, so they are left out and Friday's close is

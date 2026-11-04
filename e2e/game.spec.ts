@@ -157,11 +157,13 @@ test("two independent players see orders, recover from offline and receive their
     // ADR 0079: while trading, the clock names its units, a day and an hour, in the page's own language
     const units = { en: /^Day \d+\/\d+ \d+h$/, ja: /^\d+\/\d+日 \d+時$/, zh: /^\d+\/\d+天 \d+时$/ }[lang];
     await expect(clock).toHaveText(units);
-    // ADR 0079: each exit's distance sits under its switch, not beside it, so the track keeps the row's width
+    // ADR 0085: each exit's switch, name and distance share one line, over the track, not stacked under it
+    const track = (await page.locator("#exits .exit-track").boundingBox())!;
     for (const k of ["sl", "tp"]) {
       const sw = (await page.locator(`#${k}-on .track`).boundingBox())!;
       const pct = (await page.locator(`#${k}-pct`).boundingBox())!;
-      expect(pct.y, `${k} distance under its switch`).toBeGreaterThanOrEqual(sw.y + sw.height - 1);
+      expect(Math.abs(pct.y + pct.height / 2 - (sw.y + sw.height / 2)), `${k} distance on its switch's line`).toBeLessThan(6);
+      expect(pct.y + pct.height, `${k} above the track`).toBeLessThanOrEqual(track.y + 1);
     }
     const row = observer.locator("#traders li").filter({ hasText: name });
     await expect(row).toContainText("▲ 1×", { timeout: 1000 });

@@ -30,8 +30,8 @@ export const TIERS: [number, number][] = [[300_000, 0.005], [600_000, 0.01], [In
 export const dailyRate = (debt: number): number => TIERS.find(([upTo]) => debt <= upTo)![1];
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
-// the fee eats the account: over a round of 360 ticks, 0.03% of the margin at
-// 30×, 0.4% at 100×, 3.2% at 300× and 36% at 1000×.
+// the fee eats the account: over a five-day round of 480 ticks (ADR 0085), 0.04% of the margin at 30×, 0.5% at 100×,
+// 4.3% at 300× and 48% at 1000×.
 export const FEE = 1e-9;
 export const feeRate = (leverage: number): number => FEE * leverage * leverage;
 // Australia's legal cap for retail traders on major pairs, which is a rung of the ladder.
@@ -93,7 +93,7 @@ export class Desk {
   private accounts = new Map<string, Account>();
 
   // Ticks in a trading day, for the credit line's daily interest; the server's clock sets it.
-  dayTicks = 48;
+  dayTicks = 96;
 
   constructor(price: number) {
     this.price = price;

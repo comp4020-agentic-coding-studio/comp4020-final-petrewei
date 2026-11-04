@@ -172,7 +172,8 @@ it("puts pause and end in the quote line, between the price and the clock", () =
   const order = [...quote.children].map((e) => e.id || e.className);
   expect(order.indexOf("round-ctl")).toBeGreaterThan(order.indexOf("price"));
   expect(order.indexOf("round-ctl")).toBeLessThan(order.indexOf("clock"));
-  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "finish"]);
+  // pause, then 2× (ADR 0085), then end
+  expect([...quote.querySelectorAll("#round-ctl button")].map((b) => b.id)).toEqual(["pause", "speed", "finish"]);
   expect(page.querySelectorAll("#pause, #finish")).toHaveLength(2);
   expect(page.querySelector(".ticket #pause, .ticket #finish")).toBeNull();
 });

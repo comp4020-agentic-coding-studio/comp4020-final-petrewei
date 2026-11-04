@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { dayOf, normal as draw, TICKS_PER_DAY } from "../src/bridge.ts";
 import { random } from "../src/market.ts";
 
-// The bridge between two closes is held to what real half-hours did, measured over forty-six ordinary days of
-// six pairs from HistData's minutes. Real: a day's movement by four-hour block from the 17:00 open was 14%, 12%,
-// 22%, 20%, 20%, 12%; half-hour moves had a kurtosis of 4.4 (3 is a normal); a day's high to low was 1.7 times its
-// open to close. The bridge matches the first two and reaches 1.5 on the third, which is checked as that and no more.
+// The bridge between two closes is held to what real markets did, measured from HistData's minutes. Real: a day's
+// movement by four-hour block from the 17:00 open was 14%, 12%, 22%, 20%, 20%, 12%; a day's high to low was 1.7 times
+// its open to close. Fifteen-minute moves (ADR 0085), measured over 4,995 ordinary days of the raw files with the
+// method below, which gives back 4.3 for the half hours once measured at 4.4, have a kurtosis of 5.0 (3 is a normal).
+// The bridge matches the first two and reaches 1.5 on the third, which is checked as that and no more.
 const DAYS = 3000;
 const sample = () => {
   const rnd = random(11);
@@ -18,7 +19,8 @@ const sample = () => {
     const t = [1, ...dayOf(1, close, 0.004, rnd)];
     const moves = t.slice(1).map((p, i) => Math.abs(Math.log(p / t[i])));
     const total = moves.reduce((a, b) => a + b, 0);
-    for (let b = 0; b < 6; b++) blocks[b] += moves.slice(b * 8, b * 8 + 8).reduce((a, x) => a + x, 0) / total;
+    const block = TICKS_PER_DAY / 6;
+    for (let b = 0; b < 6; b++) blocks[b] += moves.slice(b * block, b * block + block).reduce((a, x) => a + x, 0) / total;
     const move = Math.abs(Math.log(close));
     if (move > 0.0002) ratios.push(Math.log(Math.max(...t) / Math.min(...t)) / move);
     const logs = t.slice(1).map((p, i) => Math.log(p / t[i]));
@@ -32,7 +34,7 @@ const sample = () => {
 describe("the bridge between two closes", () => {
   const got = sample();
 
-  it("makes a day of 48 ticks that ends on its close, from the price before", () => {
+  it("makes a day of 96 ticks that ends on its close, from the price before", () => {
     const rnd = random(5);
     const day = dayOf(100, 101.5, 0.004, rnd);
     expect(day).toHaveLength(TICKS_PER_DAY);
@@ -45,9 +47,9 @@ describe("the bridge between two closes", () => {
     got.blocks.forEach((share, i) => expect(Math.abs(share - real[i]), `block ${i + 1} is ${share.toFixed(1)}% against ${real[i]}%`).toBeLessThanOrEqual(1.5));
   });
 
-  it("has fat tails, near the real half hours' 4.4", () => {
-    expect(got.kurt, `kurtosis ${got.kurt.toFixed(2)}`).toBeGreaterThan(4);
-    expect(got.kurt).toBeLessThan(5);
+  it("has fat tails, near the real fifteen minutes' 5.0", () => {
+    expect(got.kurt, `kurtosis ${got.kurt.toFixed(2)}`).toBeGreaterThan(4.5);
+    expect(got.kurt).toBeLessThan(5.5);
   });
 
   it("overshoots its close as real days did, if not so far: about 1.5 times, where the real median was 1.7", () => {

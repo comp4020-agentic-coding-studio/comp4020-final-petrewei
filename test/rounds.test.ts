@@ -108,6 +108,38 @@ it("lets the starter end the round early for everyone, ringing the bell", async 
   }
 });
 
+// ADR 0085: whoever rules the round may run it at 2× for everyone, which moves the market two ticks a beat; nobody else
+// may, and everyone is told.
+it("lets the starter run the round at 2× for everyone, and nobody else", async () => {
+  s = await server(8096, { TICK_MS: "100", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, until, look } = app();
+  const me = await visitor();
+  const other = await visitor();
+  const tabs = [await page(me), await page(other)];
+  try {
+    await act(me, { kind: "start", mode: "replay" });
+    await until(me, (x) => x.phase === "trade");
+    expect((await act(other, { kind: "fast", mode: "replay" })).status).toBe(409);
+    // ticks in a second at 1×, then at 2×
+    const rate = async () => {
+      const a = ((await look(me)) as unknown as { tick: number }).tick;
+      await new Promise((r) => setTimeout(r, 1000));
+      return ((await look(me)) as unknown as { tick: number }).tick - a;
+    };
+    const slow = await rate();
+    expect((await act(me, { kind: "fast", mode: "replay" })).status).toBe(200);
+    const seen = (await look(other)) as unknown as { speed: number; feed: { key: string }[] };
+    expect(seen.speed, "everyone sees it").toBe(2);
+    expect(seen.feed.some((f) => f.key === "fast")).toBe(true);
+    const quick = await rate();
+    expect(quick, `${quick} ticks a second at 2× against ${slow} at 1×`).toBeGreaterThanOrEqual(slow * 1.6);
+    expect((await act(me, { kind: "normal", mode: "replay" })).status).toBe(200);
+    expect(((await look(other)) as unknown as { speed: number }).speed).toBe(1);
+  } finally {
+    for (const t of tabs) t.close();
+  }
+});
+
 it("lets a starter who has left be replaced: anyone on the tab may end it", async () => {
   s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
   const { visitor, page, act, until } = app();

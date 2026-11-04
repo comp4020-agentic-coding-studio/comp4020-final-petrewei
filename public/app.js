@@ -334,6 +334,7 @@ $("pend-cancel").onclick = $("pend-row-cancel").onclick = () => act("unpend");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
 $("pause").onclick = () => act("pause");
+$("speed").onclick = () => act(state?.speed === 2 ? "normal" : "fast");
 // A panel with a heading folds to it: click or press Enter on the heading.
 // The folded panels are remembered in this browser (ADR 0039).
 const folded = (() => {
@@ -1601,6 +1602,12 @@ function render(s) {
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
   // End is the starter's, in a trading round.
   $("finish").hidden = !(s.phase === "trade" && s.rules);
+  // 2× (ADR 0085): the ruler's to press; when it is on, everyone sees the lit button, pressable or not
+  const fast = s.speed === 2;
+  $("speed").hidden = !(s.phase === "trade" && (s.rules || fast));
+  $("speed").disabled = !s.rules;
+  $("speed").setAttribute("aria-pressed", String(fast));
+  $("speed").dataset.tip = fast ? "speedDown" : "speedUp";
   // Pause: anyone may, in a trading round that isn't ironman; a pause veils
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);

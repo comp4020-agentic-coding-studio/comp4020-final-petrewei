@@ -13,14 +13,14 @@ export const PAIRS = ["USD/JPY", "EUR/USD", "GBP/USD", "AUD/USD", "USD/CHF", "EU
 export type Pair = (typeof PAIRS)[number];
 // A Simulation's plan, headlines and news count in units, thirty of them a round: a candle each.
 export const UNITS = 30;
-// The new clock (ADR 0075): a day is 48 half-hour ticks, a chart candle 4 of them (two hours), a plot's round five days
+// The clock (ADR 0075, 0085): a day is 96 fifteen-minute ticks, a chart candle 8 of them (two hours), a plot's round five days
 // and the market before it two, drawn to the left of the open so the chart is never empty and the new price arrives
 // at its right end (ADR 0062).
 export const DAY_TICKS = TICKS_PER_DAY;
-// the chart's candle: 4 ticks, two hours, twelve to a day and twenty-four across the two days shown
-export const CANDLE = 4;
-// a Simulation's unit, the step its scripts, headlines and news count in: 8 ticks, four hours, two chart candles
-export const UNIT = 8;
+// the chart's candle: 8 ticks, two hours, twelve to a day and twenty-four across the two days shown
+export const CANDLE = 8;
+// a Simulation's unit, the step its scripts, headlines and news count in: 16 ticks, four hours, two chart candles
+export const UNIT = 16;
 export const PLAY_DAYS = 5;
 export const PRE_ROLL_DAYS = 2;
 // The day the market broke is the third of the five played, so two days of clues come before it.
@@ -65,7 +65,7 @@ export const EVENTS: Episode[] = [
 ];
 
 // The real half-hour prices of the plots that have them, from data/minutes.csv (scripts/build-minutes.ts): a plot's
-// id to its ticks, the two days before the round first, then the days played, 48 ticks a day.
+// id to its ticks, the two days before the round first, then the days played, 96 ticks a day.
 export class Minutes {
   private plots = new Map<string, number[]>();
   constructor(csv: string) {
@@ -142,7 +142,7 @@ export function random(seed: number): () => number {
 
 
 // A replay round on the new clock (ADR 0075): the plot's own window of five days, two days of the market before
-// it as the chart's history, 48 half-hour ticks a day. A plot with real minutes plays them as they were. One without,
+// it as the chart's history, 96 fifteen-minute ticks a day. A plot with real minutes plays them as they were. One without,
 // the two yuan plots, plays the ECB's daily closes over the same days, each day bridged by `dayOf` and the day the
 // ECB first shows the break opening with its gap. The open is the last tick of the history, shared with the first
 // of the round, so the chart joins without a jump.

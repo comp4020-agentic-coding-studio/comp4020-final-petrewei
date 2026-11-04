@@ -31,7 +31,7 @@ const CAREER_FILE = join(DATA_DIR, "career.json");
 const NAMES_FILE = join(DATA_DIR, "names.json");
 const FACES_FILE = join(DATA_DIR, "faces.json");
 const ACTIVITY = join(DATA_DIR, "activity.log");
-// Half a second a tick: five days of 48 ticks is 241 ticks, two minutes.
+// Half a second a tick: five days of 96 ticks is 481 ticks, four minutes at 1×, two at 2× (ADR 0085).
 const TICK_MS = Number(process.env.TICK_MS ?? 500);
 // The feed's line as a round opens, by where its prices come from; a bridged replay says its moves are simulated.
 const OPENING = { simulation: "scenario-round", minutes: "replay-round", bridged: "replay-bridged-round" } as const;
@@ -371,6 +371,8 @@ const CONTROLS: Record<string, (m: Market, who: string, input: Record<string, un
   finish: (m, who) => m.finish(who),
   pause: (m, who) => m.pause(who, true),
   resume: (m, who) => m.pause(who, false),
+  fast: (m, who) => m.setSpeed(who, true),
+  normal: (m, who) => m.setSpeed(who, false),
   hold: (m, who) => m.bell(who, true),
   dismiss: (m, who) => m.bell(who, false),
   guess: (m, who, input) => m.guess(who, input.year as number),
@@ -405,6 +407,9 @@ class Market {
   breakElapsed = 0;
   countdown = 0;
   startedBy: string | null = null;
+  // How many ticks the market moves each beat: 1, or 2 when whoever rules the round speeds it up for everyone
+  // (ADR 0085); the countdown, a pause and the bell keep to the clock.
+  speed = 1;
   ironman = false;
   // The latest Simulation headline, pinned under the price until the next.
   headline: { scenario: string; n: number } | { clue: number; n: number } | { story: number } | null = null;
@@ -498,6 +503,7 @@ class Market {
     this.tick = 0;
     this.phase = "lobby";
     this.startedBy = null;
+    this.speed = 1;
     this.ironman = false;
     this.paused = 0;
     this.headline = null;
@@ -576,6 +582,17 @@ class Market {
     if (this.tick < (this.round.prices.length - 1) / 2) return "Guesses open halfway through the round.";
     this.guesses.set(who, year);
     log(who, "guess", { mode: this.mode, year });
+    return null;
+  }
+
+  // Speed the market up for everyone, or back to normal: whoever rules the round may (ADR 0085).
+  setSpeed(who: string, fast: boolean): string | null {
+    if (this.phase !== "trade") return "No round is trading.";
+    if (!this.mayRule(who)) return "Only the person who pressed Start can change the speed.";
+    this.speed = fast ? 2 : 1;
+    this.say(fast ? `${nameOf(who)} sped the round up to 2×.` : `${nameOf(who)} set the round back to 1×.`, "info", fast ? "fast" : "normal", { who: short(who) });
+    log(who, "speed", { mode: this.mode, speed: this.speed });
+    this.broadcast();
     return null;
   }
 
@@ -866,6 +883,7 @@ class Market {
       mode: this.mode,
       phase: this.phase,
       countdown: Math.ceil((this.countdown * TICK_MS) / 1000),
+      speed: this.speed,
       startedBy: this.startedBy && nameOf(this.startedBy),
       startedCode: this.startedBy && short(this.startedBy),
       // Whether this visitor may cancel or end the round for everyone.
@@ -1014,7 +1032,8 @@ function tutorialView(who: string) {
     feed: t.feed,
     pops: [],
     result: null,
-    career: fame.map(({ key: k, ...c }) => ({ ...c, face: faceAt(k), you: k === key(who) })),
+    // the same hall as a market's, so the page draws it the same way (ADR 0085)
+    career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], feats: FEATS.filter((f) => c.feats?.includes(f)), face: faceAt(k), you: k === key(who) })),
     leverages: LEVERAGES,
     desk: DESK,
     minRounds: MIN_ROUNDS,
@@ -1036,7 +1055,11 @@ function broadcastPresence(except?: Listener): void {
 }
 
 setInterval(() => {
-  for (const m of MODES) markets[m].step();
+  // a market at 2× takes a second step while it trades and is not paused (ADR 0085)
+  for (const m of MODES) {
+    markets[m].step();
+    if (markets[m].speed === 2 && markets[m].phase === "trade" && !markets[m].paused) markets[m].step();
+  }
   for (const [who, e] of tutorials) if (e.t.moving()) {
     e.t.step();
     sendTutorial(who);

@@ -162,6 +162,13 @@ it("keeps the house traders out of the hall of fame", async () => {
   const bots = ["Kurumi", "Mochiko", "Yasuko", "Mebuki", "Inago", "Nana", "Kizuna"];
   const names = async () => (await state()).career.map((c) => c.name);
   expect(await names()).toEqual(["Hikari"]);
+  // a career saved before achievements and recent scores, as Hikari's is, still reaches every page with both, in the
+  // market's hall and the tutorial's alike: a missing one froze the tutorial on "reconnecting" (ADR 0085)
+  for (const mode of ["replay", "tutorial"] as const) {
+    const [row] = (await state(undefined, mode)).career as unknown as { feats: unknown; recent: unknown }[];
+    expect(row.feats, `${mode} feats`).toEqual([]);
+    expect(row.recent, `${mode} recent`).toEqual([]);
+  }
   const a = await visitor();
   await open(30);
   await act(a, { kind: "buy", leverage: 3 });

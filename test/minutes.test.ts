@@ -12,8 +12,9 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
   it("takes each tick from the last bar at or before its end, so a gap shows as the tick it landed in", () => {
     const bars = parseBars([bar("2015.01.15", "04:29", 1.2), bar("2015.01.15", "04:30", 1.2, 1.2, 1.0, 1.1), bar("2015.01.15", "04:31", 1.0)].join("\n"));
     const from = dayOpen("2015-01-15");
-    // 04:30 EST is 11.5 hours into the day that opens at 17:00, the 24th tick, which closes at 12:00 into it
-    const ticks = ticksOf(bars, from, 48);
+    // in half-hour ticks, as the worked example is written (the rule holds at any step): 04:30 EST is 11.5 hours into
+    // the day that opens at 17:00, the 24th tick, which closes at 12:00 into it
+    const ticks = ticksOf(bars, from, 48, 30);
     expect(ticks).toHaveLength(48);
     expect(ticks[22], "the half hour before the shock is still at the peg").toBe(1.2);
     expect(ticks[23], "the half hour of the shock closes where it landed").toBe(1.0);
@@ -21,7 +22,7 @@ describe("the cutting of minute bars into 30-minute ticks", () => {
 
   it("carries the price on through minutes with no bar, and opens a day from the price before it", () => {
     const bars = parseBars([bar("2015.01.14", "16:59", 1.5), bar("2015.01.15", "09:00", 1.6)].join("\n"));
-    const ticks = ticksOf(bars, dayOpen("2015-01-15"), 48);
+    const ticks = ticksOf(bars, dayOpen("2015-01-15"), 48, 30);
     expect(ticks[0], "no bar in the first half hour, so the day opens on the last price of the day before").toBe(1.5);
     expect(new Set(ticks.slice(0, 28)).size, "a quiet stretch is one price").toBe(1);
     expect(ticks[47], "and the later bar is taken up").toBe(1.6);

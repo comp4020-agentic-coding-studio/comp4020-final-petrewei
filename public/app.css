@@ -262,6 +262,12 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clock { flex: none; max-width: 7.5rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
 .chart-box { position: relative; }
+/* 2× (ADR 0085): a lit button while the round runs fast */
+.ctl.speed { display: inline-flex; align-items: center; gap: 0.15rem; width: auto; padding: 0 0.4rem; }
+.ctl.speed[hidden] { display: none; }
+.ctl.speed b { font: 700 0.72rem var(--mono); }
+.ctl.speed[aria-pressed="true"] { background: var(--call); border-color: var(--call); color: var(--on-fill); }
+.ctl.speed:disabled { opacity: 1; cursor: default; }
 /* The candle under the pointer (ADR 0083): a small reading that never takes the pointer's clicks. */
 .ohlc { position: absolute; z-index: 4; display: grid; gap: 0.05rem; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel) 94%, transparent); font: 0.75rem var(--mono); color: var(--ink); pointer-events: none; box-shadow: 0 4px 14px rgb(0 0 0 / 0.18); }
 .ohlc[hidden] { display: none; }
