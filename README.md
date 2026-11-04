@@ -11,7 +11,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 ## What good means here
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays real minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Simulation draws a random market from today's rate, shaped by a hidden situation.
+- **Replay is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays five real days of minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Simulation draws a random market from today's rate, shaped by a hidden situation.
 - **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you "borrow". Fees grow with leverage. A gap can wipe you out.
 - **Losing is public.** Stop-outs hit the feed. Dad's savings are "borrowed" twice, and he finds out.
 - **There's always someone to trade against.** Seven comic traders play.
@@ -42,7 +42,7 @@ Judged by people, at the crit and showcase:
 ## What I looked at
 
 - [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan), its [anime site](https://fxkurumi-info.com/) and Japanese and Chinese wikis, for names, terms, colours ([ADR 0015](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0015-three-languages-and-the-comics-characters.md), [0018](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0018-anime-names-and-seven-characters.md)); the pixel faces are hand-drawn ([0021](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0021-pixel-faces.md)).
-- The ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
+- Real minute prices from [HistData](https://www.histdata.com/), and the ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
 - ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money; major pairs capped at 30:1.
 - After the franc unpegged, FXCM's clients owed it [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
 - Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): software for one group.

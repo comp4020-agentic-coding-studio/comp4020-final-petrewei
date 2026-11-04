@@ -1121,7 +1121,7 @@ function draw(full) {
     ctx.stroke();
     ctx.fillStyle = colour;
     const bw = Math.max(3, (x(k) - x(0)) * 0.6);
-    ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(1, Math.abs(y(open) - y(close))));
+    ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(2, Math.abs(y(open) - y(close))));
   }
   // Moving averages over the candles, and their legend top-left.
   const legend = [];

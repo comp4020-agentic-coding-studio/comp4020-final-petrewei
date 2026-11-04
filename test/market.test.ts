@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CANDLE, drawNews, EFFECTS, EVENTS, GAP, History, NEWS_SIZE, NEWS_WORDS, newsDrift, PAIRS, random, SCENARIOS, simulation, storyOf, UNITS } from "../src/market.ts";
+import { UNIT, drawNews, EFFECTS, EVENTS, GAP, History, NEWS_SIZE, NEWS_WORDS, newsDrift, PAIRS, random, SCENARIOS, simulation, storyOf, UNITS } from "../src/market.ts";
 
 const history = new History(readFileSync(join(import.meta.dirname, "..", "data", "ecb.csv"), "utf8"));
 
@@ -46,7 +46,7 @@ describe("a replay", () => {
 // markets from today's rate, hidden until the bell. Each script must leave
 // its mark in the prices, over any seed, or the reveal is only a label.
 describe("a scenario round", () => {
-  const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % CANDLE === 0);
+  const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % UNIT === 0);
   // Which way a run went is read on a day before any script's turn, which is day 13 at the
   // earliest; the middle of a thirty-day round is already after it.
   const GRIND = 10;
@@ -59,7 +59,7 @@ describe("a scenario round", () => {
     const round = simulation(history, "USD/JPY", 158.45, random(7));
     expect(round.prices[0]).toBe(158.45);
     expect(round.simulated).toBe(true);
-    expect(round.prices.length).toBe(UNITS * CANDLE + 1);
+    expect(round.prices.length).toBe(UNITS * UNIT + 1);
     expect(SCENARIOS.map((x) => x.id)).toContain(round.scenario);
   });
 
@@ -244,7 +244,7 @@ describe("news in a simulation", () => {
     const moves = { rise: [] as number[], fall: [] as number[] };
     for (let seed = 1; seed <= 150; seed++) {
       const round = base(seed);
-      const closes = round.prices.filter((_, i) => i % CANDLE === 0);
+      const closes = round.prices.filter((_, i) => i % UNIT === 0);
       for (const n of round.news!) {
         if (n.effect !== "rise" && n.effect !== "fall") continue;
         // the three days of the story, against the drift the chop script would have given them anyway
@@ -263,7 +263,7 @@ describe("news in a simulation", () => {
     const after: number[] = [];
     for (let seed = 1; seed <= 150; seed++) {
       const round = simulation(history, "EUR/USD", 1.1, random(seed), "chop");
-      const closes = round.prices.filter((_, i) => i % CANDLE === 0);
+      const closes = round.prices.filter((_, i) => i % UNIT === 0);
       for (const n of round.news!) if (n.effect === "none") after.push(Math.log(closes[n.day + 3] / closes[n.day]));
     }
     expect(after.length).toBeGreaterThan(30);
@@ -277,7 +277,7 @@ describe("news in a simulation", () => {
     expect(NEWS_SIZE).toBeLessThan(9);
     // with news on, a carry trade still climbs and unwinds in most rounds: the stories are the
     // build-up and never land on the turn
-    const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % CANDLE === 0);
+    const closes = (round: { prices: number[] }) => round.prices.filter((_, i) => i % UNIT === 0);
     let held = 0;
     for (let seed = 1; seed <= 200; seed++) {
       const raw = closes(simulation(history, "EUR/CHF", 1.08, random(seed), "carry"));

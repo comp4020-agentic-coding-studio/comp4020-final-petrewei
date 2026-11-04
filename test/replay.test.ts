@@ -63,10 +63,10 @@ describe("a replay round on the new clock", () => {
       expect(r.bridged, e.id).toBe(true);
       const series = history.series(e.pair);
       const at = series.findIndex((d) => d.date === e.date);
-      // seven days: the first closes at tick 47, and the plot's own day is the fifth of the seven, 2 + 3 = index 4
+      // seven days: the first closes at tick 47, and the day the ECB first shows the event is the fifth of the seven (two before, then the third played), so it ends on that date's close
       const ticks = [...r.history.slice(0, -1), ...r.prices];
       for (let d = 0; d < PRE_ROLL_DAYS + PLAY_DAYS; d++) {
-        const real = series[at - 4 + d + 1].rate;
+        const real = series[at - 5 + d + 1].rate;
         expect(ticks[(d + 1) * DAY_TICKS - 1], `${e.id}: day ${d + 1} ends on the recorded close`).toBeCloseTo(real, 9);
       }
     }
@@ -103,9 +103,9 @@ describe("a replay round on the new clock", () => {
     expect(r.headlines![0].day).toBeLessThan(r.headlines![1].day);
   });
 
-  it("makes a candle of whole four-hour blocks, so a day is a whole number of candles", () => {
+  it("makes a candle of whole two-hour blocks, so a day is a whole number of candles", () => {
     expect(DAY_TICKS % CANDLE).toBe(0);
-    expect(CANDLE * 6).toBe(DAY_TICKS);
+    expect(CANDLE * 12).toBe(DAY_TICKS);
   });
 
   it("names the days of the round without a date being what the round is called by", () => {

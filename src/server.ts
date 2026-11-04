@@ -587,7 +587,12 @@ class Market {
     this.pick = null;
     this.phase = "trade";
     for (const l of this.listeners()) this.desk.join(l.who);
-    this.say(this.round.simulated ? `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.` : `Replay: ${this.round.pair}, thirty real trading days. When? Find out at the bell.`, "info", this.round.simulated ? "scenario-round" : "replay-round", { pair: this.round.pair });
+    const opening = this.round.simulated
+      ? { text: `Simulation: ${this.round.pair}, from today's real rate. The situation is hidden until the bell.`, key: "scenario-round" }
+      : this.round.bridged
+        ? { text: `Replay: ${this.round.pair}, five real trading days, with the moves between the daily closes simulated. When? Find out at the bell.`, key: "replay-bridged-round" }
+        : { text: `Replay: ${this.round.pair}, five real trading days. When? Find out at the bell.`, key: "replay-round" };
+    this.say(opening.text, "info", opening.key, { pair: this.round.pair });
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, simulated: this.round.simulated });
     void refreshToday();
   }
@@ -869,7 +874,7 @@ class Market {
       dayTicks: round.dayTicks ?? DAY_TICKS,
       start: START,
       from,
-      // The market's thirty days before the open, sent whole with the round's first
+      // The market's two days before the open, sent whole with the round's first
       // message and whenever the page asks for everything (ADR 0062).
       history: from === 0 ? round.history : undefined,
       prices: round.prices.slice(from, tick + 1),

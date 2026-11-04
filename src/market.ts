@@ -1,11 +1,9 @@
-// Where a round's prices come from. A replay plays one of thirteen plots, thirty
-// real trading days in which a market broke, from the ECB's daily reference rates
-// (data/ecb.csv, source: ECB; the crosses are derived), with the dates hidden until
-// the round ends. A Scenario round starts from today's rate and simulates a random
-// market for thirty days.
-// Free sources give one rate a day, so between closes the price wanders
-// on a random bridge that always lands on the real close; a day that
-// moved a lot opens with a gap, as the market did, and stops slip.
+// Where a round's prices come from. A replay plays one of nineteen plots, five real
+// trading days in which a market broke, with the dates hidden until the round ends: real
+// minute prices (data/minutes.csv, from HistData) for seventeen, and for the two yuan plots
+// the ECB's daily reference rates (data/ecb.csv, source: ECB) with the price between closes
+// on a random bridge that always lands on the real close. A Simulation round starts from
+// today's rate and simulates a random market, thirty candles long.
 
 import { dayOf, span } from "./bridge.ts";
 
@@ -13,30 +11,29 @@ import { dayOf, span } from "./bridge.ts";
 // publishes, so each has its real history since 1999 (the yuan since April 2005).
 export const PAIRS = ["USD/JPY", "EUR/USD", "GBP/USD", "AUD/USD", "USD/CHF", "EUR/CHF", "USD/CNY", "AUD/JPY", "EUR/JPY", "GBP/JPY", "EUR/GBP", "EUR/AUD", "GBP/CHF", "GBP/AUD"] as const;
 export type Pair = (typeof PAIRS)[number];
-// Thirty days a round, nine ticks a day, and thirty more days of the market
-// before it, drawn to the left of the open so the chart is never empty and the
-// new price arrives at its right end (ADR 0062).
 // A Simulation's plan, headlines and news count in units, thirty of them a round: a candle each.
 export const UNITS = 30;
-// The new clock (ADR 0075): a day is 48 half-hour ticks, a candle 8 of them (four hours), a plot's round five days
-// and the market before it two. These are what Replay and Simulation play; UNITS, LOOKBACK and STEPS above are the old
-// thirty-day clock, kept until nothing uses it.
+// The new clock (ADR 0075): a day is 48 half-hour ticks, a chart candle 4 of them (two hours), a plot's round five days
+// and the market before it two, drawn to the left of the open so the chart is never empty and the new price arrives
+// at its right end (ADR 0062).
 export const DAY_TICKS = 48;
-export const CANDLE = 8;
+// the chart's candle: 4 ticks, two hours, twelve to a day and twenty-four across the two days shown
+export const CANDLE = 4;
+// a Simulation's unit, the step its scripts, headlines and news count in: 8 ticks, four hours, two chart candles
+export const UNIT = 8;
 export const PLAY_DAYS = 5;
 export const PRE_ROLL_DAYS = 2;
 // A day that moved more than this opens with most of its move at once.
 export const GAP = 0.015;
 
 type Day = { date: string; rate: number };
-// `history` is the market in the thirty days before the open, as ticks ending at
+// `history` is the market in the two days before the open, as ticks ending at
 // the open price, so `prices[0]` follows it; it is part of the chart and of
 // nothing else: no order, score or clock reads it.
 export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; simulated: boolean; scenario?: string; headlines?: Headline[]; news?: News[]; dayTicks?: number; unit: number; bridged?: boolean };
 
-// The plots of a replay: thirteen real days on which the market broke, each with the
-// pair it broke on. A round is placed so the day lands between day 11 and day 28 of the
-// thirty, with at least ten days to read first.
+// The plots of a replay: nineteen real stories in which the market broke, each with the
+// pair it broke on. The day it broke is the third of the five played, with two days to read first.
 // Each note is shown when the round ends, so the room learns what it just
 // traded through, and its clues, in every language, are in public/i18n-long.js.
 export type Episode = { id: string; pair: Pair; date: string; title: string; note: string };
@@ -181,7 +178,8 @@ function dayNames(history: History, event: Episode): string[] {
 function simulated(history: History, event: Episode, rnd: () => number): number[] {
   const series = history.series(event.pair);
   const at = series.findIndex((d) => d.date === event.date);
-  const first = at - (PRE_ROLL_DAYS + 2);
+  // day d ends on the close d places on, so the third played day (the fifth) must end on the day itself
+  const first = at - (PRE_ROLL_DAYS + 3);
   // one close more than the days, so the last day is bridged to its own close and the day after supplies the one tick
   // that follows it, as the real plots end on a price past their last day
   const closes = series.slice(first, first + PRE_ROLL_DAYS + PLAY_DAYS + 2).map((d) => d.rate);
@@ -355,15 +353,15 @@ export function simulation(history: History, pair: Pair, rate: number, rnd: () =
     closes.push(closes[d] * Math.exp((way * drift + newsDrift(news, d) + normal(rnd) * wild) * vol));
   }
   // a candle's own typical move is a unit's volatility over its eight ticks, so each tick is a sixth of a day's worth of noise
-  const tickVol = vol / Math.sqrt(DAY_TICKS / CANDLE);
+  const tickVol = vol / Math.sqrt(DAY_TICKS / UNIT);
   const prices = [closes[0]];
-  for (let d = 1; d < closes.length; d++) prices.push(...span(closes[d - 1], closes[d], tickVol, rnd, ((d - 1) * CANDLE) % DAY_TICKS, CANDLE));
+  for (let d = 1; d < closes.length; d++) prices.push(...span(closes[d - 1], closes[d], tickVol, rnd, ((d - 1) * UNIT) % DAY_TICKS, UNIT));
   // The pair's real last days, as daily closes ending on today's rate, each bridged to its own close.
   const real = [...history.series(pair).slice(-(PRE_ROLL_DAYS + 1)).map((d) => d.rate), rate];
   const before: number[] = [real[0]];
   for (let d = 1; d < real.length; d++) before.push(...dayOf(before.at(-1)!, real[d], vol, rnd));
   return { pair, days: closes.map((_, d) => `day ${d}`), prices, history: before.slice(-(PRE_ROLL_DAYS * DAY_TICKS + 1)), event: null, simulated: true, scenario: script.id, headlines: script.headlines, news, dayTicks: DAY_TICKS,
     // a simulation's headlines and news are counted in its units, which are candles
-    unit: CANDLE };
+    unit: UNIT };
 }
 

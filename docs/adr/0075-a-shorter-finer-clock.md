@@ -8,13 +8,13 @@ A market breaks in a day, and a thirty-day round of daily ticks hid that. Peter 
 
 ## 2 Decision
 
-**The window is five played trading days after two of history.** A day is 48 half-hour ticks. A round is 241 ticks, about two minutes at 500 ms a tick, so its length stays and its content is fifteen times finer. The page's candle is four hours, eight ticks, thirty to a round, and the history is twelve whole candles and the opening price, 97 ticks. The named day is the third played day.
+**The window is five played trading days after two of history.** A day is 48 half-hour ticks. A round is 241 ticks, about two minutes at 500 ms a tick, so its length stays and its content is fifteen times finer. The page's candle is two hours, four ticks, sixty to a round (a four-hour candle, eight ticks, drew bodies too thin to read, and two ticks drew nothing but noise), and the history is twenty-four whole candles and the opening price, 97 ticks. The named day is the third played day.
 
 **Replay plays `data/minutes.csv` for seventeen of nineteen stories.** The two yuan stories have no free minute data, so they keep the ECB's daily closes, joined by `dayOf` in `src/bridge.ts`, a session-shaped fat-tailed walk pinned to each close, and the round says it is bridged. The bridge matches measured real days in session shares and tail weight, and falls short on range, 1.5 times the day's move against 1.7 real; the shortfall is stated in the file.
 
-**Simulation is thirty units, each one candle.** The scripts are unchanged and each unit is drawn by the same bridge. The history is the real last days of the chosen pair.
+**Simulation is thirty units, each eight ticks and two chart candles.** The scripts are unchanged and each unit is drawn by the same bridge. The history is the real last days of the chosen pair.
 
-**The indicators were shortened to fit the clock.** The averages are one and three days, the bands two days, and the strength index nine candles, and the labels and tips name their spans.
+**The indicators were shortened to fit the clock.** The averages are one and two days (the slower must fit in the twenty-four candles shown, or it starts after the chart does), the bands two days, and the strength index fourteen candles, and the labels and tips name their spans.
 
 **The chart counts days.** Grid lines mark days, and the clock reads the day of five. Headlines and clues fire once a day, and a story's clues come before its event.
 

@@ -9,7 +9,7 @@ import { pixels } from "./avatars.js";
 export const ICONS = {
   news: {
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
-    "scenario-round": "📡", "replay-round": "📼",
+    "scenario-round": "📡", "replay-round": "📼", "replay-bridged-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💴", stopped: "🛡️", took: "🎯",
     call: "📞", stopout: "💀", zerocut: "🕳️", "prayed-rise": "🙏", "prayed-fall": "🙏", borrowed: "🐷", "borrowed-again": "🐽", caught: "🚨", entered: "👋",
   },
