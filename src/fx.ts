@@ -66,12 +66,15 @@ export type Position = {
 // `traded` says whether the player placed an order this round at all.
 // `caught` counts the loans Dad has found out about (ADR 0057); it equals the
 // loans once he has, and a caught player is grounded: out for the round.
-// A pending order (ADR 0078), the FX entry order: buy or sell when the price reaches `at`, set a distance from the price
-// when asked. Its name says which side and where the level sits: buying below the price is a Buy Limit, above it a Buy
-// Stop; selling above is a Sell Limit, below a Sell Stop. It fills as a click would, with what it was set with.
+// A pending order (ADR 0078, 0079), the FX entry order: buy or sell when the price reaches `at`, the level the player
+// typed. The level is only a trigger: the order fills at the desk's own price on the tick that reaches it, as a click
+// would, with what it was set with. Its name says which side and where the level sits against the price when set:
+// buying below the price is a Buy Limit, above it a Buy Stop; selling above is a Sell Limit, below a Sell Stop.
 export type PendingType = "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop";
-export type Pending = { type: PendingType; side: Side; at: number; pct: number; leverage: number; stake: number; sl: number | null; tp: number | null };
-export type PendRequest = { side: Side; toward: Side; pct: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
+export type Pending = { type: PendingType; side: Side; at: number; leverage: number; stake: number; sl: number | null; tp: number | null };
+export type PendRequest = { side: Side; at: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
+// How far from the price a pending level may be: within half of it either way, the exits' widest distance.
+export const PEND_RANGE = 0.5;
 export type Account = { balance: number; debt: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; caught: number; recall: number; financing: number; pending: Pending | null };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "caught"; who: string; price: number; pnl: number; leverage?: number; side?: Side };
 
@@ -180,19 +183,23 @@ export class Desk {
     return [{ kind: "add", who, price: this.price, pnl: this.pnl(who), leverage: pos.leverage, side }];
   }
 
-  // Set a pending order, replacing any other (one at a time): `toward` is which way the price must go to reach it.
+  // Set a pending order, replacing any other (one at a time), at the level typed; which side of the price it sits on
+  // says whether it is a limit or a stop.
   pend(who: string, r: PendRequest): string | null {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
     if (!(r.stake > 0 && r.stake <= 1)) return "Stake must be between 0 and 1.";
-    if (!inRange(r.pct)) return "A pending order must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
+    if (r.at === this.price) return "That is the price now. Buy or Sell instead.";
+    if (Math.abs(r.at / this.price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
     if (r.sl != null && !inRange(r.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (r.tp != null && !inRange(r.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
-    const limit = r.side !== r.toward;
+    const below = r.at < this.price;
+    const limit = (r.side === 1) === below;
     const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
-    account.pending = { type, side: r.side, at: this.price * (1 + (r.toward * r.pct) / 100), pct: r.pct, leverage: r.leverage, stake: r.stake, sl: r.sl ?? null, tp: r.tp ?? null };
+    account.pending = { type, side: r.side, at: r.at, leverage: r.leverage, stake: r.stake, sl: r.sl ?? null, tp: r.tp ?? null };
     return null;
   }
 

@@ -623,7 +623,7 @@ describe("the six distances", () => {
 });
 
 
-// ADR 0078: a pending order, the FX entry order: buy or sell when the price reaches a level set a distance away.
+// ADR 0078, 0079: a pending order, the FX entry order: buy or sell when the price reaches the level typed.
 // Buying below the price is a Buy Limit, above it a Buy Stop; selling above is a Sell Limit, below a Sell Stop.
 describe("a pending order", () => {
   const desk = () => {
@@ -631,21 +631,21 @@ describe("a pending order", () => {
     d.join("a");
     return d;
   };
-  it("names itself by side and where its level sits, and sets the level from the desk's own price", () => {
+  it("names itself by side and where its level sits, by where the typed level sits against the price", () => {
     const d = desk();
-    expect(d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 10, stake: 0.5 })).toBeNull();
+    expect(d.pend("a", { side: 1, at: 98, leverage: 10, stake: 0.5 })).toBeNull();
     expect(d.account("a").pending).toMatchObject({ type: "buy-limit", side: 1, at: 98 });
-    d.pend("a", { side: 1, toward: 1, pct: 5, leverage: 10, stake: 0.5 });
+    d.pend("a", { side: 1, at: 105, leverage: 10, stake: 0.5 });
     expect(d.account("a").pending).toMatchObject({ type: "buy-stop", at: 105 });
-    d.pend("a", { side: -1, toward: 1, pct: 1, leverage: 10, stake: 0.5 });
+    d.pend("a", { side: -1, at: 101, leverage: 10, stake: 0.5 });
     expect(d.account("a").pending).toMatchObject({ type: "sell-limit", at: 101 });
-    d.pend("a", { side: -1, toward: -1, pct: 1, leverage: 10, stake: 0.5 });
+    d.pend("a", { side: -1, at: 99, leverage: 10, stake: 0.5 });
     expect(d.account("a").pending).toMatchObject({ type: "sell-stop", at: 99 });
   });
 
   it("waits until the price reaches its level, then fills as a click would, with its own stake and leverage", () => {
     const d = desk();
-    d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 10, stake: 0.5 });
+    d.pend("a", { side: 1, at: 98, leverage: 10, stake: 0.5 });
     expect(d.mark(99)).toEqual([]);
     expect(d.account("a").pos).toBeNull();
     const fills = d.mark(97.5);
@@ -654,34 +654,45 @@ describe("a pending order", () => {
     expect(d.account("a").pending, "a filled order is gone").toBeNull();
   });
 
+  it("treats the typed level as a trigger only: it fills at the desk's own price on the tick that reaches it", () => {
+    const d = desk();
+    d.pend("a", { side: 1, at: 98.5, leverage: 10, stake: 1 });
+    d.mark(97);
+    // a buy fills at the ask over 97, never at the 98.5 the player typed
+    expect(d.account("a").pos!.entry).toBeLessThan(97.1);
+  });
+
   it("fills at the price it gapped to, as a stop order does", () => {
     const d = desk();
-    d.pend("a", { side: -1, toward: -1, pct: 2, leverage: 10, stake: 1 });
+    d.pend("a", { side: -1, at: 98, leverage: 10, stake: 1 });
     d.mark(90);
     expect(d.account("a").pos?.entry).toBeLessThan(91);
   });
 
   it("keeps one at a time: a new one replaces the old, and none cancels it", () => {
     const d = desk();
-    d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 10, stake: 0.5 });
-    d.pend("a", { side: -1, toward: 1, pct: 5, leverage: 30, stake: 0.25 });
+    d.pend("a", { side: 1, at: 98, leverage: 10, stake: 0.5 });
+    d.pend("a", { side: -1, at: 105, leverage: 30, stake: 0.25 });
     expect(d.account("a").pending).toMatchObject({ type: "sell-limit", at: 105 });
     expect(d.unpend("a")).toBeNull();
     expect(d.account("a").pending).toBeNull();
     expect(d.unpend("a")).toMatch(/no pending order/i);
   });
 
-  it("refuses a distance off the list, a leverage off the ladder, or a trader out of the round", () => {
+  it("refuses a level at the price or more than half away, a leverage off the ladder, or a trader out of the round", () => {
     const d = desk();
-    expect(d.pend("a", { side: 1, toward: -1, pct: 3, leverage: 10, stake: 0.5 })).toMatch(/1%, 2%, 5%/);
-    expect(d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 7, stake: 0.5 })).toMatch(/leverage/i);
+    expect(d.pend("a", { side: 1, at: 49, leverage: 10, stake: 0.5 })).toMatch(/within 50%/);
+    expect(d.pend("a", { side: 1, at: 151, leverage: 10, stake: 0.5 })).toMatch(/within 50%/);
+    expect(d.pend("a", { side: 1, at: 100, leverage: 10, stake: 0.5 })).toMatch(/price now/);
+    expect(d.pend("a", { side: 1, at: Number.NaN, leverage: 10, stake: 0.5 })).toMatch(/type the price/i);
+    expect(d.pend("a", { side: 1, at: 98, leverage: 7, stake: 0.5 })).toMatch(/leverage/i);
     d.account("a").out = true;
-    expect(d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 10, stake: 0.5 })).toMatch(/out of the market/i);
+    expect(d.pend("a", { side: 1, at: 98, leverage: 10, stake: 0.5 })).toMatch(/out of the market/i);
   });
 
   it("carries a stop loss and a take profit onto the position it opens", () => {
     const d = desk();
-    d.pend("a", { side: 1, toward: -1, pct: 2, leverage: 10, stake: 0.5, sl: 1, tp: 5 });
+    d.pend("a", { side: 1, at: 98, leverage: 10, stake: 0.5, sl: 1, tp: 5 });
     d.mark(98);
     const pos = d.account("a").pos!;
     expect(pos.stop).toBeCloseTo(98 * 0.99, 6);

@@ -187,8 +187,6 @@ function sliders() {
   const named = new Set([broker.distances[0], 5, broker.distances.at(-1)].map(String));
   ticks("exit-ticks", marks.map((m) => (named.has(m[1]) ? m : [m[0], "", m[2], m[3]])));
   ticks("pexit-ticks", marks);
-  // a pending order's distances are the exits' ladder
-  $("pend-pct").replaceChildren(...broker.distances.map((d) => Object.assign(document.createElement("option"), { value: String(d), textContent: `${d}%`, selected: d === pend.pct })));
 }
 function mark() {
   $("leverage").value = String(ladder.indexOf(choice.leverage));
@@ -297,25 +295,36 @@ $("close").onclick = () => act("close");
 $("mobile-close").onclick = () => act("close");
 // A pending order (ADR 0078): this ticket's order, placed later at a level. The page keeps which side, which way and
 // how far; the server sets the level from its price and sends back what waits.
-const pend = { side: 1, toward: -1, pct: 2 };
-const pendType = (side, toward) => `${side === 1 ? "buy" : "sell"}-${side !== toward ? "limit" : "stop"}`;
+// The pending order being set (ADR 0079): a side and a typed level, null until one is typed. Which side of the price the
+// level sits on names it, as the server will when it is placed.
+const pend = { side: 1, at: null };
+// whether the desk takes orders now, set with each state, so typing a level enables Place only then
+let deskClosed = true;
+const pendType = (side, at, price) => `${side === 1 ? "buy" : "sell"}-${(side === 1) === at < price ? "limit" : "stop"}`;
 function segment(id, key, value) {
   for (const b of $(id).querySelectorAll("[role=radio]")) b.setAttribute("aria-checked", String(Number(b.dataset[key]) === value));
 }
-for (const [id, key] of [["pend-side", "side"], ["pend-way", "toward"]]) {
-  $(id).onclick = (e) => {
-    const b = e.target.closest("[role=radio]");
-    if (!b) return;
-    pend[key] = Number(b.dataset[key]);
-    segment(id, key, pend[key]);
-    if (state) pending(state);
-  };
-}
-$("pend-pct").onchange = () => {
-  pend.pct = Number($("pend-pct").value);
+$("pend-side").onclick = (e) => {
+  const b = e.target.closest("[role=radio]");
+  if (!b) return;
+  pend.side = Number(b.dataset.side);
+  segment("pend-side", "side", pend.side);
   if (state) pending(state);
 };
-$("pend-place").onclick = () => act("pend", { side: pend.side, toward: pend.toward, pct: pend.pct, leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
+$("pend-at").oninput = () => {
+  const v = Number($("pend-at").value);
+  pend.at = $("pend-at").value !== "" && v > 0 ? v : null;
+  if (state) pending(state);
+};
+// opening the section starts the level at the price now, to be typed over
+$("pend").ontoggle = () => {
+  if ($("pend").open && pend.at === null && state) {
+    $("pend-at").value = quoted(state.prices.at(-1));
+    pend.at = Number($("pend-at").value);
+    pending(state);
+  }
+};
+$("pend-place").onclick = () => act("pend", { side: pend.side, at: pend.at, leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
 $("pend-cancel").onclick = $("pend-row-cancel").onclick = () => act("unpend");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
@@ -994,6 +1003,8 @@ function ticket(s) {
   $("stake-order").style.width = `${bar.order * 100}%`;
   $("stake-box").classList.toggle("cut", bar.cut && !s.you.out);
   const controls = margin * choice.leverage;
+  // beside the stake, what this order puts in and the position it controls, in yen (ADR 0079)
+  $("stake-note").replaceChildren(...rich(t("stakeNote"), { margin: yen(margin), controls: yen(controls) }));
   // At L× leverage, a move of 1/L against you is everything you put in.
   const wipe = 100 / choice.leverage;
   // With a position open, a same-side order adds to it and an opposite
@@ -1028,10 +1039,12 @@ function pending(s) {
   const typeName = (type) => ui.pendTypes?.[type] ?? T.en.ui.pendTypes[type];
   $("pend-cancel").hidden = !waiting;
   $("pend-waiting").textContent = waiting ? t("pendWaiting", { type: typeName(waiting.type), at: quoted(waiting.at) }) : "";
-  // before it is placed, the level is shown at today's price; the server sets the real one when it is
-  const at = s.prices.at(-1) * (1 + (pend.toward * pend.pct) / 100);
+  const price = s.prices.at(-1);
+  $("pend-at").step = String(10 ** -(quoted(price).split(".")[1]?.length ?? 0));
   const share = `${Math.round(choice.stake * 100)}%`;
-  $("pend-what").textContent = t("pendWhat", { type: typeName(pendType(pend.side, pend.toward)), at: quoted(at), lev: choice.leverage, share });
+  // what the typed level makes, against the price now: a limit or a stop, or nothing yet at the price itself
+  $("pend-what").textContent = pend.at === null || pend.at === price ? "" : t("pendWhat", { type: typeName(pendType(pend.side, pend.at, price)), lev: choice.leverage, share });
+  $("pend-place").disabled = deskClosed || pend.at === null;
 }
 const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
 // Text with {slots} left in it, the slots filled as bold nodes, so a
@@ -1522,7 +1535,8 @@ function render(s) {
   setTip($("mode"), head ?? "");
   const clockKey = tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
-  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), s: s.countdown };
+  // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
+  const clockValues = { d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
   $("clock").textContent = t(`${clockKey}Short`, clockValues);
   $("clock").setAttribute("aria-label", t(clockKey, clockValues));
   setTip($("clock"), t(clockKey, clockValues));
@@ -1635,7 +1649,9 @@ function render(s) {
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
-  for (const id of ["buy", "sell", "pend-place"]) $(id).disabled = closed;
+  for (const id of ["buy", "sell"]) $(id).disabled = closed;
+  deskClosed = closed;
+  $("pend-place").disabled = closed || pend.at === null;
   $("pend-cancel").disabled = $("pend-row-cancel").disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;

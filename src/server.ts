@@ -1363,11 +1363,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       action = { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), stake, sl: dist(input.sl), tp: dist(input.tp) };
     } else if (kind === "pray") action = { kind, way: input.way === -1 ? -1 : 1 };
     else if (kind === "close" || kind === "borrow" || kind === "unpend") action = { kind };
-    // A pending order (ADR 0078) is asked for as a side, the way the price must go and a distance, never a price: the
-    // desk sets its level from its own price, as it does a stop's.
+    // A pending order (ADR 0079) is asked for at a typed level, which is only a trigger: it fills at the server's own
+    // price on the tick that reaches it, as a click would, so the page still never sets the price of a fill.
     else if (kind === "pend") {
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
-      action = { kind: "pend", side: input.side === -1 ? -1 : 1, toward: input.toward === -1 ? -1 : 1, pct: Number(input.pct), leverage: Number(input.leverage), stake: typeof input.stake === "number" ? input.stake : 1, sl: dist(input.sl), tp: dist(input.tp) };
+      action = { kind: "pend", side: input.side === -1 ? -1 : 1, at: Number(input.at), leverage: Number(input.leverage), stake: typeof input.stake === "number" ? input.stake : 1, sl: dist(input.sl), tp: dist(input.tp) };
     }
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.

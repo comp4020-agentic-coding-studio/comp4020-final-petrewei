@@ -154,6 +154,15 @@ test("two independent players see orders, recover from offline and receive their
     await expect(clock).toHaveAttribute("aria-label", /.+/);
     await page.locator("#leverage").press("Home");
     await page.locator("#buy").click();
+    // ADR 0079: while trading, the clock names its units, a day and an hour, in the page's own language
+    const units = { en: /^Day \d+\/\d+ \d+h$/, ja: /^\d+\/\d+日 \d+時$/, zh: /^\d+\/\d+天 \d+时$/ }[lang];
+    await expect(clock).toHaveText(units);
+    // ADR 0079: each exit's distance sits under its switch, not beside it, so the track keeps the row's width
+    for (const k of ["sl", "tp"]) {
+      const sw = (await page.locator(`#${k}-on .track`).boundingBox())!;
+      const pct = (await page.locator(`#${k}-pct`).boundingBox())!;
+      expect(pct.y, `${k} distance under its switch`).toBeGreaterThanOrEqual(sw.y + sw.height - 1);
+    }
     const row = observer.locator("#traders li").filter({ hasText: name });
     await expect(row).toContainText("▲ 1×", { timeout: 1000 });
     // ADR 0078: each page lists its own trader first, then the other people, then the house traders

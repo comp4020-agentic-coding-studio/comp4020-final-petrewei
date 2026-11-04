@@ -260,7 +260,7 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .price { font: 600 1.45rem var(--mono); letter-spacing: -0.02em; }
 #change { font: 0.95rem var(--mono); }
 .mode { min-width: 0; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.clock { flex: none; max-width: 6rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
+.clock { flex: none; max-width: 7.5rem; text-align: center; font: 0.75rem var(--mono); color: var(--soft); background: var(--raise); padding: 0.1rem 0.35rem; border-radius: 6px; white-space: nowrap; }
 .chart-box { position: relative; }
 /* The chart's box sets its size and the page draws to fit it (ADR 0076): its old shape, 900 by 380, wherever no layout
    gives it a height, so the drawing never sizes the box it is drawn into. */
@@ -306,7 +306,9 @@ body.tutorial .studies { display: none; }
 .ctl.danger { color: var(--down); }
 .ctl[hidden] { display: none; }
 /* Name that year: a label, a year and a button on one row. */
-.guess { display: grid; grid-template-columns: minmax(0, 1fr) 5.2rem auto; gap: 0.4rem; align-items: center; }
+/* Over the chart's lower left beside the prayers (ADR 0079), on the chart's own backdrop so the candles do not show through. */
+.guess { position: absolute; z-index: 3; left: 6.5rem; bottom: 0.5rem; display: flex; gap: 0.35rem; align-items: center; padding: 0.15rem 0.35rem; border: 1px dashed var(--line); border-radius: 8px; background: color-mix(in srgb, var(--chart) 88%, transparent); }
+.guess input { width: 5.2rem; }
 .guess[hidden] { display: none; }
 .guess label { font-size: 0.82rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .guess input { height: 2rem; min-width: 0; padding: 0 0.4rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: 0.9rem var(--mono); }
@@ -395,28 +397,32 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .exit-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.4rem; }
 .exit-row .pct { font: 700 0.82rem var(--mono); }
 .exit-row .toggle .name { font-size: 0.78rem; }
+/* Each switch is its knob and name on top, its distance under them (ADR 0079), so the track keeps the row's width. */
+.exit-row .toggle { display: grid; grid-template-columns: auto auto; gap: 0.1rem 0.3rem; align-items: center; }
+.exit-row .toggle .pct { grid-column: 1 / -1; grid-row: 2; text-align: center; }
+.exit-row .toggle.tp .track { grid-column: 2; grid-row: 1; }
+.exit-row .toggle.tp .name { grid-column: 1; grid-row: 1; }
 .exit-scale { display: grid; gap: 0.1rem; min-width: 0; }
 /* A pending order (ADR 0078): a row that opens to choose a side, a way and a distance, naming the order it makes and
    the level it would wait at; while one waits, its summary says so, with a Cancel. */
-.pend { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.pend { padding-top: 0.1rem; }
 .pend > summary { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--soft); list-style: none; }
 .pend > summary::-webkit-details-marker { display: none; }
 .pend > summary::before { content: ""; width: 0.4rem; height: 0.4rem; border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(-45deg); transition: transform 0.15s; margin-right: 0.15rem; }
 .pend[open] > summary::before { transform: rotate(45deg); }
 .pend-waiting { margin-left: auto; font: 600 0.78rem var(--mono); color: var(--call); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pend-body { display: grid; grid-template-columns: max-content max-content 1fr; align-items: center; gap: 0.45rem 0.4rem; padding-top: 0.5rem; font-size: 0.82rem; color: var(--soft); }
-#pend-pct { justify-self: end; }
-.pend-what { grid-column: 1 / 3; }
+/* One row: the side, the typed level, Place (and Cancel while one waits); what it makes underneath. */
+.pend-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.4rem; padding-top: 0.4rem; font-size: 0.82rem; color: var(--soft); }
 .seg { display: inline-flex; width: max-content; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg [role=radio] { padding: 0.25rem 0.55rem; white-space: nowrap; border: none; border-radius: 0; background: none; color: var(--soft); font-size: 0.8rem; font-weight: 700; }
 .seg [role=radio] + [role=radio] { border-left: 1px solid var(--line); }
 .seg [role=radio][aria-checked="true"] { background: var(--raise); color: var(--ink); }
 #pend-side [aria-checked="true"][data-side="1"] { color: var(--up); }
 #pend-side [aria-checked="true"][data-side="-1"] { color: var(--down); }
-#pend-pct { height: 1.9rem; padding: 0 0.3rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
-.pend-what { min-width: 0; margin: 0; font: 600 0.78rem var(--mono); color: var(--ink); }
-.pend-go { display: flex; gap: 0.4rem; justify-self: end; }
-.pend-go .ghost { height: 1.9rem; padding: 0 0.8rem; font-size: 0.82rem; }
+#pend-at { width: 6.5rem; height: 1.9rem; padding: 0 0.4rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); color: var(--ink); font: 0.85rem var(--mono); }
+.pend-what { flex-basis: 100%; min-width: 0; margin: 0; font: 600 0.78rem var(--mono); color: var(--ink); }
+.pend-what:empty { display: none; }
+.pend-body .ghost { height: 1.9rem; padding: 0 0.8rem; font-size: 0.82rem; }
 /* The stake's track is the whole account (ADR 0077): a bar from nothing to all of it, the margin already in use shaded
    at its left, then what this order would add in the stake's heat; the slider lies over its 25% to 100%, so the thumb
    and the marks stand on the shares they mean. Its own track is clear so the bar shows through. */
@@ -466,7 +472,7 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .pos-exits { padding: 0.1rem 0.9rem 0.7rem; }
 /* The preview is two whole phrases, one to a line, so no line ends on a
    stray word; an amount never breaks. Room for each to wrap once. */
-.preview { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); min-height: 2.8em; }
+.preview { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); }
 /* the two phrases run on one line, joined by a dot, and wrap at the dot if they must, never inside a phrase where
    one fits on a line (ADR 0077) */
 .preview span { display: inline-block; }
@@ -536,9 +542,14 @@ th { text-align: right; font-weight: 400; font-size: 0.75rem; color: var(--muted
 td { text-align: right; padding: 0.55rem 0.9rem; font-family: var(--mono); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 #pos-row[hidden], #pos-empty[hidden], #pend-row[hidden] { display: none; }
+/* Column names only over rows they name (ADR 0079): none over "No open position", and an empty hall shows only its line. */
+.positions:has(#pos-row[hidden]):has(#pend-row[hidden]) thead { display: none; }
+.fame:has(#career:empty) > table { display: none; }
+.fame-empty { margin: 0; padding: 0.7rem 0.9rem; color: var(--muted); font: 0.85rem var(--round); grid-column: 1 / -1; }
+.fame:not(:has(#career:empty)) .fame-empty { display: none; }
 /* The return on the margin is what the game ranks by: the row's largest figure. */
 .pct-big { font-size: 1rem; font-weight: 700; }
-.pend-row td { color: var(--muted); border-top: 1px dashed var(--line); }
+.pend-row td { color: var(--muted); }
 #pend-row-what { text-align: left; font-family: var(--round); white-space: normal; }
 #pos-empty td { text-align: left; font-family: var(--round); color: var(--muted); white-space: normal; }
 .tag { display: inline-block; font: 700 0.75rem var(--round); padding: 0.1rem 0.45rem; border-radius: 5px; color: var(--on-fill); }
@@ -925,8 +936,10 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
    the fold. Text keeps its size: the room comes from the layout and the spacing, never from smaller type. */
 @media (min-width: 1100px) and (min-height: 600px) {
   /* --head is the header's height, which the page measures (65px until it has); --pad is main's own top padding and
-     the gap under the screen; --tall is what the first row fills: the window, less both */
-  main { --pad: 0.75rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; grid-template-rows: var(--tall); }
+     the gap under the screen; --tall is what the first row fills: the window, less those and the peek */
+  /* --peek is the position panel's heading, its column names and one row, left in view under the first row (ADR 0079),
+     so an open position is never below the fold */
+  main { --pad: 0.75rem; --peek: 8.4rem; --tall: calc(100dvh - var(--head, 65px) - 2 * var(--pad) - var(--peek)); padding-top: var(--pad); grid-template-columns: minmax(0, 1fr) 392px; grid-template-rows: var(--tall); }
   .chart-panel, .desk { height: var(--tall); min-height: 0; }
   .chart-panel { display: flex; flex-direction: column; }
   /* the box takes the panel's height under its heading, and the canvas fills it, out of the flow so it never sizes it */
@@ -948,9 +961,17 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   .meter { margin-bottom: 0.95rem; }
   /* A laptop's screen, 768px tall less the browser, is the tightest, so last, over the rules above: less spacing and
      slimmer headings. Sell's and Buy's notes stay at every size: they say which way each one wins. */
+  /* Under 800px of window the first row also gives the position its peek, so the card's spacing tightens first */
+  @media (max-height: 800px) {
+    .ticket-body { gap: 0.45rem; padding-top: 0.55rem; padding-bottom: 0.55rem; }
+    .account-body { gap: 0.3rem; padding-top: 0.45rem; padding-bottom: 0.5rem; }
+    .side { padding: 0.45rem 0.7rem; }
+    .meter { margin-bottom: 0.85rem; }
+  }
   @media (max-height: 700px) {
     main { --pad: 0.5rem; }
     .panel h2 { padding-top: 0.45rem; padding-bottom: 0.45rem; }
-    .ticket-body { gap: 0.5rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+    .ticket-body { gap: 0.35rem; padding-top: 0.45rem; padding-bottom: 0.45rem; }
+    .field { gap: 0.15rem; }
   }
 }

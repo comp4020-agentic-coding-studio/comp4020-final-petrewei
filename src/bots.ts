@@ -6,7 +6,7 @@
 // its own account and the recent prices and returns at most one action.
 import type { Desk, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; stake?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" } | { kind: "pend"; side: Side; toward: Side; pct: number; leverage: number; stake: number; sl: number | null; tp: number | null } | { kind: "unpend" };
+export type Action = { kind: "order"; side: Side; leverage: number; stake?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" } | { kind: "pend"; side: Side; at: number; leverage: number; stake: number; sl: number | null; tp: number | null } | { kind: "unpend" };
 export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);

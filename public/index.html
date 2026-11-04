@@ -67,6 +67,13 @@
           <button id="pray-rise" class="pray" type="button" data-tip="prayRise"><span aria-hidden="true">🙏↗</span><span class="sr-only" data-t="prayRise">Pray: Rise</span></button>
           <button id="pray-fall" class="pray" type="button" data-tip="prayFall"><span aria-hidden="true">🙏↘</span><span class="sr-only" data-t="prayFall">Pray: Fall</span></button>
         </div>
+        <!-- Name that year (ADR 0030): in a replay's second half, a private guess at the year it is from, scored at the
+             bell; on the chart beside the prayers, since it is a guess about what the chart shows (ADR 0079). -->
+        <form class="guess" id="guess" hidden>
+          <label for="guess-year" data-t="guessLabel">Name That Year</label><button class="info" type="button" data-info="guessYear" data-t-aria="info_guessYear" aria-expanded="false">ⓘ</button>
+          <input id="guess-year" type="number" inputmode="numeric" min="1999" step="1" data-tip="guessYear">
+          <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
+        </form>
         <!-- The tutorial's lesson: a card across the bottom of the chart, clear
              of its right end where the price runs (ADR 0057, 0059). The title and
              the task are on the left; the head, with its buttons, is above the
@@ -188,7 +195,7 @@
 
       </div>
       <div class="field slide" id="stake-box">
-        <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" data-t="stakeNote">of your account</span><output id="stake-out" for="stake"></output></p>
+        <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="note" id="stake-note"></span><output id="stake-out" for="stake"></output></p>
         <!-- The track is the whole account (ADR 0077): what is in use, then what this order adds, from nothing at the
              left to all of it at the right. The slider covers its 25% to 100% so its thumb and marks stand on the
              shares of the account they mean. -->
@@ -221,8 +228,8 @@
         </div>
       </div>
       <p class="preview" id="preview"><span id="preview-1"></span><span id="preview-2"></span></p>
-      <!-- A pending order (ADR 0078): this order, with its leverage, stake and exits, placed later when the price reaches
-           a level a distance away. The page asks for a side, a way and a distance; the server sets the level. -->
+      <!-- A pending order (ADR 0078, 0079): this order, with its leverage, stake and exits, placed later when the price
+           reaches the level typed. The level is only a trigger; the server fills at its own price on that tick. -->
       <details class="pend" id="pend">
         <summary data-tip="pendTitle"><span data-t="pendTitle">Pending order</span><button class="info" type="button" data-info="pend" data-t-aria="info_pend" aria-expanded="false">ⓘ</button><span class="pend-waiting" id="pend-waiting"></span></summary>
         <div class="pend-body">
@@ -230,25 +237,12 @@
             <button type="button" role="radio" aria-checked="true" data-side="1" data-t="buy">Buy</button>
             <button type="button" role="radio" aria-checked="false" data-side="-1" data-t="sell">Sell</button>
           </div>
-          <div class="seg" role="radiogroup" data-t-aria="pendWay" id="pend-way" data-tip="pendWay">
-            <button type="button" role="radio" aria-checked="false" data-toward="1" data-t="pendRises">rises</button>
-            <button type="button" role="radio" aria-checked="true" data-toward="-1" data-t="pendFalls">falls</button>
-          </div>
-          <select id="pend-pct" data-t-aria="pendBy" data-tip="pendBy"></select>
+          <input id="pend-at" type="number" inputmode="decimal" step="any" min="0" data-t-aria="pendAt" aria-label="Price to wait for" data-tip="pendAt">
+          <button type="button" class="ghost" id="pend-place" data-t="pendPlace" data-tip="pendPlace">Place</button>
+          <button type="button" class="ghost danger" id="pend-cancel" data-t="pendCancel" data-tip="pendCancel" hidden>Cancel</button>
           <p class="pend-what" id="pend-what"></p>
-          <div class="pend-go">
-            <button type="button" class="ghost" id="pend-place" data-t="pendPlace" data-tip="pendPlace">Place</button>
-            <button type="button" class="ghost danger" id="pend-cancel" data-t="pendCancel" data-tip="pendCancel" hidden>Cancel</button>
-          </div>
         </div>
       </details>
-      <!-- Name that year (ADR 0030): in a replay's second half, a private
-           guess at the year it is from, scored at the bell. -->
-      <form class="guess" id="guess" hidden>
-        <label for="guess-year" data-t="guessLabel">Name That Year</label><button class="info" type="button" data-info="guessYear" data-t-aria="info_guessYear" aria-expanded="false">ⓘ</button>
-        <input id="guess-year" type="number" inputmode="numeric" min="1999" step="1" data-tip="guessYear">
-        <button class="ghost" type="submit" data-t="guessGo" data-tip="guessGo">Guess</button>
-      </form>
       <p id="error" class="error" role="status"></p>
       </div>
     </section>
@@ -314,6 +308,7 @@
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
       <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thBestPct">Best</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th><th data-t="thTrend">Last 20</th></tr></thead><tbody id="career"></tbody></table>
+      <p class="fame-empty" data-t="fameEmpty">No one has finished a round yet. Be the first.</p>
       <!-- The score of each of a trader's recent rounds, as bars, for whoever is picked in the table: yourself at first. -->
       <figure class="fame-chart" id="fame-chart" hidden><figcaption id="fame-chart-title"></figcaption><svg id="fame-bars" viewBox="0 0 400 120" preserveAspectRatio="none" role="img"></svg><p class="fame-stats" id="fame-stats"></p></figure>
     </section>
