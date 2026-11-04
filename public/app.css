@@ -151,7 +151,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* Each language has its own logo; it never wraps, so the bar keeps its height. */
 .logo { font-weight: 800; font-size: 1.45rem; letter-spacing: -0.01em; color: var(--pink); transform: rotate(-3deg); display: inline-block; white-space: nowrap; text-shadow: 2px 2px 0 var(--logo-shadow); }
 .tabs { display: grid; grid-template-columns: repeat(4, auto); gap: 0.25rem; background: var(--screen); padding: 0.2rem; border-radius: 10px; border: 1px solid var(--line); }
-.tabs button { border: none; background: none; border-radius: 7px; padding: 0.35rem 0.4rem; color: var(--soft); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabs button { border: none; background: none; border-radius: 7px; padding: 0.35rem 0.7rem; color: var(--soft); font-weight: 700; white-space: nowrap; }
 .tabs button[aria-selected="true"] { background: var(--pink); color: var(--on-pink); }
 /* Who is on each tab, as a small count badge. */
 .tabs em { font-style: normal; font-weight: 700; font-size: 0.7rem; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 999px; background: var(--raise); color: var(--soft); }
@@ -1077,6 +1077,7 @@ body.marathon .prayers, body.marathon #pend, body.marathon #round-ctl, body.mara
 .board li .aside { margin-left: auto; font: 600 0.75rem var(--mono); color: var(--muted); white-space: nowrap; }
 .board li.you strong { color: var(--accent, var(--call)); }
 .board li.bankrupt { opacity: 0.7; }
+.board[hidden], .book[hidden] { display: none; }
 .book { width: 100%; }
 .book td { padding: 0.3rem 0.9rem; font: 0.82rem var(--mono); white-space: nowrap; }
 .book .linkish { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; }

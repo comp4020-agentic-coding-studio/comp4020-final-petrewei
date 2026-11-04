@@ -299,3 +299,18 @@ test("keeps who you are on the first row of a phone, with the tabs below", async
   expect(m.sideways, "the page scrolls sideways").toBe(false);
   if (m.wide <= 419) expect(m.subShown, "the subtitle goes on a narrow phone").toBe(false);
 });
+
+// ADR 0087: four tabs, each label whole in every language and on a phone, whichever is chosen; and Marathon's board
+// shows on Marathon alone, the room's list on the others.
+test("shows every tab's whole label, and Marathon's board only on Marathon", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  for (const m of ["replay", "simulation", "marathon", "tutorial"]) {
+    await page.locator(`[data-mode="${m}"]`).click();
+    await expect(page.locator(`[data-mode="${m}"]`)).toHaveAttribute("aria-selected", "true");
+    const cut = await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].filter((t) => t.scrollWidth > t.clientWidth + 1).map((t) => (t as HTMLElement).dataset.mode));
+    expect(cut, `labels cut on ${m}`).toEqual([]);
+    if (m === "marathon") await expect(page.locator("#board")).toBeVisible();
+    else await expect(page.locator("#board")).toBeHidden();
+  }
+});
