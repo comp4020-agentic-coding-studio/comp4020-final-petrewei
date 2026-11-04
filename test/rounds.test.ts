@@ -425,32 +425,43 @@ it("marks each trader's open and close for the chart, by face and short code, ne
 // ADR 0064: a Simulation's news goes out on its day, in the feed and pinned over the chart, as
 // a story's number only. Which way the story pushes the price stays on the server: the words
 // are the hint, and the wire never says whether a story is real or a rumour.
-it("tells a Simulation's news on its day by number, and never sends which way it pushes", async () => {
+// ADR 0064, 0085: a Simulation's news is a calendar of named releases, listed when the round opens and told on their
+// days; the wire carries the release, its currency and its outcome, as a trader would read them, and never the effect
+// the engine gives the price.
+it("tells a Simulation's releases on their days, after listing them, and never sends which way they push", async () => {
   s = await server(8096, { TICK_MS: "8", COUNTDOWN_TICKS: "2" });
   const { visitor, page, act, look } = app();
   const me = await visitor();
   const tab = await page(me, "simulation");
   try {
     await act(me, { kind: "start", mode: "simulation" });
-    const stories = new Set<number>();
+    const told = new Set<string>();
+    const listed = new Set<string>();
     let pinned = false;
     for (const end = Date.now() + 15_000; Date.now() < end; ) {
-      const x = (await look(me, "simulation")) as unknown as { phase: string; headline: { story?: number } | null; feed: { key: string; args: Record<string, unknown> }[] };
-      for (const f of x.feed.filter((f) => f.key === "story")) {
-        expect(Object.keys(f.args), "a story carries its number and nothing else").toEqual(["n"]);
-        stories.add(f.args.n as number);
+      const x = (await look(me, "simulation")) as unknown as { phase: string; headline: { release?: Record<string, unknown> } | null; feed: { key: string; args: Record<string, unknown> }[] };
+      for (const f of x.feed.filter((f) => f.key === "calendar")) {
+        expect(Object.keys(f.args).sort(), "a calendar line has the release and its time").toEqual(["cur", "d", "h", "kind"]);
+        listed.add(`${f.args.cur}:${f.args.kind}`);
       }
-      if (x.headline?.story !== undefined) {
-        pinned = true;
-        expect(Object.keys(x.headline)).toEqual(["story"]);
+      for (const f of x.feed.filter((f) => f.key === "release")) {
+        expect(Object.keys(f.args).sort(), "a release carries its name, currency and outcome").toEqual(["cur", "kind", "outcome"]);
+        expect(["strong", "weak", "inline", "back"]).toContain(f.args.outcome);
+        told.add(`${f.args.cur}:${f.args.kind}`);
       }
+      if (x.headline?.release) pinned = true;
       expect(JSON.stringify({ feed: x.feed, headline: x.headline }), "the effect is never on the wire").not.toMatch(/"effect"|vshape|"rise"|"fall"|"none"/);
       if (x.phase === "break") break;
       await new Promise((r) => setTimeout(r, 15));
     }
-    expect(stories.size, "a round tells at least two stories").toBeGreaterThanOrEqual(2);
-    for (const n of stories) expect(n).toBeLessThan(12);
-    expect(pinned, "a story is pinned over the chart while it is the latest").toBe(true);
+    expect(listed.size, "the calendar lists two releases or more").toBeGreaterThanOrEqual(2);
+    expect(told.size, "and each is told").toBe(listed.size);
+    for (const r of told) expect(listed, "nothing is told that was not listed").toContain(r);
+    expect(pinned, "a release is pinned over the chart while it is the latest").toBe(true);
+    // and the whole calendar travels with every state, so the page can pin it above a feed that scrolls (ADR 0085)
+    const last = (await look(me, "simulation")) as unknown as { calendar: { kind: string; cur: string; outcome: string | null }[] };
+    expect(last.calendar.map((c) => `${c.cur}:${c.kind}`).sort()).toEqual([...listed].sort());
+    expect(last.calendar.every((c) => c.outcome !== null), "by the bell every release has been told").toBe(true);
   } finally {
     tab.close();
   }

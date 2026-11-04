@@ -29,3 +29,5 @@ export declare function refusal(lang: string, english: string): string;
 export declare function english(lessons: { id: string; title: string; text: string; task: string }[], events: { date: string; title: string; note: string }[]): void;
 export declare function clueDates(lang: "en" | "ja" | "zh"): string[];
 export declare function clueText(lang: "en" | "ja" | "zh", clue: number, n: number): string | undefined;
+export declare function releaseName(lang: "en" | "ja" | "zh", kind: string): string;
+export declare function releaseText(lang: "en" | "ja" | "zh", key: "release" | "calendar", args: Record<string, string | number>): string | null;

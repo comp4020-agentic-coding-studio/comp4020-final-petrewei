@@ -21,7 +21,7 @@ import { LANGS as LANG_LIST, T, clueDates, news } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
-import { CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
+import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -417,7 +417,7 @@ class Market {
   speed = 1;
   ironman = false;
   // The latest Simulation headline, pinned under the price until the next.
-  headline: { scenario: string; n: number } | { clue: number; n: number } | { story: number } | null = null;
+  headline: { scenario: string; n: number } | { clue: number; n: number } | { story: number } | { release: Record<string, string | number> } | null = null;
   // Each trader's guess at a replay's year, private until the bell.
   guesses = new Map<string, number>();
   // Ticks left in a pause, or 0 when the market runs.
@@ -632,8 +632,28 @@ class Market {
     for (const l of this.listeners()) this.desk.join(l.who);
     const opening = OPENING[this.round.source];
     this.say(news("en", { key: opening, args: { pair: this.round.pair }, text: "" }, nameOf), "info", opening, { pair: this.round.pair });
+    // The week's calendar (ADR 0085): each release named with its day and hour, as a trader's calendar shows it, and
+    // nothing of how it comes out. A unit is four hours, and a release comes at its unit's start.
+    for (const n of this.round.news ?? []) {
+      if (!n.kind || !n.cur) continue;
+      const at = n.day * this.round.unit;
+      const args = { kind: n.kind, cur: n.cur, d: Math.floor(at / DAY_TICKS) + 1, h: Math.round(((at % DAY_TICKS) * 24) / DAY_TICKS) };
+      this.say(`Calendar: ${n.cur} ${n.kind}, day ${args.d} at ${args.h}h.`, "info", "calendar", args);
+    }
     log(null, "start", { mode: this.mode, pair: this.round.pair, from: this.round.days[0], event: this.round.event?.title ?? null, source: this.round.source });
     void refreshToday();
+  }
+
+  // The round's releases for the page's pinned calendar: each one's time, and its outcome once it has been told.
+  calendarView(): { kind: string; cur: string; d: number; h: number; outcome: string | null }[] {
+    if (this.phase !== "trade" && this.phase !== "countdown" && this.phase !== "break") return [];
+    const now = this.phase === "countdown" ? -1 : this.tick;
+    return (this.round.news ?? []).filter((n) => n.kind && n.cur).map((n) => {
+      const at = n.day * this.round.unit;
+      const told = now >= at + 1;
+      const back = told && n.back && now >= (n.day + BACK_AFTER) * this.round.unit + 1;
+      return { kind: n.kind!, cur: n.cur!, d: Math.floor(at / DAY_TICKS) + 1, h: Math.round(((at % DAY_TICKS) * 24) / DAY_TICKS), outcome: back ? "back" : told ? n.outcome! : null };
+    });
   }
 
   listeners(): Listener[] {
@@ -787,14 +807,22 @@ class Market {
         this.say(words[i], "news", scenario ? "headline" : "clue", at);
         this.headline = scenario ? { scenario, n: i } : { clue, n: i };
       });
-      // A Simulation's own news (ADR 0064): a story on its day, which the prices then follow,
-      // or do not. It goes in the feed and is pinned over the chart like a headline. Which way
-      // it pushes is never sent: the words are the hint, and the page cannot read the effect.
+      // A Simulation's own news (ADR 0064, 0085): a named release on its day, which the prices then follow, or do not,
+      // and a walked-back one told again when it turns. It goes in the feed and is pinned over the chart like a
+      // headline. Which way it pushes the pair is never sent; the release, its currency and its outcome are what a
+      // trader would read, and the page words them.
       for (const n of this.round.news ?? []) {
-        if (n.day !== day) continue;
-        const story = storyOf(n);
-        this.say(T.en.stories[story], "news", "story", { n: story });
-        this.headline = { story };
+        const back = n.back && day === n.day + BACK_AFTER;
+        if (n.day !== day && !back) continue;
+        if (n.kind && n.cur && n.outcome) {
+          const args = { kind: n.kind, cur: n.cur, outcome: back ? "back" : n.outcome };
+          this.say(`${n.cur} ${n.kind}: ${args.outcome}`, "news", "release", args);
+          this.headline = { release: args };
+        } else if (!back) {
+          const story = storyOf(n);
+          this.say(T.en.stories[story], "news", "story", { n: story });
+          this.headline = { story };
+        }
       }
     }
     const seen = this.round.prices.slice(0, this.tick + 1);
@@ -895,6 +923,9 @@ class Market {
       rules: this.startedBy !== null && this.mayRule(who),
       ironman: this.ironman,
       headline: this.headline,
+      // Simulation's calendar (ADR 0085), every release with its day and hour, and the outcome of those already told;
+      // what is still to come says nothing of how it will go
+      calendar: this.calendarView(),
       // Seconds left in a pause, or null while the market runs.
       paused: this.paused ? Math.ceil((this.paused * TICK_MS) / 1000) : null,
       startedDraw: this.startedBy && drawOf(this.startedBy),

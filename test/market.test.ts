@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { UNIT, drawNews, EFFECTS, EVENTS, GAP, History, NEWS_SIZE, NEWS_WORDS, newsDrift, PAIRS, random, SCENARIOS, simulation, storyOf, UNITS } from "../src/market.ts";
+import { BACK_AFTER, calendar, EVENT_KINDS, UNIT, drawNews, EFFECTS, EVENTS, GAP, History, NEWS_SIZE, NEWS_WORDS, newsDrift, PAIRS, random, SCENARIOS, simulation, storyOf, UNITS } from "../src/market.ts";
 
 const history = new History(readFileSync(join(import.meta.dirname, "..", "data", "ecb.csv"), "utf8"));
 
@@ -222,6 +222,46 @@ describe("news in a simulation", () => {
     // a story's number is its effect's place and its own, so the first of each effect is 0, 3, 6, 9
     expect(EFFECTS.map((effect) => storyOf({ day: 5, effect, n: 0 }))).toEqual([0, 3, 6, 9]);
     expect(storyOf({ day: 5, effect: "none", n: 2 })).toBe(EFFECTS.length * NEWS_WORDS - 1);
+  });
+
+  // ADR 0085: each story is a named release for one of the pair's currencies, and its outcome agrees with the push:
+  // good news for the base or bad for the quote on a rise, the reverse on a fall, in line with forecasts on a rumour,
+  // and a V told first as a fall's news, then walked back when it turns.
+  it("names each story as a release whose outcome agrees with the way it moves the pair", () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const pair = PAIRS[seed % PAIRS.length];
+      const [base, quote] = pair.split("/");
+      const named = calendar(drawNews(random(seed), 15), pair, random(seed + 7));
+      const seen = new Set<string>();
+      for (const n of named) {
+        expect([base, quote], `${seed}`).toContain(n.cur);
+        expect(EVENT_KINDS[n.cur!], `${n.cur} ${n.kind}`).toContain(n.kind);
+        expect(seen.has(`${n.cur}:${n.kind}`), "never the same release twice in a round").toBe(false);
+        seen.add(`${n.cur}:${n.kind}`);
+        const lifts = (n.outcome === "strong") === (n.cur === base);
+        if (n.effect === "rise") expect(lifts, `${seed} ${n.cur} ${n.outcome} on a rise`).toBe(true);
+        if (n.effect === "fall" || n.effect === "vshape") expect(lifts, `${seed} ${n.cur} ${n.outcome} on a fall`).toBe(false);
+        if (n.effect === "none") expect(n.outcome).toBe("inline");
+        expect(!!n.back, "walked back only when it is a V").toBe(n.effect === "vshape");
+      }
+    }
+    // a V turns up two units after its fall begins, when its walk-back is told
+    expect(newsDrift([{ day: 10, effect: "vshape", n: 0 }], 10 + BACK_AFTER)).toBeGreaterThan(0);
+  });
+
+  it("has every release's words in every language: its name, each outcome, and its calendar line", async () => {
+    const { LANGS, releaseText } = await import("../public/i18n.js");
+    const kinds = new Set(Object.values(EVENT_KINDS).flat());
+    for (const lang of LANGS) for (const kind of kinds) {
+      for (const outcome of ["strong", "weak", "inline", "back"]) {
+        const text = releaseText(lang, "release", { kind, cur: "USD", outcome });
+        expect(text, `${lang} ${kind} ${outcome}`).toEqual(expect.stringContaining("USD"));
+        expect(text, `${lang} ${kind} ${outcome}`).not.toMatch(/\{/);
+        // a wire service's words: what happened, never what the price will do
+        expect(text, `${lang} ${kind} ${outcome}`).not.toMatch(/\b(will|going to) (rise|fall|drop|jump|surge|crash)\b/i);
+      }
+      expect(releaseText(lang, "calendar", { kind, cur: "EUR", d: 2, h: 8 }), `${lang} ${kind}`).toMatch(/2.*8/);
+    }
   });
 
   it("makes every effect come up, a rumour that does nothing among them", () => {

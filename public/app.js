@@ -2,7 +2,7 @@
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
-import { LANGS, T, clueText, money, news, refusal } from "/i18n.js";
+import { LANGS, T, clueText, money, news, refusal, releaseName, releaseText } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
@@ -1654,7 +1654,7 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && (s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
+  const head = s.headline && (s.headline.release ? releaseText(lang, "release", s.headline.release) : s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
   // Only a clue or headline is shown here; the static label that said which
   // mode this was is gone (ADR 0059), since the tab already says it.
   $("mode").textContent = head ? `📰 ${head}` : "";
@@ -1894,6 +1894,19 @@ function render(s) {
     li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
     return li;
   };
+  // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
+  const cal = s.calendar ?? [];
+  $("calendar").hidden = !cal.length;
+  $("calendar").replaceChildren(...cal.map((c) => {
+    const li = document.createElement("li");
+    li.className = c.outcome ? `told ${c.outcome}` : "upcoming";
+    const when = Object.assign(document.createElement("span"), { className: "when", textContent: t("calWhen", { d: c.d, h: c.h }) });
+    const what = Object.assign(document.createElement("span"), { className: "what", textContent: c.outcome ? releaseText(lang, "release", c) : `${c.cur} · ${releaseName(c.kind)}` });
+    // told: an arrow for what it did to its own currency, which way the pair goes being the reader's to work out
+    if (c.outcome) what.prepend(Object.assign(document.createElement("span"), { className: "cal-mark", textContent: c.outcome === "strong" ? "▲" : c.outcome === "weak" ? "▼" : "■" }));
+    li.append(when, what);
+    return li;
+  }));
   // The latest market news, what moves the price, is pinned at the top (ADR 0078); then what traders said, then the
   // rest of the feed, newest first. The news is not listed twice.
   const latest = s.feed.find((f) => f.kind === "news");

@@ -628,6 +628,19 @@ th:first-child, td:first-child { text-align: left; }
    busy round, never pushes the panels below. */
 #feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; height: 15rem; overflow: auto; }
 /* the latest market news stays at the top, marked, so a headline is never buried under chatter */
+/* Simulation's economic calendar (ADR 0085): a short list over the feed, upcoming releases plain, told ones coloured
+   by whether they lifted or sank their currency. */
+.calendar { margin: 0; padding: 0.4rem 0.9rem; list-style: none; border-bottom: 1px solid var(--line); background: var(--raise); font-size: 0.8rem; }
+.calendar[hidden] { display: none; }
+.calendar li { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.5rem; padding: 0.15rem 0; align-items: baseline; }
+.calendar .when { font: 0.76rem var(--mono); color: var(--muted); white-space: nowrap; }
+.calendar .upcoming .what { color: var(--soft); }
+.calendar .told .what { color: var(--ink); }
+/* the arrow is the currency's own, not the pair's: a strong yen pushes USD/JPY down */
+.calendar .cal-mark { font: 700 0.72rem system-ui, sans-serif; margin-right: 0.3rem; }
+.calendar .strong .cal-mark { color: var(--up); }
+.calendar .weak .cal-mark { color: var(--down); }
+.calendar .inline .cal-mark, .calendar .back .cal-mark { color: var(--muted); }
 #feed li.pinned { position: sticky; top: -0.4rem; z-index: 1; margin: -0.4rem -0.9rem 0.2rem; padding: 0.35rem 0.9rem; background: var(--raise); border-bottom: 1px solid var(--line); white-space: normal; }
 #feed li { padding: 0.15rem 0; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #feed .ico { display: inline-block; width: 1.4rem; text-align: center; }

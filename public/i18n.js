@@ -5,7 +5,7 @@
 // Japanese and mainland Chinese retail traders and brokers actually say.
 // Shared by the market page and test/i18n.test.ts.
 
-import { CLUES, EVENTS, LESSONS, LINES, NEWS, SCENARIOS } from "./i18n-long.js";
+import { CLUES, EVENTS, LESSONS, LINES, NEWS, RELEASES, SCENARIOS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
 
@@ -28,11 +28,25 @@ function fill(lang, text, args, nameOf) {
   });
 }
 
+// A release's name in the reader's language (ADR 0085).
+export const releaseName = (lang, kind) => (RELEASES[lang] ?? RELEASES.en).names[kind] ?? RELEASES.en.names[kind] ?? kind;
+
+// A release from Simulation's economic calendar (ADR 0085), in the reader's language: its result, worded for its
+// category, or its place in the calendar.
+export function releaseText(lang, key, args) {
+  const r = RELEASES[lang] ?? RELEASES.en;
+  const name = r.names[args.kind] ?? RELEASES.en.names[args.kind];
+  if (!name) return null;
+  const words = key === "calendar" ? r.calendar : r.outcomes[r.kinds[args.kind]]?.[args.outcome];
+  return words?.replace(/\{(\w+)\}/g, (slot, k) => (k === "name" ? name : k in args ? String(args[k]) : slot)) ?? null;
+}
+
 // A feed line in the reader's language, or its English if a key is new.
 export function news(lang, line, nameOf) {
   // A Simulation's headline is the situation's own words (ADR 0027).
   if (line.key === "headline") return T[lang].scenarios[line.args.scenario]?.headlines[line.args.n] ?? line.text;
   if (line.key === "story") return T[lang].stories[line.args.n] ?? line.text;
+  if (line.key === "release" || line.key === "calendar") return releaseText(lang, line.key, line.args) ?? line.text;
   if (line.key === "clue") return clueText(lang, line.args.clue, line.args.n) ?? line.text;
   const text = T[lang].news[line.key];
   return text ? fill(lang, text, line.args, nameOf) : line.text;
@@ -298,6 +312,7 @@ export const T = {
       speedUp: "2× speed",
       speedDown: "Normal speed",
       share: "Save image",
+      calWhen: "Day {d} {h}:00",
       shareTitle: "My round",
       shareScore: "Score",
       shareRank: "Rank {n} of {of}",
@@ -781,6 +796,7 @@ export const T = {
       speedUp: "2倍速",
       speedDown: "通常速度",
       share: "画像を保存",
+      calWhen: "{d}日目 {h}:00",
       shareTitle: "今回のラウンド",
       shareScore: "スコア",
       shareRank: "{of}人中{n}位",
@@ -1263,6 +1279,7 @@ export const T = {
       speedUp: "2倍速",
       speedDown: "正常速度",
       share: "保存图片",
+      calWhen: "第{d}天 {h}:00",
       shareTitle: "本局战绩",
       shareScore: "得分",
       shareRank: "{of}人中第{n}名",

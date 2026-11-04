@@ -224,7 +224,28 @@ export type Headline = { day: number };
 export const NEWS_WORDS = 3;
 export const EFFECTS = ["rise", "fall", "vshape", "none"] as const;
 export type Effect = (typeof EFFECTS)[number];
-export type News = { day: number; effect: Effect; n: number };
+// `n` picks the old table's words, kept for a round saved before the calendar; `cur`, `kind` and `outcome` (ADR 0085) make
+// the story a named release for one of the pair's currencies, its outcome worded to agree with the push it gives.
+export type News = { day: number; effect: Effect; n: number; cur?: string; kind?: EventKind; outcome?: Outcome; back?: boolean };
+
+// The economic calendar (ADR 0085): the releases and meetings that move a currency, each the kind traders watch. A
+// story is one of them, for the base or the quote; whether it lifts or sinks its currency is worded in its outcome, and
+// which currency it is decides which way the pair goes, so the words never contradict the chart.
+export const EVENT_KINDS: Record<string, EventKind[]> = {
+  USD: ["fomc", "cpi", "payrolls", "gdp", "election"],
+  EUR: ["ecb", "cpi", "pmi", "gdp", "election"],
+  JPY: ["boj", "cpi", "tankan", "gdp", "election"],
+  GBP: ["boe", "cpi", "gdp", "pmi", "election"],
+  AUD: ["rba", "cpi", "jobs", "gdp", "election"],
+  CHF: ["snb", "cpi", "gdp", "pmi"],
+  CNY: ["pboc", "cpi", "gdp", "pmi"],
+};
+export type EventKind = "fomc" | "ecb" | "boj" | "boe" | "rba" | "snb" | "pboc" | "cpi" | "payrolls" | "jobs" | "gdp" | "pmi" | "tankan" | "election";
+// strong: the currency's own news is good for it (a hawkish bank, hot data, a market-friendly vote); weak: the reverse;
+// inline: as expected, and nothing comes of it. A story marked `back` is walked back two units later, as a V turns.
+export type Outcome = "strong" | "weak" | "inline";
+// How many units after a walked-back story the walk-back is told: when the V turns.
+export const BACK_AFTER = 2;
 // A story's number in the table of words: the effects in order, NEWS_WORDS stories each.
 export const storyOf = (news: News): number => EFFECTS.indexOf(news.effect) * NEWS_WORDS + news.n;
 // How far a news shock moves the price over its days, in the pair's own daily volatilities:
@@ -324,6 +345,25 @@ export function drawNews(rnd: () => number, crash: number): News[] {
   return out.sort((a, b) => a.day - b.day);
 }
 
+// Names each story as a release for one of the pair's currencies (ADR 0085). A rise for the pair is good news for its
+// base or bad news for its quote, a fall the reverse; a V's first fall is told as such a surprise, and its turn as the
+// surprise walked back, when it comes; a rumour that moves nothing is a result in line with what was expected. Two
+// stories in a round are never the same release.
+export function calendar(news: News[], pair: Pair, rnd: () => number): News[] {
+  const [base, quote] = pair.split("/");
+  const used = new Set<string>();
+  return news.map((n) => {
+    const onBase = rnd() < 0.5;
+    const cur = onBase ? base : quote;
+    const kinds = EVENT_KINDS[cur].filter((k) => !used.has(`${cur}:${k}`));
+    const kind = kinds[Math.floor(rnd() * kinds.length)] ?? EVENT_KINDS[cur][0];
+    used.add(`${cur}:${kind}`);
+    const lifts = n.effect === "rise";
+    const outcome: Outcome = n.effect === "none" ? "inline" : lifts === onBase ? "strong" : "weak";
+    return { ...n, cur, kind, outcome, ...(n.effect === "vshape" ? { back: true } : {}) };
+  });
+}
+
 // The push the news gives the price on one day, in daily volatilities: a rise or a fall spreads
 // NEWS_SIZE over three days; a V falls for two days and comes back over three.
 export function newsDrift(news: News[], day: number): number {
@@ -352,7 +392,7 @@ export function simulation(history: History, pair: Pair, rate: number, rnd: () =
   // The turn comes between unit 13 and unit 22, as before.
   const crash = 13 + Math.floor(rnd() * 10);
   const way = rnd() < 0.5 ? 1 : -1;
-  const news = quiet ? [] : drawNews(rnd, crash);
+  const news = quiet ? [] : calendar(drawNews(rnd, crash), pair, rnd);
   const closes = [rate];
   for (let d = 0; d < UNITS; d++) {
     const { drift, vol: wild } = script.plan(d, crash, (way * Math.log(closes[d] / rate)) / vol);

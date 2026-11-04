@@ -525,3 +525,45 @@ export const NEWS = {
   ja: ["輸出企業、来期の受注が過去最高と報告。", "大手ファンドが買いを表明、「この通貨は割安」。", "中銀、金利を長めに高く保つ可能性を示唆。", "格付け会社、国債の格下げを検討と警告。", "成長率が予想を大きく下回る。", "当局者「通貨高は経済にとって行き過ぎ」。", "銀行の経営不安のうわさで売りが殺到、その後否定される。", "取引業者が投げ売りを迫られたとの話、午後には売りが止まる。", "二国間の協議が決裂と報じられ、その後再開へ。", "通貨の先行きをめぐり、アナリストの見方は割れている。", "大臣「何も変わらない」、その意味は誰にもわからない。", "注目の講演、ふたを開ければ中身はほとんどなし。"],
   zh: ["出口商称下季度订单创纪录。", "一家大型基金表示正在买入，称这种货币“很便宜”。", "央行暗示利率可能会在更长时间内维持高位。", "评级机构警告可能下调该国债务评级。", "经济增长数据远低于所有人预期。", "官员称本币对经济来说“过于强势”。", "一家银行陷入困境的传闻引发抛售，随后被否认。", "据传一家交易公司被迫抛售，到下午抛售就停了。", "两国政府的谈判据报破裂，随后又说恢复了。", "分析师对这种货币的走向看法不一。", "部长说什么都不会变，没人知道这是什么意思。", "交易员等待的一场讲话，最后几乎什么都没说。"],
 };
+
+// The economic calendar's words (ADR 0085): each release's name, and for its category what each outcome reads as.
+// strong lifts its currency, weak sinks it, inline is as expected, back is a surprise walked back. {cur} is the
+// currency, {name} the release's name. Written as a wire service writes them: what happened, never what comes next.
+export const RELEASES = {
+  en: {
+    names: { fomc: "FOMC rate decision", ecb: "ECB rate decision", boj: "BOJ policy meeting", boe: "BoE rate decision", rba: "RBA cash rate decision", snb: "SNB policy assessment", pboc: "PBOC loan prime rate", cpi: "CPI inflation", payrolls: "Nonfarm payrolls", jobs: "employment report", gdp: "GDP release", pmi: "PMI survey", tankan: "Tankan survey", election: "national election" },
+    kinds: { fomc: "bank", ecb: "bank", boj: "bank", boe: "bank", rba: "bank", snb: "bank", pboc: "bank", cpi: "prices", payrolls: "jobs", jobs: "jobs", gdp: "growth", pmi: "growth", tankan: "growth", election: "vote" },
+    outcomes: {
+      bank: { strong: "{cur} · {name}: a surprise hike, and the statement is hawkish.", weak: "{cur} · {name}: an unexpected cut, and talk of more to come.", inline: "{cur} · {name}: rates on hold, as expected.", back: "{cur} · {name}: officials walk back the decision's message." },
+      prices: { strong: "{cur} · {name} runs hot, well above forecast.", weak: "{cur} · {name} cools far faster than forecast.", inline: "{cur} · {name} comes in exactly as forecast.", back: "{cur} · {name}: the figure is revised, and the surprise fades." },
+      jobs: { strong: "{cur} · {name} smashes expectations; wages up too.", weak: "{cur} · {name} misses badly; jobless rate jumps.", inline: "{cur} · {name} in line with forecasts.", back: "{cur} · {name}: last month's figure is revised away." },
+      growth: { strong: "{cur} · {name} beats forecasts by a wide margin.", weak: "{cur} · {name} shrinks; recession talk grows.", inline: "{cur} · {name} matches forecasts.", back: "{cur} · {name}: the surprise is put down to one-off effects." },
+      vote: { strong: "{cur} · {name}: a clear, market-friendly result.", weak: "{cur} · {name}: a hung result, and coalition talks stall.", inline: "{cur} · {name}: the result everyone expected.", back: "{cur} · {name}: the leaders patch up a deal, and nerves settle." },
+    },
+    calendar: "Calendar · {cur} {name}: day {d}, {h}:00",
+  },
+  ja: {
+    names: { fomc: "FOMC政策金利", ecb: "ECB政策金利", boj: "日銀金融政策決定会合", boe: "英中銀政策金利", rba: "豪中銀政策金利", snb: "スイス中銀金融政策評価", pboc: "中国LPR", cpi: "消費者物価指数", payrolls: "米雇用統計", jobs: "雇用統計", gdp: "GDP", pmi: "PMI", tankan: "日銀短観", election: "総選挙" },
+    kinds: { fomc: "bank", ecb: "bank", boj: "bank", boe: "bank", rba: "bank", snb: "bank", pboc: "bank", cpi: "prices", payrolls: "jobs", jobs: "jobs", gdp: "growth", pmi: "growth", tankan: "growth", election: "vote" },
+    outcomes: {
+      bank: { strong: "{cur}・{name}：予想外の利上げ、声明はタカ派。", weak: "{cur}・{name}：予想外の利下げ、追加緩和を示唆。", inline: "{cur}・{name}：予想通り据え置き。", back: "{cur}・{name}：当局者が決定のメッセージを修正。" },
+      prices: { strong: "{cur}・{name}が予想を大きく上回る。", weak: "{cur}・{name}が予想よりずっと急速に鈍化。", inline: "{cur}・{name}は予想通り。", back: "{cur}・{name}が改定され、サプライズは薄れる。" },
+      jobs: { strong: "{cur}・{name}が予想を大幅に上回る、賃金も上昇。", weak: "{cur}・{name}が大きく下振れ、失業率が急上昇。", inline: "{cur}・{name}は予想並み。", back: "{cur}・{name}：前月分が下方修正され、驚きは帳消しに。" },
+      growth: { strong: "{cur}・{name}が予想を大きく上回る。", weak: "{cur}・{name}がマイナス、景気後退の声が強まる。", inline: "{cur}・{name}は予想通り。", back: "{cur}・{name}：一時的な要因とされ、驚きは薄れる。" },
+      vote: { strong: "{cur}・{name}：市場に好感される明確な結果。", weak: "{cur}・{name}：過半数割れ、連立協議は難航。", inline: "{cur}・{name}：大方の予想通りの結果。", back: "{cur}・{name}：党首らが合意を取りまとめ、動揺は収まる。" },
+    },
+    calendar: "経済指標カレンダー・{cur} {name}：{d}日目 {h}:00",
+  },
+  zh: {
+    names: { fomc: "美联储利率决议", ecb: "欧洲央行利率决议", boj: "日本央行议息会议", boe: "英国央行利率决议", rba: "澳洲联储利率决议", snb: "瑞士央行货币政策评估", pboc: "中国LPR报价", cpi: "CPI通胀", payrolls: "美国非农就业", jobs: "就业报告", gdp: "GDP数据", pmi: "PMI调查", tankan: "日本短观调查", election: "大选" },
+    kinds: { fomc: "bank", ecb: "bank", boj: "bank", boe: "bank", rba: "bank", snb: "bank", pboc: "bank", cpi: "prices", payrolls: "jobs", jobs: "jobs", gdp: "growth", pmi: "growth", tankan: "growth", election: "vote" },
+    outcomes: {
+      bank: { strong: "{cur}・{name}：意外加息，声明偏鹰。", weak: "{cur}・{name}：意外降息，暗示还会再降。", inline: "{cur}・{name}：按兵不动，符合预期。", back: "{cur}・{name}：官员出面修正决议释放的信号。" },
+      prices: { strong: "{cur}・{name}大超预期。", weak: "{cur}・{name}降温速度远超预期。", inline: "{cur}・{name}与预期一致。", back: "{cur}・{name}数据修正，意外消退。" },
+      jobs: { strong: "{cur}・{name}大幅好于预期，工资也在涨。", weak: "{cur}・{name}大幅不及预期，失业率跳升。", inline: "{cur}・{name}符合预期。", back: "{cur}・{name}：上月数据被下修，意外被抹平。" },
+      growth: { strong: "{cur}・{name}大幅好于预期。", weak: "{cur}・{name}负增长，衰退之声渐起。", inline: "{cur}・{name}符合预期。", back: "{cur}・{name}：意外被归因于一次性因素。" },
+      vote: { strong: "{cur}・{name}：结果明确，市场叫好。", weak: "{cur}・{name}：无人过半，组阁谈判陷入僵局。", inline: "{cur}・{name}：结果在意料之中。", back: "{cur}・{name}：各党领袖达成协议，情绪平复。" },
+    },
+    calendar: "财经日历・{cur} {name}：第{d}天 {h}:00",
+  },
+};
