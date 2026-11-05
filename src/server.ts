@@ -1488,8 +1488,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     // A stop is asked for as a distance from the price, and set from the
     // server's price; none removes it.
-    else if (kind === "stop") action = { kind: "stop", pct: typeof input.pct === "number" ? input.pct : null };
-    else if (kind === "take") action = { kind: "take", pct: typeof input.pct === "number" ? input.pct : null };
+    else if (kind === "stop" || kind === "take") action = { kind, pct: typeof input.pct === "number" ? input.pct : null };
     if (input.mode === "tutorial") {
       const t = tutorialOf(who);
       let error: string | null = null;
@@ -1498,10 +1497,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       if (kind === "play") t.play();
       else if (kind === "pause") t.pause();
       else if (kind === "stop") t.stop();
-      else if (kind === "restart") (t.stop(), t.play());
-      else if (kind === "again") error = t.idle() ?? (t.restartLesson(), null);
-      else if (kind === "back") error = t.idle() ?? (t.back(), null);
-      else if (kind === "skip") error = t.skip();
+      else if (kind === "restart") {
+        t.stop();
+        t.play();
+      } else if (kind === "again" || kind === "back") {
+        error = t.idle();
+        if (!error) {
+          if (kind === "again") t.restartLesson();
+          else t.back();
+        }
+      } else if (kind === "skip") error = t.skip();
       else if (kind === "next") error = t.act({ kind: "next" });
       else if (action?.kind === "pend" || action?.kind === "unpend") error = "Pending orders aren't part of the tutorial yet. Try one in Replay or Simulation.";
       else if (action && action.kind !== "pray") error = t.act(action as Move);

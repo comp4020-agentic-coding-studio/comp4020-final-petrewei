@@ -338,11 +338,11 @@ export class Tutorial {
     if (hint) return hint;
     if (m.kind === "next") this.nexted = true;
     else {
-      const out =
-        m.kind === "order" ? this.desk.order(ME, m.side, m.leverage, m.stake)
-        : m.kind === "close" ? this.desk.close(ME)
-        : m.kind === "stop" ? this.desk.stopAway(ME, m.pct)
-        : this.desk.borrow(ME);
+      let out: Fill[] | string | null;
+      if (m.kind === "order") out = this.desk.order(ME, m.side, m.leverage, m.stake);
+      else if (m.kind === "close") out = this.desk.close(ME);
+      else if (m.kind === "stop") out = this.desk.stopAway(ME, m.pct);
+      else out = this.desk.borrow(ME);
       if (typeof out === "string") return out;
       if (Array.isArray(out)) this.describe(out);
       lesson.after?.(this);
