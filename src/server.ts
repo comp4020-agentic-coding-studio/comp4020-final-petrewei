@@ -1370,54 +1370,27 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   // Opening a tab joins that market's round in progress with a fresh
   // account; switching tabs opens a new stream on the other market.
-  if (req.method === "GET" && path === "/api/events" && url.searchParams.get("mode") === "marathon") {
-    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-    const listener: Listener = { res, who, mode: "marathon" };
-    const already = ids().has(who);
-    listeners.add(listener);
-    log(who, already ? "tab" : "join", { mode: "marathon", ...(already ? {} : { here: here() }) });
-    res.write(`data: ${JSON.stringify(marathon.view(who, headCounts()))}\n\n`);
-    marathon.wake();
-    const opened = requests.getStore();
-    req.on("close", () => {
-      listeners.delete(listener);
-      if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
-      broadcastPresence();
-    });
-    broadcastPresence(listener);
-    return;
-  }
-  if (req.method === "GET" && path === "/api/events" && url.searchParams.get("mode") === "tutorial") {
-    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-    const listener: Listener = { res, who, mode: "tutorial" };
-    const already = ids().has(who);
-    listeners.add(listener);
-    log(who, already ? "tab" : "join", { mode: "tutorial", ...(already ? {} : { here: here() }) });
-    res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
-    // The page's close runs later, outside this request; it keeps the ID
-    // of the request that opened it, so its join and leave pair up.
-    const opened = requests.getStore();
-    req.on("close", () => {
-      listeners.delete(listener);
-      if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
-      broadcastPresence();
-    });
-    broadcastPresence(listener);
-    return;
-  }
   if (req.method === "GET" && path === "/api/events") {
-    const market = markets[modeOf(url.searchParams.get("mode"))];
+    const requested = url.searchParams.get("mode");
+    const mode = requested === "marathon" || requested === "tutorial" ? requested : modeOf(requested);
+    const market = mode === "replay" || mode === "simulation" ? markets[mode] : null;
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-    const listener: Listener = { res, who, mode: market.mode };
+    const listener: Listener = { res, who, mode };
     const already = ids().has(who);
     listeners.add(listener);
-    if (!already) log(who, "join", { mode: market.mode, here: here() });
-    else log(who, "tab", { mode: market.mode });
-    if (market.phase !== "break" && !market.desk.players().includes(who)) {
-      market.desk.join(who);
-      market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
+    log(who, already ? "tab" : "join", { mode, ...(already ? {} : { here: here() }) });
+    if (market) {
+      if (market.phase !== "break" && !market.desk.players().includes(who)) {
+        market.desk.join(who);
+        market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
+      }
+      res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
+    } else if (mode === "marathon") {
+      res.write(`data: ${JSON.stringify(marathon.view(who, headCounts()))}\n\n`);
+      marathon.wake();
+    } else {
+      res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
     }
-    res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
     // The page's close runs later, outside this request; it keeps the ID
     // of the request that opened it, so its join and leave pair up.
     const opened = requests.getStore();
@@ -1429,7 +1402,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     broadcastPresence(listener);
     // a page opened or refreshed on Simulation's lobby brings the latest rate, without holding the page for the fetch
     // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
-    if (market.mode === "simulation" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
+    if (market?.mode === "simulation" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
     return;
   }
 
