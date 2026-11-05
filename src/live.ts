@@ -69,7 +69,7 @@ export class Live {
     this.now = now;
   }
 
-  private merge(data: Spark, live: boolean): void {
+  private merge(data: Spark): void {
     const rows = data.spark?.result;
     if (!rows?.length) throw new Error("no prices");
     const bySlot = new Map<number, Partial<Usd>>();
@@ -90,12 +90,14 @@ export class Live {
         bySlot.set(s, { ...bySlot.get(s), [cur]: usd(c) });
       });
       // the price now goes in the slot it was struck in
-      if (live && Number.isFinite(r.meta.regularMarketTime) && Number.isFinite(r.meta.regularMarketPrice) && r.meta.regularMarketPrice > 0) {
-        const s = Math.floor((r.meta.regularMarketTime * 1000) / SLOT_MS);
-        bySlot.set(s, { ...bySlot.get(s), [cur]: usd(r.meta.regularMarketPrice) });
-        times[cur] = r.meta.regularMarketTime * 1000;
-        quotes[cur] = usd(r.meta.regularMarketPrice);
-      }
+      const { regularMarketTime, regularMarketPrice } = r.meta;
+      if (!Number.isFinite(regularMarketTime) || !Number.isFinite(regularMarketPrice) || regularMarketPrice <= 0) continue;
+      const at = regularMarketTime * 1000;
+      const slot = Math.floor(at / SLOT_MS);
+      const price = usd(regularMarketPrice);
+      bySlot.set(slot, { ...bySlot.get(slot), [cur]: price });
+      times[cur] = at;
+      quotes[cur] = price;
     }
     this.firstFetched = firstFetched;
     const known = new Map(this.slots.map((x) => [x.slot, x.usd]));
@@ -107,22 +109,21 @@ export class Live {
       last = full;
       return { slot, usd: full };
     }).filter((x) => CURRENCIES.every((c) => x.usd[c] > 0));
-    if (live) {
-      const last = this.slots.at(-1);
-      if (last) {
-        for (const cur of CURRENCIES) {
-          const price = quotes[cur];
-          if (price !== undefined && (times[cur] ?? 0) >= last.slot * SLOT_MS - STALE_MS) last.usd[cur] = price;
-        }
+    const newest = this.slots.at(-1);
+    if (newest) {
+      const cutoff = newest.slot * SLOT_MS - STALE_MS;
+      for (const cur of CURRENCIES) {
+        const price = quotes[cur];
+        if (price !== undefined && (times[cur] ?? 0) >= cutoff) newest.usd[cur] = price;
       }
-      this.times = times;
-      this.at = Math.max(0, ...Object.values(times));
     }
+    this.times = times;
+    this.at = Math.max(0, ...Object.values(times));
   }
 
   // Five days of fifteen-minute closes, at start and on the hour after.
   async backfill(extended = false): Promise<void> {
-    this.merge(await this.get(url(extended ? "1mo" : "5d")), true);
+    this.merge(await this.get(url(extended ? "1mo" : "5d")));
   }
 
   trim(): void {
@@ -131,7 +132,7 @@ export class Live {
   // The day's closes and the price now, every few seconds.
   async poll(): Promise<void> {
     try {
-      this.merge(await this.get(url("1d")), true);
+      this.merge(await this.get(url("1d")));
       this.failures = 0;
     } catch (e) {
       this.failures++;

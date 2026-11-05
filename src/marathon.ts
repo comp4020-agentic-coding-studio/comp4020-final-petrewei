@@ -175,10 +175,10 @@ export class Marathon {
     for (const { slot, usd } of slots) {
       if (slot <= this.slot) continue;
       const at = slot * SLOT_MS;
+      // A past slot's close is final. The newest slot can still move and requires live prices.
+      const closed = slot !== last || now - at >= SLOT_MS;
       for (const [k, a] of this.accounts) {
         charge(a);
-        // a past slot's close is real; the newest slot's is still moving, so it counts only while its prices are live
-        const closed = slot !== last || now - at >= SLOT_MS;
         if (closed || this.live.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, at));
       }
       this.bust(at, usd);
@@ -262,22 +262,23 @@ export class Marathon {
     const usd = this.live.latest();
     if (this.gap) return "Marathon is waiting for missing price history.";
     if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
-    let out: string | null = null;
+    let result: BookFill[] | string | null;
     if (kind === "buy" || kind === "sell") {
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
-      const r = order(a, pair, usd, kind === "buy" ? 1 : -1, Number(input.leverage), typeof input.stake === "number" ? input.stake : 1, { sl: dist(input.sl), tp: dist(input.tp) }, now);
-      if (typeof r === "string") out = r;
-      else for (const f of r) this.told(who, f);
+      const side = kind === "buy" ? 1 : -1;
+      const leverage = Number(input.leverage);
+      const stake = typeof input.stake === "number" ? input.stake : 1;
+      result = order(a, pair, usd, side, leverage, stake, { sl: dist(input.sl), tp: dist(input.tp) }, now);
     } else if (kind === "close") {
-      const r = close(a, pair, usd, now);
-      if (typeof r === "string") out = r;
-      else for (const f of r) this.told(who, f);
-    } else if (kind === "stop" || kind === "take") out = exit(a, pair, usd, kind, typeof input.pct === "number" ? input.pct : null);
-    else if (kind === "borrow" || kind === "repay") {
-      out = kind === "borrow" ? borrow(a) : repay(a);
-      if (!out) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
+      result = close(a, pair, usd, now);
+    } else if (kind === "stop" || kind === "take") {
+      result = exit(a, pair, usd, kind, typeof input.pct === "number" ? input.pct : null);
+    } else if (kind === "borrow" || kind === "repay") {
+      result = kind === "borrow" ? borrow(a) : repay(a);
+      if (!result) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
     } else return "Unknown action.";
-    if (out) return out;
+    if (typeof result === "string") return result;
+    if (Array.isArray(result)) for (const fill of result) this.told(who, fill);
     this.seen(who, k);
     if (!this.accounts.has(k)) {
       this.accounts.set(k, a);
