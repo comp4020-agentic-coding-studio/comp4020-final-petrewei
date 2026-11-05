@@ -446,6 +446,7 @@ class Market {
   // translation, plus a key and values a page translates from.
   feed: News[] = [];
   prays = new Map<string, number>();
+  private pendingNotices = new Map<string, News>();
   // Moments every page on the tab pops a bubble for: a prayer, a big bet,
   // a banked result, a margin call, a cut, a loan. Numbered so a page
   // shows each once; only the last few seconds are kept, and each names
@@ -528,6 +529,7 @@ class Market {
     this.headline = null;
     this.guesses.clear();
     this.prays.clear();
+    this.pendingNotices.clear();
     this.pops = [];
     this.marks = [];
   }
@@ -688,6 +690,11 @@ class Market {
   // business; that is the point of trading in the same room.
   report(events: Fill[]): void {
     for (const e of events) {
+      if (e.kind === "pending-refused") {
+        const reason = e.reason ?? "Refused.";
+        this.pendingNotices.set(e.who, { text: `Your pending order could not fill. ${reason}`, kind: "info", key: "pending-refused", args: { reason } });
+        continue;
+      }
       const name = nameOf(e.who);
       // `who` is the short code, so a page can put each trader's name in
       // its own language; `pnl` stays a number for the page to format.
@@ -723,7 +730,7 @@ class Market {
     // The bell ends a pause as well as trading; Resume only belongs to a live round.
     this.paused = 0;
     const desk = this.desk;
-    const ranking = desk.settle();
+    const ranking = desk.settle((fill) => award(this, fill.who, fromFill(fill, !!fill.called)));
     // Watchers are on the desk but never ordered, so they get no career.
     // Each trader's score: the % result less the cost of each forced cut and of ending bankrupt (ADR 0029, 0080); the
     // bell ranks by it.
@@ -882,6 +889,7 @@ class Market {
     if (action.kind === "pend" || action.kind === "unpend") {
       const refused = action.kind === "pend" ? desk.pend(who, action) : desk.unpend(who);
       const p = desk.account(who).pending;
+      if (!refused) this.pendingNotices.delete(who);
       if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, stake: p.stake } : {}) });
       return refused;
     }
@@ -990,7 +998,7 @@ class Market {
         trades: (mine?.trades ?? []).slice(-20).reverse(),
       },
       traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
-      feed: this.feed,
+      feed: this.pendingNotices.has(who) ? [this.pendingNotices.get(who)!, ...this.feed] : this.feed,
       pops: this.pops.map(({ at: _at, ...p }) => p),
       marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
       result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },

@@ -8,6 +8,7 @@ import { pixels } from "./avatars.js";
 
 export const ICONS = {
   news: {
+    "pending-refused": "⚠️",
     bank: "🏛️", "m-bought": "📈", "m-sold": "📉", "m-closed": "💵", "m-stopped": "🛡️", "m-took": "🎯", "m-stopout": "💀", "m-call": "📞", "m-bankrupt": "🪦",
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "scenario-round": "📡", "replay-round": "📼", "replay-bridged-round": "📼",

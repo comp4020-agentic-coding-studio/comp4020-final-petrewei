@@ -530,3 +530,23 @@ it.each(["replay", "simulation"] as const)("clears a paused %s round when its st
     tab.close();
   }
 });
+
+it("awards a first close when a position stays open until the bell", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, look, until } = app();
+  const me = await visitor();
+  const tab = await page(me);
+  try {
+    await act(me, { kind: "start", mode: "replay" });
+    await until(me, (x) => x.phase === "trade");
+    expect((await act(me, { kind: "buy", leverage: 1, mode: "replay" })).status).toBe(200);
+    expect((await act(me, { kind: "finish", mode: "replay" })).status).toBe(200);
+    const ended = await look(me);
+    const you = ended.you as typeof ended.you & { feats: string[]; trades: { how: string }[] };
+    expect(you.trades).toHaveLength(1);
+    expect(you.trades[0].how).toBe("close");
+    expect(you.feats).toContain("first");
+  } finally {
+    tab.close();
+  }
+});

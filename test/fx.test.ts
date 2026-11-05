@@ -711,3 +711,14 @@ describe("a pending order", () => {
     expect(pos.take).toBeCloseTo(98 * 1.05, 6);
   });
 });
+
+it("reports a pending order refused at its trigger when the player used the free margin", () => {
+  const desk = new Desk(100);
+  desk.join("me");
+  expect(desk.pend("me", { side: 1, at: 100.001, leverage: 10, stake: 1 })).toBeNull();
+  desk.order("me", 1, 1);
+  expect(desk.mark(100.001)).toContainEqual(expect.objectContaining({
+    kind: "pending-refused", who: "me", reason: "No free margin left.",
+  }));
+  expect(desk.account("me").pending).toBeNull();
+});

@@ -15,6 +15,8 @@ export const SLOT_MS = 15 * 60_000;
 export const STALE_MS = 10 * 60_000;
 // Kept a little over five trading days of slots, as a Replay's chart shows.
 const KEEP = 96 * 6;
+const currenciesFor = (pairs: readonly string[]): Set<Currency> =>
+  new Set<Currency>(["AUD", ...pairs.flatMap((pair) => pair.split("/") as Currency[])]);
 
 // Dollars per one unit of each currency, by slot.
 export type Usd = Record<Currency, number>;
@@ -57,6 +59,8 @@ export class Live {
   slots: { slot: number; usd: Usd }[] = [];
   // when the newest price was struck, by the source's clock
   at = 0;
+  private firstFetched: Partial<Record<Currency, number>> = {};
+  private times: Partial<Record<Currency, number>> = {};
   failures = 0;
   private get: Fetcher;
   private now: () => number;
@@ -69,7 +73,9 @@ export class Live {
     const rows = data.spark?.result;
     if (!rows?.length) throw new Error("no prices");
     const bySlot = new Map<number, Partial<Usd>>();
-    let at = 0;
+    const times: Partial<Record<Currency, number>> = {};
+    const quotes: Partial<Usd> = {};
+    const firstFetched: Partial<Record<Currency, number>> = {};
     for (const row of rows) {
       const cur = (Object.keys(SYMBOLS) as Exclude<Currency, "USD">[]).find((c) => SYMBOLS[c][0] === row.symbol);
       const r = row.response[0];
@@ -78,18 +84,20 @@ export class Live {
       const usd = (p: number) => (perUsd ? 1 / p : p);
       (r.timestamp ?? []).forEach((t, i) => {
         const c = r.indicators.quote[0]?.close[i];
-        if (c == null || !(c > 0)) return;
+        if (c == null || !Number.isFinite(c) || c <= 0 || !Number.isFinite(t)) return;
         const s = Math.floor((t * 1000) / SLOT_MS);
+        firstFetched[cur] = Math.min(firstFetched[cur] ?? Infinity, s);
         bySlot.set(s, { ...bySlot.get(s), [cur]: usd(c) });
       });
       // the price now goes in the slot it was struck in
-      if (live && r.meta.regularMarketPrice > 0) {
+      if (live && Number.isFinite(r.meta.regularMarketTime) && Number.isFinite(r.meta.regularMarketPrice) && r.meta.regularMarketPrice > 0) {
         const s = Math.floor((r.meta.regularMarketTime * 1000) / SLOT_MS);
         bySlot.set(s, { ...bySlot.get(s), [cur]: usd(r.meta.regularMarketPrice) });
-        // the market's time is the major pairs', which trade around the clock on weekdays
-        if (cur === "EUR") at = r.meta.regularMarketTime * 1000;
+        times[cur] = r.meta.regularMarketTime * 1000;
+        quotes[cur] = usd(r.meta.regularMarketPrice);
       }
     }
+    this.firstFetched = firstFetched;
     const known = new Map(this.slots.map((x) => [x.slot, x.usd]));
     for (const [s, part] of bySlot) known.set(s, { ...(known.get(s) ?? ({} as Usd)), ...part, USD: 1 } as Usd);
     // a currency missing from a slot carries its last price forward
@@ -98,14 +106,27 @@ export class Live {
       const full = { ...last, ...usd } as Usd;
       last = full;
       return { slot, usd: full };
-    }).filter((x) => CURRENCIES.every((c) => x.usd[c] > 0)).slice(-KEEP);
-    // the source's own time of its last price: on a weekend it stays on Friday's close, and the market reads as shut
-    if (at) this.at = at;
+    }).filter((x) => CURRENCIES.every((c) => x.usd[c] > 0));
+    if (live) {
+      const last = this.slots.at(-1);
+      if (last) {
+        for (const cur of CURRENCIES) {
+          const price = quotes[cur];
+          if (price !== undefined && (times[cur] ?? 0) >= last.slot * SLOT_MS - STALE_MS) last.usd[cur] = price;
+        }
+      }
+      this.times = times;
+      this.at = Math.max(0, ...Object.values(times));
+    }
   }
 
   // Five days of fifteen-minute closes, at start and on the hour after.
-  async backfill(): Promise<void> {
-    this.merge(await this.get(url("5d")), true);
+  async backfill(extended = false): Promise<void> {
+    this.merge(await this.get(url(extended ? "1mo" : "5d")), true);
+  }
+
+  trim(): void {
+    this.slots = this.slots.slice(-KEEP);
   }
   // The day's closes and the price now, every few seconds.
   async poll(): Promise<void> {
@@ -117,8 +138,18 @@ export class Live {
       throw e;
     }
   }
-  live(): boolean {
-    return this.slots.length > 0 && this.now() - this.at < STALE_MS;
+  coversSince(slot: number, pairs: readonly string[]): boolean {
+    return [...currenciesFor(pairs)].every((cur) => cur === "USD" || (this.firstFetched[cur] ?? Infinity) <= slot);
+  }
+
+  live(pairs?: readonly string[]): boolean {
+    const currencies = pairs ? currenciesFor(pairs) : CURRENCIES;
+    const now = this.now();
+    return this.slots.length > 0 && [...currencies].every((cur) => {
+      if (cur === "USD") return true;
+      const at = this.times[cur];
+      return at !== undefined && at <= now && now - at < STALE_MS;
+    });
   }
   latest(): Usd | null {
     return this.slots.at(-1)?.usd ?? null;

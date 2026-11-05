@@ -69,8 +69,10 @@ function settle(a: BookAccount, pair: string, usd: Usd, how: BookTrade["how"], n
   const mid = cross(usd, pair);
   a.trades.push({ pair, side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(mid, -pos.side as Side), how, pnl: Math.round(pnl), pct: pnl / pos.margin, at: now });
   a.trades = a.trades.slice(-50);
-  a.balance = Math.max(0, Math.round(a.balance + pnl));
+  a.balance += pnl;
   delete a.positions[pair];
+  // Losses still offset the rest of the portfolio until the final position closes.
+  if (!Object.keys(a.positions).length) a.balance = Math.max(0, Math.round(a.balance));
   return { kind: how, pair, price: mid, pnl };
 }
 

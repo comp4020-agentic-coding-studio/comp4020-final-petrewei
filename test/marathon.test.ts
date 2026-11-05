@@ -1,11 +1,16 @@
 // ADR 0087: Marathon, on real prices. The book's arithmetic with fixed rates (a position's result in dollars, the
 // account-wide margin level and stop-out, bankruptcy), the feed's crosses from a recorded answer, and the news filter,
 // without the network: the sources are replaced by fixed text.
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { bankrupt, borrow, charge, close, enforce, equity, fresh, level, lines, nextSydneyMidnight, order, pnlOf, worth } from "../src/book.ts";
 import { START, STEP } from "../src/fx.ts";
-import { cross, Live, type Usd } from "../src/live.ts";
-import { parseCalendar, parseFeed } from "../src/news.ts";
+import { cross, Live, SLOT_MS, type Usd } from "../src/live.ts";
+import { News, parseCalendar, parseFeed } from "../src/news.ts";
+import { Marathon, type Who } from "../src/marathon.ts";
+import { spark } from "./feed.ts";
 
 const usd = (over: Partial<Usd> = {}): Usd => ({ EUR: 1.12, GBP: 1.35, AUD: 0.7, USD: 1, CHF: 1 / 0.82, CNY: 1 / 6.67, JPY: 1 / 158, ...over });
 
@@ -37,6 +42,20 @@ describe("the Marathon book", () => {
     expect(fills.map((f) => f.kind)).toEqual(["stopout", "stopout"]);
     expect(a.positions).toEqual({});
     expect(a.cuts).toBe(1);
+  });
+
+  it("nets winning and losing positions before applying zero-cut protection", () => {
+    const a = fresh(0, 0);
+    const rates = usd();
+    order(a, "AUD/USD", rates, 1, 100, 0.5, {}, 0);
+    order(a, "GBP/USD", rates, 1, 100, 0.25, {}, 0);
+    const crash = usd({ AUD: rates.AUD * 0.95, GBP: rates.GBP * 1.01 });
+    expect(equity(a, crash)).toBeLessThan(0);
+    const fills = enforce(a, crash, 1);
+    expect(fills).toHaveLength(2);
+    expect(fills[1].pnl).toBeGreaterThan(0);
+    expect(a.balance).toBe(0);
+    expect(bankrupt(a, crash)).toBe(true);
   });
 
   it("puts one pair's stop-out where the whole account would reach 20%", () => {
@@ -77,8 +96,7 @@ describe("the Marathon book", () => {
 describe("the live feed", () => {
   it("crosses all 21 pairs from six dollar rates, so every pair agrees with every other, and goes stale", async () => {
     const t = Date.UTC(2026, 10, 4, 21, 0) / 1000;
-    const row = (symbol: string, p: number) => ({ symbol, response: [{ meta: { regularMarketPrice: p, regularMarketTime: t + 300 }, timestamp: [t - 900, t], indicators: { quote: [{ close: [p * 0.999, p] }] } }] });
-    const answer = { spark: { result: [row("EURUSD=X", 1.12), row("GBPUSD=X", 1.35), row("AUDUSD=X", 0.7), row("CHF=X", 0.82), row("CNH=X", 6.67), row("JPY=X", 158)] } };
+    const answer = spark(t + 300, [t - 900, t], (_s, p, at) => (at === t ? p : p * 0.999));
     let now = (t + 400) * 1000;
     const live = new Live(async () => answer, () => now);
     await live.backfill();
@@ -88,9 +106,80 @@ describe("the live feed", () => {
     expect(cross(last, "CNY/JPY")).toBeCloseTo(158 / 6.67, 6);
     expect(cross(last, "EUR/AUD") * cross(last, "AUD/JPY")).toBeCloseTo(cross(last, "EUR/JPY"), 6);
     expect(live.live()).toBe(true);
+    answer.spark.result[1].response[0].meta.regularMarketTime -= 3600;
+    await live.poll();
+    expect(live.live(["EUR/USD"])).toBe(true);
+    expect(live.live(["GBP/USD"])).toBe(false);
+    expect(live.live(["EUR/USD", "GBP/USD"])).toBe(false);
     now += 11 * 60_000;
     expect(live.live(), "no price for over ten minutes is a shut market").toBe(false);
   });
+});
+
+const people: Who = {
+  nameAt: (name) => ({ name, draw: null }), named: () => true, key: (who) => who,
+  short: (who) => who, name: (who) => who, draw: () => null, face: () => "p0", faceAt: () => "p0",
+};
+
+it("waits for missing history, then settles a missed bankruptcy before a new trade can open", async () => {
+  const friday = Date.parse("2026-11-06T10:00:00Z");
+  const monday = Date.parse("2026-11-09T10:00:00Z");
+  let now = friday;
+  let recover = false;
+  const live = new Live(async (url) => {
+    const times = now === friday ? [friday - SLOT_MS]
+      : recover && url.includes("range=1mo") ? [friday, friday + SLOT_MS, monday - SLOT_MS]
+      : [monday - SLOT_MS];
+    // the Australian dollar halves in the slot after Friday's close: a bankruptcy the server slept through
+    return spark(now / 1000, times.map((t) => t / 1000), (symbol, p, t) => (symbol === "AUDUSD=X" && t * 1000 === friday + SLOT_MS ? p / 2 : p));
+  }, () => now);
+  let releaseNews!: () => void;
+  const news = new News(async () => "");
+  news.banks = () => new Promise((resolve) => { releaseNews = () => resolve([]); });
+  const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
+  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => {
+    m.save();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const first = m.refresh(now);
+  await expect.poll(() => m.slot).toBe(friday / SLOT_MS);
+  expect(m.view("spectator", {}).you.equity).toBe(START);
+  expect(m.accounts.has("spectator")).toBe(false);
+  expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toBeNull();
+  releaseNews();
+  await first;
+  news.banks = async () => [];
+  now = monday;
+  await m.refresh(now);
+  expect(m.slot).toBe(friday / SLOT_MS);
+  expect(m.act("new", { kind: "buy", leverage: 100 }, now)).toMatch(/missing price history/);
+  recover = true;
+  now += 61 * 60_000;
+  await m.refresh(now);
+  expect(m.runs[0].ended).toBe(friday + SLOT_MS);
+  expect(m.waits.get("trader")).toBe(nextSydneyMidnight(friday + SLOT_MS));
+  expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toBeNull();
+  expect(m.accounts.get("trader")?.trades).toEqual([]);
+});
+
+it("trades again after a sleep longer than the source's month of history, rather than pausing for ever", async () => {
+  const before = Date.parse("2026-09-01T10:00:00Z");
+  const after = Date.parse("2026-11-09T10:00:00Z");
+  let now = before;
+  const live = new Live(async () => {
+    return spark(now / 1000, [(now - SLOT_MS) / 1000]);
+  }, () => now);
+  const news = new News(async () => "");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
+  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  await m.refresh(now);
+  expect(m.act("sleeper", { kind: "buy", leverage: 10, stake: 0.25 }, now)).toBeNull();
+  now = after;
+  await m.refresh(now);
+  expect(m.act("sleeper", { kind: "close" }, now), "two months on, the missing history cannot come, so trading resumes").toBeNull();
 });
 
 describe("the news", () => {
@@ -123,9 +212,8 @@ it("runs a Marathon account on the server across pairs and a restart, and shuts 
   let stale = false;
   feed = createServer((_req, res) => {
     const t = Math.floor(Date.now() / 1000) - (stale ? 3600 : 0);
-    const row = (symbol: string, p: number) => ({ symbol, response: [{ meta: { regularMarketPrice: p, regularMarketTime: t }, timestamp: [t - 1800, t - 900], indicators: { quote: [{ close: [p * 1.001, p] }] } }] });
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ spark: { result: [row("EURUSD=X", 1.12), row("GBPUSD=X", 1.35), row("AUDUSD=X", 0.7), row("CHF=X", 0.82), row("CNH=X", 6.67), row("JPY=X", 158)] } }));
+    res.end(JSON.stringify(spark(t, [t - 1800, t - 900], (_s, p, at) => (at === t - 900 ? p : p * 1.001))));
   }).listen(8195);
   s = await server(8194, { MARATHON_FEED: "http://localhost:8195", MARATHON_NEWS: "off", MARATHON_POLL_MS: "200" });
   const c = client(s.base);

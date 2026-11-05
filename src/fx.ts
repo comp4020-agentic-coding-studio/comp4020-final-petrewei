@@ -81,7 +81,7 @@ export const PEND_RANGE = 0.5;
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
 export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
-export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean };
+export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "pending-refused"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean; reason?: string };
 
 const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
@@ -229,7 +229,8 @@ export class Desk {
     account.pending = null;
     const out = this.order(who, p.side, p.leverage, p.stake, { sl: p.sl, tp: p.tp });
     // marked, so what follows can tell a pending order's fill from a click (ADR 0082)
-    return typeof out === "string" ? [] : out.map((f) => ({ ...f, pending: true }));
+    if (typeof out === "string") return [{ kind: "pending-refused", who, price: this.price, pnl: 0, reason: out }];
+    return out.map((f) => ({ ...f, pending: true }));
   }
 
   // A stop `pct` percent from the current price on the losing side, or no
@@ -397,8 +398,12 @@ export class Desk {
 
   // Close everything at the last price and rank by balance less debt. What is owed is settled to the whole dollars, and
   // the interest with it, so the bell's account adds up in the dollars it shows (ADR 0080).
-  settle(): { who: string; balance: number; net: number }[] {
-    for (const [who, account] of this.accounts) if (account.pos) this.settleOne(who, "close");
+  settle(onClose?: (fill: Fill) => void): { who: string; balance: number; net: number }[] {
+    for (const [who, account] of this.accounts) {
+      if (!account.pos) continue;
+      const fill = this.settleOne(who, "close");
+      onClose?.(fill);
+    }
     for (const account of this.accounts.values()) {
       const whole = Math.round(account.debt);
       account.interest += whole - account.debt;

@@ -22,6 +22,8 @@ function fill(lang, text, args, nameOf) {
   return text.replace(/\{(\w+\+?)\}/g, (_, k) => {
     if (k === "who") return nameOf(args.who, args);
     if (k === "pnl" || k === "amount" || k === "debt") return money(lang, args[k]);
+    // a refusal, sent in the server's English, in this page's language
+    if (k === "reason") return refusal(lang, String(args.reason));
     if (k === "feat") return (T[lang].ui.feats[args.feat] ?? T.en.ui.feats[args.feat] ?? [args.feat])[0];
     if (k === "pnl+") return (args.pnl >= 0 ? "+" : "") + money(lang, args.pnl);
     return String(args[k] ?? "");
@@ -182,6 +184,7 @@ export const T = {
       marathonClosed: "Bankrupt. A new A$10,000 account opens at midnight in Sydney ({at}).",
       marathonOther: "Nothing open on this pair. Your other pairs are below.",
       marathonShut: "The market is shut: no live prices now. Weekends, and the feed's outages, stop trading.",
+      marathonGap: "Marathon is waiting for missing price history.",
       showPair: "Show {pair}",
       boardRunning: "running",
       boardBust: "bankrupt",
@@ -452,6 +455,7 @@ export const T = {
       "m-stopout": "強制ロスカット! {who} was stopped out on {pair}: {pnl}.",
       "m-call": "Margin call for {who}.",
       "m-bankrupt": "{who} went bankrupt after {days}.",
+      "pending-refused": "Your pending order could not fill. {reason}",
       started: "{who} pressed Start. Trading opens in {secs} seconds.",
       cancelled: "{who} cancelled the start.",
       ironman: "Ironman round: nobody can pause it.",
@@ -489,6 +493,7 @@ export const T = {
       "you-bankrupt": "Bankrupt: you owe more than you have.",
     },
     refusals: {
+      "Marathon is waiting for missing price history.": "Marathon is waiting for missing price history.",
       "Your account is closed until midnight in Sydney.": "Your account is closed until midnight in Sydney.",
       "The market is closed: prices are not live. Orders wait for the next price.": "The market is closed: prices are not live. Orders wait for the next price.",
       "No such pair.": "No such pair.",
@@ -697,6 +702,7 @@ export const T = {
       marathonClosed: "破産しました。シドニーの深夜0時（{at}）に新しいA$10,000の口座が開きます。",
       marathonOther: "このペアには建玉がありません。ほかのペアは下にあります。",
       marathonShut: "市場は休場中で、ライブ価格がありません。週末とデータの停止中は取引できません。",
+      marathonGap: "マラソンは不足している価格履歴を待っています。",
       showPair: "{pair}を表示",
       boardRunning: "継続中",
       boardBust: "破産",
@@ -966,6 +972,7 @@ export const T = {
       "m-stopout": "強制ロスカット！{who}の{pair}：{pnl}。",
       "m-call": "{who}に追証。",
       "m-bankrupt": "{who}が{days}で破産。",
+      "pending-refused": "予約注文を約定できませんでした。{reason}",
       started: "{who}がスタートを押しました。あと{secs}秒で取引開始。",
       cancelled: "{who}がスタートを取り消しました。",
       ironman: "アイアンマン戦。一時停止はなし、待ったなし。",
@@ -1003,6 +1010,7 @@ export const T = {
       "you-bankrupt": "破産：持っているより多く借りています。",
     },
     refusals: {
+      "Marathon is waiting for missing price history.": "マラソンは不足している価格履歴を待っています。",
       "Your account is closed until midnight in Sydney.": "口座はシドニーの深夜0時まで閉じています。",
       "The market is closed: prices are not live. Orders wait for the next price.": "市場は休場中です。ライブ価格がありません。注文は次の価格まで待ちます。",
       "No such pair.": "そのペアはありません。",
@@ -1210,6 +1218,7 @@ export const T = {
       marathonClosed: "已破产。悉尼午夜（{at}）开一个新的A$10,000账户。",
       marathonOther: "这个货币对没有持仓。其他货币对在下面。",
       marathonShut: "市场休市，没有实时价格。周末和数据中断时无法交易。",
+      marathonGap: "马拉松正在等待缺失的价格历史。",
       showPair: "显示{pair}",
       boardRunning: "进行中",
       boardBust: "破产",
@@ -1480,6 +1489,7 @@ export const T = {
       "m-stopout": "强制平仓！{who}的{pair}：{pnl}。",
       "m-call": "{who}收到追保通知。",
       "m-bankrupt": "{who}坚持了{days}后破产。",
+      "pending-refused": "挂单未能成交。{reason}",
       started: "{who}按下了开始。{secs}秒后开盘。",
       cancelled: "{who}取消了开始。",
       ironman: "铁人局：不能暂停，落子无悔。",
@@ -1517,6 +1527,7 @@ export const T = {
       "you-bankrupt": "破产：你欠的比你有的还多。",
     },
     refusals: {
+      "Marathon is waiting for missing price history.": "马拉松正在等待缺失的价格历史。",
       "Your account is closed until midnight in Sydney.": "账户在悉尼午夜前关闭。",
       "The market is closed: prices are not live. Orders wait for the next price.": "市场休市：没有实时价格。订单等待下一个价格。",
       "No such pair.": "没有这个货币对。",

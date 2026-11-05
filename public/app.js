@@ -1100,11 +1100,11 @@ function leverageNote() {
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put at stake, worked out from the account the server sent.
 function ticket(s) {
-  $("bid").textContent = quoted(s.bid);
-  $("ask").textContent = quoted(s.ask);
-  $("spread").textContent = t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) });
+  $("bid").textContent = s.prices.length ? quoted(s.bid) : "—";
+  $("ask").textContent = s.prices.length ? quoted(s.ask) : "—";
+  $("spread").textContent = s.prices.length ? t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) }) : "—";
   // the desk's own rule, from the module both share
-  const used = s.you.pos?.margin ?? 0;
+  const used = s.you.used ?? s.you.pos?.margin ?? 0;
   const margin = stakeMargin(s.you.equity, used, choice.stake);
   // the stake's track as the whole account: what is in use, and what this order would add after it (ADR 0077)
   const bar = stakeBar(s.you.equity, used, choice.stake);
@@ -1136,7 +1136,7 @@ function book(s) {
     go.onclick = () => act("pair", { pair: p.pair });
     const shut = Object.assign(document.createElement("button"), { type: "button", className: "mini", textContent: t("close") });
     shut.onclick = () => act("close", { pair: p.pair });
-    shut.disabled = !s.live;
+    shut.disabled = !p.live;
     const cells = [[side, go], quoted(p.entry), quoted(p.now), cash(p.margin), cash(p.pnl), pct(p.pnl / p.margin), [shut]];
     for (const [i, c] of cells.entries()) {
       const td = document.createElement("td");
@@ -1197,7 +1197,7 @@ function pending(s) {
   $("pend-cancel").hidden = !waiting;
   $("pend-waiting").textContent = waiting ? t("pendWaiting", { type: typeName(waiting.type), at: quoted(waiting.at) }) : "";
   const price = s.prices.at(-1);
-  $("pend-at").step = String(10 ** -(quoted(price).split(".")[1]?.length ?? 0));
+  if (price !== undefined) $("pend-at").step = String(10 ** -(quoted(price).split(".")[1]?.length ?? 0));
   const share = `${Math.round(choice.stake * 100)}%`;
   // what the typed level makes, against the price now: a limit or a stop, or nothing yet at the price itself
   $("pend-what").textContent = pend.at === null || pend.at === price ? "" : t("pendWhat", { type: typeName(pendType(pend.side, pend.at, price)), lev: choice.leverage, share });
@@ -1280,6 +1280,11 @@ function draw(full) {
   const s = windowed(full);
   const canvas = $("chart");
   const ctx = canvas.getContext("2d");
+  if (!s.prices.length) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    candlesShown = [];
+    return;
+  }
   // The chart is drawn in the CSS pixels it is shown at (ADR 0076), so its text and margins keep their size however the
   // layout sizes the box, and it is sharp on a scaled screen: the canvas holds that many device pixels and the drawing
   // is scaled to them. Before the box has a size (hidden, or folded), it keeps the size it last had.
@@ -1707,10 +1712,10 @@ function render(s) {
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
   // any, so a reload shows what the player chose.
+  broker = s.desk;
   if (!seated) {
     seated = true;
     ladder = s.leverages;
-    broker = s.desk;
     sliders();
     seatExits();
     // a new visitor starts at the legal cap
@@ -1718,19 +1723,12 @@ function render(s) {
     mark();
     translate();
   }
-  // Marathon before its first price (ADR 0087): a page that opens as the server fetches shows the wait and no chart
-  if (!s.prices.length) {
-    $("price").textContent = "—";
-    $("clock").textContent = t("clockWaitShort");
-    for (const id of ["buy", "sell"]) $(id).disabled = true;
-    return;
-  }
   const price = s.prices.at(-1);
   const first = s.prices[0];
   $("pair").textContent = s.pair;
-  $("price").textContent = quoted(price);
-  const ch = (price / first - 1) * 100;
-  $("change").textContent = pct(ch / 100);
+  $("price").textContent = price === undefined ? "—" : quoted(price);
+  const ch = price === undefined ? 0 : (price / first - 1) * 100;
+  $("change").textContent = price === undefined ? "" : pct(ch / 100);
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
@@ -1746,9 +1744,10 @@ function render(s) {
   // Marathon's clock is Sydney's time of the last price (ADR 0087)
   const sydney = s.priceAt ? new Date(s.priceAt).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
   const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
-  $("clock").textContent = t(`${clockKey}Short`, clockValues);
-  $("clock").setAttribute("aria-label", t(clockKey, clockValues));
-  setTip($("clock"), t(clockKey, clockValues));
+  $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clockKey}Short`, clockValues);
+  const clockLabel = s.historyGap ? t("marathonGap") : t(clockKey, clockValues);
+  $("clock").setAttribute("aria-label", clockLabel);
+  setTip($("clock"), clockLabel);
   // Built from text nodes: the name comes from the server, never as HTML.
   // A pencil says it can be changed.
   me = nameIn(s.you.name, s.you.draw);
@@ -1809,7 +1808,7 @@ function render(s) {
   // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
   // whenever the price stands still).
   // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
-  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" || (marathon && !y.out);
+  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" && (!marathon || !y.out);
   $("credit-owe").textContent = y.debt ? cash(y.debt) : t("creditFree");
   // how much of the line is drawn, as a bar
   $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
@@ -1894,7 +1893,7 @@ function render(s) {
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
-  if (marathon && !y.pos) $("position").textContent = y.out ? t("marathonClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "marathonOther" : "noPos") : t("marathonShut");
+  if (marathon && !y.pos) $("position").textContent = y.out ? t("marathonClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "marathonOther" : "noPos") : t(s.historyGap ? "marathonGap" : "marathonShut");
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;
@@ -1965,7 +1964,7 @@ function render(s) {
       return li;
     }),
   );
-  effects(s, price);
+  if (price !== undefined) effects(s, price);
   // What house traders off screen just said leads the feed, with their
   // face and name, for twenty seconds (ADR 0031).
   const talk = said.filter((x) => Date.now() - x.at < 20_000).map((x) => {

@@ -11,7 +11,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
-import { CURRENCIES, Live, SLOT_MS, cross } from "./live.ts";
+import { CURRENCIES, Live, SLOT_MS, cross, type Usd } from "./live.ts";
 import { News } from "./news.ts";
 import { PAIRS, type Pair } from "./market.ts";
 
@@ -24,6 +24,9 @@ const POLL_MS = Number(process.env.MARATHON_POLL_MS ?? 5_000);
 const NEWS_MS = 10 * 60_000;
 const CAL_MS = 60 * 60_000;
 const BOARD = 10;
+// Yahoo keeps a month of fifteen-minute closes: history missing from further back never comes, so trading resumes on
+// what there is rather than staying paused for everyone.
+const HISTORY_MS = 30 * 86_400_000;
 
 export class Marathon {
   live: Live;
@@ -39,10 +42,14 @@ export class Marathon {
   headline: { cur: string; title: string; source: string; link: string; at: number } | null = null;
   // the last slot the accounts were charged for
   slot = 0;
+  private refreshing = false;
+  private gap = false;
+  private selections = new Map<string, string>();
   private polling: ReturnType<typeof setInterval> | null = null;
   private lastNews = 0;
   private lastCal = 0;
   private lastBack = 0;
+  private lastExtended = 0;
   private dirty = false;
   private watching: () => number;
   private onChange: () => void;
@@ -92,6 +99,7 @@ export class Marathon {
   wake(): void {
     if (this.polling) return;
     const tick = () => void this.refresh().catch(() => {});
+    this.lastBack = 0;
     tick();
     this.polling = setInterval(() => {
       if (!this.watching()) {
@@ -104,15 +112,43 @@ export class Marathon {
     this.polling.unref?.();
   }
 
-  async refresh(now = Date.now()): Promise<void> {
+  async refresh(at?: number): Promise<void> {
+    if (this.refreshing) return;
+    const now = at ?? Date.now();
+    this.refreshing = true;
     try {
       if (!this.live.slots.length || now - this.lastBack > CAL_MS) {
         await this.live.backfill();
         this.lastBack = now;
       } else await this.live.poll();
+      this.gap = this.missingHistory(now);
+      if (this.gap && now - this.lastExtended > CAL_MS) {
+        this.lastExtended = now;
+        await this.live.backfill(true);
+        this.gap = this.missingHistory(now);
+      }
+      if (!this.gap) this.advance(at ?? Date.now());
     } catch {
-      // the feed failed: the price stands, and orders wait while it is stale
+      // A newly fetched quote remains unavailable if historical recovery failed.
+      this.gap ||= this.missingHistory(now);
+    } finally {
+      this.live.trim();
+      this.refreshing = false;
     }
+    this.onChange();
+    await this.updateNews(now);
+  }
+
+  // Whether slots since the last one charged are missing from what the source sent, while some account is exposed to
+  // them: settling those accounts on later prices would skip a stop-out or a bankruptcy that happened in between.
+  private missingHistory(now: number): boolean {
+    if (!this.slot || (this.live.slots.at(-1)?.slot ?? 0) <= this.slot + 1 || now - this.slot * SLOT_MS > HISTORY_MS) return false;
+    const exposed = [...this.accounts.values()].filter((a) => a.debt > 0 || used(a) > 0);
+    return exposed.length > 0 && !this.live.coversSince(this.slot + 1, exposed.flatMap((a) => Object.keys(a.positions)));
+  }
+
+  private async updateNews(now: number): Promise<void> {
+    if (now - this.lastNews <= NEWS_MS && now - this.lastCal <= CAL_MS) return;
     if (now - this.lastNews > NEWS_MS) {
       this.lastNews = now;
       const first = !this.news.items.length;
@@ -127,7 +163,6 @@ export class Marathon {
       this.lastCal = now;
       await this.news.week();
     }
-    this.advance(now);
     this.onChange();
   }
 
@@ -139,17 +174,23 @@ export class Marathon {
     if (!this.slot) this.slot = last;
     for (const { slot, usd } of slots) {
       if (slot <= this.slot) continue;
+      const at = slot * SLOT_MS;
       for (const [k, a] of this.accounts) {
         charge(a);
-        this.report(k, enforce(a, usd, slot * SLOT_MS));
+        // a past slot's close is real; the newest slot's is still moving, so it counts only while its prices are live
+        const closed = slot !== last || now - at >= SLOT_MS;
+        if (closed || this.live.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, at));
       }
+      this.bust(at, usd);
       this.slot = slot;
       this.dirty = true;
     }
     // and the rules on the price now
     const usd = this.live.latest()!;
-    for (const [k, a] of this.accounts) this.report(k, enforce(a, usd, now));
-    this.bust(now);
+    for (const [k, a] of this.accounts) {
+      if (this.live.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, now));
+    }
+    this.bust(now, usd);
   }
 
   private report(k: string, fills: BookFill[]): void {
@@ -166,9 +207,7 @@ export class Marathon {
   }
 
   // Accounts with nothing open and worth too little to trade are closed and put on the board.
-  private bust(now: number): void {
-    const usd = this.live.latest();
-    if (!usd) return;
+  private bust(now: number, usd: Usd): void {
     for (const [k, a] of this.accounts) {
       if (!bankrupt(a, usd)) continue;
       const until = nextSydneyMidnight(now);
@@ -183,42 +222,46 @@ export class Marathon {
   }
 
   // Names by key, kept from the last time each person was seen, for the feed and the board.
-  private seen(who: string): string {
-    const k = this.w.key(who);
-    if (this.names.get(k) !== this.w.name(who)) this.dirty = true;
-    this.names.set(k, this.w.name(who));
-    this.draws.set(k, this.w.draw(who));
-    return k;
+  private seen(who: string, k: string): void {
+    const name = this.w.name(who);
+    const draw = this.w.draw(who);
+    if (this.names.get(k) !== name || this.draws.get(k) !== draw) this.dirty = true;
+    this.names.set(k, name);
+    this.draws.set(k, draw);
   }
 
-  // A player's account, opened on first visit, or after a bankruptcy once its night has passed; null while waiting.
-  account(who: string, now = Date.now()): BookAccount | null {
-    const k = this.seen(who);
+  // An unopened account is a preview. Only a successful financial action persists it.
+  private preview(k: string, now: number): BookAccount | null {
     const a = this.accounts.get(k);
     if (a) return a;
-    const until = this.waits.get(k);
-    if (until && now < until) return null;
-    this.waits.delete(k);
-    const opened = fresh(now, this.slot);
-    this.accounts.set(k, opened);
-    this.dirty = true;
-    this.log(who, "marathon-open", {});
-    return opened;
+    if (now < (this.waits.get(k) ?? 0)) return null;
+    return fresh(now, this.slot, this.selections.get(k));
+  }
+
+  private tradable(a: BookAccount | null, pair: string): boolean {
+    return !this.gap && this.live.live([pair, ...Object.keys(a?.positions ?? {})]);
   }
 
   act(who: string, input: Record<string, unknown>, now = Date.now()): string | null {
     const kind = input.kind;
-    const a = this.account(who, now);
+    const k = this.w.key(who);
+    const a = this.preview(k, now);
     if (!a) return "Your account is closed until midnight in Sydney.";
     if (kind === "pair") {
       if (typeof input.pair !== "string" || !PAIRS.includes(input.pair as Pair)) return "No such pair.";
       a.pair = input.pair;
-      this.dirty = true;
+      if (this.accounts.has(k)) this.dirty = true;
+      else {
+        this.selections.delete(k);
+        this.selections.set(k, a.pair);
+        if (this.selections.size > 1024) this.selections.delete(this.selections.keys().next().value!);
+      }
       return null;
     }
-    const usd = this.live.latest();
-    if (!usd || !this.live.live()) return "The market is closed: prices are not live. Orders wait for the next price.";
     const pair = typeof input.pair === "string" && PAIRS.includes(input.pair as Pair) ? input.pair : a.pair;
+    const usd = this.live.latest();
+    if (this.gap) return "Marathon is waiting for missing price history.";
+    if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
     let out: string | null = null;
     if (kind === "buy" || kind === "sell") {
       const dist = (v: unknown) => (typeof v === "number" ? v : null);
@@ -235,10 +278,17 @@ export class Marathon {
       if (!out) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
     } else return "Unknown action.";
     if (out) return out;
+    this.seen(who, k);
+    if (!this.accounts.has(k)) {
+      this.accounts.set(k, a);
+      this.waits.delete(k);
+      this.selections.delete(k);
+      this.log(who, "marathon-open", {});
+    }
     this.log(who, `marathon-${kind}`, { pair });
     this.dirty = true;
-    this.report(this.w.key(who), enforce(a, usd, now));
-    this.bust(now);
+    this.report(k, enforce(a, usd, now));
+    this.bust(now, usd);
     return null;
   }
 
@@ -251,26 +301,29 @@ export class Marathon {
 
   board(now = Date.now()): (Run & { you?: boolean })[] {
     const usd = this.live.latest();
-    const running: Run[] = usd ? [...this.accounts].map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
+    const running: Run[] = usd ? [...this.accounts].filter(([, a]) => used(a) > 0 || a.trades.length > 0).map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
     // longest-lasting first: the marathon's measure is how long an account survives
     return [...running, ...this.runs].sort((a, b) => b.ended - b.opened - (a.ended - a.opened)).slice(0, BOARD);
   }
 
   view(who: string, here: Record<string, number>) {
     const now = Date.now();
-    const a = this.account(who, now);
     const k = this.w.key(who);
+    const a = this.preview(k, now);
+    if (this.accounts.has(k)) this.seen(who, k);
     const usd = this.live.latest();
     const pair = a?.pair ?? "AUD/USD";
     const { prices, last } = this.live.series(pair);
     const mid = prices.at(-1) ?? 1;
-    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
+    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
     const pos = positions.find((p) => p.pair === pair) ?? null;
-    const eq = a && usd ? equity(a, usd) : START;
+    const eq = a ? (usd ? equity(a, usd) : a.balance) : 0;
+    const live = this.tradable(a, pair);
     return {
       mode: "marathon",
-      phase: this.live.live() ? "trade" : this.live.slots.length ? "shut" : "waiting",
-      live: this.live.live(),
+      phase: live ? "trade" : this.live.slots.length ? "shut" : "waiting",
+      live,
+      historyGap: this.gap,
       priceAt: this.live.at,
       pair,
       pairs: PAIRS,
@@ -330,7 +383,7 @@ export class Marathon {
       board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, days: days(r.ended - r.opened), you: rk === k })),
       career: [],
       leverages: LEVERAGES,
-      desk: { ...RULES, ticksPerMinute: 0 },
+      desk: { ...RULES, ticksPerMinute: 60_000 / SLOT_MS },
       minRounds: 0,
       ...quote(mid),
       here,

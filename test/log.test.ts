@@ -90,13 +90,15 @@ it("ranks the room at the bell, logs the round to stdout, and waits in the lobby
   glance.close();
   const watching = await page(watcher);
   try {
+    // Consume the watcher stream throughout the accelerated round, like a browser does.
+    const atBell = watching.next((event) => event.phase === "break", 10_000);
     await open(30);
     // a close before the bell earns the trader "first", which the watcher must see (ADR 0085)
     await act(trader, { kind: "buy", leverage: 3 });
     await act(trader, { kind: "close" });
     await act(trader, { kind: "buy", leverage: 3 });
-    let bell = await state(watcher);
-    for (const until = Date.now() + 10_000; bell.phase !== "break" && Date.now() < until; ) bell = await state(watcher);
+    expect((await atBell)?.phase).toBe("break");
+    const bell = await state(watcher);
     expect(bell.phase).toBe("break");
     // no cookie anywhere in what the bell sends
     for (const c of [trader, watcher, passer]) expect(JSON.stringify(bell)).not.toContain(c.slice(2));
