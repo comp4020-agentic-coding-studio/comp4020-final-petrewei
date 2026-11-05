@@ -1024,18 +1024,21 @@ addEventListener("resize", replace);
 // only, grey while its own toggle is off. The fills are drawn here, since a
 // slider paints to the left of its thumb, wrong for the stop loss.
 const HALF = { sl: [0, 480], tp: [520, 1000] };
+// Both tracks paint the same control; only the ticket's and position's state differ.
+function paintExit(panel, prefix, kind, distance, on) {
+  const id = `${prefix}${kind}`;
+  const [min, max] = HALF[kind];
+  const { from, to } = fillSpan(kind, Number($(`${id}-dist`).value), min, max);
+  // the stop loss's half is the left 48% of the track, the take profit's the right 48%
+  const left = kind === "sl" ? 0 : 52;
+  $(`${id}-fill`).style.left = `${left + from * 48}%`;
+  $(`${id}-fill`).style.width = `${(to - from) * 48}%`;
+  $(`${id}-pct`).textContent = `${distance}%`;
+  $(`${id}-on`).setAttribute("aria-checked", String(on));
+  $(panel).querySelector(".exit-track").dataset[kind] = String(on);
+}
 function paintExits() {
-  for (const k of ["sl", "tp"]) {
-    const [min, max] = HALF[k];
-    const { from, to } = fillSpan(k, Number($(`${k}-dist`).value), min, max);
-    // the stop loss's half is the left 48% of the track, the take profit's the right 48%
-    const left = k === "sl" ? 0 : 52;
-    $(`${k}-fill`).style.left = `${left + from * 48}%`;
-    $(`${k}-fill`).style.width = `${(to - from) * 48}%`;
-    $(`${k}-pct`).textContent = `${exits[k].dist}%`;
-    $(`${k}-on`).setAttribute("aria-checked", String(exits[k].on));
-    $("exits").querySelector(".exit-track").dataset[k] = String(exits[k].on);
-  }
+  for (const k of ["sl", "tp"]) paintExit("exits", "", k, exits[k].dist, exits[k].on);
 }
 function seatExits() {
   for (const k of ["sl", "tp"]) $(`${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: exits[k].dist }, broker.distances) * 1000));
@@ -1061,15 +1064,8 @@ const held = { sl: 5, tp: 10 };
 let grabbed = null;
 function paintHeld(on) {
   for (const k of ["sl", "tp"]) {
-    const [min, max] = HALF[k];
     if (grabbed !== k) $(`p${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: held[k] }, broker.distances) * 1000));
-    const { from, to } = fillSpan(k, Number($(`p${k}-dist`).value), min, max);
-    const left = k === "sl" ? 0 : 52;
-    $(`p${k}-fill`).style.left = `${left + from * 48}%`;
-    $(`p${k}-fill`).style.width = `${(to - from) * 48}%`;
-    $(`p${k}-pct`).textContent = `${held[k]}%`;
-    $(`p${k}-on`).setAttribute("aria-checked", String(on[k]));
-    $("pexits").querySelector(".exit-track").dataset[k] = String(on[k]);
+    paintExit("pexits", "p", k, held[k], on[k]);
   }
 }
 for (const k of ["sl", "tp"]) {

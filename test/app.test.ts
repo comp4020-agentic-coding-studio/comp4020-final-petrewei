@@ -33,7 +33,7 @@ async function app(lang: "en" | "ja" | "zh" = "en") {
   const context = new Proxy({ measureText: (t: string) => ({ width: t.length * 5 }) }, { get: (o, k) => o[k as keyof typeof o] ?? (() => {}) });
   vi.spyOn(w.HTMLCanvasElement.prototype, "getContext").mockReturnValue(context as unknown as CanvasRenderingContext2D);
   vi.spyOn(w.Element.prototype, "getBoundingClientRect").mockReturnValue({ top: 100, left: 100, right: 300, bottom: 150, width: 200, height: 50, x: 100, y: 100, toJSON() {} });
-  const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+  const fetch = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
   const intervals: (() => void)[] = [];
   const setInterval = w.setInterval.bind(w);
   vi.spyOn(w, "setInterval").mockImplementation((callback, ms) => {
@@ -227,6 +227,37 @@ it.each(["en", "ja", "zh"] as const)("names every trading slider in %s", async (
     for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"], ["sl-dist", "slFull"], ["tp-dist", "tpFull"], ["psl-dist", "slFull"], ["ptp-dist", "tpFull"]]) {
       expect(w.document.getElementById(id)!.getAttribute("aria-label"), id).toBe(i18n.T[lang].ui[key]);
     }
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("keeps ticket exits independent of the open position's exits and preserves a held thumb during updates", async () => {
+  const { dom, w, base, emit, fetch } = await app();
+  try {
+    const element = (id: string) => w.document.getElementById(id)!;
+    const slider = (id: string) => element(id) as HTMLInputElement;
+    const price = base.prices.at(-1)!;
+    const you = { ...base.you, named: true, pos: { side: 1, entry: price, leverage: 10, margin: 1000, stop: price * 0.98, take: null, call: price * 0.95, cut: price * 0.92 } };
+    await emit({ you });
+    expect(element("psl-on").getAttribute("aria-checked")).toBe("true");
+    expect(element("ptp-on").getAttribute("aria-checked")).toBe("false");
+    expect(element("psl-pct").textContent).toBe("2%");
+    element("sl-on").click();
+    expect(element("sl-on").getAttribute("aria-checked")).toBe("true");
+    expect(element("sl-pct").textContent).toBe("5%");
+    slider("psl-dist").value = "0";
+    slider("psl-dist").dispatchEvent(new w.Event("input", { bubbles: true }));
+    await emit({ you });
+    expect(slider("psl-dist").value).toBe("0");
+    expect(element("psl-pct").textContent).toBe("50%");
+    expect(element("psl-fill").style.width).toBe("48%");
+    expect(element("sl-pct").textContent).toBe("5%");
+    slider("psl-dist").dispatchEvent(new w.Event("change", { bubbles: true }));
+    const request = JSON.parse(fetch.mock.calls.at(-1)![1]!.body as string);
+    expect(request).toMatchObject({ kind: "stop", pct: 50 });
+    await emit({ you });
+    expect(element("psl-pct").textContent).toBe("2%");
   } finally {
     dom.window.close();
   }
