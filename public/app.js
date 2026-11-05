@@ -1642,7 +1642,8 @@ let shown = null;
 async function receive(s, source = events) {
   // A message from the market this page just left is dropped.
   if (source !== events || s.mode !== mode || navigator.onLine === false) return;
-  if (!fresh && s.from !== 0) {
+  const contiguous = fresh && s.mode === shown && s.round === roundNo && s.from <= prices.length;
+  if (s.from !== 0 && !contiguous) {
     const res = await fetch(`/api/state?mode=${mode}`);
     if (!res.ok) throw new Error("state unavailable");
     return receive(await res.json(), source);
@@ -1650,14 +1651,10 @@ async function receive(s, source = events) {
   if (s.from === 0) {
     prices = [...s.prices];
     before = s.history ?? [];
-  } else if (s.mode === shown && s.round === roundNo && s.from <= prices.length) {
+  } else {
     // new prices go on the end of the array this page owns, not into a copy of all of it
     prices.length = s.from;
     prices.push(...s.prices);
-  } else {
-    const res = await fetch(`/api/state?mode=${mode}`);
-    if (!res.ok) throw new Error("state unavailable");
-    return receive(await res.json(), source);
   }
   roundNo = s.round;
   shown = s.mode;

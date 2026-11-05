@@ -111,6 +111,25 @@ it("keeps buffered state from re-enabling orders while the browser is offline", 
   }
 });
 
+it("recovers a missing price update with a full snapshot and then accepts contiguous updates", async () => {
+  const { dom, w, base, emit, fetch } = await app();
+  try {
+    await emit();
+    const recoveredPrice = base.prices.at(-1)! * 1.01;
+    const recovered = [...base.prices, recoveredPrice];
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, ...base, from: 0, prices: recovered, you: { ...base.you, named: true } }) });
+    await emit({ from: base.prices.length + 5, prices: [recoveredPrice * 2] });
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/state?mode=replay");
+    expect(w.document.getElementById("price")!.textContent).toBe(format.quoted(recoveredPrice));
+    const nextPrice = recoveredPrice * 1.001;
+    await emit({ from: recovered.length, prices: [nextPrice] });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(w.document.getElementById("price")!.textContent).toBe(format.quoted(nextPrice));
+  } finally {
+    dom.window.close();
+  }
+});
+
 it("explains a lost action reply without sending the action again", async () => {
   const { dom, w, emit, fetch } = await app();
   try {
