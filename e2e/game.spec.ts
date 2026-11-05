@@ -308,7 +308,12 @@ test("shows every tab's whole label, and Marathon's board only on Marathon", asy
   for (const m of ["replay", "simulation", "marathon", "tutorial"]) {
     await page.locator(`[data-mode="${m}"]`).click();
     await expect(page.locator(`[data-mode="${m}"]`)).toHaveAttribute("aria-selected", "true");
-    const cut = await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].filter((t) => t.scrollWidth > t.clientWidth + 1).map((t) => (t as HTMLElement).dataset.mode));
+    // a label cut inside its tab, or a tab run past the bar around them
+    const cut = await page.evaluate(() => {
+      const bar = document.querySelector(".tabs")!;
+      const edge = bar.getBoundingClientRect();
+      return [...bar.querySelectorAll("[role=tab]")].filter((t) => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > edge.right + 0.5).map((t) => (t as HTMLElement).dataset.mode);
+    });
     expect(cut, `labels cut on ${m}`).toEqual([]);
     if (m === "marathon") await expect(page.locator("#board")).toBeVisible();
     else await expect(page.locator("#board")).toBeHidden();

@@ -139,9 +139,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* The top bar is a grid of fixed slots, so no language's longer or
    shorter words move anything: brand, tabs, who you are, tools. Text
    that cannot fit its slot is cut with an ellipsis, never wrapped. */
-/* Slot widths fit the longest language: the brand's Japanese subtitle,
-   the tabs' longest label three times over. */
-.top { display: grid; grid-template-columns: minmax(0, 1fr) 460px minmax(0, 1fr); align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+/* The tabs' slot is as wide as its four labels in this language (ADR 0087), so no label runs past the bar; the
+   brand and who you are share what is left either side. */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.6rem 1.2rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 .brand { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; color: inherit; text-decoration: none; }
 /* The right of the header: who you are, then the tools, against the right edge. Who you are is the
    part that gives way, so the tools never do. */
