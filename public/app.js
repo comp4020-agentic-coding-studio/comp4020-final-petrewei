@@ -1024,8 +1024,8 @@ addEventListener("resize", replace);
 // only, grey while its own toggle is off. The fills are drawn here, since a
 // slider paints to the left of its thumb, wrong for the stop loss.
 const HALF = { sl: [0, 480], tp: [520, 1000] };
-// Both tracks paint the same control; only the ticket's and position's state differ.
-function paintExit(panel, prefix, kind, distance, on) {
+// Both tracks paint the same control: the ticket's ("sl", "tp") and the position's ("psl", "ptp"), each in its own panel.
+function paintExit(prefix, kind, distance, on) {
   const id = `${prefix}${kind}`;
   const [min, max] = HALF[kind];
   const { from, to } = fillSpan(kind, Number($(`${id}-dist`).value), min, max);
@@ -1035,10 +1035,10 @@ function paintExit(panel, prefix, kind, distance, on) {
   $(`${id}-fill`).style.width = `${(to - from) * 48}%`;
   $(`${id}-pct`).textContent = `${distance}%`;
   $(`${id}-on`).setAttribute("aria-checked", String(on));
-  $(panel).querySelector(".exit-track").dataset[kind] = String(on);
+  $(`${prefix}exits`).querySelector(".exit-track").dataset[kind] = String(on);
 }
 function paintExits() {
-  for (const k of ["sl", "tp"]) paintExit("exits", "", k, exits[k].dist, exits[k].on);
+  for (const k of ["sl", "tp"]) paintExit("", k, exits[k].dist, exits[k].on);
 }
 function seatExits() {
   for (const k of ["sl", "tp"]) $(`${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: exits[k].dist }, broker.distances) * 1000));
@@ -1065,7 +1065,7 @@ let grabbed = null;
 function paintHeld(on) {
   for (const k of ["sl", "tp"]) {
     if (grabbed !== k) $(`p${k}-dist`).value = String(Math.round(exitPos({ kind: k, dist: held[k] }, broker.distances) * 1000));
-    paintExit("pexits", "p", k, held[k], on[k]);
+    paintExit("p", k, held[k], on[k]);
   }
 }
 for (const k of ["sl", "tp"]) {
