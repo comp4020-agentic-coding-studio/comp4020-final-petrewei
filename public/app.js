@@ -1663,6 +1663,24 @@ async function receive(s, source = events) {
   render({ ...s, prices, history: before });
 }
 
+function headlineText(head) {
+  if (!head) return head;
+  if (head.source) return `${head.source}: ${head.title}`;
+  if (head.release) return releaseText(lang, "release", head.release);
+  if (head.story !== undefined) return T[lang].stories[head.story];
+  if (head.scenario) return T[lang].scenarios[head.scenario]?.headlines[head.n];
+  return clueText(lang, head.clue, head.n);
+}
+
+function clockKey(s) {
+  if (s.mode === "marathon") return s.live ? "clockLive" : "clockShut";
+  if (s.mode === "tutorial") return "clockTutorial";
+  if (s.phase === "trade") return "clockDay";
+  if (s.phase === "countdown") return "clockOpens";
+  if (s.phase === "lobby") return "clockLobby";
+  return "clockClosed";
+}
+
 function render(s) {
   state = s;
   const tutorial = s.mode === "tutorial";
@@ -1725,20 +1743,20 @@ function render(s) {
   $("change").className = ch >= 0 ? "up" : "down";
   // A Scenario's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
-  const head = s.headline && (s.headline.source ? `${s.headline.source}: ${s.headline.title}` : s.headline.release ? releaseText(lang, "release", s.headline.release) : s.headline.story !== undefined ? T[lang].stories[s.headline.story] : s.headline.scenario ? T[lang].scenarios[s.headline.scenario]?.headlines[s.headline.n] : clueText(lang, s.headline.clue, s.headline.n));
+  const head = headlineText(s.headline);
   // Only a clue or headline is shown here; the static label that said which
   // mode this was is gone (ADR 0059), since the tab already says it.
   $("mode").textContent = head ? `📰 ${head}` : "";
   $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
-  const clockKey = marathon ? (s.live ? "clockLive" : "clockShut") : tutorial ? "clockTutorial" : s.phase === "trade" ? "clockDay" : s.phase === "countdown" ? "clockOpens" : s.phase === "lobby" ? "clockLobby" : "clockClosed";
+  const clock = clockKey(s);
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
   // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
   // Marathon's clock is Sydney's time of the last price (ADR 0087)
   const sydney = s.priceAt ? new Date(s.priceAt).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
   const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
-  $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clockKey}Short`, clockValues);
-  const clockLabel = s.historyGap ? t("marathonGap") : t(clockKey, clockValues);
+  $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clock}Short`, clockValues);
+  const clockLabel = s.historyGap ? t("marathonGap") : t(clock, clockValues);
   $("clock").setAttribute("aria-label", clockLabel);
   setTip($("clock"), clockLabel);
   // Built from text nodes: the name comes from the server, never as HTML.
