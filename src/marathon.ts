@@ -142,7 +142,7 @@ export class Marathon {
   // Whether slots since the last one charged are missing from what the source sent, while some account is exposed to
   // them: settling those accounts on later prices would skip a stop-out or a bankruptcy that happened in between.
   private missingHistory(now: number): boolean {
-    if (!this.slot || (this.live.slots.at(-1)?.slot ?? 0) <= this.slot + 1 || now - this.slot * SLOT_MS > HISTORY_MS) return false;
+    if (!this.slot || (this.live.slots.at(-1)?.slot ?? 0) <= this.slot || now - this.slot * SLOT_MS > HISTORY_MS) return false;
     const exposed = [...this.accounts.values()].filter((a) => a.debt > 0 || used(a) > 0);
     return exposed.length > 0 && !this.live.coversSince(this.slot + 1, exposed.flatMap((a) => Object.keys(a.positions)));
   }

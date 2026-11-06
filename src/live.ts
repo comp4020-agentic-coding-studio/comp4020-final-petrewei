@@ -13,10 +13,29 @@ const SYMBOLS: Record<Exclude<Currency, "USD">, [string, boolean]> = { EUR: ["EU
 export const SLOT_MS = 15 * 60_000;
 // A price older than this is not live: the market is shut (a weekend) or the feed is down, and orders wait.
 export const STALE_MS = 10 * 60_000;
+// How long the source may take to fill in a slot: after this, a bar it has not sent is one it never will.
+const SETTLED_MS = 60 * 60_000;
 // Kept a little over five trading days of slots, as a Replay's chart shows.
 const KEEP = 96 * 6;
 const currenciesFor = (pairs: readonly string[]): Set<Currency> =>
   new Set<Currency>(["AUD", ...pairs.flatMap((pair) => pair.split("/") as Currency[])]);
+
+// Standard FX closures in New York time: the weekend, and 17:00 on Christmas/New Year's Eve to 17:00 the next day.
+// These are calendar exemptions only when no historical bar proves the source traded in that slot.
+// https://www.oanda.com/us-en/trading/hours-of-operation/
+// https://www.oanda.com/us-en/trading/holiday-trading-hours/
+const sessionClock = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "numeric", day: "numeric", weekday: "short", hour: "numeric", hourCycle: "h23" });
+function tradingSlot(slot: number): boolean {
+  const parts = sessionClock.formatToParts(new Date(slot * SLOT_MS));
+  const weekday = parts.find((part) => part.type === "weekday")!.value;
+  const hour = Number(parts.find((part) => part.type === "hour")!.value);
+  const month = Number(parts.find((part) => part.type === "month")!.value);
+  const day = Number(parts.find((part) => part.type === "day")!.value);
+  const eve = month === 12 && (day === 24 || day === 31);
+  const holiday = (month === 12 && day === 25) || (month === 1 && day === 1);
+  if ((eve && hour >= 17) || (holiday && hour < 17)) return false;
+  return weekday !== "Sat" && !(weekday === "Fri" && hour >= 17) && !(weekday === "Sun" && hour < 17);
+}
 
 // Dollars per one unit of each currency, by slot.
 export type Usd = Record<Currency, number>;
@@ -59,7 +78,8 @@ export class Live {
   slots: { slot: number; usd: Usd }[] = [];
   // when the newest price was struck, by the source's clock
   at = 0;
-  private firstFetched: Partial<Record<Currency, number>> = {};
+  private fetched = new Map<number, Set<Currency>>();
+  private traded = new Set<number>();
   private times: Partial<Record<Currency, number>> = {};
   failures = 0;
   private get: Fetcher;
@@ -73,9 +93,16 @@ export class Live {
     const rows = data.spark?.result;
     if (!rows?.length) throw new Error("no prices");
     const bySlot = new Map<number, Partial<Usd>>();
+    const fetched = new Map<number, Set<Currency>>();
+    const traded = new Set<number>();
+    const record = (slot: number, cur: Currency, price: number): void => {
+      bySlot.set(slot, { ...bySlot.get(slot), [cur]: price });
+      const currencies = fetched.get(slot) ?? new Set<Currency>();
+      currencies.add(cur);
+      fetched.set(slot, currencies);
+    };
     const times: Partial<Record<Currency, number>> = {};
     const quotes: Partial<Usd> = {};
-    const firstFetched: Partial<Record<Currency, number>> = {};
     for (const row of rows) {
       const cur = (Object.keys(SYMBOLS) as Exclude<Currency, "USD">[]).find((c) => SYMBOLS[c][0] === row.symbol);
       const r = row.response[0];
@@ -86,8 +113,8 @@ export class Live {
         const c = r.indicators.quote[0]?.close[i];
         if (c == null || !Number.isFinite(c) || c <= 0 || !Number.isFinite(t)) return;
         const s = Math.floor((t * 1000) / SLOT_MS);
-        firstFetched[cur] = Math.min(firstFetched[cur] ?? Infinity, s);
-        bySlot.set(s, { ...bySlot.get(s), [cur]: usd(c) });
+        record(s, cur, usd(c));
+        traded.add(s);
       });
       // the price now goes in the slot it was struck in
       const { regularMarketTime, regularMarketPrice } = r.meta;
@@ -95,11 +122,12 @@ export class Live {
       const at = regularMarketTime * 1000;
       const slot = Math.floor(at / SLOT_MS);
       const price = usd(regularMarketPrice);
-      bySlot.set(slot, { ...bySlot.get(slot), [cur]: price });
+      record(slot, cur, price);
       times[cur] = at;
       quotes[cur] = price;
     }
-    this.firstFetched = firstFetched;
+    this.fetched = fetched;
+    this.traded = traded;
     const known = new Map(this.slots.map((x) => [x.slot, x.usd]));
     for (const [s, part] of bySlot) known.set(s, { ...(known.get(s) ?? ({} as Usd)), ...part, USD: 1 } as Usd);
     // a currency missing from a slot carries its last price forward
@@ -139,8 +167,21 @@ export class Live {
       throw e;
     }
   }
+  // Whether every trading slot from `slot` on has a price of its own for each of these pairs' currencies, so that
+  // settling an account across them misses nothing. Yahoo leaves a few fifteen-minute bars out of most weeks and never
+  // sends them; a slot older than SETTLED_MS is therefore taken as final, its hole carried over from the slot before,
+  // and only a recent slot, which may still arrive, is waited for.
   coversSince(slot: number, pairs: readonly string[]): boolean {
-    return [...currenciesFor(pairs)].every((cur) => cur === "USD" || (this.firstFetched[cur] ?? Infinity) <= slot);
+    const last = this.slots.at(-1)?.slot;
+    if (last === undefined) return false;
+    const required = [...currenciesFor(pairs)].filter((cur) => cur !== "USD");
+    const settled = Math.floor((this.now() - SETTLED_MS) / SLOT_MS);
+    for (let at = Math.max(slot, settled + 1); at <= last; at++) {
+      if (!tradingSlot(at) && !this.traded.has(at)) continue;
+      // a price carried forward on the chart is not a price the account was exposed to in that slot
+      if (required.some((cur) => !this.fetched.get(at)?.has(cur))) return false;
+    }
+    return true;
   }
 
   live(pairs?: readonly string[]): boolean {

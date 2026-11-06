@@ -281,3 +281,40 @@ it("keeps ticket exits independent of the open position's exits and preserves a 
     dom.window.close();
   }
 });
+
+it.each(["en", "ja", "zh"] as const)("names upcoming calendar releases in %s", async (lang) => {
+  const { dom, w, emit } = await app(lang);
+  try {
+    await emit({ calendar: [{ cur: "USD", kind: "cpi", d: 1, h: 4, outcome: null }] });
+    expect(w.document.querySelector("#calendar .what")!.textContent).toBe(`USD · ${i18n.releaseName(lang, "cpi")}`);
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("keeps Marathon account returns and risk marks fixed when the chart changes pairs", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="marathon"]') as HTMLElement).click();
+    const positions = [
+      { pair: "AUD/USD", side: 1, margin: 2000, leverage: 10, entry: 1, now: 1.01, pnl: 200, live: true },
+      { pair: "EUR/USD", side: 1, margin: 6000, leverage: 10, entry: 1, now: 1.01, pnl: 600, live: true },
+    ];
+    const you = { ...base.you, named: true, used: 8000, pnl: 800, debt: 0, equity: 10800, level: 135, positions };
+    for (const pair of ["AUD/USD", "EUR/USD", "GBP/USD"]) {
+      await emit({ mode: "marathon", live: true, pair, pairs: positions.map((p) => p.pair).concat("GBP/USD"), calendar: [], board: [], you: { ...you, pos: positions.find((p) => p.pair === pair) ?? null } });
+      expect(w.document.getElementById("pnl-pct")!.textContent, pair).toBe("+10.00%");
+      for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]] as const) {
+        const mark = w.document.getElementById(id)!;
+        expect(mark.hidden, `${pair} ${id}`).toBe(false);
+        expect(parseFloat(mark.style.left)).toBeCloseTo(ticket.gauge(share * you.used / base.start) * 100, 6);
+      }
+    }
+    await emit({ mode: "marathon", live: true, calendar: [], board: [], you: { ...you, used: 0, pnl: 0, pos: null, positions: [] } });
+    expect(w.document.getElementById("pnl-pct")!.textContent).toBe("");
+    expect(w.document.getElementById("mark-call")!.hidden).toBe(true);
+    expect(w.document.getElementById("mark-cut")!.hidden).toBe(true);
+  } finally {
+    dom.window.close();
+  }
+});

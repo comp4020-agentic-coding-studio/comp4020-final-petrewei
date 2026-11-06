@@ -114,6 +114,62 @@ describe("the live feed", () => {
     now += 11 * 60_000;
     expect(live.live(), "no price for over ten minutes is a shut market").toBe(false);
   });
+
+  it("requires intermediate quotes for the account's currencies, even when another currency has the slot", async () => {
+    const start = Date.parse("2026-11-04T10:00:00Z") / 1000;
+    const answer = spark(start + 2700, [start, start + 900, start + 1800]);
+    const pound = answer.spark.result.find((row) => row.symbol === "GBPUSD=X")!;
+    const closes: (number | null)[] = pound.response[0].indicators.quote[0].close;
+    closes[1] = null;
+    const live = new Live(async () => answer, () => (start + 2700) * 1000);
+    await live.backfill();
+    expect(live.coversSince(start * 1000 / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
+    expect(live.coversSince(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
+  });
+
+  it.each([
+    ["2026-07-03T20:45:00Z", "2026-07-05T21:00:00Z"],
+    ["2026-11-06T21:45:00Z", "2026-11-08T22:00:00Z"],
+    ["2026-10-30T20:45:00Z", "2026-11-01T22:00:00Z"],
+  ])("allows the weekly closure from %s to %s, and waits for the last trading slot only while it may still come", async (friday, sunday) => {
+    const last = Date.parse(friday);
+    const opens = Date.parse(sunday);
+    const complete = new Live(async () => spark(opens / 1000, [last / 1000]), () => opens);
+    await complete.backfill();
+    expect(complete.coversSince(last / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
+    // Friday's last bar not yet sent, asked minutes after it: it may still come, so it is waited for
+    let now = last + 20 * 60_000;
+    const missing = new Live(async () => spark(now / 1000, [(last - SLOT_MS) / 1000]), () => now);
+    await missing.backfill();
+    expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(false);
+    // still not sent when the market opens two days later: Yahoo never will, and waiting would never end
+    now = opens;
+    expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(true);
+  });
+
+  it.each([
+    ["2025-12-24T21:45:00Z", "2025-12-25T22:00:00Z"],
+    ["2025-12-31T21:45:00Z", "2026-01-01T22:00:00Z"],
+    ["2026-12-24T21:45:00Z", "2026-12-27T22:00:00Z"],
+  ])("allows the holiday closure from %s to %s, and a bar that proves the feed traded is waited for only while recent", async (before, after) => {
+    const last = Date.parse(before);
+    const opens = Date.parse(after);
+    const closed = new Live(async () => spark(opens / 1000, [last / 1000]), () => opens);
+    await closed.backfill();
+    expect(closed.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
+    const answer = spark(opens / 1000, [last / 1000, (last + SLOT_MS) / 1000]);
+    const pound = answer.spark.result.find((row) => row.symbol === "GBPUSD=X")!;
+    const prices: (number | null)[] = pound.response[0].indicators.quote[0].close;
+    prices[1] = null;
+    // asked minutes after the slot the euro traded in and the pound has not yet been sent: the pound is waited for
+    let now = last + 2 * SLOT_MS + 5 * 60_000;
+    const partial = new Live(async () => answer, () => now);
+    await partial.backfill();
+    expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
+    // once the holiday is over, a bar never sent is not waited for
+    now = opens;
+    expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
+  });
 });
 
 const people: Who = {
@@ -121,14 +177,110 @@ const people: Who = {
   short: (who) => who, name: (who) => who, draw: () => null, face: () => "p0", faceAt: () => "p0",
 };
 
+// Yahoo leaves a few fifteen-minute bars out of most weeks, for one currency or another, and never sends them: a server
+// that slept over one must not wait for it for ever, or Marathon would stand still for everyone after most restarts.
+it("trades on after a sleep over a bar the source never sends", async () => {
+  const start = Date.parse("2026-11-04T10:00:00Z");
+  let now = start;
+  const live = new Live(async () => {
+    const times: number[] = [];
+    for (let t = start - 8 * SLOT_MS; t <= now; t += SLOT_MS) times.push(t / 1000);
+    const hole = (start + 2 * SLOT_MS) / 1000;
+    const answer = spark(now / 1000, times);
+    const euro = answer.spark.result.find((row) => row.symbol === "EURUSD=X")!.response[0];
+    const closes: (number | null)[] = euro.indicators.quote[0].close;
+    closes[times.indexOf(hole)] = null;
+    return answer;
+  }, () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-never-sent-"));
+  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  expect(m.act("trader", { kind: "buy", pair: "EUR/USD", leverage: 10, stake: 0.25 }, now)).toBeNull();
+  now += 6 * SLOT_MS;
+  await m.refresh(now);
+  now += 2 * 60 * 60_000;
+  await m.refresh(now);
+  expect(m.view("trader", {}).historyGap).toBe(false);
+  expect(m.slot).toBe(Math.floor(now / SLOT_MS));
+});
+
+it("waits for an internal history gap and charges every recovered trading slot exactly once", async () => {
+  const start = Date.parse("2026-11-04T10:00:00Z");
+  let now = start;
+  let recover = false;
+  const live = new Live(async () => {
+    const times = now === start ? [start - SLOT_MS] : recover
+      ? Array.from({ length: Math.floor((now - start) / SLOT_MS) }, (_, i) => start + (i + 1) * SLOT_MS)
+      : [start + SLOT_MS];
+    return spark(now / 1000, times.map((time) => time / 1000));
+  }, () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-history-gap-"));
+  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
+  now += 3 * SLOT_MS;
+  await m.refresh(now);
+  expect(m.slot).toBe(start / SLOT_MS);
+  expect(m.view("trader", {}).historyGap).toBe(true);
+  expect(m.accounts.get("trader")!.debt).toBe(STEP);
+  expect(m.act("new", { kind: "buy", leverage: 10 }, now)).toMatch(/missing price history/);
+  now += 60_000;
+  await m.refresh(now);
+  expect(m.accounts.get("trader")!.debt).toBe(STEP);
+  recover = true;
+  now += 61 * 60_000;
+  await m.refresh(now);
+  const slots = Math.floor((now - start) / SLOT_MS);
+  expect(m.view("trader", {}).historyGap).toBe(false);
+  expect(m.slot).toBe(Math.floor(now / SLOT_MS));
+  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
+  await m.refresh(now);
+  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
+});
+
+it("does not advance one slot when an exposed currency has not supplied that slot yet", async () => {
+  const start = Date.parse("2026-11-04T10:00:00Z");
+  let now = start;
+  let recover = false;
+  const live = new Live(async () => {
+    const answer = spark(now / 1000, [start / 1000]);
+    if (now > start && !recover) answer.spark.result.find((row) => row.symbol === "AUDUSD=X")!.response[0].meta.regularMarketTime = (start + SLOT_MS / 2) / 1000;
+    return answer;
+  }, () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-currency-gap-"));
+  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
+  now += SLOT_MS;
+  await m.refresh(now);
+  expect(m.slot).toBe(start / SLOT_MS);
+  expect(m.accounts.get("trader")!.debt).toBe(STEP);
+  recover = true;
+  await m.refresh(now);
+  expect(m.slot).toBe(now / SLOT_MS);
+  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96), 8);
+});
+
 it("waits for missing history, then settles a missed bankruptcy before a new trade can open", async () => {
   const friday = Date.parse("2026-11-06T10:00:00Z");
   const monday = Date.parse("2026-11-09T10:00:00Z");
   let now = friday;
   let recover = false;
   const live = new Live(async (url) => {
+    // Recovery supplies every trading slot, omitting only the Friday 17:00–Sunday 17:00 New York closure.
+    const recovered = Array.from({ length: Math.floor((now - friday) / SLOT_MS) + 1 }, (_, i) => friday + i * SLOT_MS)
+      .filter((time) => time < Date.parse("2026-11-06T22:00:00Z") || time >= Date.parse("2026-11-08T22:00:00Z"));
     const times = now === friday ? [friday - SLOT_MS]
-      : recover && url.includes("range=1mo") ? [friday, friday + SLOT_MS, monday - SLOT_MS]
+      : recover && url.includes("range=1mo") ? recovered
       : [monday - SLOT_MS];
     // the Australian dollar halves in the slot after Friday's close: a bankruptcy the server slept through
     return spark(now / 1000, times.map((t) => t / 1000), (symbol, p, t) => (symbol === "AUDUSD=X" && t * 1000 === friday + SLOT_MS ? p / 2 : p));

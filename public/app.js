@@ -1787,7 +1787,8 @@ function render(s) {
   // Toggled, not assigned: the tutorial may have a ring on this figure (ADR 0052).
   $("pnl").classList.toggle("up", y.pnl > 0);
   $("pnl").classList.toggle("down", y.pnl < 0);
-  $("pnl-pct").textContent = y.pos ? pct(y.pnl / y.pos.margin) : "";
+  const usedMargin = marathon ? y.used : y.pos?.margin ?? 0;
+  $("pnl-pct").textContent = usedMargin ? pct(y.pnl / usedMargin) : "";
   $("pnl-pct").className = `rate ${tone(y.pnl)}`;
   $("level").textContent = y.level === null ? "—" : `${y.level}%`;
   $("level-note").textContent = y.pos ? `${y.pos.leverage}×` : "";
@@ -1803,11 +1804,11 @@ function render(s) {
   $("meter").className = `fill ${tone(worth - s.start)}`;
   const places = {};
   for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]]) {
-    const show = !!y.pos && open;
+    const show = usedMargin > 0 && open;
     $(id).hidden = !show;
     // Level is equity over margin, so at a level the equity is that share of it.
     if (!show) continue;
-    const at = gauge((share * y.pos.margin - y.debt) / s.start);
+    const at = gauge((share * usedMargin - y.debt) / s.start);
     places[id] = at;
     $(id).style.left = `${at * 100}%`;
     // near an end, the words hang inward from the mark so the bar's edge never cuts them
@@ -1999,7 +2000,7 @@ function render(s) {
     const li = document.createElement("li");
     li.className = c.outcome ? `told ${c.outcome}` : "upcoming";
     const when = Object.assign(document.createElement("span"), { className: "when", textContent: t("calWhen", { d: c.d, h: c.h }) });
-    const what = Object.assign(document.createElement("span"), { className: "what", textContent: c.outcome ? releaseText(lang, "release", c) : `${c.cur} · ${releaseName(c.kind)}` });
+    const what = Object.assign(document.createElement("span"), { className: "what", textContent: c.outcome ? releaseText(lang, "release", c) : `${c.cur} · ${releaseName(lang, c.kind)}` });
     // told: an arrow for what it did to its own currency, which way the pair goes being the reader's to work out
     if (c.outcome) what.prepend(Object.assign(document.createElement("span"), { className: "cal-mark", textContent: c.outcome === "strong" ? "▲" : c.outcome === "weak" ? "▼" : "■" }));
     li.append(when, what);

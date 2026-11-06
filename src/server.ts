@@ -1120,8 +1120,11 @@ function tutorialView(who: string) {
   };
 }
 function sendTutorial(who: string, except?: Listener): void {
+  const watching = [...listeners].filter((l) => l !== except && l.mode === "tutorial" && l.who === who);
+  // Building a view marks it as used, so an internal tick must not keep an abandoned tutorial alive.
+  if (!watching.length) return;
   const text = `data: ${JSON.stringify(tutorialView(who))}\n\n`;
-  for (const l of listeners) if (l !== except && l.mode === "tutorial" && l.who === who) l.res.write(text);
+  for (const l of watching) l.res.write(text);
 }
 
 // Lobby prices stand still, but presence and the right to end a round can
@@ -1139,7 +1142,7 @@ setInterval(() => {
     markets[m].step();
     if (markets[m].speed === 2 && markets[m].phase === "trade" && !markets[m].paused) markets[m].step();
   }
-  for (const [who, e] of tutorials) if (e.t.moving()) {
+  for (const [who, e] of tutorials) if (e.t.transport === "playing" && e.t.moving()) {
     e.t.step();
     sendTutorial(who);
   }
