@@ -8,7 +8,7 @@ Flashback was the longest tab label, and its Japanese, フラッシュバック,
 
 ## 2 Decision
 
-**The real-days tab is Rewind**: you go back to a real day the market broke, without knowing which. In Japanese it is 巻き戻し and in Chinese 倒带, rewinding a tape, as the icon shows; not 回想 or 闪回, the screen-memory words that matched Flashback. Chinese was first 回溯, which Peter found too abstract. Its icon is the rewind mark, ⏪. The mode keeps its id, `replay`.
+**The real-days tab is Rewind**: you go back to a real day the market broke, without knowing which. In Japanese it is 巻き戻し. In Chinese it is 复盘, the trading word for going back over a past market, chosen by Peter as literal where 回溯 was abstract and 倒带 a metaphor. Its icon is the rewind mark, ⏪. The mode keeps its id, `replay`.
 
 **Addresses.** `#rewind` opens the tab, and `#flashback` still does, so a link from the day it had that name keeps working.
 
