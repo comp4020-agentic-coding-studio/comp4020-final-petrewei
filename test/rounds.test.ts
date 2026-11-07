@@ -550,3 +550,26 @@ it("awards a first close when a position stays open until the bell", async () =>
     tab.close();
   }
 });
+
+// A round's message twice a second leaves out what a page already has (ADR 0092): the broker's fixed numbers and the
+// lists of plots and pairs, which never change, and the feed unless it moved. A whole state carries them all.
+it("leaves fixed fields and an unchanged feed out of a round's deltas, and sends a changed feed", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act } = app();
+  const me = await visitor();
+  const tab = await page(me, "random");
+  try {
+    const whole = await tab.next((x) => x.from === 0, 2000);
+    for (const k of ["desk", "leverages", "minRounds", "pairs", "feed"]) expect(whole, `a whole state has ${k}`).toHaveProperty(k);
+    await act(me, { kind: "start", mode: "random" });
+    const delta = await tab.next((x) => x.phase === "trade" && (x.from as number) > 0 && !("feed" in x), 5000);
+    expect(delta, "a delta with nothing new in the feed").not.toBeNull();
+    for (const k of ["desk", "leverages", "minRounds", "pairs"]) expect(delta, `a delta leaves out ${k}`).not.toHaveProperty(k);
+    // something said in the room moves the feed, and the next delta carries it
+    await act(me, { kind: "pray", way: 1, mode: "random" });
+    const said = await tab.next((x) => (x.from as number) > 0 && Array.isArray(x.feed) && (x.feed as { key: string }[]).some((f) => f.key === "prayed-rise"), 3000);
+    expect(said, "the delta after a prayer carries the feed").not.toBeNull();
+  } finally {
+    tab.close();
+  }
+});

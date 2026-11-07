@@ -13,6 +13,11 @@ export function createTransport({ onState, onConnection, reconnect }) {
   /** @type {number[]} */
   let history = [];
   let round = 0;
+  // What a delta leaves out, as last sent (the server resends each when it changes): the broker's fixed numbers, the
+  // lists of plots and pairs, and the feed.
+  /** @type {Record<string, unknown>} */
+  let kept = {};
+  const KEPT = ["feed", "desk", "leverages", "minRounds", "pairs", "rewindPlots"];
   /** @type {Promise<void> | null} */
   let recovery = null;
   /** @param {string} status */
@@ -39,6 +44,10 @@ export function createTransport({ onState, onConnection, reconnect }) {
     if (recovery && state.from !== 0) return;
     if (state.from === 0) { prices = [...state.prices]; history = state.history ?? []; }
     else { prices.length = state.from; prices.push(...state.prices); }
+    /** @type {Record<string, unknown>} */
+    const sent = state;
+    for (const k of KEPT) if (sent[k] !== undefined) kept[k] = sent[k];
+    state = /** @type {import("./protocol.js").State} */ ({ ...kept, ...Object.fromEntries(Object.entries(sent).filter(([, v]) => v !== undefined)) });
     round = state.round;
     heardAt = Date.now();
     if (!fresh) connection("connectionRestored");
@@ -48,7 +57,7 @@ export function createTransport({ onState, onConnection, reconnect }) {
   function start(next) {
     if (disposed) return;
     source?.close();
-    mode = next; recovery = null; prices = []; history = []; round = 0;
+    mode = next; recovery = null; prices = []; history = []; round = 0; kept = {};
     connection(navigator.onLine === false ? "connectionOffline" : source ? "connectionReconnecting" : "connectionConnecting");
     heardAt = Date.now();
     const stream = source = new EventSource(`/api/events?mode=${mode}`);

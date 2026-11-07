@@ -36,6 +36,10 @@ export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | 
 };
 export type TutorialState = CommonState & { mode: "tutorial"; phase: "moving" | "waiting"; transport: "stopped" | "paused" | "playing"; lesson: Lesson };
 export type State = RoundState | LiveState | TutorialState;
+// A round's message as sent: a delta (`from` above 0) may leave out what the page already has, which the page's transport
+// fills in from the last whole state, so what it renders is always a whole State.
+export type Kept = "feed" | "desk" | "leverages" | "minRounds" | "pairs" | "rewindPlots";
+export type Sent<S extends State> = Omit<S, Kept> & Partial<Pick<S, Extract<Kept, keyof S>>>;
 export type StateFor<M extends Mode> = M extends "rewind" | "random" ? RoundState & { mode: M } : Extract<State, { mode: M }>;
 export type TradeAction = { kind: "buy" | "sell"; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" | "borrow" | "repay" } | { kind: "stop" | "take"; pct?: number | null };
 export type Action =

@@ -1,5 +1,5 @@
 import { tradeAction } from "./actions.ts";
-import type { RoundState, TutorialState } from "../public/protocol.js";
+import type { RoundState, Sent, TutorialState } from "../public/protocol.js";
 // Losscut!'s server: two shared markets, Rewind and Random, each traded
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
@@ -472,7 +472,8 @@ export function createApp(options: AppOptions = {}) {
     // starts from today's real rate and simulates a random market (ADR 0027).
     const MODES = ["rewind", "random"] as const;
     type Mode = (typeof MODES)[number];
-    type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "live" };
+    // `feedSeen` is the version of its round's feed a page was last sent, so a delta resends the feed only when it moved.
+    type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "live"; feedSeen?: number };
     type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
     type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string };
     type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
@@ -513,6 +514,8 @@ export function createApp(options: AppOptions = {}) {
       feed: News[] = [];
       prays = new Map<string, number>();
       private pendingNotices = new Map<string, News>();
+      // Moves whenever the feed or a private notice changes, so a page is resent the feed only when it is different.
+      feedVersion = 0;
       // Moments every page on the tab pops a bubble for: a prayer, a big bet,
       // a banked result, a margin call, a cut, a loan. Numbered so a page
       // shows each once; only the last few seconds are kept, and each names
@@ -596,6 +599,7 @@ export function createApp(options: AppOptions = {}) {
         this.guesses.clear();
         this.prays.clear();
         this.pendingNotices.clear();
+        this.feedVersion++;
         this.pops = [];
         this.marks = [];
       }
@@ -623,6 +627,7 @@ export function createApp(options: AppOptions = {}) {
         this.result = null;
         this.debriefs.clear();
         this.feed = [];
+        this.feedVersion++;
         const secs = Math.max(1, Math.round((COUNTDOWN_TICKS * TICK_MS) / 1000));
         this.say(`${nameOf(who)} pressed Start. Trading opens in ${secs} second${secs === 1 ? "" : "s"}.`, "info", "started", { who: short(who), secs });
         if (ironman) this.say(`Ironman round: nobody can pause it.`, "info", "ironman");
@@ -745,6 +750,7 @@ export function createApp(options: AppOptions = {}) {
       say(text: string, kind: string, key = "", args: Record<string, string | number> = {}): void {
         this.feed.unshift({ text, kind, key, args });
         this.feed.splice(14);
+        this.feedVersion++;
       }
 
       // The pip's size, for the spread; prices themselves are shown to five significant digits.
@@ -759,6 +765,7 @@ export function createApp(options: AppOptions = {}) {
           if (e.kind === "pending-refused") {
             const reason = e.reason ?? "Refused.";
             this.pendingNotices.set(e.who, { text: `Your pending order could not fill. ${reason}`, kind: "info", key: "pending-refused", args: { reason } });
+            this.feedVersion++;
             continue;
           }
           const name = nameOf(e.who);
@@ -957,7 +964,7 @@ export function createApp(options: AppOptions = {}) {
         if (action.kind === "pend" || action.kind === "unpend") {
           const refused = action.kind === "pend" ? desk.pend(who, action) : desk.unpend(who);
           const p = desk.account(who).pending;
-          if (!refused) this.pendingNotices.delete(who);
+          if (!refused && this.pendingNotices.delete(who)) this.feedVersion++;
           if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, share: p.share } : {}) });
           return refused;
         }
@@ -999,7 +1006,10 @@ export function createApp(options: AppOptions = {}) {
       // leverage but not their stops, which would be a gift to the room.
       // Pages are sent the whole price history when they join or a round
       // changes phase, and otherwise only the newest price, from `from` on.
-      view(who: string, from = 0, shared = this.room()) {
+      // A delta (`from` above 0) leaves out what a page already has: the broker's fixed numbers and the lists of plots
+      // and pairs, which never change, and the feed unless `withFeed`; the page keeps its last copy of each.
+      view(who: string, from = 0, shared = this.room(), withFeed = true) {
+        const whole = from === 0;
         const { desk, round, tick } = this;
         const mine = desk.players().includes(who) ? desk.account(who) : null;
         const me = key(who);
@@ -1023,10 +1033,10 @@ export function createApp(options: AppOptions = {}) {
           round: this.count,
           pair: round.pair,
           // Every pair a Random round may start from, for its lobby's choice; Rewind has none.
-          pairs: this.mode === "random" ? PAIRS : null,
+          pairs: !whole ? undefined : this.mode === "random" ? PAIRS : null,
           // Rewind's plots, by number and no more: which plot is on show, of how many. What a
           // plot is, and when, stays secret until the bell. Random has none.
-          rewindPlots: this.mode === "rewind" ? REWIND_PLOTS : null,
+          rewindPlots: !whole ? undefined : this.mode === "rewind" ? REWIND_PLOTS : null,
           rewindPlot: this.mode === "rewind" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
           digits: this.digits(),
           simulated: round.source === "simulation",
@@ -1051,19 +1061,19 @@ export function createApp(options: AppOptions = {}) {
             trades: (mine?.trades ?? []).slice(-20).reverse(),
           },
           traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
-          feed: this.pendingNotices.has(who) ? [this.pendingNotices.get(who)!, ...this.feed] : this.feed,
+          feed: whole || withFeed ? (this.pendingNotices.has(who) ? [this.pendingNotices.get(who)!, ...this.feed] : this.feed) : undefined,
           pops: shared.pops,
           marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
           result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
           career: hallFor(me, shared.hall),
-          leverages: LEVERAGES,
-          desk: DESK,
-          minRounds: MIN_ROUNDS,
+          leverages: whole ? LEVERAGES : undefined,
+          desk: whole ? DESK : undefined,
+          minRounds: whole ? MIN_ROUNDS : undefined,
           ...quote(desk.price),
           // How many people are on each tab, for the tab labels.
           here: shared.here,
         };
-        return state satisfies RoundState;
+        return state satisfies Sent<RoundState>;
       }
 
       // The room is worked out once per broadcast and shared by every view.
@@ -1073,7 +1083,12 @@ export function createApp(options: AppOptions = {}) {
       broadcast(full = false, except?: Listener, back = 0): void {
         const shared = this.room();
         const from = full ? 0 : this.phase === "break" ? this.tick + 1 : Math.max(0, this.tick - back);
-        for (const l of this.listeners()) if (l !== except) l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared))}\n\n`);
+        for (const l of this.listeners()) {
+          if (l === except) continue;
+          const withFeed = l.feedSeen !== this.feedVersion;
+          l.feedSeen = this.feedVersion;
+          l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared, withFeed))}\n\n`);
+        }
       }
     }
 
