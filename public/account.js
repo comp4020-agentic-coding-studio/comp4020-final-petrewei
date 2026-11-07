@@ -9,9 +9,9 @@ export function createAccountPanel({ root, cash }) {
   /** @param {import("./protocol.js").State} s @param {boolean} open */
   function render(s, open) {
     const y = s.you;
-    // The account's totals, whichever pair is on the chart: in Live the margin in use is across every pair, in a
-    // round it is the one position's.
-    const totals = { worth: y.equity - y.debt, pnl: y.pnl, used: s.mode === "live" ? y.used ?? 0 : y.pos?.margin ?? 0, level: y.level, debt: y.debt };
+    // The account's totals, whichever pair is on the chart: the server sends the margin in use, across every pair in
+    // Live and the one position's in a round.
+    const totals = { worth: y.equity - y.debt, pnl: y.pnl, used: y.used ?? 0, level: y.level, debt: y.debt };
     // Each amount with its change as a percentage, which is what a trader
     // reads: net worth against the starting money, open P&L against the
     // margin put up for it.

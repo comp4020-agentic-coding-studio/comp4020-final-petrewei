@@ -438,6 +438,8 @@ export function createApp(options: AppOptions = {}) {
         broke: a ? desk.broke(as) : false,
         bankrupt: a ? desk.bankrupt(as) : false,
         cuts: a?.cuts ?? 0,
+        // the margin in use: the one position's in a round, as Live sends the sum of its pairs'
+        used: a?.pos?.margin ?? 0,
         pos: a?.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, pnl: Math.round(desk.pnl(as)), ...desk.lines(as) } : null,
       };
     }
@@ -1040,6 +1042,10 @@ export function createApp(options: AppOptions = {}) {
           // Random's calendar (ADR 0085), every release with its day and hour, and the outcome of those already told;
           // what is still to come says nothing of how it will go
           calendar: shared.calendar,
+          // a round's chart: the indicators, and its five days named D1 to D5
+          chart: { studies: true, days: "count" as const },
+          // the clock for the round's phase; the page counts the day and hour, or the seconds, from the ticks it has
+          clock: { key: this.phase === "trade" ? "clockDay" as const : this.phase === "countdown" ? "clockOpens" as const : this.phase === "lobby" ? "clockLobby" as const : "clockClosed" as const },
           // Seconds left in a pause, or null while the market runs.
           paused: this.paused ? Math.ceil((this.paused * TICK_MS) / 1000) : null,
           startedDraw: this.startedBy && drawOf(this.startedBy),
@@ -1181,6 +1187,9 @@ export function createApp(options: AppOptions = {}) {
         dayTicks: 20,
         start: START,
         transport: t.transport,
+        clock: { key: "clockTutorial" as const },
+        // a beginner's chart: plain, and its grid lines every five candles carry no day
+        chart: { studies: false, days: "none" as const },
         lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
         // credit while the price stands still for the player's move; a finished tutorial lends no more, its last lesson
         // leaving the player bankrupt, the credit's teaching done

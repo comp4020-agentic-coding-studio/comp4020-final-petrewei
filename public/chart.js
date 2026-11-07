@@ -114,7 +114,7 @@ export function createChart({ getState, getLanguage, t }) {
     if (canvas.width !== pw || canvas.height !== ph) [canvas.width, canvas.height] = [pw, ph];
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     // With the RSI on, the price takes the top and the RSI a pane below; the canvas, and so the layout, keeps its size.
-    const pane = studies.rsi && s.mode !== "tutorial" ? 84 : 0;
+    const pane = studies.rsi && s.chart.studies ? 84 : 0;
     const h = boxH - pane;
     const css = getComputedStyle(document.documentElement);
     ctx.fillStyle = css.getPropertyValue("--chart");
@@ -125,12 +125,12 @@ export function createChart({ getState, getLanguage, t }) {
     const k = s.steps;
     // Indicators on each day's close, drawn at the day's centre; the bands
     // widen the price range so they stay on the chart.
-    const tutorial = s.mode === "tutorial";
+    const plain = !s.chart.studies;
     // Each indicator is worked out on every day there is, then cut to the days shown.
     /** @template T @param {T[]} values */
     const cut = (values) => values.slice(s.skip ?? 0);
     const days = closes(s.all ?? prices, k);
-    const bands = studies.bb && !tutorial ? cut(bollinger(days, PERIODS.band, 2)) : [];
+    const bands = studies.bb && !plain ? cut(bollinger(days, PERIODS.band, 2)) : [];
     const shown = bands.filter((band) => band !== null);
     // The stop and the margin lines join the scale when they are near
     // (within 3%, as at 100× and up), so high leverage shows how close the
@@ -171,8 +171,8 @@ export function createChart({ getState, getLanguage, t }) {
       ctx.lineTo(xd, h + pane);
       ctx.stroke();
       // Live's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
-      const dayName = s.mode === "live" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(locale(getLanguage()), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
-      if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
+      const dayName = s.chart.days === "date" && s.chart.slotMs ? new Date(at * s.chart.slotMs).toLocaleDateString(locale(getLanguage()), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
+      if (s.chart.days !== "none" && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
     }
     // A day's indicator sits at its candle's centre; today's at the price.
     /** @param {number} d */
@@ -272,7 +272,7 @@ export function createChart({ getState, getLanguage, t }) {
     // Moving averages over the candles, and their legend top-left.
     /** @type {[string, string][]} */
     const legend = [];
-    if (studies.ma && !tutorial) {
+    if (studies.ma && !plain) {
       const fast = cut(sma(days, PERIODS.fast));
       const slow = cut(sma(days, PERIODS.slow));
       line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));

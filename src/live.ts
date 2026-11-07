@@ -354,6 +354,9 @@ export class Live {
       phase: live ? "trade" as const : this.quotes.slots.length ? "shut" as const : "waiting" as const,
       live,
       historyGap: this.gap,
+      // Live's chart: the indicators, and its days named by their date (ADR 0087)
+      chart: { studies: true, days: "date" as const, slotMs: SLOT_MS },
+      clock: { key: !this.quotes.slots.length ? "clockWait" as const : this.gap ? "clockGap" as const : live ? "clockLive" as const : "clockShut" as const, at: this.quotes.at || null },
       priceAt: this.quotes.at,
       pair,
       pairs: PAIRS,
@@ -368,7 +371,6 @@ export class Live {
       steps: 8,
       dayTicks: 96,
       history: [],
-      slotMs: SLOT_MS,
       start: START,
       speed: 1,
       rules: false,

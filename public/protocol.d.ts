@@ -4,7 +4,7 @@ export type Mode = "rewind" | "random" | "live" | "tutorial";
 export type Position = { side: number; entry: number; leverage: number; margin: number; stop: number | null; take?: number | null; call?: number | null; cut?: number | null; called?: boolean; pnl?: number };
 export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
 export type Lesson = { id: string; moves: number; next: boolean; n: number; of: number; title: string; text: string; task: string; plan: { target: string; until: string; say: string; move?: number }[]; finished: boolean };
-export type Player = { name: string; draw: number | null; named: boolean; face: string; code: string; balance: number; equity: number; pnl: number; level: number | null; out: boolean; broke: boolean; debt: number; cuts: number; pos: Position | null; used?: number; guess?: number | null; credit: number; bankrupt: boolean; opened?: number | null; peak?: number | null;
+export type Player = { name: string; draw: number | null; named: boolean; face: string; code: string; balance: number; equity: number; pnl: number; level: number | null; out: boolean; broke: boolean; debt: number; cuts: number; pos: Position | null; used: number; guess?: number | null; credit: number; bankrupt: boolean; opened?: number | null; peak?: number | null;
   // whether emergency credit can be drawn or repaid now, as the server decides it for its own market (ADR 0080)
   lending?: boolean;
   pending?: { type: string; side: number; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | null;
@@ -14,6 +14,7 @@ export type Player = { name: string; draw: number | null; named: boolean; face: 
 export type Career = { name: string; draw?: number | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent: number[]; feats: string[]; face: string; average: number; ranked: boolean; you: boolean };
 export type Debrief = { returnPct: number; cutPenalty: number; bankruptPenalty: number; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
 export type Result = { ranking: { code: string; name: string; draw: number | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; you: boolean }[]; reveal: string; facts: { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string }; debrief: Debrief | null };
+export type ClockKey = "clockDay" | "clockOpens" | "clockLobby" | "clockClosed" | "clockTutorial" | "clockLive" | "clockShut" | "clockGap" | "clockWait";
 export type BankNews = { cur: string; title: string; source: string; link: string; at: number };
 export type Release = { cur: string; title: string; at: number; forecast: string; previous: string; actual: string };
 export type CalendarEntry = { kind: string; cur: string; d: number; h: number; outcome: string | null };
@@ -30,11 +31,16 @@ export type CommonState = {
   speed?: number; rules?: boolean; ironman?: boolean; paused?: number | null; headline?: Headline;
   calendar?: CalendarEntry[] | Release[]; bankNews?: BankNews[]; historyGap?: boolean;
   result: Result | null;
+  // which clock to show, by its key in the page's words; Live adds the time of its last price (ADR 0087)
+  clock: { key: ClockKey; at?: number | null };
+  // how the chart draws this market: with the indicators or plain, and its days named by count (D1...), by their date
+  // from a slot's length in ms, or not at all
+  chart: { studies: boolean; days: "count" | "date" | "none"; slotMs?: number };
   pops: { n: number; who: string; kind: string; lev?: number; pnl?: number; way?: number }[];
   marks?: { tick: number; face: string; you: boolean; kind: string; side: number }[];
 };
 export type RoundState = CommonState & { mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
-export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; slotMs: number; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
+export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
   board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean }[];
 };
 export type TutorialState = CommonState & { mode: "tutorial"; phase: "moving" | "waiting"; transport: "stopped" | "paused" | "playing"; lesson: Lesson };

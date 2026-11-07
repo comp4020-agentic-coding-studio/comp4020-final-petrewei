@@ -590,7 +590,7 @@ function warn(s, open) {
   const level = s.you.level;
   const calling = !!pos?.called;
   const near = !calling && level !== null && level <= NEAR;
-  const show = open && pos && (calling || near) && s.mode !== "tutorial";
+  const show = open && pos && (calling || near) && shows(s).warn;
   $("warn").hidden = !show;
   $("warn").className = `warn ${calling ? "calling" : "near"}`;
   $("level-box").classList.toggle("alarm", !!(open && calling));
@@ -667,7 +667,7 @@ $("name-form").onsubmit = async (e) => {
 // pressed Start may cancel it.
 function lobby(s) {
   const waiting = s.phase === "lobby" || s.phase === "countdown";
-  $("lobby").hidden = s.mode === "tutorial" || s.mode === "live" || !waiting;
+  $("lobby").hidden = !shows(s).lobby || !waiting;
   if (!waiting) return;
   const counting = s.phase === "countdown";
   $("lobby").classList.toggle("counting", counting);
@@ -688,18 +688,19 @@ function options(id, values, selected) {
 }
 function pairChoices(s) {
   // Live's pair is the account's to switch at any time (ADR 0087), with the same two menus as Random's lobby
-  const simulation = s.mode === "random" || s.mode === "live";
-  $("pair").hidden = simulation || s.mode === "rewind";
-  $("pair-controls").hidden = !simulation;
-  $("rewind-pair").hidden = s.mode !== "rewind";
-  const closed = (s.mode !== "live" && s.phase !== "lobby") || !fresh;
+  const { pairMenus, plotMenu, pairLive } = shows(s);
+  $("pair").hidden = pairMenus || plotMenu;
+  $("pair-controls").hidden = !pairMenus;
+  $("rewind-pair").hidden = !plotMenu;
+  // a round's pair is chosen in the lobby; Live's at any time
+  const closed = (!pairLive && s.phase !== "lobby") || !fresh;
   for (const id of ["rewind-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
   if (s.rewindPlots) {
     const sel = $("rewind-pair");
     if (sel.options.length !== s.rewindPlots.length) sel.replaceChildren(...s.rewindPlots.map((p) => Object.assign(document.createElement("option"), { value: String(p.n), textContent: `${p.pair} · ${String(p.n).padStart(2, "0")}` })));
     if (document.activeElement !== sel) sel.value = String(s.rewindPlot);
   }
-  if (simulation && s.pairs) {
+  if (pairMenus && s.pairs) {
     const [base, quote] = s.pair.split("/");
     options("pair-base", [...new Set(s.pairs.map((p) => p.split("/")[0]))], base);
     options("pair-quote", s.pairs.filter((p) => p.startsWith(`${base}/`)).map((p) => p.split("/")[1]), quote);
@@ -814,7 +815,7 @@ function ticket(s) {
   $("ask").textContent = s.prices.length ? quoted(s.ask) : "—";
   $("spread").textContent = s.prices.length ? t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) }) : "—";
   // the desk's own rule, from the module both share
-  const used = s.you.used ?? s.you.pos?.margin ?? 0;
+  const used = s.you.used ?? 0;
   const margin = shareMargin(s.you.equity, used, choice.share);
   // the margin's track as the whole account: what is in use, and what this order would add after it (ADR 0077)
   const bar = shareBar(s.you.equity, used, choice.share);
@@ -836,7 +837,7 @@ function ticket(s) {
 // Live's other open pairs (ADR 0087): each with its side, leverage, result and its own Close; clicking a pair puts
 // it on the chart. The chart's own pair is the position row above.
 function book(s) {
-  const rows = s.mode === "live" ? s.you.positions.filter((p) => p.pair !== s.pair) : [];
+  const rows = shows(s).book ? s.you.positions.filter((p) => p.pair !== s.pair) : [];
   $("book").hidden = !rows.length;
   $("book-rows").replaceChildren(...rows.map((p) => {
     const tr = document.createElement("tr");
@@ -862,7 +863,7 @@ function book(s) {
 // the forecast and, once out, the actual figure, as the calendar's source gives them; then the central banks' latest
 // words, each a link to the bank's own page. The titles are the sources' own, in English.
 function realCalendar(s) {
-  const on = s.mode === "live";
+  const on = shows(s).realCalendar;
   const rows = on ? s.calendar ?? [] : [];
   const banks = on ? s.bankNews ?? [] : [];
   $("real-calendar").hidden = !rows.length && !banks.length;
@@ -887,7 +888,7 @@ function realCalendar(s) {
 }
 // Live's board in the room's place (ADR 0087): who lasted longest, running or bankrupt.
 function board(s) {
-  const on = s.mode === "live";
+  const on = shows(s).board;
   $("board").hidden = !on;
   $("traders").hidden = on;
   if (!on) return;
@@ -1043,6 +1044,18 @@ function headlineText(head) {
   return clueText(lang, head.clue, head.n);
 }
 
+// What each tab shows, in one place, so the parts of the page ask for a feature, not a tab: a lobby to start a round
+// from; the plot menu or the pair menus, and whether a pair can be changed during play; the year to guess; Live's
+// open pairs, board and real calendar; a round's own calendar; the margin warning; a head count of people on the tab
+// rather than in the room. Layout is the page's: the server's rules are what it sends.
+const SHOWS = {
+  rewind: { lobby: true, plotMenu: true, pairMenus: false, pairLive: false, guess: true, book: false, board: false, realCalendar: false, calendar: true, warn: true, tabCount: false },
+  random: { lobby: true, plotMenu: false, pairMenus: true, pairLive: false, guess: false, book: false, board: false, realCalendar: false, calendar: true, warn: true, tabCount: false },
+  live: { lobby: false, plotMenu: false, pairMenus: true, pairLive: true, guess: false, book: true, board: true, realCalendar: true, calendar: false, warn: true, tabCount: true },
+  tutorial: { lobby: false, plotMenu: false, pairMenus: false, pairLive: false, guess: false, book: false, board: false, realCalendar: false, calendar: false, warn: false, tabCount: false },
+};
+const shows = (s) => SHOWS[s.mode] ?? SHOWS.rewind;
+
 // What the position's line says with nothing open: in Live, whether the account is closed until midnight, the market
 // is shut or waiting for history, or another pair is open; in a round or the tutorial, whether the player is broke, out,
 // or simply has nothing open. Debt is added after, in every mode.
@@ -1054,15 +1067,6 @@ function emptyLine(s, open) {
     return t(y.positions.length ? "liveOther" : "noPos");
   }
   return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
-}
-
-function clockKey(s) {
-  if (s.mode === "live") return s.live ? "clockLive" : "clockShut";
-  if (s.mode === "tutorial") return "clockTutorial";
-  if (s.phase === "trade") return "clockDay";
-  if (s.phase === "countdown") return "clockOpens";
-  if (s.phase === "lobby") return "clockLobby";
-  return "clockClosed";
 }
 
 function render(s) {
@@ -1086,7 +1090,7 @@ function render(s) {
   $("round-ctl").hidden = ["speed", "pause", "finish"].every((id) => $(id).hidden);
   // Name that year opens halfway through a rewind; your guess is shown
   // back to you, and to nobody else, until the bell.
-  const guessing = s.mode === "rewind" && s.phase === "trade" && s.tick >= s.total / 2;
+  const guessing = shows(s).guess && s.phase === "trade" && s.tick >= s.total / 2;
   $("guess").hidden = !guessing;
   $("guess").classList.toggle("made", s.you.guess !== null);
   $("guess").querySelector("button[type=submit]").disabled = !guessing;
@@ -1132,14 +1136,13 @@ function render(s) {
   $("mode").textContent = head ? `📰 ${head}` : "";
   $("mode").hidden = !head;
   setTip($("mode"), head ?? "");
-  const clock = clockKey(s);
-  // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
-  // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
-  // Live's clock is Sydney's time of the last price (ADR 0087)
-  const sydney = s.priceAt ? sydneyTime(s.priceAt, lang) : "—";
-  const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
-  $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clock}Short`, clockValues);
-  const clockLabel = s.historyGap ? t("liveGap") : t(clock, clockValues);
+  // Which clock is the server's; the page fills in its numbers. The day counts days of `dayTicks` ticks; the hour is
+  // the game's hour of the trading day, never the replay's own time of day (ADR 0079); Live's is Sydney's time of its
+  // last price (ADR 0087).
+  const clock = s.clock.key;
+  const clockValues = { at: s.clock.at ? sydneyTime(s.clock.at, lang) : "—", d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
+  $("clock").textContent = t(`${clock}Short`, clockValues);
+  const clockLabel = t(clock, clockValues);
   $("clock").setAttribute("aria-label", clockLabel);
   setTip($("clock"), clockLabel);
   // Built from text nodes: the name comes from the server, never as HTML.
@@ -1284,7 +1287,7 @@ function render(s) {
   bankrupt = y.bankrupt;
 
   board(s);
-  const humans = s.mode === "live" ? s.here.live : s.traders.filter((t) => !t.bot).length;
+  const humans = shows(s).tabCount ? s.here.live : s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
   const list = $("traders");
   // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
@@ -1334,7 +1337,7 @@ function render(s) {
     return li;
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
-  const cal = s.mode === "live" ? [] : s.calendar ?? [];
+  const cal = shows(s).calendar ? s.calendar ?? [] : [];
   realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {

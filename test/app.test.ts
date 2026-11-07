@@ -306,7 +306,7 @@ it("keeps Live account returns and risk marks fixed when the chart changes pairs
     ];
     const you = { ...base.you, named: true, used: 8000, pnl: 800, debt: 0, equity: 10800, level: 135, positions };
     for (const pair of ["AUD/USD", "EUR/USD", "GBP/USD"]) {
-      await emit({ mode: "live", live: true, pair, pairs: positions.map((p) => p.pair).concat("GBP/USD"), calendar: [], board: [], you: { ...you, pos: positions.find((p) => p.pair === pair) ?? null } });
+      await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair, pairs: positions.map((p) => p.pair).concat("GBP/USD"), calendar: [], board: [], you: { ...you, pos: positions.find((p) => p.pair === pair) ?? null } });
       expect(w.document.getElementById("pnl-pct")!.textContent, pair).toBe("+10.00%");
       for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]] as const) {
         const mark = w.document.getElementById(id)!;
@@ -314,7 +314,7 @@ it("keeps Live account returns and risk marks fixed when the chart changes pairs
         expect(parseFloat(mark.style.left)).toBeCloseTo(ticket.gauge(share * you.used / base.start) * 100, 6);
       }
     }
-    await emit({ mode: "live", live: true, calendar: [], board: [], you: { ...you, used: 0, pnl: 0, pos: null, positions: [] } });
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, calendar: [], board: [], you: { ...you, used: 0, pnl: 0, pos: null, positions: [] } });
     expect(w.document.getElementById("pnl-pct")!.textContent).toBe("");
     expect(w.document.getElementById("mark-call")!.hidden).toBe(true);
     expect(w.document.getElementById("mark-cut")!.hidden).toBe(true);
@@ -348,7 +348,7 @@ it("tells a Live player with nothing open what they owe", async () => {
   try {
     (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
     const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 1500, out: false, lending: true };
-    await emit({ mode: "live", live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you });
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you });
     const line = w.document.getElementById("position")!.textContent!;
     expect(line).toContain(i18n.T.en.ui.noPos);
     expect(line).toContain(format.aud(1500));
