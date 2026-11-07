@@ -276,10 +276,10 @@ it("describes Simulation as a random simulation, never a script", async () => {
     const own = Object.entries(T[lang].ui).map(([k, v]) => `${k}: ${v}`);
     for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { scenarios: unknown }).scenarios)]) expect(line, lang).not.toMatch(words);
   }
-  // the tabs' names (ADR 0088), Flashback, Sandbox and Live in every language
-  expect([T.en.ui.replay, T.en.ui.simulation, T.en.ui.marathon]).toEqual(["Flashback", "Sandbox", "Live"]);
-  expect([T.ja.ui.replay, T.ja.ui.simulation, T.ja.ui.marathon]).toEqual(["フラッシュバック", "箱庭", "ライブ"]);
-  expect([T.zh.ui.replay, T.zh.ui.simulation, T.zh.ui.marathon]).toEqual(["闪回", "沙盒", "实时"]);
+  // the tabs' names (ADR 0088), Rewind, Sandbox and Live in every language (ADR 0089)
+  expect([T.en.ui.replay, T.en.ui.simulation, T.en.ui.marathon]).toEqual(["Rewind", "Sandbox", "Live"]);
+  expect([T.ja.ui.replay, T.ja.ui.simulation, T.ja.ui.marathon]).toEqual(["巻き戻し", "箱庭", "ライブ"]);
+  expect([T.zh.ui.replay, T.zh.ui.simulation, T.zh.ui.marathon]).toEqual(["回溯", "沙盒", "实时"]);
   expect(T.en.ui.lobbySimulationText).toMatch(/random/);
   expect(ABOUT.en.sections.flat(2).join(" ")).toMatch(/at random/);
 });
@@ -294,7 +294,7 @@ it("names the mode simulation, and keeps its old names working", () => {
   expect(page.querySelector("#here-simulation")).not.toBeNull();
   const app = readFileSync("public/app.js", "utf8");
   expect(app).toMatch(/const MODES = \["replay", "simulation", "marathon", "tutorial"\]/);
-  expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", scenario: "simulation", flashback: "replay", sandbox: "simulation", live: "marathon" \}\)/);
+  expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", scenario: "simulation", rewind: "replay", flashback: "replay", sandbox: "simulation", live: "marathon" \}\)/);
   const server = readFileSync("src/app.ts", "utf8");
   expect(server).toMatch(/const MODES = \["replay", "simulation"\] as const/);
   expect(server).toMatch(/OLD: Record<string, Mode> = \{ history: "replay", live: "simulation", scenario: "simulation" \}/);

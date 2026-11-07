@@ -1542,7 +1542,7 @@ export function createApp(options: AppOptions = {}) {
             }
           } else if (kind === "skip") error = t.skip();
           else if (kind === "next") error = t.act({ kind: "next" });
-          else if (action?.kind === "pend" || action?.kind === "unpend") error = "Pending orders aren't part of the tutorial yet. Try one in Flashback, Sandbox or Live.";
+          else if (action?.kind === "pend" || action?.kind === "unpend") error = "Pending orders aren't part of the tutorial yet. Try one in Rewind, Sandbox or Live.";
           else if (action && action.kind !== "pray") error = t.act(action as Move);
           else if (action) error = "Praying isn't part of the tutorial. It does nothing anyway.";
           else return json(res, 400, { error: "Unknown action." });

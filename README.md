@@ -1,6 +1,6 @@
 # Losscut! Kurumi's FX Fantasy
 
-Three shared currency markets, chosen by tab, traded by everyone at once with play money. On Flashback and Sandbox a round is about four minutes of five trading days, started by anyone on its tab; Live trades real prices now, with no rounds, until your account goes bankrupt. It is in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Flashback the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
+Three shared currency markets, chosen by tab, traded by everyone at once with play money. On Rewind and Sandbox a round is about four minutes of five trading days, started by anyone on its tab; Live trades real prices now, with no rounds, until your account goes bankrupt. It is in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Rewind the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
 
 Good, defined.
 
@@ -11,7 +11,7 @@ A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan an
 ## What good means here
 
 - **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **Flashback is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays five real days of minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Sandbox draws a random market from today's rate, shaped by a hidden situation.
+- **Rewind is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays five real days of minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Sandbox draws a random market from today's rate, shaped by a hidden situation.
 - **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you draw emergency credit. Fees grow with leverage. A gap can wipe you out.
 - **Losing is public.** Stop-outs hit the feed. Emergency credit charges a loan shark's interest, and ending a round owing more than you have is bankruptcy ([ADR 0080](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0080-emergency-credit-replaces-dads-savings.md)).
 - **There's always someone to trade against.** Seven comic traders play.
