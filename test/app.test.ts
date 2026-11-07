@@ -25,7 +25,8 @@ async function app(lang: "en" | "ja" | "zh" = "en") {
     onopen?: () => void;
     listeners = new Map<string, () => void>();
     constructor() { streams.push(this); }
-    close() {}
+    closed = false;
+    close() { this.closed = true; }
     addEventListener(name: string, callback: () => void) { this.listeners.set(name, callback); }
   }
   // Layout and drawing are browser-only; this check observes the actual page
@@ -49,6 +50,9 @@ async function app(lang: "en" | "ja" | "zh" = "en") {
   });
   // Supply the imports in this window's realm; execute the shipped page,
   // without exporting or reaching into its private state for the check.
+  for (const [file, factory] of [["requests", "makeAction, sendAction"], ["dom", "element, button, input"], ["transport", "createTransport"], ["chart", "createChart"], ["tutorial-ui", "createTutorial"], ["account", "createAccountPanel"]]) {
+    w.eval(readFileSync(`public/${file}.js`, "utf8").replace(/^import .*$/gm, "").replace(/^export /gm, "") + `\nObject.assign(window, { ${factory} });`);
+  }
   w.eval(readFileSync("public/app.js", "utf8").replace(/^import .*$/gm, ""));
   const base = await state();
   const emit = async (extra = {}) => streams.at(-1)!.onmessage!({ data: JSON.stringify({ ...base, phase: "trade", you: { ...base.you, named: true }, ...extra }) });
@@ -317,4 +321,22 @@ it("keeps Marathon account returns and risk marks fixed when the chart changes p
   } finally {
     dom.window.close();
   }
+});
+
+it("restores a cached page with live controllers and a fresh stream", async () => {
+  const { dom, w, emit, streams } = await app();
+  try {
+    await emit();
+    const old = streams.at(-1)!;
+    w.dispatchEvent(new w.PageTransitionEvent("pagehide", { persisted: true }));
+    expect(old.closed).toBe(true);
+    expect(w.document.getElementById("lesson-play")!.onclick).not.toBeNull();
+    expect(w.document.getElementById("step-hint")).not.toBeNull();
+    w.dispatchEvent(new w.PageTransitionEvent("pageshow", { persisted: true }));
+    expect(streams.length).toBe(2);
+    await emit();
+    expect((w.document.getElementById("buy") as HTMLButtonElement).disabled).toBe(false);
+    (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
+    expect(streams.length).toBe(3);
+  } finally { dom.window.close(); }
 });

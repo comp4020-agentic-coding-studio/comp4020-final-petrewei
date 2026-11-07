@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "ES2023", "module": "ESNext", "moduleResolution": "bundler", "lib": ["ES2023", "DOM", "DOM.Iterable"], "allowJs": true, "checkJs": true, "strict": true, "noEmit": true, "skipLibCheck": true },
+  "include": ["public/requests.js", "public/account.js", "public/chart.js", "public/tutorial-ui.js", "public/transport.js", "public/protocol.d.ts"]
+}

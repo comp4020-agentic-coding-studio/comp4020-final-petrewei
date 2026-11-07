@@ -38,3 +38,11 @@ No sessions have been conducted for this change. Fill these rows from observatio
 | One change supported by this session | | | |
 
 Choose the next interface change from repeated observations, then repeat the affected task with someone new.
+
+## 4 Facilitator Preparation and Decision Rules
+
+Recruit three new players, including a phone user and a desktop user. Ask permission to take anonymous notes and explain that they may stop at any time. Use a disposable local game, not shared production accounts. Prepare the preferred language and record the device, viewport, date and build before each session. Do not collect names or financial information.
+
+Use the five tasks above in order. Allow up to two minutes of independent exploration per task before offering a hint; record the hint verbatim and mark that completion assisted. Ask for leverage and score explanations before giving corrections. A correct leverage explanation mentions that both gains and losses grow and that a small adverse move can force a close. A correct result explanation distinguishes account money, outstanding debt and score penalties. Record partial understanding rather than forcing a yes/no answer.
+
+After all three sessions, group repeated difficulties, retain a short anonymous quotation supporting each finding, and choose the most consequential issue seen by at least two players. A serious inability to close a position deserves investigation even if observed once. Record the proposed change, evidence and acceptance task; repeat that task with a new participant after implementing it. The observation table remains blank until real sessions occur.

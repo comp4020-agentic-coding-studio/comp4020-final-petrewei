@@ -1,0 +1,30 @@
+import { readFileSync } from "node:fs";
+import { expect, it } from "vitest";
+import { Live, SLOT_MS } from "../src/live.ts";
+import { parseQuotes } from "../src/quotes.ts";
+it("classifies observed, recent pending, settled carried and closed slots from a recorded provider answer", async () => {
+  const fixture: unknown = JSON.parse(readFileSync("test/fixtures/spark-sparse.json", "utf8"));
+  let now = 1793786400 * 1000;
+  const live = new Live(async () => fixture, () => now);
+  await live.backfill();
+  const slot = Math.floor(now / SLOT_MS);
+  expect(live.quality(slot, ["AUD/USD"])).toBe("observed");
+  expect(live.quality(slot - 1, ["AUD/USD"])).toBe("pending");
+  expect(live.quality(slot - 5, ["AUD/USD"])).toBe("carried");
+  expect(live.coversSince(slot - 8, ["AUD/USD"])).toBe(false);
+  now += 60 * 60_000;
+  expect(live.coversSince(slot - 8, ["AUD/USD"])).toBe(true);
+  expect(live.quality(Math.floor(Date.parse("2026-11-07T12:00:00Z") / SLOT_MS))).toBe("closed");
+  expect(live.diagnostics().lastSuccess).toBe(1793786400 * 1000);
+});
+it("validates malformed provider rows before merging and preserves the last good feed on failure", async () => {
+  expect(() => parseQuotes({ spark: { result: [{ symbol: "AUDUSD=X", response: [null] }] } })).toThrow("no valid prices");
+  expect(() => parseQuotes(null)).toThrow("no prices");
+  let data: unknown = JSON.parse(readFileSync("test/fixtures/spark-sparse.json", "utf8"));
+  const live = new Live(async () => data, () => 1793786400 * 1000);
+  await live.poll(); const prices = live.series("AUD/USD").prices;
+  data = { spark: { result: [{ symbol: "AUDUSD=X", response: [{}] }] } };
+  await expect(live.poll()).rejects.toThrow("no valid prices");
+  expect(live.series("AUD/USD").prices).toEqual(prices);
+  expect(live.diagnostics().failures).toBe(1);
+});

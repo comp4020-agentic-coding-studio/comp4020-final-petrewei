@@ -1,3 +1,4 @@
+import type { MarathonState } from "../public/protocol.js";
 // Marathon (ADR 0087): a market that never closes, on real prices. Every player has one Australian-dollar account kept
 // on the volume, trades any of the twenty-one pairs at the price now, and keeps it across days until it goes bankrupt;
 // then the run is put on the Marathon board and a new account opens at the next midnight in Sydney. There is no round,
@@ -7,13 +8,15 @@
 // newest slot's close moving with each poll. Each slot that passes charges every account its fees and interest, and
 // the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
 // order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { CURRENCIES, Live, SLOT_MS, cross, type Usd } from "./live.ts";
 import { News } from "./news.ts";
 import { PAIRS, type Pair } from "./market.ts";
+import { systemClock, type Clock, type Timer } from "./clock.ts";
+import { jsonStorage, type Store, type Storage } from "./storage.ts";
+import { marathonValid, migrateMarathon } from "./saved.ts";
 
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
 type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
@@ -31,7 +34,7 @@ const HISTORY_MS = 30 * 86_400_000;
 export class Marathon {
   live: Live;
   news: News;
-  private file: string;
+  private store: Store<Saved>;
   accounts = new Map<string, BookAccount>();
   private names = new Map<string, string>();
   private draws = new Map<string, number | null>();
@@ -45,7 +48,11 @@ export class Marathon {
   private refreshing = false;
   private gap = false;
   private selections = new Map<string, string>();
-  private polling: ReturnType<typeof setInterval> | null = null;
+  private polling: Timer | null = null;
+  private saving: Timer;
+  private clock: Clock;
+  private pollMs: number;
+  private disposed = false;
   private lastNews = 0;
   private lastCal = 0;
   private lastBack = 0;
@@ -56,16 +63,18 @@ export class Marathon {
   private log: (who: string | null, ev: string, fields: Record<string, unknown>) => void;
   readonly w: Who;
 
-  constructor(dir: string, w: Who, opts: { live?: Live; news?: News; watching: () => number; onChange: () => void; log: (who: string | null, ev: string, fields: Record<string, unknown>) => void }) {
-    this.file = join(dir, "marathon.json");
+  constructor(dir: string, w: Who, opts: { live?: Live; news?: News; clock?: Clock; storage?: Storage; pollMs?: number; watching: () => number; onChange: () => void; log: (who: string | null, ev: string, fields: Record<string, unknown>) => void }) {
+    this.store = (opts.storage ?? jsonStorage).open<Saved>(join(dir, "marathon.json"), { initial: () => ({ accounts: {}, runs: [], waits: {}, slot: 0 }), validate: marathonValid, migrateLegacy: migrateMarathon });
     this.w = w;
-    this.live = opts.live ?? new Live();
+    this.clock = opts.clock ?? systemClock;
+    this.pollMs = opts.pollMs ?? POLL_MS;
+    this.live = opts.live ?? new Live(undefined, this.clock.now);
     this.news = opts.news ?? new News();
     this.watching = opts.watching;
     this.onChange = opts.onChange;
     this.log = opts.log;
-    if (existsSync(this.file)) {
-      const s = JSON.parse(readFileSync(this.file, "utf8")) as Saved;
+    {
+      const s = this.store.read();
       this.accounts = new Map(Object.entries(s.accounts));
       this.runs = s.runs ?? [];
       this.waits = new Map(Object.entries(s.waits ?? {}));
@@ -76,16 +85,24 @@ export class Marathon {
         this.draws.set(k, d);
       }
     }
-    setInterval(() => this.save(), 5_000).unref();
+    this.saving = this.clock.every(() => this.save(), 5_000).unref();
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.saving.cancel();
+    this.polling?.cancel();
+    this.polling = null;
+    this.save(true);
   }
 
   save(force = false): void {
     if (!this.dirty && !force) return;
-    this.dirty = false;
     try {
       const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])) };
-      writeFileSync(`${this.file}.tmp`, JSON.stringify(data));
-      renameSync(`${this.file}.tmp`, this.file);
+      this.store.write(data);
+      this.dirty = false;
     } catch (e) {
       console.error("marathon save failed:", e instanceof Error ? e.message : "unknown");
     }
@@ -97,44 +114,48 @@ export class Marathon {
 
   // Polls run only while someone has the tab open; the first look fetches the days before.
   wake(): void {
-    if (this.polling) return;
+    if (this.polling || this.disposed) return;
     const tick = () => void this.refresh().catch(() => {});
     this.lastBack = 0;
     tick();
-    this.polling = setInterval(() => {
+    this.polling = this.clock.every(() => {
       if (!this.watching()) {
-        clearInterval(this.polling!);
+        this.polling!.cancel();
         this.polling = null;
         return;
       }
       tick();
-    }, POLL_MS);
+    }, this.pollMs);
     this.polling.unref?.();
   }
 
   async refresh(at?: number): Promise<void> {
-    if (this.refreshing) return;
-    const now = at ?? Date.now();
+    if (this.refreshing || this.disposed) return;
+    const now = at ?? this.clock.now();
     this.refreshing = true;
     try {
       if (!this.live.slots.length || now - this.lastBack > CAL_MS) {
         await this.live.backfill();
         this.lastBack = now;
       } else await this.live.poll();
+      if (this.disposed) return;
       this.gap = this.missingHistory(now);
       if (this.gap && now - this.lastExtended > CAL_MS) {
         this.lastExtended = now;
         await this.live.backfill(true);
+        if (this.disposed) return;
         this.gap = this.missingHistory(now);
       }
-      if (!this.gap) this.advance(at ?? Date.now());
+      if (!this.gap) this.advance(at ?? this.clock.now());
     } catch {
+      if (this.disposed) return;
       // A newly fetched quote remains unavailable if historical recovery failed.
       this.gap ||= this.missingHistory(now);
     } finally {
       this.live.trim();
       this.refreshing = false;
     }
+    if (this.disposed) return;
     this.onChange();
     await this.updateNews(now);
   }
@@ -153,6 +174,7 @@ export class Marathon {
       this.lastNews = now;
       const first = !this.news.items.length;
       const fresh = await this.news.banks().catch(() => []);
+      if (this.disposed) return;
       // the first look sets what has already been said; only what is new after it, or from the last day, is told
       for (const i of fresh.filter((i) => !first || now - i.at < 86_400_000)) {
         this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title });
@@ -162,13 +184,15 @@ export class Marathon {
     if (now - this.lastCal > CAL_MS) {
       this.lastCal = now;
       await this.news.week();
+      if (this.disposed) return;
     }
     this.onChange();
   }
 
   // Charge each slot that has passed since the last, in order, with that slot's prices, and act on the rules at each.
-  advance(now = Date.now()): void {
-    const slots = this.live.slots;
+  advance(now = this.clock.now()): void {
+    if (this.disposed) return;
+    const slots = this.live.settlementSlots();
     if (!slots.length) return;
     const last = slots.at(-1)!.slot;
     if (!this.slot) this.slot = last;
@@ -242,7 +266,7 @@ export class Marathon {
     return !this.gap && this.live.live([pair, ...Object.keys(a?.positions ?? {})]);
   }
 
-  act(who: string, input: Record<string, unknown>, now = Date.now()): string | null {
+  act(who: string, input: Record<string, unknown>, now = this.clock.now()): string | null {
     const kind = input.kind;
     const k = this.w.key(who);
     const a = this.preview(k, now);
@@ -300,15 +324,17 @@ export class Marathon {
     else if (f.kind === "close") this.say(`${name} closed ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-closed", args);
   }
 
-  board(now = Date.now()): (Run & { you?: boolean })[] {
+  board(now = this.clock.now()): (Run & { you?: boolean })[] {
     const usd = this.live.latest();
     const running: Run[] = usd ? [...this.accounts].filter(([, a]) => used(a) > 0 || a.trades.length > 0).map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
     // longest-lasting first: the marathon's measure is how long an account survives
     return [...running, ...this.runs].sort((a, b) => b.ended - b.opened - (a.ended - a.opened)).slice(0, BOARD);
   }
 
+  diagnostics() { return { ...this.live.diagnostics(), historyGap: this.gap, settledSlot: this.slot, recovery: this.gap ? "waiting-for-recent-history" : "ready" }; }
+
   view(who: string, here: Record<string, number>) {
-    const now = Date.now();
+    const now = this.clock.now();
     const k = this.w.key(who);
     const a = this.preview(k, now);
     if (this.accounts.has(k)) this.seen(who, k);
@@ -320,9 +346,10 @@ export class Marathon {
     const pos = positions.find((p) => p.pair === pair) ?? null;
     const eq = a ? (usd ? equity(a, usd) : a.balance) : 0;
     const live = this.tradable(a, pair);
-    return {
-      mode: "marathon",
-      phase: live ? "trade" : this.live.slots.length ? "shut" : "waiting",
+    const state = {
+      mode: "marathon" as const,
+      simulated: false,
+      phase: live ? "trade" as const : this.live.slots.length ? "shut" as const : "waiting" as const,
       live,
       historyGap: this.gap,
       priceAt: this.live.at,
@@ -389,6 +416,7 @@ export class Marathon {
       ...quote(mid),
       here,
     };
+    return state satisfies MarathonState;
   }
 }
 

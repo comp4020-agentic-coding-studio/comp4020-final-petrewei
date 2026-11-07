@@ -1,0 +1,156 @@
+{
+  "spark": {
+    "result": [
+      {
+        "symbol": "EURUSD=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 1.12,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    1.12,
+                    1.12
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "symbol": "GBPUSD=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 1.35,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    1.35,
+                    1.35
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "symbol": "AUDUSD=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 0.7,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    0.7,
+                    0.7
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "symbol": "CHF=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 0.82,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    0.82,
+                    0.82
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "symbol": "CNH=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 6.67,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    6.67,
+                    6.67
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "symbol": "JPY=X",
+        "response": [
+          {
+            "meta": {
+              "regularMarketPrice": 158,
+              "regularMarketTime": 1793786400
+            },
+            "timestamp": [
+              1793779200,
+              1793784600
+            ],
+            "indicators": {
+              "quote": [
+                {
+                  "close": [
+                    158,
+                    158
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -68,7 +68,7 @@ it("draws each prop as a 16-by-16 grid of known colours, as pixels only", () => 
 // to be served by spec/languages.test.ts.
 it("loads the tip script with the page", () => {
   expect(readFileSync("public/app.js", "utf8")).toMatch(/from "\/tips\.js"/);
-  expect(readFileSync("src/server.ts", "utf8")).toMatch(/"\/tips\.js": \[read\("public\/tips\.js"\)/);
+  expect(readFileSync("src/app.ts", "utf8")).toMatch(/"\/tips\.js": \[read\("public\/tips\.js"\)/);
 });
 
 // ADR 0034: the ticket's stop loss and take profit each have their own
@@ -294,7 +294,7 @@ it("names the mode simulation, and keeps its old names working", () => {
   const app = readFileSync("public/app.js", "utf8");
   expect(app).toMatch(/const MODES = \["replay", "simulation", "marathon", "tutorial"\]/);
   expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", live: "simulation", scenario: "simulation" \}\)/);
-  const server = readFileSync("src/server.ts", "utf8");
+  const server = readFileSync("src/app.ts", "utf8");
   expect(server).toMatch(/const MODES = \["replay", "simulation"\] as const/);
   expect(server).toMatch(/OLD: Record<string, Mode> = \{ history: "replay", live: "simulation", scenario: "simulation" \}/);
 });

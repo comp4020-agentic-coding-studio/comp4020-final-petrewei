@@ -12,35 +12,9 @@ export const baseUrl = inject("baseUrl");
 // local runs use a throwaway copy, where every test runs.
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
-export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
-export type Mode = "replay" | "simulation" | "marathon" | "tutorial";
-export type State = {
-  mode: Mode;
-  here: Record<Mode, number>;
-  simulated: boolean;
-  phase: "lobby" | "countdown" | "trade" | "break";
-  countdown: number;
-  startedBy: string | null;
-  start: number;
-  round: number;
-  pair: string;
-  tick: number;
-  total: number;
-  // Ticks in a day.
-  steps: number;
-  from: number;
-  // The market's thirty days before the open, sent with a whole state (ADR 0062).
-  history?: number[];
-  // The desk's own numbers, so a page keeps no copy: the legal cap, the fee a tick, what Dad's
-  // savings offer, and how many ticks make a minute.
-  desk: { cap: number; fee: number; borrow: number; ticksPerMinute: number; distances: number[] };
-  leverages: number[];
-  prices: number[];
-  you: { name: string; draw: number | null; named: boolean; code: string; balance: number; equity: number; out: boolean; broke: boolean; debt: number; cuts: number; pos: { side: number; entry: number; leverage: number; margin: number; stop: number | null } | null };
-  traders: Trader[];
-  career: { name: string; rounds: number; profit: number; wins: number; busts: number; best: number; recent: number[]; you: boolean }[];
-  feed: { text: string; kind: string; key?: string; args?: Record<string, string | number> }[];
-};
+export type { Trader, Mode } from "../public/protocol.js";
+import type { Mode, RoundState, StateFor } from "../public/protocol.js";
+export type State = RoundState;
 
 // The requests a visitor makes, against any server: the app under test
 // here, or a test's own server in test/ (`client(s.base)`).
@@ -52,8 +26,8 @@ export function client(base: string, guard = false) {
       headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  const state = async (cookie?: string, mode: Mode = "replay"): Promise<State> =>
-    (await fetch(url(`/api/state?mode=${mode}`), { headers: cookie ? { cookie } : {} })).json() as Promise<State>;
+  const state = async <M extends Mode = "replay">(cookie?: string, mode: M = "replay" as M): Promise<StateFor<M>> =>
+    (await fetch(url(`/api/state?mode=${mode}`), { headers: cookie ? { cookie } : {} })).json() as Promise<StateFor<M>>;
   // A cookie jar of one: each visitor is the v= cookie the server hands out.
   async function visitor(): Promise<string> {
     const res = await fetch(url("/api/state"));

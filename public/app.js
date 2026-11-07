@@ -1,3 +1,8 @@
+import { makeAction, sendAction } from "/requests.js";
+import { createTransport } from "/transport.js";
+import { createChart } from "/chart.js";
+import { createTutorial } from "/tutorial-ui.js";
+import { createAccountPanel } from "/account.js";
 // The trading floor's page. The server owns everything; this page draws
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
@@ -81,7 +86,6 @@ for (const id of ["lang", "n-lang"]) $(id).onchange = () => location.assign(home
 let state = null;
 let fresh = false;
 let connectionStatus = "connectionConnecting";
-let heardAt = Date.now();
 let connectionTimer = null;
 const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
@@ -272,7 +276,7 @@ if (new URLSearchParams(location.search).has("debug")) history.replaceState(null
 // the server's English, which `refusal` puts in this page's language.
 async function post(url, body) {
   try {
-    const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const res = url === "/api/act" ? await sendAction(makeAction(body.mode, body.kind, body)) : await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const out = await res.json();
     return { ok: res.ok, out, why: res.ok ? "" : refusal(lang, out.error ?? "Refused.") };
   } catch {
@@ -287,10 +291,10 @@ async function act(kind, extra = {}) {
     return;
   }
   $("error").textContent = "";
-  const source = events;
+  const source = transport.source;
   // in Marathon an order is for the pair on the chart (ADR 0087)
   const reply = await post("/api/act", { kind, mode, ...(mode === "marathon" && state?.pair && !extra.pair ? { pair: state.pair } : {}), ...extra });
-  if (source === events) $("error").textContent = reply.why;
+  if (source === transport.source) $("error").textContent = reply.why;
 }
 // A stop loss and a take profit each ride on the order when their own
 // toggle is on (ADR 0032, 0034); off, each is still shown, grey, and not sent.
@@ -715,288 +719,8 @@ async function choosePair() {
   if (state) pairChoices(state);
 }
 $("pair-base").onchange = $("pair-quote").onchange = choosePair;
-// The tutorial is played like a disc: it waits stopped until Play, Pause holds it where it is and Play
-// carries on, Stop goes back to lesson 1 and waits. The server keeps the state; these only ask for it.
-const transportOf = (kind) => () => {
-  looked = 0;
-  armedFor = null;
-  return act(kind);
-};
-$("lesson-play").onclick = () => transportOf(playing() ? "pause" : "play")();
-$("lesson-stop").onclick = transportOf("stop");
-$("lesson-skip").onclick = () => act("skip");
-// Previous, as on a disc: once starts this lesson over, twice within two seconds goes to the one before.
-let lastBack = 0;
-$("lesson-back").onclick = () => {
-  const again = Date.now() - lastBack < 2000;
-  lastBack = again ? 0 : Date.now();
-  looked = 0;
-  armedFor = null;
-  act(again ? "back" : "again");
-};
-// The same keys on the keyboard, whichever control has focus: Space plays and pauses, the arrows go
-// back and skip, Escape stops. A key typed in a field, or on a button or slider that uses it, is left
-// to that control, and so is any key while a dialog is open or on any page but the tutorial.
-const TRANSPORT_KEYS = { " ": "lesson-play", ArrowLeft: "lesson-back", ArrowRight: "lesson-skip", Escape: "lesson-stop" };
-addEventListener("keydown", (e) => {
-  const id = TRANSPORT_KEYS[e.key];
-  if (!id || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || mode !== "tutorial" || !state?.lesson) return;
-  if (document.querySelector("dialog[open]")) return;
-  const target = e.target;
-  if (target?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|A)$/.test(target?.tagName ?? "")) return;
-  // a focused button does its own work on Space and Enter; the arrows and Escape are ours
-  if (target?.tagName === "BUTTON" && e.key === " ") return;
-  if ($(id).disabled) return;
-  e.preventDefault();
-  $(id).click();
-});
-
-// The tutorial names the controls a lesson is about; the page highlights
-// them.
-// The exact element each step of a lesson points at (ADR 0052): the slider
-// and not its whole block, the one button, the one figure. A step is lit while
-// the page can see it is still to do.
-const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", stake: "stake", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow" };
-function lesson(s) {
-  $("lesson").hidden = !s.lesson;
-  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
-  if (!s.lesson) return;
-  const l = s.lesson;
-  // The transport shows its state: Play is Pause while playing, and the track keys wait for Play.
-  const transport = s.transport ?? "playing";
-  $("lesson").dataset.transport = transport;
-  for (const id of ["lesson-back", "lesson-skip"]) $(id).disabled = transport === "stopped";
-  $("lesson-stop").disabled = transport === "stopped";
-  const verb = transport === "playing" ? "tutorialPause" : transport === "paused" ? "tutorialContinue" : "tutorialPlay";
-  $("lesson-play").dataset.tip = verb;
-  $("lesson-play").setAttribute("aria-label", t(verb));
-  $("lesson-play").setAttribute("aria-pressed", String(transport === "playing"));
-  const moving = s.phase === "moving";
-  // The lesson in this language; in English, as the server sent it.
-  const own = T[lang].lessons[l.id] ?? l;
-  $("lesson-n").textContent = l.finished ? t("lessonDone") : t("lessonN", { n: l.n, of: l.of });
-  $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
-  $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
-  $("lesson-task").textContent = l.finished ? t("doneTask") : transport === "stopped" ? t("pressPlay") : transport === "paused" ? t("pausedTask") : moving ? t("watch") : own.task;
-  retip();
-}
-// How many of the lesson's looks the player has had (ADR 0052, 0053): a step
-// to look at waits for them, and they move on by a click or a key, or by
-// doing the next thing. A new lesson starts again. Pure choosing is in /plan.js.
-let looked = 0;
-let lookedIn = null;
-// A step whose control is not on screen yet (Close before there is a position,
-// Borrow before a wipe-out) is passed over: pointing at nothing helps no one.
-const onScreen = (el) => !!el && el.getClientRects().length > 0;
-function currentStep(l) {
-  if (lookedIn !== l.id) {
-    lookedIn = l.id;
-    looked = 0;
-  }
-  return planStep(l.plan ?? [], { choice, looked, moves: l.moves }, (s) => onScreen($(TARGETS[s.target])));
-}
-// When a step has waited AUTO_S seconds with no input, the tutorial does it
-// for the player (ADR 0054): a slider slides, a button is pressed through the
-// same server rules as a player's press, a look moves on. A countdown shows in
-// the step's words all that time, and any click, key or slider move starts it
-// again. It never runs while the page is hidden, a dialog is open, or the
-// price is moving.
-const AUTO_S = 9;
-// Whether the tutorial is playing, from the server's own transport: stopped and paused both hold.
-const playing = () => state?.mode === "tutorial" && state.transport === "playing";
-// Stopped shows nothing, a blank screen that waits; paused keeps the frame, with the lit control and
-// the step's words and its seconds held; playing runs.
-const stopped = () => state?.mode === "tutorial" && state.transport === "stopped";
-let autoLeft = AUTO_S;
-let autoTimer = 0;
-let sliding = false;
-function armAuto() {
-  clearInterval(autoTimer);
-  autoLeft = AUTO_S;
-  if (!playing() || !state?.lesson || state.lesson.finished || state.phase === "moving") return;
-  showCount();
-  autoTimer = setInterval(tickAuto, 1000);
-}
-function tickAuto() {
-  const l = state?.lesson;
-  if (!l || l.finished || state.phase === "moving") return clearInterval(autoTimer);
-  if (!playing() || !fresh || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
-  if (--autoLeft > 0) return showCount();
-  clearInterval(autoTimer);
-  doForPlayer(l);
-}
-function showCount() {
-  if (hint.hidden || !hintFor) return;
-  // The countdown leads the tip, so it is the first thing read and a long tip
-  // can never cut it off (ADR 0059).
-  const text = `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`;
-  if (hint.textContent !== text) {
-    hint.textContent = text;
-    placeHint(hintFor.el, text);
-  }
-}
-function doForPlayer(l) {
-  const step = currentStep(l);
-  const move = step && autoMove(step, l.id, l.plan, choice);
-  if (!move) return armAuto();
-  hint.textContent = `${t("autoIn", { s: 0 })} · ${hintFor?.words ?? ""}`;
-  if (move.slide) slideTo(move.slide.slider, move.slide.value, armAuto);
-  else if (move.look) {
-    nextLook();
-    armAuto();
-  } else {
-    act(move.act.kind, move.act);
-    armAuto();
-  }
-}
-// A slider moves to the value a step asks for, a few frames at a time, so the
-// player sees it go; it fires the same input events a hand would, so every
-// handler runs as usual. Reduced motion jumps there.
-function slideTo(which, value, done) {
-  const input = $(which);
-  const target = which === "leverage" ? ladder.indexOf(value) : STAKES.indexOf(value);
-  const from = Number(input.value);
-  const steps = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 24;
-  let i = 0;
-  sliding = true;
-  const frame = () => {
-    i++;
-    input.value = String(Math.round(from + ((target - from) * i) / steps));
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    if (i < steps) requestAnimationFrame(frame);
-    else {
-      input.value = String(target);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      sliding = false;
-      done();
-    }
-  };
-  requestAnimationFrame(frame);
-}
-// Move on from the step to look at that is on show, if one is. Returns whether
-// it did, so a click on a control still does its own work.
-function nextLook() {
-  if (!playing()) return false;
-  const l = state?.lesson;
-  if (!l || l.finished || state.phase === "moving" || currentStep(l)?.until !== "look") return false;
-  looked++;
-  // A lesson of looks alone, the welcome, is over when the last look is: the
-  // page tells the server, since there is no Next button (ADR 0057).
-  if (!currentStep(l)) act("next");
-  spotlight(l, false);
-  return true;
-}
-// Any click, or Enter, moves on from a step to look at. The click carries on to whatever it
-// landed on, so pressing a control still does its job; a key typed in a field or on a control,
-// where the same key does something else, is left alone (ADR 0053). Space and the arrows are
-// the transport's now, so each key has one meaning.
-addEventListener("pointerdown", (e) => {
-  if (e.target.closest?.("dialog[open]:not(#dad), #name-box")) return;
-  // A click on the lesson card's own buttons (the transport) is not a
-  // click on the page: it must not move a look step on.
-  if (!e.target.closest?.("#lesson") && nextLook()) return;
-  if (state?.lesson && !state.lesson.finished && playing()) armAuto();
-});
-addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.key !== "Enter") return;
-  const t = e.target;
-  if (document.querySelector("dialog[open]:not(#dad)") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
-  if (nextLook()) e.preventDefault();
-});
-// A key or a slider move by the player starts the countdown again.
-addEventListener("keydown", () => state?.lesson && !sliding && armAuto(), true);
-for (const id of ["leverage", "stake"]) $(id).addEventListener("input", () => !sliding && state?.lesson && armAuto());
-// The step's words, in this language, kept beside the lit control: a small
-// label that follows it, so the instruction is where the eye already is.
-const hint = Object.assign(document.createElement("div"), { id: "step-hint", className: "step-hint", hidden: true });
-document.body.append(hint);
-function placeHint(el, text) {
-  hint.textContent = text;
-  hint.hidden = false;
-  const r = el.getBoundingClientRect();
-  const h = hint.getBoundingClientRect();
-  const gap = 14;
-  // A big target (the chart) has no outside to speak of: the words go inside
-  // it, at its top left, where nothing else is.
-  if (r.width > innerWidth * 0.5) {
-    hint.style.left = `${r.left + 12}px`;
-    hint.style.top = `${r.top + 12}px`;
-    hint.dataset.side = "inside";
-    return;
-  }
-  // Try each side and keep the one that covers the fewest other controls and
-  // labels, and stays on the page: the words go where they hide least.
-  const center = { x: r.left + r.width / 2 - h.width / 2, y: r.top + r.height / 2 - h.height / 2 };
-  const sides = {
-    left: { x: r.left - h.width - gap, y: center.y },
-    right: { x: r.right + gap, y: center.y },
-    below: { x: center.x, y: r.bottom + gap },
-    above: { x: center.x, y: r.top - h.height - gap },
-  };
-  const others = [...document.querySelectorAll("button, input, label, dt, dd, output, h2, .task, .lesson-body p")].filter((e) => e !== el && !el.contains(e) && !e.contains(el) && !e.closest("#step-hint") && e.getClientRects().length);
-  // Above and below slide sideways to stay on the page, so only running off
-  // the top or bottom, or off the side for left and right, counts against them.
-  const fit = (p) => ({ x: Math.max(4, Math.min(innerWidth - h.width - 4, p.x)), y: p.y });
-  for (const s of ["below", "above"]) sides[s] = fit(sides[s]);
-  const score = (p) => {
-    const box = { left: p.x, top: p.y, right: p.x + h.width, bottom: p.y + h.height };
-    const off = box.left < 4 || box.top < 4 || box.right > innerWidth - 4 || box.bottom > innerHeight - 4;
-    // What it hides matters: a button or a slider costs most, a figure or a
-    // label less, a heading or a paragraph least.
-    const cost = (e) => (e.matches("button, input") ? 10 : e.matches("dt, dd, output, label") ? 3 : 1);
-    const hit = others.filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.right > box.left && b.left < box.right && b.bottom > box.top && b.top < box.bottom; }).reduce((n, e) => n + cost(e), 0);
-    return (off ? 1000 : 0) + hit;
-  };
-  let best = "left";
-  for (const s of ["left", "right", "below", "above"]) if (score(sides[s]) < score(sides[best])) best = s;
-  hint.style.left = `${Math.max(4, Math.min(innerWidth - h.width - 4, sides[best].x))}px`;
-  hint.style.top = `${Math.max(4, Math.min(innerHeight - h.height - 4, sides[best].y))}px`;
-  hint.dataset.side = best;
-}
-// The pointer is the tutorial's alone: gone the moment another mode is on show,
-// or the tab changes, since only a tutorial's state has a lesson to clear it.
-function clearPointer() {
-  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
-  hint.hidden = true;
-  hintFor = null;
-  armedFor = null;
-  clearInterval(autoTimer);
-}
-let scrolledTo = null;
-function spotlight(l, moving) {
-  for (const el of document.querySelectorAll(".focus")) el.classList.remove("focus");
-  hint.hidden = true;
-  hintFor = null;
-  if (stopped() || l.finished || moving) return;
-  const step = currentStep(l);
-  if (!step) return;
-  const el = $(TARGETS[step.target]);
-  // A control below the fold is brought into view, once per step, or the ring
-  // would be on something the player cannot see.
-  const key = `${l.id}:${l.plan.indexOf(step)}`;
-  if (scrolledTo !== key) {
-    scrolledTo = key;
-    const r = el.getBoundingClientRect();
-    // Not merely on screen but with room around it for its words: within the
-    // middle of the viewport, else it is brought to the centre.
-    if (r.top < innerHeight * 0.15 || r.bottom > innerHeight * 0.8) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }
-  el.classList.add("focus");
-  const i = l.plan.indexOf(step);
-  const says = T[lang].lessons[l.id]?.steps?.[i] ?? step.say;
-  const words = `${l.plan.length > 1 ? `${i + 1}/${l.plan.length} ` : ""}${says}`;
-  placeHint(el, `${t("autoIn", { s: AUTO_S })} · ${words}`);
-  // The words are placed against where the control is now, so when the page
-  // is scrolling to it, they are placed again as it settles, and as the player
-  // scrolls or resizes afterwards.
-  hintFor = { el, words };
-  // A new step starts the countdown afresh; a redraw of the same step does not.
-  const stepKey = `${l.id}:${i}:${looked}`;
-  if (stepKey !== armedFor) {
-    armedFor = stepKey;
-    armAuto();
-  } else showCount();
-}
+const tutorialUI = createTutorial({ getState: () => state, getMode: () => mode, getChoice: () => choice, getLadder: () => ladder, getLanguage: () => lang, isFresh: () => fresh, act, t });
+const { lesson, spotlight, clearPointer } = tutorialUI;
 // The chart redraws when its box changes size (a window resized, a panel folded, a position row appearing), since it
 // is drawn to the box (ADR 0076).
 // The header's height, for the first screen's sizing (ADR 0076): it changes with the language and wraps at some
@@ -1006,18 +730,9 @@ const header = document.querySelector("header.top");
 const measureHead = () => header && document.documentElement.style.setProperty("--head", `${header.offsetHeight}px`);
 measureHead();
 if (typeof ResizeObserver === "function") {
-  new ResizeObserver(() => state && draw(state)).observe($("chart"));
-  if (header) new ResizeObserver(measureHead).observe(header);
-} else addEventListener("resize", () => (measureHead(), state && draw(state)));
-let armedFor = null;
-let hintFor = null;
-let settle = 0;
-const replace = () => {
-  clearTimeout(settle);
-  settle = setTimeout(() => hintFor && !hint.hidden && placeHint(hintFor.el, `${t("autoIn", { s: autoLeft })} · ${hintFor.words}`), 60);
-};
-addEventListener("scroll", replace, { passive: true });
-addEventListener("resize", replace);
+  if (header) { const observer = new ResizeObserver(measureHead); observer.observe(header); addEventListener("pagehide", (event) => { if (!event.persisted) observer.disconnect(); }); }
+} else addEventListener("resize", measureHead);
+
 // The ticket's two toggles and one joined track (ADR 0034): the stop loss
 // toggle on the left and the take profit toggle on the right, a thumb each,
 // held to its own half so the two never cross. Each shows its percentage
@@ -1209,320 +924,10 @@ function rich(text, slots) {
   });
 }
 
-// Which indicators are on, remembered in this browser. MA and RSI start
-// on, the bands off, so a first chart is not a tangle.
-const studies = (() => {
-  try {
-    return { ma: true, bb: false, rsi: true, ...JSON.parse(localStorage.getItem("studies") ?? "{}") };
-  } catch {
-    return { ma: true, bb: false, rsi: true };
-  }
-})();
-for (const b of document.querySelectorAll("#studies button")) {
-  b.setAttribute("aria-pressed", String(studies[b.dataset.study]));
-  b.onclick = () => {
-    studies[b.dataset.study] = !studies[b.dataset.study];
-    b.setAttribute("aria-pressed", String(studies[b.dataset.study]));
-    try {
-      localStorage.setItem("studies", JSON.stringify(studies));
-    } catch {
-      // a private window: the choice lasts this visit
-    }
-    if (state) draw(state);
-  };
-}
-
-// A face as an image the chart can draw, made once from its pixel art and kept: a canvas
-// cannot draw the SVG string the rest of the page puts in the DOM.
-const faces = new Map();
-function faceImage(face) {
-  let img = faces.get(face);
-  if (!img) {
-    img = new Image();
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg(face, 16))}`;
-    img.onload = () => requestAnimationFrame(() => state && draw(state));
-    faces.set(face, img);
-  }
-  return img;
-}
-// The colour class of a gain or a loss.
 const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
-// The candles last drawn, each with its centre on the chart and its prices, for the pointer's reading (ADR 0083).
-let candlesShown = [];
-// A pointer over the chart reads the candle under it: its open, high, low and close, and its change, in a box that
-// keeps clear of the pointer. Nothing is drawn on the chart, so moving the pointer never redraws it.
-function readCandle(e) {
-  const box = $("chart").getBoundingClientRect();
-  const px = e.clientX - box.left;
-  const py = e.clientY - box.top;
-  const c = candlesShown.find((c) => Math.abs(c.cx - px) <= Math.max(c.half, 3));
-  if (!c || py > c.top) return void ($("ohlc").hidden = true);
-  const change = c.close / c.open - 1;
-  $("ohlc").replaceChildren(...[["O", c.open], ["H", c.high], ["L", c.low], ["C", c.close]].map(([k, v]) => {
-    const row = document.createElement("span");
-    row.append(Object.assign(document.createElement("i"), { textContent: k }), quoted(v));
-    return row;
-  }), Object.assign(document.createElement("b"), { className: tone(change), textContent: pct(change) }));
-  $("ohlc").hidden = false;
-  // beside the pointer, on the side away from the price scale when there is room
-  const left = px + 14 + $("ohlc").offsetWidth < box.width - 70 ? px + 14 : px - 14 - $("ohlc").offsetWidth;
-  $("ohlc").style.left = `${Math.max(4, left)}px`;
-  $("ohlc").style.top = `${Math.max(4, py - 20)}px`;
-}
-$("chart").addEventListener("pointermove", readCandle);
-$("chart").addEventListener("pointerleave", () => ($("ohlc").hidden = true));
-
-function draw(full) {
-  const s = windowed(full);
-  const canvas = $("chart");
-  const ctx = canvas.getContext("2d");
-  if (!s.prices.length) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    candlesShown = [];
-    return;
-  }
-  // The chart is drawn in the CSS pixels it is shown at (ADR 0076), so its text and margins keep their size however the
-  // layout sizes the box, and it is sharp on a scaled screen: the canvas holds that many device pixels and the drawing
-  // is scaled to them. Before the box has a size (hidden, or folded), it keeps the size it last had.
-  const ratio = devicePixelRatio || 1;
-  const w = canvas.clientWidth || canvas.width / ratio;
-  const boxH = canvas.clientHeight || canvas.height / ratio;
-  const [pw, ph] = [Math.round(w * ratio), Math.round(boxH * ratio)];
-  // a new size clears the canvas, so it is set only when the box has changed
-  if (canvas.width !== pw || canvas.height !== ph) [canvas.width, canvas.height] = [pw, ph];
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  // With the RSI on, the price takes the top and the RSI a pane below; the canvas, and so the layout, keeps its size.
-  const pane = studies.rsi && s.mode !== "tutorial" ? 84 : 0;
-  const h = boxH - pane;
-  const css = getComputedStyle(document.documentElement);
-  ctx.fillStyle = css.getPropertyValue("--chart");
-  ctx.fillRect(0, 0, w, boxH);
-  const prices = s.prices;
-  const k = s.steps;
-  // Indicators on each day's close, drawn at the day's centre; the bands
-  // widen the price range so they stay on the chart.
-  const tutorial = s.mode === "tutorial";
-  // Each indicator is worked out on every day there is, then cut to the days shown.
-  const cut = (values) => values.slice(s.skip ?? 0);
-  const days = closes(s.all ?? prices, k);
-  const bands = studies.bb && !tutorial ? cut(bollinger(days, PERIODS.band, 2)) : [];
-  const shown = bands.filter(Boolean);
-  // The stop and the margin lines join the scale when they are near
-  // (within 3%, as at 100× and up), so high leverage shows how close the
-  // losscut is.
-  const pos = s.you.pos;
-  const near = pos ? [pos.stop, pos.take, pos.call, pos.cut].filter((p) => p && Math.abs(p / prices.at(-1) - 1) < 0.03) : [];
-  const lo = Math.min(...prices, ...shown.map((b) => b.lower), ...near);
-  const hi = Math.max(...prices, ...shown.map((b) => b.upper), ...near);
-  const pad = (hi - lo) * 0.15 || hi * 0.002;
-  const top = hi + pad;
-  const bottom = lo - pad;
-  // The newest tick sits at the right edge and older ones count back from it; with no
-  // history (the tutorial) the round runs from the left as it always did.
-  const x = (i) => place(s, i) * (w - 70);
-  // The price scale leaves HEAD pixels at the top for the quote that floats there.
-  const HEAD = 66;
-  const y = (p) => h - ((p - bottom) / (top - bottom)) * (h - HEAD);
-  // Day lines, and the price grid on the right.
-  ctx.strokeStyle = css.getPropertyValue("--chart-grid");
-  ctx.lineWidth = 1;
-  const up = css.getPropertyValue("--up");
-  const down = css.getPropertyValue("--down");
-  ctx.fillStyle = css.getPropertyValue("--muted");
-  ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
-  // One line a day, found by the tick's own count from the bell and not by its place on screen, so the lines
-  // stay on the day breaks as the window slides; the tutorial has no days and keeps a line every 5 candles.
-  // Each played day is named "D1".."D5" at its line, and the days of history before the bell have no name.
-  const dayStep = s.dayTicks;
-  const first = s.tick - (prices.length - 1);
-  for (let i = 0; i < prices.length; i++) {
-    const at = first + i;
-    if (at % dayStep !== 0) continue;
-    const xd = x(i);
-    ctx.beginPath();
-    ctx.moveTo(xd, 0);
-    ctx.lineTo(xd, h + pane);
-    ctx.stroke();
-    // Marathon's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
-    const dayName = s.mode === "marathon" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(lang === "en" ? "en-AU" : lang, { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
-    if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
-  }
-  // A day's indicator sits at its candle's centre; today's at the price.
-  const dayX = (d) => x(Math.min(d * k + k / 2, prices.length - 1));
-  const line = (values, colour, width = 1.5) => {
-    ctx.strokeStyle = colour;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    let on = false;
-    values.forEach((v, d) => {
-      if (v === null) return void (on = false);
-      if (on) ctx.lineTo(dayX(d), v);
-      else ctx.moveTo(dayX(d), v);
-      on = true;
-    });
-    ctx.stroke();
-    ctx.lineWidth = 1;
-  };
-  for (let k = 0; k <= 4; k++) {
-    const p = bottom + ((top - bottom) * k) / 4;
-    ctx.beginPath();
-    ctx.moveTo(0, y(p));
-    ctx.lineTo(w - 70, y(p));
-    ctx.stroke();
-    // Grid labels that would sit under the last-price tag are skipped.
-    if (Math.abs(y(p) - y(prices.at(-1))) > 16) ctx.fillText(quoted(p), w - 66, Math.min(h - (pane ? 8 : 4), Math.max(14, y(p) + 4)));
-  }
-  // The bands, under everything that follows.
-  if (shown.length) {
-    ctx.fillStyle = css.getPropertyValue("--band-fill");
-    ctx.beginPath();
-    const at = bands.map((b, d) => [b, d]).filter(([b]) => b);
-    at.forEach(([b, d], i) => (i ? ctx.lineTo(dayX(d), y(b.upper)) : ctx.moveTo(dayX(d), y(b.upper))));
-    at.toReversed().forEach(([b, d]) => ctx.lineTo(dayX(d), y(b.lower)));
-    ctx.fill();
-    line(bands.map((b) => b && y(b.upper)), css.getPropertyValue("--band"), 1);
-    line(bands.map((b) => b && y(b.lower)), css.getPropertyValue("--band"), 1);
-  }
-  // The entry and the stop of my own position.
-  // My position's lines: the entry, the stop, and where the broker steps
-  // in, the margin call and the forced losscut, worked out by the
-  // server's desk. A line off the scale is listed at that edge with an
-  // arrow. Labels are laid out top to bottom in their lines' order, each
-  // at its line or just below the label above, so lines close together
-  // (a 400× position's) never print over each other or swap places.
-  const marks = [];
-  if (pos) {
-    marks.push([pos.entry, pos.side === 1 ? up : down, `${pos.side === 1 ? t("long") : t("short")} ${pos.leverage}×`]);
-    if (pos.stop) marks.push([pos.stop, down, t("slFull")]);
-    if (pos.take) marks.push([pos.take, up, t("tpFull")]);
-    if (pos.call) marks.push([pos.call, css.getPropertyValue("--call"), t("lineCall")], [pos.cut, down, t("lineCut")]);
-  }
-  const labels = [];
-  for (const [p, colour, text] of marks) {
-    if (p > bottom && p < top) {
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = colour;
-      ctx.beginPath();
-      ctx.moveTo(0, y(p));
-      ctx.lineTo(w - 70, y(p));
-      ctx.stroke();
-      ctx.setLineDash([]);
-      labels.push({ at: y(p) - 4, colour, text });
-    } else labels.push({ at: p >= top ? 0 : h, colour, text: `${p >= top ? "▲" : "▼"} ${text} ${quoted(p)}` });
-  }
-  // Each label on a patch of the chart's colour, so a line that runs
-  // under a pushed-down label never strikes through it.
-  for (const l of stack(labels, 44, h - 4, 15)) {
-    const lw = ctx.measureText(l.text).width;
-    ctx.fillStyle = css.getPropertyValue("--chart");
-    ctx.fillRect(w - 70 - lw - 9, l.at - 11, lw + 6, 14);
-    ctx.fillStyle = l.colour;
-    ctx.fillText(l.text, w - 70 - lw - 6, l.at);
-  }
-  // One candle a day, then the price line through today's ticks. Each is kept, its centre and its prices, for the
-  // reading a pointer over the chart shows (ADR 0083).
-  candlesShown = [];
-  for (let d = 0; d * k < prices.length - 1; d++) {
-    const day = prices.slice(d * k, d * k + k + 1);
-    const open = day[0];
-    const close = day.at(-1);
-    const colour = close >= open ? up : down;
-    const cx = x(d * k + k / 2);
-    candlesShown.push({ cx, open, high: Math.max(...day), low: Math.min(...day), close, half: (x(k) - x(0)) / 2, top: h });
-    ctx.strokeStyle = colour;
-    ctx.beginPath();
-    ctx.moveTo(cx, y(Math.max(...day)));
-    ctx.lineTo(cx, y(Math.min(...day)));
-    ctx.stroke();
-    ctx.fillStyle = colour;
-    const bw = Math.max(3, (x(k) - x(0)) * 0.6);
-    ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(2, Math.abs(y(open) - y(close))));
-  }
-  // Moving averages over the candles, and their legend top-left.
-  const legend = [];
-  if (studies.ma && !tutorial) {
-    const fast = cut(sma(days, PERIODS.fast));
-    const slow = cut(sma(days, PERIODS.slow));
-    line(slow.map((v) => v && y(v)), css.getPropertyValue("--ma-slow"));
-    line(fast.map((v) => v && y(v)), css.getPropertyValue("--ma-fast"));
-    if (fast.at(-1)) legend.push([`MA ${spanOf(PERIODS.fast, perDay(s))} ${quoted(fast.at(-1))}`, css.getPropertyValue("--ma-fast")]);
-    if (slow.at(-1)) legend.push([`MA ${spanOf(PERIODS.slow, perDay(s))} ${quoted(slow.at(-1))}`, css.getPropertyValue("--ma-slow")]);
-  }
-  if (shown.length) legend.push([`BB(${spanOf(PERIODS.band, perDay(s))},2)`, css.getPropertyValue("--band")]);
-  // On a phone the canvas is shrunk to a third, too small for a legend.
-  const small = canvas.clientWidth < 600;
-  let lx = 10;
-  for (const [text, colour] of small ? [] : legend) {
-    ctx.fillStyle = colour;
-    ctx.fillText(text, lx, HEAD - 8);
-    lx += ctx.measureText(text).width + 14;
-  }
-  // The RSI pane: the line, the 70 and 30 bands, and today's value.
-  if (pane) {
-    const ry = (v) => h + 8 + ((100 - v) / 100) * (pane - 16);
-    ctx.strokeStyle = css.getPropertyValue("--line");
-    ctx.beginPath();
-    ctx.moveTo(0, h + 0.5);
-    ctx.lineTo(w, h + 0.5);
-    ctx.stroke();
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = css.getPropertyValue("--chart-grid");
-    for (const v of [30, 70]) {
-      ctx.beginPath();
-      ctx.moveTo(0, ry(v));
-      ctx.lineTo(w - 70, ry(v));
-      ctx.stroke();
-      ctx.fillStyle = css.getPropertyValue("--muted");
-      ctx.fillText(String(v), w - 66, ry(v) + 4);
-    }
-    ctx.setLineDash([]);
-    const r = cut(rsi(days, PERIODS.rsi));
-    line(r.map((v) => v === null ? null : ry(v)), css.getPropertyValue("--rsi"));
-    const now = r.at(-1);
-    ctx.fillStyle = now === null ? css.getPropertyValue("--muted") : now >= 70 ? down : now <= 30 ? up : css.getPropertyValue("--rsi");
-    if (!small) ctx.fillText(`RSI(${PERIODS.rsi}) ${now === null ? "—" : now.toFixed(1)}`, 10, h + 20);
-  }
-  // A face at each moment a trader opened, added to, closed or was cut out of a position
-  // (ADR 0064), on the price of that tick, with an arrow for the way and a ring if it is mine.
-  const pink = css.getPropertyValue("--pink");
-  const muted = css.getPropertyValue("--muted");
-  ctx.font = "9px 'JetBrains Mono', ui-monospace, monospace";
-  for (const m of s.marks ?? []) {
-    const i = prices.length - 1 - (s.tick - m.tick);
-    if (i < 0 || i > prices.length - 1) continue;
-    const cx = x(i);
-    if (cx < 8 || cx > w - 78) continue;
-    const my = Math.max(HEAD + 8, Math.min(h - 8, y(prices[i])));
-    const img = faceImage(m.face);
-    ctx.globalAlpha = m.you ? 1 : 0.85;
-    if (img.complete && img.naturalWidth) ctx.drawImage(img, cx - 7, my - 7, 14, 14);
-    ctx.globalAlpha = 1;
-    if (m.you) {
-      ctx.strokeStyle = pink;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(cx - 8, my - 8, 16, 16);
-      ctx.lineWidth = 1;
-    }
-    // The way, beside the face: a green arrow for a buy below it, a red one for a sell above
-    // it; a close or a cut is a small dot, or a cross when the broker did it, below it.
-    const opened = m.kind === "open" || m.kind === "add";
-    const glyph = opened ? (m.side === 1 ? "▲" : "▼") : m.kind === "stopout" || m.kind === "zerocut" ? "✕" : "●";
-    ctx.fillStyle = opened ? (m.side === 1 ? up : down) : muted;
-    ctx.fillText(glyph, cx - 3, opened && m.side === -1 ? my - 10 : my + 19);
-  }
-  // the marks' small type must not carry on to the price tag below
-  ctx.font = "12px 'JetBrains Mono', ui-monospace, monospace";
-  const last = prices.at(-1);
-  ctx.strokeStyle = css.getPropertyValue("--chart-line");
-  ctx.beginPath();
-  ctx.moveTo(0, y(last));
-  ctx.lineTo(w - 70, y(last));
-  ctx.stroke();
-  ctx.fillStyle = css.getPropertyValue("--chart-line");
-  ctx.fillRect(w - 70, y(last) - 9, 70, 18);
-  ctx.fillStyle = css.getPropertyValue("--chart");
-  ctx.fillText(quoted(last), w - 66, y(last) + 4);
-}
+const accountPanel = createAccountPanel({ root: document, cash });
+const chart = createChart({ getState: () => state, getLanguage: () => lang, t });
+const draw = chart.draw;
 
 // Effects: speech bubbles over a trader when the room should notice
 // them, a burst of emoji on a prayer, coins on a win, and the price
@@ -1629,38 +1034,6 @@ function effects(s, price) {
     el.classList.add(price > lastPrice ? "tick-up" : "tick-down");
   }
   lastPrice = price;
-}
-
-// The server sends the full history on joining and each phase, and after
-// that only new prices. A gap (a missed message) asks for the whole state.
-let prices = [];
-// The market's two days before the round opened, kept across the updates
-// that carry only new prices (ADR 0062); the tutorial has none.
-let before = [];
-let roundNo = 0;
-let shown = null;
-async function receive(s, source = events) {
-  // A message from the market this page just left is dropped.
-  if (source !== events || s.mode !== mode || navigator.onLine === false) return;
-  const contiguous = fresh && s.mode === shown && s.round === roundNo && s.from <= prices.length;
-  if (s.from !== 0 && !contiguous) {
-    const res = await fetch(`/api/state?mode=${mode}`);
-    if (!res.ok) throw new Error("state unavailable");
-    return receive(await res.json(), source);
-  }
-  if (s.from === 0) {
-    prices = [...s.prices];
-    before = s.history ?? [];
-  } else {
-    // new prices go on the end of the array this page owns, not into a copy of all of it
-    prices.length = s.from;
-    prices.push(...s.prices);
-  }
-  roundNo = s.round;
-  shown = s.mode;
-  heardAt = Date.now();
-  if (!fresh) connection("connectionRestored");
-  render({ ...s, prices, history: before });
 }
 
 function headlineText(head) {
@@ -1776,46 +1149,7 @@ function render(s) {
   pending(s);
 
   const y = s.you;
-  // Each amount with its change as a percentage, which is what a trader
-  // reads: net worth against the starting money, open P&L against the
-  // margin put up for it.
-  const worth = y.equity - y.debt;
-  $("equity").textContent = cash(worth);
-  $("equity-pct").textContent = pct(worth / s.start - 1);
-  $("equity-pct").className = `rate ${tone(worth - s.start)}`;
-  $("pnl").textContent = cash(y.pnl);
-  // Toggled, not assigned: the tutorial may have a ring on this figure (ADR 0052).
-  $("pnl").classList.toggle("up", y.pnl > 0);
-  $("pnl").classList.toggle("down", y.pnl < 0);
-  const usedMargin = marathon ? y.used : y.pos?.margin ?? 0;
-  $("pnl-pct").textContent = usedMargin ? pct(y.pnl / usedMargin) : "";
-  $("pnl-pct").className = `rate ${tone(y.pnl)}`;
-  $("level").textContent = y.level === null ? "—" : `${y.level}%`;
-  $("level-note").textContent = y.pos ? `${y.pos.leverage}×` : "";
-  // The meter: net worth against the start, losses left, profit right,
-  // on a log scale; with a position open, where its margin call and
-  // losscut would land, at half and a fifth of its margin.
-  const at = gauge(worth / s.start);
-  const mid = 0.5;
-  // Any change shows at least a sliver, so the side is always plain.
-  const span = worth === s.start ? 0 : Math.max(0.015, Math.abs(at - mid));
-  $("meter").style.left = `${(at < mid ? mid - span : mid) * 100}%`;
-  $("meter").style.width = `${span * 100}%`;
-  $("meter").className = `fill ${tone(worth - s.start)}`;
-  const places = {};
-  for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]]) {
-    const show = usedMargin > 0 && open;
-    $(id).hidden = !show;
-    // Level is equity over margin, so at a level the equity is that share of it.
-    if (!show) continue;
-    const at = gauge((share * usedMargin - y.debt) / s.start);
-    places[id] = at;
-    $(id).style.left = `${at * 100}%`;
-    // near an end, the words hang inward from the mark so the bar's edge never cuts them
-    $(id).dataset.edge = at < 0.12 ? "start" : at > 0.88 ? "end" : "";
-  }
-  // the call and the cut can sit close together; then the cut's words drop a line, so the two never run into each other
-  $("mark-cut").classList.toggle("low", Math.abs((places["mark-call"] ?? 1) - (places["mark-cut"] ?? 0)) < 0.22);
+  accountPanel.render(s, open);
   // Emergency credit (ADR 0080): its row says what is owed and at what daily rate, the rate the next step would cost
   // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
   // whenever the price stands still).
@@ -2124,7 +1458,7 @@ function render(s) {
 
 // One stream at a time, on the chosen market. Switching tabs closes it and
 // opens the other; the two markets keep running either way.
-let events = null;
+const transport = createTransport({ onState: render, onConnection: connection, reconnect: watch });
 function watch(next) {
   mode = next;
   try {
@@ -2133,44 +1467,21 @@ function watch(next) {
     // a private window: the tab lasts this visit
   }
   for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
-  events?.close();
-  connection(navigator.onLine === false ? "connectionOffline" : state ? "connectionReconnecting" : "connectionConnecting");
-  heardAt = Date.now();
   clearPointer();
-  shown = null;
   cuts = null;
   bankrupt = null;
   popped = null;
   dadAsked = false;
   $("error").textContent = "";
-  const source = events = new EventSource(`/api/events?mode=${mode}`);
-  source.onmessage = async (e) => {
-    if (source !== events) return;
-    try {
-      await receive(JSON.parse(e.data), source);
-    } catch (err) {
-      console.error("render failed", err);
-      if (source === events) connection("connectionReconnecting");
-    }
-  };
-  source.onerror = () => {
-    if (source === events) connection(navigator.onLine === false ? "connectionOffline" : "connectionReconnecting");
-  };
-  source.addEventListener("heartbeat", () => {
-    if (source === events) heardAt = Date.now();
-  });
+  transport.start(mode);
 }
-// A stream can hang without raising an error. Heartbeats arrive every five
-// seconds, including idle rooms; three missed beats open a fresh stream.
-setInterval(() => {
-  if (Date.now() - heardAt > 15_000) watch(mode);
-}, 1000);
-addEventListener("offline", () => {
-  events?.close();
-  connection("connectionOffline");
-});
-addEventListener("online", () => watch(mode));
 for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
+addEventListener("pagehide", (event) => {
+  clearTimeout(connectionTimer);
+  if (event.persisted) { transport.suspend(); clearPointer(); return; }
+  transport.dispose(); chart.dispose(); tutorialUI.dispose();
+});
+addEventListener("pageshow", (event) => { if (event.persisted) watch(mode); });
 translate();
 label();
 watch(mode);
