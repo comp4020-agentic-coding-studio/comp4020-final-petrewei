@@ -9,7 +9,7 @@ import type { RoundState, Sent, TutorialState } from "../public/protocol.js";
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { gzipSync } from "node:zlib";
 import { join } from "node:path";
@@ -244,12 +244,24 @@ export function createApp(options: AppOptions = {}) {
     // it back. Past 4 MB the older half is dropped, so it can't fill the volume.
     type Line = { t: string; who: string; ev: string } & Record<string, unknown>;
     const ACTIVITY_MAX = 4_000_000;
-    function readActivity(): Line[] {
+    // The log's lines, or only those in its last `tail` bytes: the operator's page shows the last few hundred, so a
+    // start reads the end of a file that may be megabytes long, not all of it. A line cut by the tail's start is dropped.
+    function readActivity(tail = Infinity): Line[] {
       if (!existsSync(ACTIVITY)) return [];
+      const size = statSync(ACTIVITY).size;
+      let text: string;
+      if (size <= tail) text = readFileSync(ACTIVITY, "utf8");
+      else {
+        const bytes = Buffer.alloc(tail);
+        const fd = openSync(ACTIVITY, "r");
+        try { readSync(fd, bytes, 0, tail, size - tail); } finally { closeSync(fd); }
+        const read = bytes.toString("utf8");
+        text = read.slice(read.indexOf("\n") + 1);
+      }
       const lines: Line[] = [];
-      for (const text of readFileSync(ACTIVITY, "utf8").split("\n")) {
+      for (const line of text.split("\n")) {
         try {
-          if (text) lines.push(JSON.parse(text) as Line);
+          if (line) lines.push(JSON.parse(line) as Line);
         } catch {
           // a line cut short by a hard kill
         }
@@ -264,7 +276,7 @@ export function createApp(options: AppOptions = {}) {
     }
     trimActivity();
     repeat(trimActivity, 3_600_000).unref();
-    const recent: Line[] = readActivity().slice(-300);
+    const recent: Line[] = readActivity(256_000).slice(-300);
 
     // The log records people and rounds. The bots trade every few seconds and
     // would bury two classmates' lines in `flyctl logs`, so they are left out;
