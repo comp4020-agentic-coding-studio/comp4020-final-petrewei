@@ -29,8 +29,8 @@ it("cleans up earlier resources when a later persisted dependency refuses startu
   const clock = new ManualClock(Date.parse("2026-11-04T10:00:00Z"));
   try {
     // a file a newer version wrote, which this one must refuse
-    writeFileSync(join(dir, "marathon.json"), JSON.stringify({}));
-    writeFileSync(join(dir, "marathon.json.version"), "99\n");
+    writeFileSync(join(dir, "live.json"), JSON.stringify({}));
+    writeFileSync(join(dir, "live.json.version"), "99\n");
     expect(() => createApp({ dataDir: dir, clock })).toThrow(/Unsupported storage version/);
     expect(clock.pending).toBe(0);
   } finally { rmSync(dir, { recursive: true, force: true }); }

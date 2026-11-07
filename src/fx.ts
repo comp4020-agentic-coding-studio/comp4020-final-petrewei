@@ -40,6 +40,24 @@ export const CAP = 30;
 // A stop loss or take profit is set one of these distances away, in percent (ADR 0064).
 export const DISTANCES = [1, 2, 5, 10, 20, 50];
 const inRange = (pct: number): boolean => DISTANCES.includes(pct);
+// Why an exit `pct` percent away is refused, or null when it is one of the distances or none (ADR 0064). The words are
+// the page's key to translate them, the same from both desks.
+export function exitRefusal(kind: "stop" | "take", pct: number | null | undefined): string | null {
+  return pct == null || inRange(pct) ? null : `A ${kind === "stop" ? "Stop Loss" : "Take Profit"} must be 1%, 2%, 5%, 10%, 20% or 50% away.`;
+}
+// The price `pct` percent from `mid`, on the side `sign` names: up for 1, down for -1.
+export const awayFrom = (mid: number, pct: number, sign: number): number => mid * (1 + (sign * pct) / 100);
+// Emergency credit's step (ADR 0080), for any desk: how much a draw adds with `debt` owed, or why none; how much a
+// repayment takes from `free` cash, whole dollars, what is owed rounding up so the last of it is repaid, or why none.
+export function borrowStep(debt: number): number | string {
+  const room = Math.floor(LIMIT - debt);
+  return room <= 0 ? "Your credit line is used up." : Math.min(STEP, room);
+}
+export function repayStep(debt: number, free: number): number | string {
+  if (debt <= 0) return "You owe nothing.";
+  const pay = Math.min(STEP, Math.ceil(debt), Math.floor(free));
+  return pay <= 0 ? "You have no free cash to repay with." : pay;
+}
 // The numbers a page shows from the desk's rules, sent with every state so it keeps no copy.
 export const RULES = { cap: CAP, fee: FEE, step: STEP, limit: LIMIT, tiers: TIERS.map(([upTo, rate]) => [Number.isFinite(upTo) ? upTo : null, rate]), distances: DISTANCES };
 export const BROKE = 1_000;
@@ -83,9 +101,9 @@ export type Trade = { side: Side; leverage: number; entry: number; exit: number;
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "pending-refused"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean; reason?: string };
 
-const half = SPREAD / 2;
+export const half = SPREAD / 2;
 // Players buy at the ask and sell at the bid.
-const fill = (mid: number, side: Side): number => mid * (1 + side * half);
+export const fill = (mid: number, side: Side): number => mid * (1 + side * half);
 // The prices a sell and a buy fill at now, for a page to show.
 export const quote = (mid: number): { bid: number; ask: number } => ({ bid: fill(mid, -1), ask: fill(mid, 1) });
 
@@ -168,8 +186,8 @@ export class Desk {
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
     if (!(share > 0 && share <= 1)) return "Margin must be between 0 and 1.";
-    if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
-    if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    const refused = exitRefusal("stop", with_.sl) ?? exitRefusal("take", with_.tp);
+    if (refused) return refused;
     if (account.pos && account.pos.side !== side) return this.close(who);
     const margin = shareMargin(this.equity(who), this.used(who), share);
     if (margin <= 0) return "No free margin left.";
@@ -178,7 +196,7 @@ export class Desk {
     account.traded = true;
     const pos = account.pos;
     if (!pos) {
-      const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : this.price * (1 + (sign * pct) / 100));
+      const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : awayFrom(this.price, pct, sign));
       account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: away(with_.sl, -side), take: away(with_.tp, side), called: false, fees: 0 };
       return [{ kind: "open", who, price: this.price, pnl: 0, leverage, side }];
     }
@@ -201,8 +219,8 @@ export class Desk {
     if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
     if (r.at === this.price) return "That is the price now. Buy or Sell instead.";
     if (Math.abs(r.at / this.price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
-    if (r.sl != null && !inRange(r.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
-    if (r.tp != null && !inRange(r.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    const refused = exitRefusal("stop", r.sl) ?? exitRefusal("take", r.tp);
+    if (refused) return refused;
     // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
     const below = r.at < this.price;
     const limit = (r.side === 1) === below;
@@ -236,9 +254,10 @@ export class Desk {
   // A stop `pct` percent from the current price on the losing side, or no
   // stop with null: what a player asks for, set from the desk's own price.
   stopAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    const refused = exitRefusal("stop", pct);
+    if (refused) return refused;
     const pos = this.account(who).pos;
-    return this.stop(who, pos && pct !== null ? this.price * (1 - (pos.side * pct) / 100) : null);
+    return this.stop(who, pos && pct !== null ? awayFrom(this.price, pct, -pos.side) : null);
   }
 
   // A stop closes the position once the price reaches it, filling at that
@@ -255,9 +274,10 @@ export class Desk {
   // A take profit `pct` percent from the price on the winning side, or none
   // with null (ADR 0032).
   takeAway(who: string, pct: number | null): string | null {
-    if (pct !== null && !inRange(pct)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
+    const refused = exitRefusal("take", pct);
+    if (refused) return refused;
     const pos = this.account(who).pos;
-    return this.take(who, pos && pct !== null ? this.price * (1 + (pos.side * pct) / 100) : null);
+    return this.take(who, pos && pct !== null ? awayFrom(this.price, pct, pos.side) : null);
   }
 
   // A take profit closes the position once the price reaches it, at that
@@ -367,9 +387,8 @@ export class Desk {
   // cut out of it, since the credit is what lets them trade again.
   borrow(who: string): string | null {
     const account = this.account(who);
-    const room = Math.floor(LIMIT - account.debt);
-    if (room <= 0) return "Your credit line is used up.";
-    const take = Math.min(STEP, room);
+    const take = borrowStep(account.debt);
+    if (typeof take === "string") return take;
     account.balance += take;
     account.debt += take;
     account.out = false;
@@ -381,10 +400,8 @@ export class Desk {
   // Repay a step, or what is owed if less, from free cash, which is the balance less the margin in use.
   repay(who: string): string | null {
     const account = this.account(who);
-    if (account.debt <= 0) return "You owe nothing.";
-    // whole dollars, as the balance is kept; what is owed rounds up, so the last of it is repaid
-    const pay = Math.min(STEP, Math.ceil(account.debt), Math.floor(account.balance - this.used(who)));
-    if (pay <= 0) return "You have no free cash to repay with.";
+    const pay = repayStep(account.debt, account.balance - this.used(who));
+    if (typeof pay === "string") return pay;
     account.balance -= pay;
     account.debt = Math.max(0, account.debt - pay);
     return null;

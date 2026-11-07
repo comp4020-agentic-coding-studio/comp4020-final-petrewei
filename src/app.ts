@@ -1177,6 +1177,32 @@ export function createApp(options: AppOptions = {}) {
 
     // Lobby prices stand still, but presence and the right to end a round can
     // change at any time. Tell idle pages on every tab as well as trading ones.
+    // What a request needs of a tab, whatever kind of market it is: the visitor's state, what happens when they open
+    // its page, and anything after the page has its first state. Routing reads the tab from this table, not by kind.
+    type Room = { view: (who: string) => object; enter: (who: string) => void; opened: () => void };
+    const roundRoom = (market: Market): Room => ({
+      view: (who) => market.view(who),
+      enter: (who) => {
+        // opening the tab joins the round in progress with a fresh account, and the room hears it
+        if (market.phase !== "break" && !market.desk.players().includes(who)) {
+          market.desk.join(who);
+          market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
+        }
+      },
+      // a page opened or refreshed on Random's lobby brings the latest rate, without holding the page for the fetch
+      // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
+      opened: () => {
+        if (market.mode === "random" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
+      },
+    });
+    const rooms: Record<Mode | "live" | "tutorial", Room> = {
+      rewind: roundRoom(markets.rewind),
+      random: roundRoom(markets.random),
+      // Live polls for prices only while someone has its tab open (ADR 0087)
+      live: { view: (who) => liveMarket.view(who, headCounts()), enter: () => liveMarket.wake(), opened: () => {} },
+      tutorial: { view: (who) => tutorialView(who), enter: () => {}, opened: () => {} },
+    };
+
     // Every page on every tab redraws: a person entered, left, or renamed themselves or their face.
     function broadcastAll(except?: Listener): void {
       for (const m of MODES) markets[m].broadcast(false, except);
@@ -1428,28 +1454,17 @@ export function createApp(options: AppOptions = {}) {
         return json(res, 200, { here: here(), rooms, recent: recent.slice(-150).toReversed() });
       }
 
-      // Opening a tab joins that market's round in progress with a fresh
-      // account; switching tabs opens a new stream on the other market.
+      // Opening a tab opens a stream of its room's state; switching tabs opens a new stream on the other room.
       if (req.method === "GET" && path === "/api/events") {
         const mode = tabOf(url.searchParams.get("mode"));
-        const market = mode === "rewind" || mode === "random" ? markets[mode] : null;
+        const room = rooms[mode];
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
         const listener: Listener = { res, who, mode };
         const already = ids().has(who);
         listeners.add(listener);
         log(who, already ? "tab" : "join", { mode, ...(already ? {} : { here: here() }) });
-        if (market) {
-          if (market.phase !== "break" && !market.desk.players().includes(who)) {
-            market.desk.join(who);
-            market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
-          }
-          res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
-        } else if (mode === "live") {
-          res.write(`data: ${JSON.stringify(liveMarket.view(who, headCounts()))}\n\n`);
-          liveMarket.wake();
-        } else {
-          res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
-        }
+        room.enter(who);
+        res.write(`data: ${JSON.stringify(room.view(who))}\n\n`);
         // The page's close runs later, outside this request; it keeps the ID
         // of the request that opened it, so its join and leave pair up.
         const opened = requests.getStore();
@@ -1459,17 +1474,12 @@ export function createApp(options: AppOptions = {}) {
           broadcastAll();
         });
         broadcastAll(listener);
-        // a page opened or refreshed on Random's lobby brings the latest rate, without holding the page for the fetch
-        // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
-        if (market?.mode === "random" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
+        room.opened();
         return;
       }
 
       if (req.method === "GET" && path === "/api/state") {
-        const asked = tabOf(url.searchParams.get("mode"));
-        if (asked === "tutorial") return json(res, 200, tutorialView(who));
-        if (asked === "live") return json(res, 200, liveMarket.view(who, headCounts()));
-        return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
+        return json(res, 200, rooms[tabOf(url.searchParams.get("mode"))].view(who));
       }
 
       // A person's trader name: GET draws one to try, POST chooses one. Every

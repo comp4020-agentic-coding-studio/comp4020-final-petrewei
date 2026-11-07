@@ -107,7 +107,7 @@ export class Live {
       this.store.write(data);
       this.dirty = false;
     } catch (e) {
-      console.error("marathon save failed:", e instanceof Error ? e.message : "unknown");
+      console.error("live save failed:", e instanceof Error ? e.message : "unknown");
     }
   }
 
@@ -243,7 +243,7 @@ export class Live {
       this.accounts.delete(k);
       this.waits.set(k, until);
       this.say(`${this.names.get(k) ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: k.slice(0, 6), name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? -1, days: days(now - a.opened) });
-      this.log(null, "marathon-bankrupt", { code: k.slice(0, 6), days: days(now - a.opened), peak: a.peak });
+      this.log(null, "live-bankrupt", { code: k.slice(0, 6), days: days(now - a.opened), peak: a.peak });
       this.dirty = true;
     }
   }
@@ -310,9 +310,9 @@ export class Live {
       this.accounts.set(k, a);
       this.waits.delete(k);
       this.selections.delete(k);
-      this.log(who, "marathon-open", {});
+      this.log(who, "live-open", {});
     }
-    this.log(who, `marathon-${kind}`, { pair });
+    this.log(who, `live-${kind}`, { pair });
     this.dirty = true;
     this.report(k, enforce(a, usd, now));
     this.bust(now, usd);

@@ -288,7 +288,7 @@ it("waits for missing history, then settles a missed bankruptcy before a new tra
   let releaseNews!: () => void;
   const news = new News(async () => "");
   news.banks = () => new Promise((resolve) => { releaseNews = () => resolve([]); });
-  const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "losscut-live-test-"));
   const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => {
     m.save();
@@ -324,7 +324,7 @@ it("trades again after a sleep longer than the source's month of history, rather
   }, () => now);
   const news = new News(async () => "");
   news.banks = async () => [];
-  const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "losscut-live-test-"));
   const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   await m.refresh(now);

@@ -3,12 +3,10 @@
 // counts in dollars at the rate now. The broker's rules act on the whole account: a margin call at 50% of the margin in
 // use and a stop-out at 20%, which closes everything. The fee and the credit's interest are charged each fifteen
 // minutes of real time, the game's tick, so a night's position pays a night's fee.
-import { CALL, DISTANCES, feeRate, LEVERAGES, LIMIT, SPREAD, STEP, START, STOP_OUT, dailyRate, type Side } from "./fx.ts";
+import { CALL, awayFrom, borrowStep, dailyRate, exitRefusal, feeRate, fill, half, LEVERAGES, repayStep, START, STOP_OUT, type Side } from "./fx.ts";
 import { convert, type Currency, type Usd, cross } from "./feed.ts";
 import { shareMargin } from "../public/ticket.js";
 
-const half = SPREAD / 2;
-const fill = (mid: number, side: Side): number => mid * (1 + side * half);
 const SLOTS_A_DAY = 96;
 // Under this much net worth, with nothing open, an account is bankrupt: too little to trade, and borrowing adds as much
 // debt as cash, so it cannot be saved.
@@ -80,7 +78,8 @@ function settle(a: BookAccount, pair: string, usd: Usd, how: BookTrade["how"], n
 export function order(a: BookAccount, pair: string, usd: Usd, side: Side, leverage: number, share: number, exits: { sl?: number | null; tp?: number | null }, now: number): BookFill[] | string {
   if (!LEVERAGES.includes(leverage)) return "No such leverage.";
   if (!(share > 0 && share <= 1)) return "Margin must be between 0 and 1.";
-  for (const [d, name] of [[exits.sl, "Stop Loss"], [exits.tp, "Take Profit"]] as const) if (d != null && !DISTANCES.includes(d)) return `A ${name} must be 1%, 2%, 5%, 10%, 20% or 50% away.`;
+  const refused = exitRefusal("stop", exits.sl) ?? exitRefusal("take", exits.tp);
+  if (refused) return refused;
   const pos = a.positions[pair];
   if (pos && pos.side !== side) return [settle(a, pair, usd, "close", now)];
   const margin = shareMargin(equity(a, usd), used(a), share);
@@ -90,7 +89,7 @@ export function order(a: BookAccount, pair: string, usd: Usd, side: Side, levera
   // the dollars it controls, in units of the pair's base currency
   const units = (margin * leverage) / convert(usd, baseOf(pair), "AUD");
   if (!pos) {
-    const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : mid * (1 + (sign * pct) / 100));
+    const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : awayFrom(mid, pct, sign));
     a.positions[pair] = { side, units, entry: price, margin, leverage, stop: away(exits.sl, -side), take: away(exits.tp, side), fees: 0, opened: now };
     return [{ kind: "open", pair, price: mid, pnl: 0, leverage, side }];
   }
@@ -111,10 +110,11 @@ export function close(a: BookAccount, pair: string, usd: Usd, now: number): Book
 export function exit(a: BookAccount, pair: string, usd: Usd, kind: "stop" | "take", pct: number | null): string | null {
   const pos = a.positions[pair];
   if (!pos) return "Open a position first.";
-  if (pct !== null && !DISTANCES.includes(pct)) return `A ${kind === "stop" ? "Stop Loss" : "Take Profit"} must be 1%, 2%, 5%, 10%, 20% or 50% away.`;
+  const refused = exitRefusal(kind, pct);
+  if (refused) return refused;
   const mid = cross(usd, pair);
   const sign = kind === "stop" ? -pos.side : pos.side;
-  pos[kind] = pct === null ? null : mid * (1 + (sign * pct) / 100);
+  pos[kind] = pct === null ? null : awayFrom(mid, pct, sign);
   return null;
 }
 
@@ -152,17 +152,15 @@ export function charge(a: BookAccount): void {
 }
 
 export function borrow(a: BookAccount): string | null {
-  const room = Math.floor(LIMIT - a.debt);
-  if (room <= 0) return "Your credit line is used up.";
-  const take = Math.min(STEP, room);
+  const take = borrowStep(a.debt);
+  if (typeof take === "string") return take;
   a.balance += take;
   a.debt += take;
   return null;
 }
 export function repay(a: BookAccount): string | null {
-  if (a.debt <= 0) return "You owe nothing.";
-  const pay = Math.min(STEP, Math.ceil(a.debt), Math.floor(a.balance - used(a)));
-  if (pay <= 0) return "You have no free cash to repay with.";
+  const pay = repayStep(a.debt, a.balance - used(a));
+  if (typeof pay === "string") return pay;
   a.balance -= pay;
   a.debt = Math.max(0, a.debt - pay);
   return null;
