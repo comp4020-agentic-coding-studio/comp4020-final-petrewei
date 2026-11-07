@@ -27,13 +27,13 @@ export const LIMIT = 10_000;
 // A day's interest on what is owed, by the most owed in that tier (ADR 0085): 0.5% a day up to A$3,000, 1% to
 // A$6,000, 1.5% above, about 180% to 550% a year. A loan shark's rate, far over any legal one, as the comic's lenders
 // are; a legal rate would cost nothing in five days, and this costs the whole line about 8% of itself in a round.
-export const TIERS: [number, number][] = [[3_000, 0.005], [6_000, 0.01], [Infinity, 0.015]];
+const TIERS: [number, number][] = [[3_000, 0.005], [6_000, 0.01], [Infinity, 0.015]];
 export const dailyRate = (debt: number): number => TIERS.find(([upTo]) => debt <= upTo)![1];
 // The financing fee (ADR 0058): each tick an open position pays its margin
 // times FEE times its leverage squared, so the more is borrowed, the faster
 // the fee eats the account: over a five-day round of 480 ticks (ADR 0085), 0.04% of the margin at 30×, 0.5% at 100×,
 // 4.3% at 300× and 48% at 1000×.
-export const FEE = 1e-9;
+const FEE = 1e-9;
 export const feeRate = (leverage: number): number => FEE * leverage * leverage;
 // Australia's legal cap for retail traders on major pairs, which is a rung of the ladder.
 export const CAP = 30;
@@ -77,7 +77,7 @@ export type PendingType = "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop";
 export type Pending = { type: PendingType; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null };
 export type PendRequest = { side: Side; at: number; leverage: number; share: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
-export const PEND_RANGE = 0.5;
+const PEND_RANGE = 0.5;
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
 export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };

@@ -2,7 +2,7 @@ import { element } from "./dom.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanOf, stack } from "./indicators.js";
 import { place, windowed } from "./view.js";
 import { svg } from "./avatars.js";
-import { quoted } from "./format.js";
+import { locale, quoted, tone } from "./format.js";
 import { pct } from "./ticket.js";
 /** @param {{ getState: () => import("./protocol.js").State | null, getLanguage: () => "en" | "ja" | "zh", t: (key: string) => string }} options */
 export function createChart({ getState, getLanguage, t }) {
@@ -11,7 +11,6 @@ export function createChart({ getState, getLanguage, t }) {
   if (!(canvasNode instanceof HTMLCanvasElement)) throw new Error("Expected chart canvas");
   const canvas = canvasNode;
   /** @param {number} n */
-  const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
   /** @param {import("./protocol.js").State} s */
   const perDay = (s) => s.dayTicks / s.steps;
   /** @type {(() => void)[]} */
@@ -172,7 +171,7 @@ export function createChart({ getState, getLanguage, t }) {
       ctx.lineTo(xd, h + pane);
       ctx.stroke();
       // Live's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
-      const dayName = s.mode === "live" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(getLanguage() === "en" ? "en-AU" : getLanguage(), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
+      const dayName = s.mode === "live" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(locale(getLanguage()), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
       if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
     }
     // A day's indicator sits at its candle's centre; today's at the price.

@@ -15,7 +15,7 @@ import { place, windowed } from "/view.js";
 import { SHARES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { quoted } from "/format.js";
+import { quoted, sydneyTime, tone } from "/format.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -71,8 +71,8 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
   $("lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
-  // the row's button is the step alone, signed, to keep the row on one line; its name and tip say it borrows
-  // words only, so the row holds what is owed, the rate and the button on one line, as the position's empty line does
+  // the row's button is words alone, no art, so the row holds what is owed, the rate and the button on one line, as the
+  // position's empty line does
   $("credit-borrow").textContent = t("borrow", { amount: money(lang, broker.step) });
   $("credit-borrow").setAttribute("aria-label", t("borrow", { amount: money(lang, broker.step) }));
   if (state?.lesson) lesson(state);
@@ -110,7 +110,7 @@ function connection(status) {
 }
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
-// Loans the player has taken, as last seen; null before the first state.
+// Whether the player was bankrupt in the last state, so the stamp shows once as it begins; null before the first state.
 let bankrupt = null;
 // The last pop shown, by number; the first message's pops are old news.
 let popped = null;
@@ -387,10 +387,9 @@ for (const [id, way, emoji] of [["pray-rise", 1, "🚀"], ["pray-fall", -1, "�
     act("pray", { way });
   };
 }
-// Achievements (ADR 0082): the server sends the names earned; the dialog is a checklist of all of them, each named with
-// what it takes, the earned ones ticked first, and a bar for how far along, under the hall of fame (ADR 0084).
-// A trader's achievements in the dialog: every one named with what it takes, the earned ones ticked first, and a bar
-// for how far along (ADR 0082, 0085). Anyone's, opened from their row in the hall, or your own from the hall's heading.
+// A trader's achievements in the dialog (ADRs 0082, 0084, 0085): the server sends the names earned, and the dialog lists
+// every one with what it takes, the earned ones ticked first, and a bar for how far along. Anyone's, opened from their
+// row in the hall, or your own from the hall's heading.
 function showFeats(name, list) {
   const earned = new Set(list);
   const all = Object.keys(T.en.ui.feats);
@@ -867,7 +866,7 @@ function realCalendar(s) {
   const rows = on ? s.calendar ?? [] : [];
   const banks = on ? s.bankNews ?? [] : [];
   $("real-calendar").hidden = !rows.length && !banks.length;
-  const when = (at) => new Date(at).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" });
+  const when = (at) => sydneyTime(at, lang);
   $("real-calendar").replaceChildren(
     ...rows.map((c) => {
       const li = document.createElement("li");
@@ -924,7 +923,6 @@ function rich(text, slots) {
   });
 }
 
-const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
 const accountPanel = createAccountPanel({ root: document, cash });
 const chart = createChart({ getState: () => state, getLanguage: () => lang, t });
 const draw = chart.draw;
@@ -1059,9 +1057,9 @@ function render(s) {
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
-  const marathon = s.mode === "live";
+  const onLive = s.mode === "live";
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
-  document.body.classList.toggle("live", marathon);
+  document.body.classList.toggle("live", onLive);
   // End is the starter's, in a trading round.
   $("finish").hidden = !(s.phase === "trade" && s.rules);
   // 2× (ADR 0085): the ruler's to press; when it is on, everyone sees the lit button, pressable or not
@@ -1126,7 +1124,7 @@ function render(s) {
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
   // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
   // Live's clock is Sydney's time of the last price (ADR 0087)
-  const sydney = s.priceAt ? new Date(s.priceAt).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+  const sydney = s.priceAt ? sydneyTime(s.priceAt, lang) : "—";
   const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
   $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clock}Short`, clockValues);
   const clockLabel = s.historyGap ? t("liveGap") : t(clock, clockValues);
@@ -1154,7 +1152,7 @@ function render(s) {
   // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
   // whenever the price stands still).
   // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
-  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" && (!marathon || !y.out);
+  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" && (!onLive || !y.out);
   $("credit-owe").textContent = y.debt ? cash(y.debt) : t("creditFree");
   // how much of the line is drawn, as a bar
   $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
@@ -1186,7 +1184,7 @@ function render(s) {
     $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = cash(y.pos.margin);
     // in Live the row is the chart's pair, one of several open, so its own result (ADR 0087)
-    const rowPnl = marathon ? (y.positions.find((p) => p.pair === s.pair)?.pnl ?? 0) : y.pnl;
+    const rowPnl = onLive ? (y.positions.find((p) => p.pair === s.pair)?.pnl ?? 0) : y.pnl;
     $("pos-pnl").textContent = cash(rowPnl);
     $("pos-pnl").className = tone(rowPnl);
     // the return on the margin is what the game ranks by, so it is the row's loudest figure
@@ -1239,7 +1237,7 @@ function render(s) {
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
-  if (marathon && !y.pos) $("position").textContent = y.out ? t("liveClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "liveOther" : "noPos") : t(s.historyGap ? "liveGap" : "liveShut");
+  if (onLive && !y.pos) $("position").textContent = y.out ? t("liveClosed", { at: s.reopens ? sydneyTime(s.reopens, lang) : "—" }) : s.live ? t(y.positions.length ? "liveOther" : "noPos") : t(s.historyGap ? "liveGap" : "liveShut");
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;

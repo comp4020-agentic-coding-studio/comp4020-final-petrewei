@@ -5,6 +5,7 @@
 // Japanese and mainland Chinese retail traders and brokers actually say.
 // Shared by the market page and test/i18n.test.ts.
 
+import { aud } from "./format.js";
 import { CLUES, EVENTS, LESSONS, LINES, NEWS, RELEASES, SITUATIONS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
@@ -12,10 +13,7 @@ export const LANGS = ["en", "ja", "zh"];
 // Australian dollars as A$ in every language (ADR 0087, after ADR 0078's ¥): every account is in Australian dollars,
 // an ANU project's home currency, and A$ reads the same on every page, short beside the figures. Whole dollars, as the
 // desk keeps them.
-export function money(lang, n) {
-  const sign = n < 0 ? "−" : "";
-  return `${sign}A$${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
-}
+export const money = (_lang, n) => aud(n);
 
 // Fills {name} slots. A slot holding money is formatted for the language.
 function fill(lang, text, args, nameOf) {
@@ -216,7 +214,6 @@ export const T = {
       loansOwed: "Loans owed",
       returnPoints: "Return → points",
       cutPenalty: "Forced cuts ({n})",
-      loanPenalty: "Loans taken ({n})",
       bankruptPenalty: "Bankrupt",
       interestPaid: "Credit interest",
       yearBonus: "Year guess bonus",
@@ -238,9 +235,6 @@ export const T = {
       creditOfferNo: "Not now",
       bankruptText: "You owe more than you have.",
       bankruptBig: "Bankrupt!",
-      creditTitle: "Credit",
-      creditOweLabel: "Owed",
-      creditRateLabel: "Interest",
       creditRate: "{rate}/day · {year}/yr",
       creditFree: "No debt",
       repay: "Repay",
@@ -324,7 +318,6 @@ export const T = {
       thPnlPct: "P&L %",
       thAt: "At",
       historyTitle: "Closed Trades",
-      featsTitle: "Achievements",
       featsMine: "My achievements",
       featsOf: "{name}'s achievements",
       featsOpen: "{name}'s achievements: {n} of {of}",
@@ -397,7 +390,6 @@ export const T = {
       guessGo: "Guess",
       guessed: "🎯 {year}",
       bonus: "+{n} for the year",
-      thProfit: "Profit",
       thBestPct: "Best",
       fameEmpty: "No one has finished a round yet. Be the first.",
       thTrend: "Last 20",
@@ -734,7 +726,6 @@ export const T = {
       loansOwed: "借入残高",
       returnPoints: "損益率 → ポイント",
       cutPenalty: "強制ロスカット（{n}回）",
-      loanPenalty: "借入回数（{n}回）",
       bankruptPenalty: "破産",
       interestPaid: "クレジットの利息",
       yearBonus: "年当てボーナス",
@@ -756,9 +747,6 @@ export const T = {
       creditOfferNo: "やめておく",
       bankruptText: "借金が資産を上回っています。",
       bankruptBig: "破産！",
-      creditTitle: "クレジット",
-      creditOweLabel: "借入残高",
-      creditRateLabel: "金利",
       creditRate: "1日{rate}・年{year}",
       creditFree: "借入なし",
       repay: "返済",
@@ -842,7 +830,6 @@ export const T = {
       thPnlPct: "損益率",
       thAt: "注文価格",
       historyTitle: "決済履歴",
-      featsTitle: "実績",
       featsMine: "自分の実績",
       featsOf: "{name}の実績",
       featsOpen: "{name}の実績：{of}個中{n}個",
@@ -914,7 +901,6 @@ export const T = {
       guessGo: "予想",
       guessed: "🎯 {year}年",
       bonus: "年当て +{n}",
-      thProfit: "損益",
       thBestPct: "最高",
       fameEmpty: "まだ誰もラウンドを終えていません。一番乗りをどうぞ。",
       thTrend: "直近20回",
@@ -1250,7 +1236,6 @@ export const T = {
       loansOwed: "待还欠款",
       returnPoints: "收益率 → 得分",
       cutPenalty: "强制平仓（{n}次）",
-      loanPenalty: "“借钱”（{n}次）",
       bankruptPenalty: "破产",
       interestPaid: "信贷利息",
       yearBonus: "猜年份奖励",
@@ -1272,9 +1257,6 @@ export const T = {
       creditOfferNo: "先不要",
       bankruptText: "你欠的比你有的还多。",
       bankruptBig: "破产！",
-      creditTitle: "信贷",
-      creditOweLabel: "欠款",
-      creditRateLabel: "利率",
       creditRate: "日息{rate} · 年化{year}",
       creditFree: "无欠款",
       repay: "还款",
@@ -1359,7 +1341,6 @@ export const T = {
       thPnlPct: "盈亏率",
       thAt: "价位",
       historyTitle: "已平仓交易",
-      featsTitle: "成就",
       featsMine: "我的成就",
       featsOf: "{name}的成就",
       featsOpen: "{name}的成就：{of}个中{n}个",
@@ -1431,7 +1412,6 @@ export const T = {
       guessGo: "竞猜",
       guessed: "🎯 {year}年",
       bonus: "猜年份 +{n}",
-      thProfit: "盈亏",
       thBestPct: "最佳",
       fameEmpty: "还没有人打完一局。来当第一个吧。",
       thTrend: "近20局",

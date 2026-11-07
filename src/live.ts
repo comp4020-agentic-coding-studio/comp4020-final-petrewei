@@ -11,6 +11,7 @@ import type { LiveState } from "../public/protocol.js";
 import { join } from "node:path";
 import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
+import { tradeAction } from "./actions.ts";
 import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
 import { News } from "./news.ts";
 import { PAIRS, type Pair } from "./market.ts";
@@ -288,19 +289,18 @@ export class Live {
     const usd = this.quotes.latest();
     if (this.gap) return "Live is waiting for missing price history.";
     if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
+    // the same decoder as the round markets', so an old page's fields are read the same way; Live has no prayer and
+    // no pending order, which it refuses as unknown
+    const action = tradeAction(input);
     let result: BookFill[] | string | null;
-    if (kind === "buy" || kind === "sell") {
-      const dist = (v: unknown) => (typeof v === "number" ? v : null);
-      const side = kind === "buy" ? 1 : -1;
-      const leverage = Number(input.leverage);
-      const share = typeof input.share === "number" ? input.share : typeof input.stake === "number" ? input.stake : 1;
-      result = order(a, pair, usd, side, leverage, share, { sl: dist(input.sl), tp: dist(input.tp) }, now);
-    } else if (kind === "close") {
+    if (action?.kind === "order") {
+      result = order(a, pair, usd, action.side, action.leverage, action.share ?? 1, { sl: action.sl, tp: action.tp }, now);
+    } else if (action?.kind === "close") {
       result = close(a, pair, usd, now);
-    } else if (kind === "stop" || kind === "take") {
-      result = exit(a, pair, usd, kind, typeof input.pct === "number" ? input.pct : null);
-    } else if (kind === "borrow" || kind === "repay") {
-      result = kind === "borrow" ? borrow(a) : repay(a);
+    } else if (action?.kind === "stop" || action?.kind === "take") {
+      result = exit(a, pair, usd, action.kind, action.pct);
+    } else if (action?.kind === "borrow" || action?.kind === "repay") {
+      result = action.kind === "borrow" ? borrow(a) : repay(a);
       if (!result) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
     } else return "Unknown action.";
     if (typeof result === "string") return result;

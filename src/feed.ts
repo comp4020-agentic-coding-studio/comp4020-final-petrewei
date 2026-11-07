@@ -7,7 +7,7 @@ import { CURRENCIES, SLOT_MS, SYMBOLS, parseQuotes, type Currency, type Fetcher,
 import { SETTLED_MS, slotQuality, type Quality } from "./history-policy.ts";
 import { yahoo } from "./yahoo.ts";
 export { CURRENCIES, SLOT_MS, type Currency, type Fetcher, type Usd } from "./quotes.ts";
-export const STALE_MS = 10 * 60_000;
+const STALE_MS = 10 * 60_000;
 const KEEP = 96 * 6;
 const currenciesFor = (pairs: readonly string[]): Set<Currency> => new Set<Currency>(["AUD", ...pairs.flatMap((pair) => pair.split("/") as Currency[])]);
 export const cross = (usd: Usd, pair: string): number => {
@@ -153,4 +153,3 @@ export class Feed {
   }
 }
 
-export const LIVE_PAIRS: readonly Pair[] = PAIRS;

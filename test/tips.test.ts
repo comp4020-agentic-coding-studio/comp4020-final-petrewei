@@ -249,7 +249,7 @@ const titleCase = (text: string): boolean => {
   });
 };
 it("writes the English headings and titles in Title Case", () => {
-  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyRewind", "lobbyRandom", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
+  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyRewind", "lobbyRandom", "thTrader", "thRounds", "thAvg", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
   for (const k of keys) expect(titleCase(T.en.ui[k]), `${k}: ${T.en.ui[k]}`).toBe(true);
 });
 it("writes every lesson title and About heading in Title Case", async () => {
@@ -434,7 +434,7 @@ describe("the ticket, the account and the credit pop-up", () => {
     expect(offer.tagName).toBe("DIALOG");
     expect(offer.querySelector("#borrow")).not.toBeNull();
     for (const lang of LANGS) {
-      for (const k of ["borrow", "creditOfferText", "creditOfferTitle", "creditOfferNo", "repay", "bankruptText", "bankruptBig", "creditOweLabel", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      for (const k of ["borrow", "creditOfferText", "creditOfferTitle", "creditOfferNo", "repay", "bankruptText", "bankruptBig", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
       expect(T[lang].ui.creditOfferText, lang).toContain("{rate}");
       expect(T[lang].news.borrowed, lang).toContain("{debt}");
       // Dad's savings are gone from the money's words

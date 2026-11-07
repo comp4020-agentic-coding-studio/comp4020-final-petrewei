@@ -7,7 +7,7 @@ export type Quality = "observed" | "carried" | "pending" | "closed";
 // https://www.oanda.com/us-en/trading/hours-of-operation/
 // https://www.oanda.com/us-en/trading/holiday-trading-hours/
 const sessionClock = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "numeric", day: "numeric", weekday: "short", hour: "numeric", hourCycle: "h23" });
-export function tradingSlot(slot: number): boolean {
+function tradingSlot(slot: number): boolean {
   const parts = sessionClock.formatToParts(new Date(slot * SLOT_MS));
   const weekday = parts.find((part) => part.type === "weekday")!.value;
   const hour = Number(parts.find((part) => part.type === "hour")!.value);

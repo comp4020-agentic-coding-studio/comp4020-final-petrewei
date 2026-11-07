@@ -400,6 +400,34 @@ export function createApp(options: AppOptions = {}) {
       fame = [...ranked.map((r) => ({ ...r, ranked: true })), ...unranked.map((r) => ({ ...r, ranked: false }))].slice(0, 10);
     }
     rank();
+    // The hall as a page is sent it, the same on every tab: each listed trader's achievements are public, as the hall
+    // is (ADR 0085), only the names earned, and which row is the viewer's.
+    const hallRows = () => fame.map(({ key: k, ...c }) => ({ key: k, ...c, recent: c.recent ?? [], feats: FEATS.filter((f) => c.feats?.includes(f)), face: faceAt(k) }));
+    const hallFor = (me: string, rows = hallRows()) => rows.map(({ key: k, ...c }) => ({ ...c, you: k === me }));
+    // Who a visitor is and what their desk account holds, as a round's page and the tutorial's are sent it. `as` is the
+    // account's name on the desk, which is the visitor in a round and "me" in the tutorial; with no account, a fresh one.
+    function youOn(desk: Desk, who: string, as = who) {
+      const a = desk.players().includes(as) ? desk.account(as) : null;
+      return {
+        name: nameOf(who),
+        draw: drawOf(who),
+        named: named(who),
+        face: faceOf(who),
+        code: short(who),
+        balance: a?.balance ?? START,
+        equity: Math.round(a ? desk.equity(as) : START),
+        pnl: Math.round(a ? desk.pnl(as) : 0),
+        level: a?.pos ? Math.round(desk.level(as) * 100) : null,
+        out: a?.out ?? false,
+        // the credit line (ADR 0080): what is owed now, in whole dollars, and whether net worth is under zero
+        debt: Math.round(a?.debt ?? 0),
+        credit: Math.max(0, LIMIT - Math.round(a?.debt ?? 0)),
+        broke: a ? desk.broke(as) : false,
+        bankrupt: a ? desk.bankrupt(as) : false,
+        cuts: a?.cuts ?? 0,
+        pos: a?.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...desk.lines(as) } : null,
+      };
+    }
     function record(who: string): Career | null {
       if (bot(who)) return null;
       career[key(who)] ??= { name: nameOf(who), draw: drawOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0, points: 0 };
@@ -822,7 +850,9 @@ export function createApp(options: AppOptions = {}) {
 
       // Each tick moves the price, lets the bots act, enforces the rules and
       // sends the new state to everyone on this tab.
-      step(): void {
+      // One beat of the clock. `quiet` holds back a trading step's message, so at 2× the second step sends both prices
+      // in one (ADR 0085); the bell, the countdown and a pause always speak.
+      step(quiet = false): void {
         if (this.phase === "lobby") return;
         if (this.phase === "countdown") {
           const go = --this.countdown <= 0;
@@ -893,7 +923,7 @@ export function createApp(options: AppOptions = {}) {
           this.end();
           return this.broadcast(true);
         }
-        this.broadcast();
+        if (!quiet) this.broadcast();
       }
 
       apply(who: string, action: Action): string | null {
@@ -960,7 +990,8 @@ export function createApp(options: AppOptions = {}) {
           return { who: p, id: short(p), name: nameOf(p), draw: drawOf(p), face: faceOf(p), bot: !!bot(p), motto: bot(p)?.motto, equity: Math.round(desk.equity(p) - a.debt), side: a.pos?.side ?? 0, leverage: a.pos?.leverage ?? 0, out: a.out };
         });
         traders.sort((a, b) => b.equity - a.equity);
-        return { traders };
+        // what every view of this broadcast shares, worked out once rather than once per page
+        return { traders, hall: hallRows(), here: headCounts(), calendar: this.calendarView(), pops: this.pops.map(({ at: _at, ...p }) => p) };
       }
 
       // What one visitor sees: the shared chart, everyone's standing, and
@@ -985,16 +1016,16 @@ export function createApp(options: AppOptions = {}) {
           headline: this.headline,
           // Random's calendar (ADR 0085), every release with its day and hour, and the outcome of those already told;
           // what is still to come says nothing of how it will go
-          calendar: this.calendarView(),
+          calendar: shared.calendar,
           // Seconds left in a pause, or null while the market runs.
           paused: this.paused ? Math.ceil((this.paused * TICK_MS) / 1000) : null,
           startedDraw: this.startedBy && drawOf(this.startedBy),
           round: this.count,
           pair: round.pair,
+          // Every pair a Random round may start from, for its lobby's choice; Rewind has none.
+          pairs: this.mode === "random" ? PAIRS : null,
           // Rewind's plots, by number and no more: which plot is on show, of how many. What a
           // plot is, and when, stays secret until the bell. Random has none.
-          // Every pair a Random may start from, for its lobby's choice.
-          pairs: this.mode === "random" ? PAIRS : null,
           rewindPlots: this.mode === "rewind" ? REWIND_PLOTS : null,
           rewindPlot: this.mode === "rewind" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
           digits: this.digits(),
@@ -1011,24 +1042,8 @@ export function createApp(options: AppOptions = {}) {
           prices: round.prices.slice(from, tick + 1),
           breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
           you: {
-            name: nameOf(who),
-            draw: drawOf(who),
-            named: named(who),
-            face: faceOf(who),
-            code: short(who),
-            balance: mine?.balance ?? START,
-            equity: Math.round(mine ? desk.equity(who) : START),
-            pnl: Math.round(mine ? desk.pnl(who) : 0),
-            level: mine?.pos ? Math.round(desk.level(who) * 100) : null,
-            out: mine?.out ?? false,
+            ...youOn(desk, who),
             guess: this.guesses.get(who) ?? null,
-            // the credit line (ADR 0080): what is owed now, in whole dollars, and whether net worth is under zero
-            debt: Math.round(mine?.debt ?? 0),
-            credit: Math.max(0, LIMIT - Math.round(mine?.debt ?? 0)),
-            broke: mine ? desk.broke(who) : false,
-            bankrupt: mine ? desk.bankrupt(who) : false,
-            cuts: mine?.cuts ?? 0,
-            pos: mine?.pos ? { side: mine.pos.side, entry: mine.pos.entry, leverage: mine.pos.leverage, margin: mine.pos.margin, stop: mine.pos.stop, take: mine.pos.take, called: mine.pos.called, ...desk.lines(who) } : null,
             pending: mine?.pending ?? null,
             // the achievements this person has earned, by name, in the order of FEATS (ADR 0082)
             feats: FEATS.filter((f) => career[key(who)]?.feats?.includes(f)),
@@ -1037,17 +1052,16 @@ export function createApp(options: AppOptions = {}) {
           },
           traders: shared.traders.map(({ who: p, ...t }) => ({ ...t, you: p === who })),
           feed: this.pendingNotices.has(who) ? [this.pendingNotices.get(who)!, ...this.feed] : this.feed,
-          pops: this.pops.map(({ at: _at, ...p }) => p),
+          pops: shared.pops,
           marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
           result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
-          // each listed trader's achievements are public, as the hall is (ADR 0085): only the names earned
-          career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], feats: FEATS.filter((f) => c.feats?.includes(f)), face: faceAt(k), you: k === me })),
+          career: hallFor(me, shared.hall),
           leverages: LEVERAGES,
           desk: DESK,
           minRounds: MIN_ROUNDS,
           ...quote(desk.price),
           // How many people are on each tab, for the tab labels.
-          here: headCounts(),
+          here: shared.here,
         };
         return state satisfies RoundState;
       }
@@ -1055,16 +1069,19 @@ export function createApp(options: AppOptions = {}) {
       // The room is worked out once per broadcast and shared by every view.
       // During the break nothing moves but the clock, so after the bell's full
       // message the pages are sent only an empty price list.
-      broadcast(full = false, except?: Listener): void {
+      // `back` sends that many earlier prices too, the ones a quiet step held back.
+      broadcast(full = false, except?: Listener, back = 0): void {
         const shared = this.room();
-        const from = full ? 0 : this.phase === "break" ? this.tick + 1 : this.tick;
+        const from = full ? 0 : this.phase === "break" ? this.tick + 1 : Math.max(0, this.tick - back);
         for (const l of this.listeners()) if (l !== except) l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared))}\n\n`);
       }
     }
 
     const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
     // Live (ADR 0087): one market on real prices that never closes, its accounts kept on the volume.
-    const liveHere = (): number => new Set([...listeners].filter((l) => l.mode === "live").map((l) => l.who)).size;
+    // How many people have a tab open, by tab, however many pages each has; one count for every view.
+    const peopleOn = (mode: Listener["mode"]): number => new Set([...listeners].filter((l) => l.mode === mode).map((l) => l.who)).size;
+    const headCounts = (): Record<string, number> => ({ ...Object.fromEntries(MODES.map((m) => [m, peopleOn(m)])), live: peopleOn("live") });
     // A person's name and draw from their career key alone, for Live's board after a restart: what they chose, or the
     // draw their cookie's hash gives, whose second byte is the key's third and fourth hex characters.
     const nameAt = (k: string): { name: string; draw: Draw | null } => {
@@ -1073,17 +1090,16 @@ export function createApp(options: AppOptions = {}) {
       const draw = c ?? Number.parseInt(k.slice(2, 4), 16) % GIVEN.length;
       return { name: drawn("en", draw), draw };
     };
-    const marathon = new Live(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
+    const liveMarket = new Live(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
       clock, storage, quotes: options.quotes ?? new Feed(undefined, clock.now, env.LIVE_FEED), news: options.news, pollMs: Number(env.LIVE_POLL_MS ?? 5000),
-      watching: liveHere,
+      watching: () => peopleOn("live"),
       onChange: () => sendLive(),
       log: (who, ev, fields) => log(who, ev, fields),
     });
-    disposeMarket = () => marathon.dispose();
-    const headCounts = (): Record<string, number> => ({ ...Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])), live: liveHere() });
+    disposeMarket = () => liveMarket.dispose();
     function sendLive(except?: Listener): void {
       const here = headCounts();
-      for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(`data: ${JSON.stringify(marathon.view(l.who, here))}\n\n`);
+      for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(`data: ${JSON.stringify(liveMarket.view(l.who, here))}\n\n`);
     }
     // The tabs' old ids still lead to them (ADR 0091): replay and simulation, the ids before the tabs were renamed
     // Rewind and Random, history and situation before that, and marathon, Live's id before it was renamed.
@@ -1136,35 +1152,18 @@ export function createApp(options: AppOptions = {}) {
         start: START,
         transport: t.transport,
         lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
-        you: {
-          name: nameOf(who),
-          draw: drawOf(who),
-          named: named(who),
-          face: faceOf(who),
-          code: short(who),
-          balance: a.balance,
-          equity: Math.round(t.desk.equity("me")),
-          pnl: Math.round(t.desk.pnl("me")),
-          level: a.pos ? Math.round(t.desk.level("me") * 100) : null,
-          out: a.out,
-          debt: Math.round(a.debt),
-          credit: Math.max(0, LIMIT - Math.round(a.debt)),
-          broke: t.desk.broke("me"),
-          bankrupt: t.desk.bankrupt("me"),
-          cuts: a.cuts,
-          pos: a.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...t.desk.lines("me") } : null,
-        },
+        you: youOn(t.desk, who, "me"),
         traders: [],
         feed: t.feed,
         pops: [],
         result: null,
         // the same hall as a market's, so the page draws it the same way (ADR 0085)
-        career: fame.map(({ key: k, ...c }) => ({ ...c, recent: c.recent ?? [], feats: FEATS.filter((f) => c.feats?.includes(f)), face: faceAt(k), you: k === key(who) })),
+        career: hallFor(key(who)),
         leverages: LEVERAGES,
         desk: DESK,
         minRounds: MIN_ROUNDS,
         ...quote(t.price()),
-        here: Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])),
+        here: headCounts(),
       };
       return state satisfies TutorialState;
     }
@@ -1178,7 +1177,8 @@ export function createApp(options: AppOptions = {}) {
 
     // Lobby prices stand still, but presence and the right to end a round can
     // change at any time. Tell idle pages on every tab as well as trading ones.
-    function broadcastPresence(except?: Listener): void {
+    // Every page on every tab redraws: a person entered, left, or renamed themselves or their face.
+    function broadcastAll(except?: Listener): void {
       for (const m of MODES) markets[m].broadcast(false, except);
       const watching = new Set([...listeners].filter((l) => l.mode === "tutorial").map((l) => l.who));
       for (const who of watching) sendTutorial(who, except);
@@ -1188,8 +1188,14 @@ export function createApp(options: AppOptions = {}) {
     repeat(() => {
       // a market at 2× takes a second step while it trades and is not paused (ADR 0085)
       for (const m of MODES) {
-        markets[m].step();
-        if (markets[m].speed === 2 && markets[m].phase === "trade" && !markets[m].paused) markets[m].step();
+        const market = markets[m];
+        if (market.speed === 2 && market.phase === "trade" && !market.paused) {
+          // two steps, one message carrying both prices; a step that rang the bell has already sent its own
+          const before = market.tick;
+          market.step(true);
+          market.step(true);
+          if (market.phase === "trade") market.broadcast(false, undefined, market.tick - before - 1);
+        } else market.step();
       }
       for (const [who, e] of tutorials) if (e.t.transport === "playing" && e.t.moving()) {
         e.t.step();
@@ -1274,7 +1280,7 @@ export function createApp(options: AppOptions = {}) {
       const desk = market.desk;
       switch (kind) {
         case "status":
-          return { ok: true, status: { here: here(), rooms: MODES.map((m) => ({ mode: m, phase: markets[m].phase, round: markets[m].count, pair: markets[m].round.pair, tick: markets[m].tick, of: markets[m].round.prices.length - 1, event: markets[m].round.event?.title ?? null, from: markets[m].round.days[0] })), fame: Object.keys(career).length, names: Object.keys(chosen).length, marathon: marathon.diagnostics() } };
+          return { ok: true, status: { here: here(), rooms: MODES.map((m) => ({ mode: m, phase: markets[m].phase, round: markets[m].count, pair: markets[m].round.pair, tick: markets[m].tick, of: markets[m].round.prices.length - 1, event: markets[m].round.event?.title ?? null, from: markets[m].round.days[0] })), fame: Object.keys(career).length, names: Object.keys(chosen).length, live: liveMarket.diagnostics() } };
         case "reset-fame":
           for (const k of Object.keys(career)) delete career[k];
           writeCareer();
@@ -1403,12 +1409,8 @@ export function createApp(options: AppOptions = {}) {
       if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
       if (path === "/api/debug") {
         if (!debug || req.method !== "POST") return json(res, 404, { error: "Not found." });
-        let input: Record<string, unknown>;
-        try {
-          input = await body(req);
-        } catch {
-          return json(res, 400, { error: "Send JSON." });
-        }
+        const input = await body(req).catch(() => null);
+        if (!input) return json(res, 400, { error: "Send JSON." });
         if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown debug action." });
         const out = await debugAction(who, input.kind, modeOf(input.mode));
         log(who, "debug", { action: input.kind, mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
@@ -1443,8 +1445,8 @@ export function createApp(options: AppOptions = {}) {
           }
           res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
         } else if (mode === "live") {
-          res.write(`data: ${JSON.stringify(marathon.view(who, headCounts()))}\n\n`);
-          marathon.wake();
+          res.write(`data: ${JSON.stringify(liveMarket.view(who, headCounts()))}\n\n`);
+          liveMarket.wake();
         } else {
           res.write(`data: ${JSON.stringify(tutorialView(who))}\n\n`);
         }
@@ -1454,9 +1456,9 @@ export function createApp(options: AppOptions = {}) {
         req.on("close", () => {
           listeners.delete(listener);
           if (!ids().has(who)) requests.run(opened ?? "------", () => log(who, "leave", { here: here() }));
-          broadcastPresence();
+          broadcastAll();
         });
-        broadcastPresence(listener);
+        broadcastAll(listener);
         // a page opened or refreshed on Random's lobby brings the latest rate, without holding the page for the fetch
         // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
         if (market?.mode === "random" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
@@ -1466,7 +1468,7 @@ export function createApp(options: AppOptions = {}) {
       if (req.method === "GET" && path === "/api/state") {
         const asked = tabOf(url.searchParams.get("mode"));
         if (asked === "tutorial") return json(res, 200, tutorialView(who));
-        if (asked === "live") return json(res, 200, marathon.view(who, headCounts()));
+        if (asked === "live") return json(res, 200, liveMarket.view(who, headCounts()));
         return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
       }
 
@@ -1474,55 +1476,40 @@ export function createApp(options: AppOptions = {}) {
       // page sees the new name with the next broadcast.
       if (req.method === "GET" && path === "/api/name") return json(res, 200, suggestion(who));
       if (req.method === "POST" && path === "/api/name") {
-        let input: Record<string, unknown>;
-        try {
-          input = await body(req);
-        } catch {
-          return json(res, 400, { error: "Send JSON." });
-        }
+        const input = await body(req).catch(() => null);
+        if (!input) return json(res, 400, { error: "Send JSON." });
         const result = rename(who, input.name);
         if ("error" in result) {
           log(who, "refused", { action: "rename", why: result.error });
           return json(res, result.status, { error: result.error });
         }
-        for (const m of MODES) markets[m].broadcast();
-        sendTutorial(who);
-        sendLive();
+        broadcastAll();
         return json(res, 200, result);
       }
 
       // A person's face: POST chooses one of the plain set; the page draws
       // one to try on from its own copy of them.
       if (req.method === "POST" && path === "/api/face") {
-        let input: Record<string, unknown>;
-        try {
-          input = await body(req);
-        } catch {
-          return json(res, 400, { error: "Send JSON." });
-        }
+        const input = await body(req).catch(() => null);
+        if (!input) return json(res, 400, { error: "Send JSON." });
         const result = reface(who, input.face);
         if ("error" in result) {
           log(who, "refused", { action: "reface", why: result.error });
           return json(res, result.status, { error: result.error });
         }
-        for (const m of MODES) markets[m].broadcast();
-        sendTutorial(who);
+        broadcastAll();
         return json(res, 200, result);
       }
 
       if (req.method === "POST" && path === "/api/act") {
-        let input: Record<string, unknown>;
-        try {
-          input = await body(req);
-        } catch {
-          return json(res, 400, { error: "Send JSON." });
-        }
+        const input = await body(req).catch(() => null);
+        if (!input) return json(res, 400, { error: "Send JSON." });
         if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown action." });
         const kind = input.kind;
         // Live's orders go to its own accounts; like every market, the page sends only what the player chose
         const tab = tabOf(input.mode);
         if (tab === "live") {
-          const error = marathon.act(who, input);
+          const error = liveMarket.act(who, input);
           if (error) {
             log(who, "refused", { mode: "live", action: kind, why: error });
             return json(res, 409, { error });
@@ -1651,7 +1638,7 @@ export function createApp(options: AppOptions = {}) {
         for (const listener of listeners) listener.res.destroy();
         listeners.clear();
         if (saving) writeCareer();
-        marathon.dispose();
+        liveMarket.dispose();
         closing = (async () => {
           await starting?.catch(() => {});
           if (!http.listening) return;

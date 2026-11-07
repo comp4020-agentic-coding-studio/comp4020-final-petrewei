@@ -4,7 +4,7 @@
 // price stands still until the action is taken, then moves along the
 // lesson's script, so a profit, a margin call, a stop or a gap happens on
 // cue. The same desk and broker rules as the real markets apply.
-import { quoted } from "../public/format.js";
+import { aud, quoted } from "../public/format.js";
 import { Desk, type Fill, type Side } from "./fx.ts";
 
 export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; share?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
@@ -392,7 +392,8 @@ export class Tutorial {
 
   // What just happened, in plain words for a beginner.
   describe(events: Fill[]): void {
-    const cash = (n: number): string => `${n < 0 ? "−" : "+"}A$${Math.abs(Math.round(n)).toLocaleString("en-AU")}`;
+    // a result signed either way, the plus written out
+    const cash = (n: number): string => `${n < 0 ? "" : "+"}${aud(n)}`;
     for (const e of events) {
       const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
       const say = (text: string, kind: string, key: string): void => {

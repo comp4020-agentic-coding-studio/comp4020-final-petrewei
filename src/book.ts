@@ -9,10 +9,10 @@ import { shareMargin } from "../public/ticket.js";
 
 const half = SPREAD / 2;
 const fill = (mid: number, side: Side): number => mid * (1 + side * half);
-export const SLOTS_A_DAY = 96;
+const SLOTS_A_DAY = 96;
 // Under this much net worth, with nothing open, an account is bankrupt: too little to trade, and borrowing adds as much
 // debt as cash, so it cannot be saved.
-export const BUST = 100;
+const BUST = 100;
 
 export type BookPosition = { side: Side; units: number; entry: number; margin: number; leverage: number; stop: number | null; take: number | null; fees: number; opened: number };
 export type BookTrade = { pair: string; side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout"; pnl: number; pct: number; at: number };

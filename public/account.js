@@ -1,11 +1,11 @@
 import { element } from "./dom.js";
 import { gauge, pct } from "./ticket.js";
+import { tone } from "./format.js";
 /** @param {{ root: Document, cash: (amount: number) => string }} options */
 export function createAccountPanel({ root, cash }) {
   /** @param {string} id */
   const $ = (id) => element(id, root);
   /** @param {number} n */
-  const tone = (n) => (n > 0 ? "up" : n < 0 ? "down" : "");
   /** @param {import("./protocol.js").State} s @param {boolean} open */
   function render(s, open) {
     const y = s.you;
