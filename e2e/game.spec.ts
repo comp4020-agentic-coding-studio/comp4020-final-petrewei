@@ -325,7 +325,7 @@ test("shows every tab's whole label, and Marathon's board only on Marathon", asy
 test("opens a tab from its name in the address", async ({ page }, info) => {
   const lang = info.project.metadata.lang as Lang;
   await join(page, lang);
-  for (const [hash, mode] of [["rewind", "replay"], ["flashback", "replay"], ["sandbox", "simulation"], ["live", "marathon"]]) {
+  for (const [hash, mode] of [["rewind", "replay"], ["flashback", "replay"], ["random", "simulation"], ["sandbox", "simulation"], ["live", "marathon"]]) {
     await page.evaluate((h) => { location.hash = h; }, hash);
     await expect(page.locator(`[data-mode="${mode}"]`), `#${hash}`).toHaveAttribute("aria-selected", "true");
   }

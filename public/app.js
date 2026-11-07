@@ -241,9 +241,9 @@ $("ironman-fist").innerHTML = prop("fist", 20);
 const MODES = ["replay", "simulation", "marathon", "tutorial"];
 // The tabs' old names, History, Live and Scenario, still lead to them (ADRs
 // 0027, 0028, 0047).
-// The tabs' names as players see them lead to them too, #rewind, #sandbox and #live (ADRs 0088, 0089), and so do the
-// older names, History, Flashback and Scenario; Live, once Simulation's first name, now means the real-prices tab.
-const renamed = (m) => ({ history: "replay", scenario: "simulation", rewind: "replay", flashback: "replay", sandbox: "simulation", live: "marathon" })[m] ?? m;
+// The tabs' names as players see them lead to them too, #rewind, #random and #live (ADRs 0088–0090), and so do the
+// older names, History, Flashback, Scenario and Sandbox; Live, once Simulation's first name, now means the real-prices tab.
+const renamed = (m) => ({ history: "replay", scenario: "simulation", rewind: "replay", flashback: "replay", random: "simulation", sandbox: "simulation", live: "marathon" })[m] ?? m;
 let mode = (() => {
   try {
     // the tabs were called History and Live; a browser that remembers either
