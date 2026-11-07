@@ -1183,8 +1183,8 @@ function render(s) {
     $("pos-entry").textContent = quoted(y.pos.entry);
     $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = cash(y.pos.margin);
-    // in Live the row is the chart's pair, one of several open, so its own result (ADR 0087)
-    const rowPnl = onLive ? (y.positions.find((p) => p.pair === s.pair)?.pnl ?? 0) : y.pnl;
+    // the row's own result, which the server sends with the position in every mode: in Live it is one pair of several
+    const rowPnl = y.pos.pnl ?? y.pnl;
     $("pos-pnl").textContent = cash(rowPnl);
     $("pos-pnl").className = tone(rowPnl);
     // the return on the margin is what the game ranks by, so it is the row's loudest figure

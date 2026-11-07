@@ -1,6 +1,7 @@
 // Public wire contract. No cookies, internal identities or unrevealed rewind facts belong here.
 export type Mode = "rewind" | "random" | "live" | "tutorial";
-export type Position = { side: number; entry: number; leverage: number; margin: number; stop: number | null; take?: number | null; call?: number | null; cut?: number | null; called?: boolean };
+// `pnl` is this position's own result, in every mode; `you.pnl` is the account's, which in Live sums several pairs.
+export type Position = { side: number; entry: number; leverage: number; margin: number; stop: number | null; take?: number | null; call?: number | null; cut?: number | null; called?: boolean; pnl?: number };
 export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
 export type Lesson = { id: string; moves: number; next: boolean; n: number; of: number; title: string; text: string; task: string; plan: { target: string; until: string; say: string; move?: number }[]; finished: boolean };
 export type Player = { name: string; draw: number | null; named: boolean; face: string; code: string; balance: number; equity: number; pnl: number; level: number | null; out: boolean; broke: boolean; debt: number; cuts: number; pos: Position | null; used?: number; guess?: number | null; credit: number; bankrupt: boolean; opened?: number | null; peak?: number | null;

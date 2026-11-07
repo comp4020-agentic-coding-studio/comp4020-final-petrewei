@@ -399,7 +399,7 @@ export class Live {
         opened: a?.opened ?? null,
         peak: a?.peak ?? null,
         used: a ? used(a) : 0,
-        pos: pos && { side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, called: !!a?.called, call: pos.call, cut: pos.cut },
+        pos: pos && { side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, called: !!a?.called, call: pos.call, cut: pos.cut, pnl: pos.pnl },
         positions,
         pending: null,
         feats: [],

@@ -438,7 +438,7 @@ export function createApp(options: AppOptions = {}) {
         broke: a ? desk.broke(as) : false,
         bankrupt: a ? desk.bankrupt(as) : false,
         cuts: a?.cuts ?? 0,
-        pos: a?.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, ...desk.lines(as) } : null,
+        pos: a?.pos ? { side: a.pos.side, entry: a.pos.entry, leverage: a.pos.leverage, margin: a.pos.margin, stop: a.pos.stop, take: a.pos.take, called: a.pos.called, pnl: Math.round(desk.pnl(as)), ...desk.lines(as) } : null,
       };
     }
     function record(who: string): Career | null {
