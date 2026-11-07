@@ -1066,6 +1066,8 @@ export function createApp(options: AppOptions = {}) {
           breakLeft: Math.ceil((this.breakLeft * TICK_MS) / 1000),
           you: {
             ...youOn(desk, who),
+            // the credit's own rule in apply: a trading round, not its countdown, and not paused
+            lending: this.phase === "trade" && !this.paused,
             guess: this.guesses.get(who) ?? null,
             pending: mine?.pending ?? null,
             // the achievements this person has earned, by name, in the order of FEATS (ADR 0082)
@@ -1180,7 +1182,9 @@ export function createApp(options: AppOptions = {}) {
         start: START,
         transport: t.transport,
         lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
-        you: youOn(t.desk, who, "me"),
+        // credit while the price stands still for the player's move; a finished tutorial lends no more, its last lesson
+        // leaving the player bankrupt, the credit's teaching done
+        you: { ...youOn(t.desk, who, "me"), lending: !t.moving() && !t.finished() },
         traders: [],
         feed: t.feed,
         pops: [],

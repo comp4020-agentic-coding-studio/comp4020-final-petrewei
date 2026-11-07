@@ -1043,6 +1043,19 @@ function headlineText(head) {
   return clueText(lang, head.clue, head.n);
 }
 
+// What the position's line says with nothing open: in Live, whether the account is closed until midnight, the market
+// is shut or waiting for history, or another pair is open; in a round or the tutorial, whether the player is broke, out,
+// or simply has nothing open. Debt is added after, in every mode.
+function emptyLine(s, open) {
+  const y = s.you;
+  if (s.mode === "live") {
+    if (y.out) return t("liveClosed", { at: s.reopens ? sydneyTime(s.reopens, lang) : "—" });
+    if (!s.live) return t(s.historyGap ? "liveGap" : "liveShut");
+    return t(y.positions.length ? "liveOther" : "noPos");
+  }
+  return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+}
+
 function clockKey(s) {
   if (s.mode === "live") return s.live ? "clockLive" : "clockShut";
   if (s.mode === "tutorial") return "clockTutorial";
@@ -1057,9 +1070,8 @@ function render(s) {
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
-  const onLive = s.mode === "live";
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
-  document.body.classList.toggle("live", onLive);
+  document.body.classList.toggle("live", s.mode === "live");
   // End is the starter's, in a trading round.
   $("finish").hidden = !(s.phase === "trade" && s.rules);
   // 2× (ADR 0085): the ruler's to press; when it is on, everyone sees the lit button, pressable or not
@@ -1151,8 +1163,8 @@ function render(s) {
   // Emergency credit (ADR 0080): its row says what is owed and at what daily rate, the rate the next step would cost
   // when nothing is owed; a pop-up offers a step to a player cut out or broke, while the round trades (the tutorial,
   // whenever the price stands still).
-  // a finished tutorial lends no more: its last lesson leaves the player bankrupt, and the credit has done its teaching
-  const lending = tutorial ? s.phase === "waiting" && !s.lesson?.finished : s.phase === "trade" && (!onLive || !y.out);
+  // whether credit can be drawn now is the server's call, made beside the rule that refuses it
+  const lending = !!y.lending;
   $("credit-owe").textContent = y.debt ? cash(y.debt) : t("creditFree");
   // how much of the line is drawn, as a bar
   $("credit-used").style.width = `${Math.min(100, (y.debt / (broker.limit || 1)) * 100)}%`;
@@ -1197,9 +1209,7 @@ function render(s) {
       if (at && grabbed !== k) held[k] = exitAt(exitPos({ kind: k, dist: Math.abs((at / price - 1) * 100) }, broker.distances), broker.distances).dist;
     }
     paintHeld({ sl: !!y.pos.stop, tp: !!y.pos.take });
-  } else {
-    $("position").textContent = t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
-  }
+  } else $("position").textContent = emptyLine(s, open);
   if (y.debt) $("position").textContent += t("owe", { amount: cash(y.debt) });
   const waiting = y.pending;
   $("pend-row").hidden = !waiting;
@@ -1237,7 +1247,6 @@ function render(s) {
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
-  if (onLive && !y.pos) $("position").textContent = y.out ? t("liveClosed", { at: s.reopens ? sydneyTime(s.reopens, lang) : "—" }) : s.live ? t(y.positions.length ? "liveOther" : "noPos") : t(s.historyGap ? "liveGap" : "liveShut");
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;

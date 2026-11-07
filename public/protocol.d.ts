@@ -5,6 +5,8 @@ export type Position = { side: number; entry: number; leverage: number; margin: 
 export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
 export type Lesson = { id: string; moves: number; next: boolean; n: number; of: number; title: string; text: string; task: string; plan: { target: string; until: string; say: string; move?: number }[]; finished: boolean };
 export type Player = { name: string; draw: number | null; named: boolean; face: string; code: string; balance: number; equity: number; pnl: number; level: number | null; out: boolean; broke: boolean; debt: number; cuts: number; pos: Position | null; used?: number; guess?: number | null; credit: number; bankrupt: boolean; opened?: number | null; peak?: number | null;
+  // whether emergency credit can be drawn or repaid now, as the server decides it for its own market (ADR 0080)
+  lending?: boolean;
   pending?: { type: string; side: number; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | null;
   feats?: string[]; trades?: { side: number; leverage: number; entry: number; exit: number; how: string; pnl: number; pct: number }[];
   positions?: (Position & { pair: string; now: number; live: boolean; pnl: number })[];

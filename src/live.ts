@@ -393,6 +393,8 @@ export class Live {
         guess: null,
         debt: Math.round(a?.debt ?? 0),
         credit: Math.max(0, LIMIT - Math.round(a?.debt ?? 0)),
+        // credit on the same terms as an order, as act requires: an open account and live prices
+        lending: !!a && live,
         broke: false,
         bankrupt: !a,
         cuts: a?.cuts ?? 0,

@@ -340,3 +340,19 @@ it("restores a cached page with live controllers and a fresh stream", async () =
     expect(streams.length).toBe(3);
   } finally { dom.window.close(); }
 });
+
+// A Live player with nothing open on the chart's pair is told why, and what they owe, as in every other tab: the line
+// had been rewritten for Live after the debt was added to it, so a Live borrower never saw the debt.
+it("tells a Live player with nothing open what they owe", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 1500, out: false, lending: true };
+    await emit({ mode: "live", live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you });
+    const line = w.document.getElementById("position")!.textContent!;
+    expect(line).toContain(i18n.T.en.ui.noPos);
+    expect(line).toContain(format.aud(1500));
+  } finally {
+    dom.window.close();
+  }
+});

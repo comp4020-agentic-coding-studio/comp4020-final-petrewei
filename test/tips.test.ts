@@ -365,21 +365,16 @@ it("never breaks inside a clause: each is one unbreakable span", () => {
   expect(readFileSync("public/tips.js", "utf8")).toMatch(/className: "clause"/);
 });
 
-// ADR 0052: the credit lesson tells the player to press Borrow, so the
-// button must be there in the tutorial, whose rounds are never in the trade
-// phase that a market's Borrow waits for.
-it("shows Borrow in the tutorial when the player is broke, not only in a trading round", () => {
+// ADR 0080: the pop-up offers credit to a player who is broke, while the line has room and the server says it lends.
+// When it lends is the server's rule, sent as you.lending; the tutorial's credit lesson relies on it, which
+// test/tutorial-credit.test.ts holds against the running server.
+it("offers credit only to a broke player with room on the line, when the server lends", () => {
   const app = readFileSync("public/app.js", "utf8");
-  // the rule says when lending is open, and Borrow shows when the player is broke with loans left and it is
-  const lending = app.match(/const lending = (.*);/)![1];
-  expect(lending, "a tutorial lends while the price stands still").toMatch(/tutorial \? s\.phase === "waiting"/);
-  expect(lending, "a market lends while it trades").toMatch(/s\.phase === "trade"/);
-  // the pop-up offers credit (ADR 0080) to a player who is broke, while the line has room
+  expect(app.match(/const lending = (.*);/)![1]).toBe("!!y.lending");
   const rule = app.match(/const offer = (.*);/)![1];
   expect(rule).toMatch(/y\.broke/);
   expect(rule, "never past the credit line").toMatch(/y\.credit > 0/);
-  expect(rule, "Borrow must follow the rule above, not a bare trade phase").toMatch(/\blending\b/);
-  expect(rule).not.toMatch(/s\.phase === "trade"/);
+  expect(rule).toMatch(/\blending\b/);
 });
 
 // The tutorial's lesson card (ADRs 0054 to 0059): it sits in the chart's box,
