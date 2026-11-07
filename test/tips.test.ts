@@ -279,7 +279,7 @@ it("describes Simulation as a random simulation, never a script", async () => {
   // the tabs' names (ADR 0088), Rewind, Sandbox and Live in every language (ADR 0089)
   expect([T.en.ui.replay, T.en.ui.simulation, T.en.ui.marathon]).toEqual(["Rewind", "Sandbox", "Live"]);
   expect([T.ja.ui.replay, T.ja.ui.simulation, T.ja.ui.marathon]).toEqual(["巻き戻し", "箱庭", "ライブ"]);
-  expect([T.zh.ui.replay, T.zh.ui.simulation, T.zh.ui.marathon]).toEqual(["回溯", "沙盒", "实时"]);
+  expect([T.zh.ui.replay, T.zh.ui.simulation, T.zh.ui.marathon]).toEqual(["倒带", "沙盒", "实时"]);
   expect(T.en.ui.lobbySimulationText).toMatch(/random/);
   expect(ABOUT.en.sections.flat(2).join(" ")).toMatch(/at random/);
 });
