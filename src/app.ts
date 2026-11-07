@@ -11,6 +11,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { gzipSync } from "node:zlib";
 import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { type Feat, FEATS, fromBell, fromCredit, fromFill } from "./feats.ts";
@@ -1244,8 +1245,27 @@ export function createApp(options: AppOptions = {}) {
       }
     }, TICK_MS).unref();
 
-    const send = (res: ServerResponse, [content, type]: [string, string]): void => {
-      res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
+    // A page is sent fresh each time, since the server writes its words in. A script, the stylesheet or the icon is
+    // the same until the next deploy: it carries a hash of its content, so a reload asks only whether it changed and is
+    // told no in a few bytes, and it is sent gzipped, worked out once, to a browser that takes it.
+    const packed = new Map<string, { tag: string; gz: Buffer }>();
+    const send = (res: ServerResponse, [content, type]: [string, string], req?: IncomingMessage): void => {
+      if (type === HTML || !req) {
+        res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
+        return void res.end(content);
+      }
+      let file = packed.get(content);
+      if (!file) packed.set(content, (file = { tag: `"${createHash("sha256").update(content).digest("base64url").slice(0, 16)}"`, gz: gzipSync(content) }));
+      const headers = { "content-type": type, "cache-control": "no-cache", etag: file.tag, vary: "accept-encoding" };
+      if (req.headers["if-none-match"] === file.tag) {
+        res.writeHead(304, headers);
+        return void res.end();
+      }
+      if (/\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""))) {
+        res.writeHead(200, { ...headers, "content-encoding": "gzip" });
+        return void res.end(file.gz);
+      }
+      res.writeHead(200, headers);
       res.end(content);
     };
 
@@ -1278,29 +1298,13 @@ export function createApp(options: AppOptions = {}) {
       return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about">${headerIn(lang, false)}<main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main><footer>${escape(T[lang].ui.footer)}</footer><script type="module" src="/about-controls.js"></script></body></html>`;
     };
     const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main></body></html>`;
+    // The page's scripts, each served from public/ under its own name; one list, so a new module is one word here.
+    const JS = "text/javascript; charset=utf-8";
+    const SCRIPTS = ["requests", "dom", "transport", "account", "chart", "tutorial-ui", "about-controls", "app", "format", "i18n", "names", "indicators", "avatars", "ticket", "art", "tips", "clauses", "plan", "view", "i18n-long"];
     const PAGES: Record<string, [string, string]> = {
-      "/requests.js": [read("public/requests.js"), "text/javascript; charset=utf-8"],
-      "/dom.js": [read("public/dom.js"), "text/javascript; charset=utf-8"],
-      "/transport.js": [read("public/transport.js"), "text/javascript; charset=utf-8"],
-      "/account.js": [read("public/account.js"), "text/javascript; charset=utf-8"],
-      "/chart.js": [read("public/chart.js"), "text/javascript; charset=utf-8"],
-      "/tutorial-ui.js": [read("public/tutorial-ui.js"), "text/javascript; charset=utf-8"],
+      ...Object.fromEntries(SCRIPTS.map((n) => [`/${n}.js`, [read(`public/${n}.js`), JS]])),
       ...Object.fromEntries(LANGS.flatMap((l) => [[`${prefix(l)}/`, [marketIn(l), HTML]], [`${prefix(l)}/about`, [aboutIn(l), HTML]]])),
-      "/about-controls.js": [read("public/about-controls.js"), "text/javascript; charset=utf-8"],
-      "/app.js": [read("public/app.js"), "text/javascript; charset=utf-8"],
       "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
-      "/format.js": [read("public/format.js"), "text/javascript; charset=utf-8"],
-      "/i18n.js": [read("public/i18n.js"), "text/javascript; charset=utf-8"],
-      "/names.js": [read("public/names.js"), "text/javascript; charset=utf-8"],
-      "/indicators.js": [read("public/indicators.js"), "text/javascript; charset=utf-8"],
-      "/avatars.js": [read("public/avatars.js"), "text/javascript; charset=utf-8"],
-      "/ticket.js": [read("public/ticket.js"), "text/javascript; charset=utf-8"],
-      "/art.js": [read("public/art.js"), "text/javascript; charset=utf-8"],
-      "/tips.js": [read("public/tips.js"), "text/javascript; charset=utf-8"],
-      "/clauses.js": [read("public/clauses.js"), "text/javascript; charset=utf-8"],
-      "/plan.js": [read("public/plan.js"), "text/javascript; charset=utf-8"],
-      "/view.js": [read("public/view.js"), "text/javascript; charset=utf-8"],
-      "/i18n-long.js": [read("public/i18n-long.js"), "text/javascript; charset=utf-8"],
       "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
       "/readme": [readme, HTML],
     };
@@ -1458,8 +1462,8 @@ export function createApp(options: AppOptions = {}) {
         return json(res, out.error ? 409 : 200, out);
       }
       if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);
-      if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname]);
-      if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path]);
+      if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname], req);
+      if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path], req);
       if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {
         return json(res, 404, { error: "Not found." });
       }

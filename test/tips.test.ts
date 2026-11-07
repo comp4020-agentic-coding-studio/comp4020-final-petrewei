@@ -66,10 +66,7 @@ it("draws each prop as a 16-by-16 grid of known colours, as pixels only", () => 
 
 // The tip script is served, and every module the page imports is checked
 // to be served by spec/languages.test.ts.
-it("loads the tip script with the page", () => {
-  expect(readFileSync("public/app.js", "utf8")).toMatch(/from "\/tips\.js"/);
-  expect(readFileSync("src/app.ts", "utf8")).toMatch(/"\/tips\.js": \[read\("public\/tips\.js"\)/);
-});
+
 
 // ADR 0034: the ticket's stop loss and take profit each have their own
 // toggle, the stop loss on the left and the take profit on the right, over
