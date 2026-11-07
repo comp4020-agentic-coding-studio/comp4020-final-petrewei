@@ -39,7 +39,7 @@
         <div class="quote">
           <div class="pair-tools">
             <span class="pair" id="pair">—</span>
-            <select id="replay-pair" class="replay-pair" data-tip="pairPick" data-t-aria="pairLabel" hidden></select>
+            <select id="rewind-pair" class="rewind-pair" data-tip="pairPick" data-t-aria="pairLabel" hidden></select>
             <div id="pair-controls" class="pair-controls" hidden>
               <select id="pair-base" data-tip="baseCurrency" data-t-aria="baseCurrency"></select>
               <span aria-hidden="true">/</span>
@@ -63,7 +63,7 @@
           </div>
           <span class="clock" id="clock" role="timer"></span>
         </div>
-        <!-- A Simulation's headline or a Replay's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
+        <!-- A Random's headline or a Rewind's clue, over the chart's top left, so it never moves the chart when it arrives (ADR 0059). -->
         <p class="mode headline" id="mode" hidden></p>
         <!-- Two prayers, one for a rise and one for a fall, over the chart's lower left, where
              the newest prices are not (ADR 0064). Neither does anything. -->
@@ -192,18 +192,18 @@
         <button id="buy" class="side buy" data-tip="buy"><span data-t="buy">Buy</span><strong id="ask">—</strong><small data-t="buyNote">Earns when the price rises</small></button>
       </div>
       <!-- Leverage on a log scale, snapping to the desk's ladder, with the
-           legal caps marked; stake on an even one (ADR 0024). -->
-      <div class="field slide" id="stake-box">
-        <p class="label"><span data-t="stake">Stake</span><button class="info" type="button" data-info="stake" data-t-aria="info_stake" aria-expanded="false">ⓘ</button> <span class="fee" id="stake-note" data-tip="stakeNote"></span><output id="stake-out" for="stake"></output></p>
+           legal caps marked; margin on an even one (ADR 0024). -->
+      <div class="field slide" id="margin-box">
+        <p class="label"><span data-t="margin">Margin</span><button class="info" type="button" data-info="margin" data-t-aria="info_margin" aria-expanded="false">ⓘ</button> <span class="fee" id="margin-note" data-tip="marginNote"></span><output id="margin-out" for="margin"></output></p>
         <!-- The track is the whole account (ADR 0077): what is in use, then what this order adds, from nothing at the
              left to all of it at the right. The slider covers its 25% to 100% so its thumb and marks stand on the
              shares of the account they mean. -->
-        <div class="stake-track" id="stake-track">
-          <span class="bar used" id="stake-used" aria-hidden="true"></span>
-          <span class="bar order" id="stake-order" aria-hidden="true"></span>
-          <input id="stake" type="range" min="0" max="3" step="1" data-t-aria="stake" data-tip="stake">
+        <div class="margin-track" id="margin-track">
+          <span class="bar used" id="margin-used" aria-hidden="true"></span>
+          <span class="bar order" id="margin-order" aria-hidden="true"></span>
+          <input id="margin" type="range" min="0" max="3" step="1" data-t-aria="margin" data-tip="margin">
         </div>
-        <div class="ticks even stake-ticks" id="stake-ticks" aria-hidden="true"></div>
+        <div class="ticks even margin-ticks" id="margin-ticks" aria-hidden="true"></div>
       </div>
       <div class="field slide" id="leverage-box">
         <p class="label"><span data-t="leverage">Leverage</span><button class="info" type="button" data-info="leverage" data-t-aria="info_leverage" aria-expanded="false">ⓘ</button><span class="fee" id="fee-note" data-tip="fee"></span><output id="lev-out" for="leverage"></output></p>
@@ -232,7 +232,7 @@
         </div>
         <div class="ticks exit-ticks" id="exit-ticks" aria-hidden="true"></div>
       </div>
-      <!-- A pending order (ADR 0078, 0079): this order, with its leverage, stake and exits, placed later when the price
+      <!-- A pending order (ADR 0078, 0079): this order, with its leverage, share and exits, placed later when the price
            reaches the level typed. The level is only a trigger; the server fills at its own price on that tick. -->
       <details class="pend" id="pend">
         <summary data-tip="pendTitle"><span data-t="pendTitle">Pending order</span><button class="info" type="button" data-info="pend" data-t-aria="info_pend" aria-expanded="false">ⓘ</button><span class="pend-waiting" id="pend-waiting"></span></summary>
@@ -299,7 +299,7 @@
       </div>
       </div>
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
-      <!-- Marathon (ADR 0087): every pair open in the account, each with its own close. -->
+      <!-- Live (ADR 0087): every pair open in the account, each with its own close. -->
       <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
       <details class="history" id="history" hidden>
         <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
@@ -312,7 +312,7 @@
     <!-- Emergency credit (ADR 0080, 0085): a golden card of its own beside the position. What is owed, its daily rate and
          the same over a year, and a step either way; the server sets every amount. -->
     <section class="panel credit" id="credit" data-fold="credit" aria-label="Emergency credit">
-      <h2><span class="ico" aria-hidden="true">💰</span><span data-t="dadTitle">Emergency Credit</span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button></h2>
+      <h2><span class="ico" aria-hidden="true">💰</span><span data-t="creditOfferTitle">Emergency Credit</span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button></h2>
       <div class="credit-body">
         <!-- one row, as the position's empty line: what is owed (or nothing) and its rate, Borrow at the end; while
              anything is owed, Repay joins it and a bar shows how much of the line is drawn -->
@@ -327,16 +327,16 @@
     </section>
     <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
-      <!-- Simulation's economic calendar (ADR 0085): the round's releases with their times, and each outcome once told. -->
+      <!-- Random's economic calendar (ADR 0085): the round's releases with their times, and each outcome once told. -->
       <ol class="calendar" id="calendar" hidden></ol>
-      <!-- Marathon's real calendar and the central banks' own words (ADR 0087), each linked to its source. -->
+      <!-- Live's real calendar and the central banks' own words (ADR 0087), each linked to its source. -->
       <ol class="calendar real" id="real-calendar" hidden></ol>
       <ul id="feed"></ul>
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
-      <!-- Marathon's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt. -->
+      <!-- Live's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt. -->
       <ol class="board" id="board" hidden></ol>
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
@@ -396,11 +396,11 @@
       <!-- A newcomer chooses where to begin: the tutorial, or the markets. -->
       <div class="row first" id="name-first" hidden>
         <button id="name-learn" class="ghost" type="submit" value="tutorial" data-t="nameLearn" data-tip="nameLearn">Start the tutorial</button>
-        <button id="name-free" class="next" type="submit" value="replay" data-t="nameFree" data-tip="nameFree">Play freely</button>
+        <button id="name-free" class="next" type="submit" value="rewind" data-t="nameFree" data-tip="nameFree">Play freely</button>
       </div>
     </form>
   </dialog>
-  <!-- Dad's savings (ADR 0057): a pop-up after a margin call or a cut, not a
+  <!-- Emergency credit's offer (ADRs 0057, 0080): a pop-up after a margin call or a cut, not a
        button in a panel. Not modal, so the position can still be closed. -->
   <!-- Settings (ADR 0083): kept in this browser only. -->
   <dialog id="settings" class="card settings" aria-labelledby="settings-title">
@@ -420,12 +420,12 @@
     <ul class="feat-list" id="feat-list"></ul>
     <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
   </dialog>
-  <dialog id="dad" class="dad" aria-labelledby="dad-title">
-    <h2 id="dad-title" data-t="dadTitle">Emergency Credit</h2>
-    <p id="dad-text"></p>
+  <dialog id="credit-offer" class="credit-offer" aria-labelledby="credit-offer-title">
+    <h2 id="credit-offer-title" data-t="creditOfferTitle">Emergency Credit</h2>
+    <p id="credit-offer-text"></p>
     <div class="row">
       <button id="borrow" class="borrow" type="button" data-tip="borrow"></button>
-      <button id="dad-no" class="ghost" type="button" data-t="dadNo" data-tip="dadNo">Not now</button>
+      <button id="credit-offer-no" class="ghost" type="button" data-t="creditOfferNo" data-tip="creditOfferNo">Not now</button>
     </div>
   </dialog>
   <div id="losscut" class="losscut" hidden><span class="art" id="losscut-art" aria-hidden="true"></span><span id="losscut-big" lang="ja">強制ロスカット</span><small id="losscut-sub">Stopped out</small></div>

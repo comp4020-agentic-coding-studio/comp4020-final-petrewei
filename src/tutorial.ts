@@ -7,7 +7,7 @@
 import { quoted } from "../public/format.js";
 import { Desk, type Fill, type Side } from "./fx.ts";
 
-export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; stake?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
+export type Move = { kind: "next" } | { kind: "order"; side: Side; leverage: number; share?: number } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "borrow" };
 
 // `move`: a press that is the nth move of a lesson of several (0 by default);
 // the pointer shows it only when that many moves have been made (ADR 0059).
@@ -38,11 +38,11 @@ type Lesson = {
 
 const ME = "me";
 const START_PRICE = 150;
-const stake = (m: Move): number => (m.kind === "order" ? (m.stake ?? 1) : 0);
+const share = (m: Move): number => (m.kind === "order" ? (m.share ?? 1) : 0);
 const order = (side: Side, leverage: number, full: boolean) => (m: Move): string | null => {
   const word = side === 1 ? "Buy" : "Sell";
   if (m.kind !== "order" || m.side !== side || m.leverage !== leverage) return `This lesson wants a ${word} at ${leverage}×. Set Leverage to ${leverage}× first.`;
-  if (full && stake(m) !== 1) return "Set Margin to 100% for this lesson.";
+  if (full && share(m) !== 1) return "Set Margin to 100% for this lesson.";
   return null;
 };
 const only = (kind: Move["kind"], hint: string) => (m: Move): string | null => (m.kind === kind ? null : hint);
@@ -113,14 +113,14 @@ export const LESSONS: Lesson[] = [
     task: "Set Leverage to 30× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=30", say: "Slide Leverage to 30×." },
-      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
+      { target: "margin", until: "margin=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy." },
     ],
     fresh: true,
     allow: order(1, 30, true),
     path: [1.002, 1.004, 1.006, 1.003, 0.999, 0.994, 0.99, 0.985, 0.981, 0.978],
     done: (t) => !!t.desk.account(ME).pos?.called,
-    solve: () => ({ kind: "order", side: 1, leverage: 30, stake: 1 }),
+    solve: () => ({ kind: "order", side: 1, leverage: 30, share: 1 }),
   },
   {
     id: "cut-loss",
@@ -142,7 +142,7 @@ export const LESSONS: Lesson[] = [
     task: "Set Leverage to 10× and Margin to 100%, press Buy, then drag the Stop Loss thumb to 1%, beside the middle line.",
     plan: [
       { target: "leverage", until: "leverage=10", say: "Slide Leverage to 10×." },
-      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
+      { target: "margin", until: "margin=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy." },
       { target: "stop", until: "look", say: "Your position's Stop Loss and Take Profit." },
       { target: "stopthumb", until: "press", say: "Drag the red thumb next to the middle line: 1%.", move: 1 },
@@ -158,7 +158,7 @@ export const LESSONS: Lesson[] = [
     // the buy moves nothing; the stop is hit on the way down
     path: (moves) => (moves > 1 ? [0.998, 0.996, 0.993, 0.991, 0.988, 0.985, 0.983] : []),
     done: (t) => t.moves > 1 && flat(t),
-    solve: (t) => (holding(t) ? { kind: "stop", pct: 1 } : { kind: "order", side: 1, leverage: 10, stake: 1 }),
+    solve: (t) => (holding(t) ? { kind: "stop", pct: 1 } : { kind: "order", side: 1, leverage: 10, share: 1 }),
   },
   {
     id: "highest",
@@ -167,7 +167,7 @@ export const LESSONS: Lesson[] = [
     task: "Set Leverage to 1000× and Margin to 100%, then press Buy.",
     plan: [
       { target: "leverage", until: "leverage=1000", say: "Slide Leverage to 1000×, the highest." },
-      { target: "stake", until: "stake=1", say: "Set Margin to 100%." },
+      { target: "margin", until: "margin=1", say: "Set Margin to 100%." },
       { target: "buy", until: "press", say: "Press Buy and watch." },
     ],
     fresh: true,
@@ -175,10 +175,10 @@ export const LESSONS: Lesson[] = [
     // small moves, then a fall of 0.15%: a margin call, then the forced cut
     path: [1.0001, 1.0002, 1.0003, 1.0002, 1.0001, 0.9999, 0.9997, 0.9995, 0.9993, 0.999, 0.9985],
     done: (t) => t.desk.account(ME).out,
-    solve: () => ({ kind: "order", side: 1, leverage: 1000, stake: 1 }),
+    solve: () => ({ kind: "order", side: 1, leverage: 1000, share: 1 }),
   },
   {
-    id: "dad",
+    id: "credit",
     title: "Emergency Credit",
     text: "Margin call at 50%, stop-out at 20%: your round is over, unless you borrow. Emergency credit lends A$1,000 at a time, and charges interest every day on what you owe, more the more you owe.",
     task: "Draw emergency credit in the pop-up.",
@@ -207,7 +207,7 @@ export const LESSONS: Lesson[] = [
       if (t.desk.account(ME).out && t.desk.bankrupt(ME) && !t.feed.some((f) => f.key === "you-bankrupt")) t.bankrupt();
     },
     done: (t) => t.desk.account(ME).out && t.nexted,
-    solve: (t) => (t.desk.account(ME).out ? { kind: "next" } : { kind: "order", side: 1, leverage: 1000, stake: 1 }),
+    solve: (t) => (t.desk.account(ME).out ? { kind: "next" } : { kind: "order", side: 1, leverage: 1000, share: 1 }),
   },
 ];
 
@@ -339,7 +339,7 @@ export class Tutorial {
     if (m.kind === "next") this.nexted = true;
     else {
       let out: Fill[] | string | null;
-      if (m.kind === "order") out = this.desk.order(ME, m.side, m.leverage, m.stake);
+      if (m.kind === "order") out = this.desk.order(ME, m.side, m.leverage, m.share);
       else if (m.kind === "close") out = this.desk.close(ME);
       else if (m.kind === "stop") out = this.desk.stopAway(ME, m.pct);
       else out = this.desk.borrow(ME);

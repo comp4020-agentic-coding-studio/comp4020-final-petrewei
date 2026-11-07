@@ -4,7 +4,7 @@ export function createTransport({ onState, onConnection, reconnect }) {
   /** @type {EventSource | null} */
   let source = null;
   /** @type {import("./protocol.js").Mode} */
-  let mode = "replay";
+  let mode = "rewind";
   let disposed = false;
   let fresh = false;
   let heardAt = Date.now();

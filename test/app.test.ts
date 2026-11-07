@@ -85,8 +85,8 @@ it("ignores a late message from an old stream after leaving and returning to the
   try {
     await emit();
     const old = streams[0];
-    (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
-    (w.document.querySelector('[data-mode="replay"]') as HTMLElement).click();
+    (w.document.querySelector('[data-mode="random"]') as HTMLElement).click();
+    (w.document.querySelector('[data-mode="rewind"]') as HTMLElement).click();
     await old.onmessage!({ data: JSON.stringify({ ...base, you: { ...base.you, named: true }, pair: "OLD/STREAM" }) });
     expect(w.document.getElementById("pair")?.textContent).not.toBe("OLD/STREAM");
     expect((w.document.getElementById("buy") as HTMLButtonElement).disabled).toBe(true);
@@ -123,7 +123,7 @@ it("recovers a missing price update with a full snapshot and then accepts contig
     const recovered = [...base.prices, recoveredPrice];
     fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, ...base, from: 0, prices: recovered, you: { ...base.you, named: true } }) });
     await emit({ from: base.prices.length + 5, prices: [recoveredPrice * 2] });
-    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/state?mode=replay");
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/state?mode=rewind");
     expect(w.document.getElementById("price")!.textContent).toBe(format.quoted(recoveredPrice));
     const nextPrice = recoveredPrice * 1.001;
     await emit({ from: recovered.length, prices: [nextPrice] });
@@ -155,7 +155,7 @@ it("drops a refusal that arrives after the page has moved to another market", as
     let answer!: (reply: { ok: boolean; json: () => Promise<unknown> }) => void;
     fetch.mockReturnValueOnce(new Promise((resolve) => (answer = resolve as typeof answer)));
     (w.document.getElementById("buy") as HTMLButtonElement).click();
-    (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
+    (w.document.querySelector('[data-mode="random"]') as HTMLElement).click();
     answer({ ok: false, json: async () => ({ error: "A round is already running." }) });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(w.document.getElementById("error")!.textContent).toBe("");
@@ -194,17 +194,17 @@ it("shows new speech bubbles after switching between markets with independent ev
   try {
     const pop = (n: number) => ({ n, who: base.you.code, kind: "wild", lev: 200 });
     const emit = (mode: string, n: number) => send({ mode, pops: [pop(n)] });
-    await emit("replay", 100);
-    (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
-    await emit("simulation", 20);
+    await emit("rewind", 100);
+    (w.document.querySelector('[data-mode="random"]') as HTMLElement).click();
+    await emit("random", 20);
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(0);
-    await emit("simulation", 21);
+    await emit("random", 21);
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(1);
     w.document.querySelectorAll(".bubble").forEach((e) => e.remove());
-    (w.document.querySelector('[data-mode="replay"]') as HTMLElement).click();
-    await emit("replay", 101);
+    (w.document.querySelector('[data-mode="rewind"]') as HTMLElement).click();
+    await emit("rewind", 101);
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(0);
-    await emit("replay", 102);
+    await emit("rewind", 102);
     expect(w.document.querySelectorAll(".bubble")).toHaveLength(1);
   } finally {
     dom.window.close();
@@ -247,7 +247,7 @@ it.each(["en", "ja", "zh"] as const)("names every trading slider in %s", async (
   const { dom, w, emit } = await app(lang);
   try {
     await emit();
-    for (const [id, key] of [["leverage", "leverage"], ["stake", "stake"], ["sl-dist", "slFull"], ["tp-dist", "tpFull"], ["psl-dist", "slFull"], ["ptp-dist", "tpFull"]]) {
+    for (const [id, key] of [["leverage", "leverage"], ["margin", "margin"], ["sl-dist", "slFull"], ["tp-dist", "tpFull"], ["psl-dist", "slFull"], ["ptp-dist", "tpFull"]]) {
       expect(w.document.getElementById(id)!.getAttribute("aria-label"), id).toBe(i18n.T[lang].ui[key]);
     }
   } finally {
@@ -296,17 +296,17 @@ it.each(["en", "ja", "zh"] as const)("names upcoming calendar releases in %s", a
   }
 });
 
-it("keeps Marathon account returns and risk marks fixed when the chart changes pairs", async () => {
+it("keeps Live account returns and risk marks fixed when the chart changes pairs", async () => {
   const { dom, w, base, emit } = await app();
   try {
-    (w.document.querySelector('[data-mode="marathon"]') as HTMLElement).click();
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
     const positions = [
       { pair: "AUD/USD", side: 1, margin: 2000, leverage: 10, entry: 1, now: 1.01, pnl: 200, live: true },
       { pair: "EUR/USD", side: 1, margin: 6000, leverage: 10, entry: 1, now: 1.01, pnl: 600, live: true },
     ];
     const you = { ...base.you, named: true, used: 8000, pnl: 800, debt: 0, equity: 10800, level: 135, positions };
     for (const pair of ["AUD/USD", "EUR/USD", "GBP/USD"]) {
-      await emit({ mode: "marathon", live: true, pair, pairs: positions.map((p) => p.pair).concat("GBP/USD"), calendar: [], board: [], you: { ...you, pos: positions.find((p) => p.pair === pair) ?? null } });
+      await emit({ mode: "live", live: true, pair, pairs: positions.map((p) => p.pair).concat("GBP/USD"), calendar: [], board: [], you: { ...you, pos: positions.find((p) => p.pair === pair) ?? null } });
       expect(w.document.getElementById("pnl-pct")!.textContent, pair).toBe("+10.00%");
       for (const [id, share] of [["mark-call", 0.5], ["mark-cut", 0.2]] as const) {
         const mark = w.document.getElementById(id)!;
@@ -314,7 +314,7 @@ it("keeps Marathon account returns and risk marks fixed when the chart changes p
         expect(parseFloat(mark.style.left)).toBeCloseTo(ticket.gauge(share * you.used / base.start) * 100, 6);
       }
     }
-    await emit({ mode: "marathon", live: true, calendar: [], board: [], you: { ...you, used: 0, pnl: 0, pos: null, positions: [] } });
+    await emit({ mode: "live", live: true, calendar: [], board: [], you: { ...you, used: 0, pnl: 0, pos: null, positions: [] } });
     expect(w.document.getElementById("pnl-pct")!.textContent).toBe("");
     expect(w.document.getElementById("mark-call")!.hidden).toBe(true);
     expect(w.document.getElementById("mark-cut")!.hidden).toBe(true);
@@ -336,7 +336,7 @@ it("restores a cached page with live controllers and a fresh stream", async () =
     expect(streams.length).toBe(2);
     await emit();
     expect((w.document.getElementById("buy") as HTMLButtonElement).disabled).toBe(false);
-    (w.document.querySelector('[data-mode="simulation"]') as HTMLElement).click();
+    (w.document.querySelector('[data-mode="random"]') as HTMLElement).click();
     expect(streams.length).toBe(3);
   } finally { dom.window.close(); }
 });

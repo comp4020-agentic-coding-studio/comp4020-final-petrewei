@@ -87,3 +87,10 @@ export class JsonStore<T> {
     if (process.platform !== "win32") fsyncFile(dirname(this.file));
   }
 }
+
+// Move a saved file to a new name once, with its backup and version marker (ADR 0091): only when the new file is not
+// there yet, so a second start, or one after the move, changes nothing. Each rename is atomic within the volume.
+export function renameStore(from: string, to: string): void {
+  if (existsSync(to) || existsSync(`${to}.bak`) || !(existsSync(from) || existsSync(`${from}.bak`))) return;
+  for (const suffix of [".version", ".bak", ""]) if (existsSync(`${from}${suffix}`)) renameSync(`${from}${suffix}`, `${to}${suffix}`);
+}

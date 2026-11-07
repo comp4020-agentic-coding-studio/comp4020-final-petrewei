@@ -21,13 +21,13 @@ export function fromFill(f: Fill, called: boolean): Feat[] {
   return out;
 }
 
-// What the bell earns a trader who traded: a replay ended up, the year named exactly, or a round ended owing more than
+// What the bell earns a trader who traded: a rewind ended up, the year named exactly, or a round ended owing more than
 // they had.
-export function fromBell(r: { replay: boolean; net: number; start: number; yearRight: boolean }): Feat[] {
+export function fromBell(r: { rewind: boolean; net: number; start: number; yearRight: boolean }): Feat[] {
   const out: Feat[] = [];
   if (r.net < 0) out.push("bankrupt");
-  if (r.replay && r.net > r.start) out.push("swan");
-  if (r.replay && r.yearRight) out.push("historian");
+  if (r.rewind && r.net > r.start) out.push("swan");
+  if (r.rewind && r.yearRight) out.push("historian");
   return out;
 }
 

@@ -26,7 +26,7 @@ const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["ba
   && Array.isArray(v.trades) && v.trades.every(tradeValid);
 const runValid = (v: unknown): boolean => record(v) && ["key", "name", "face"].every((key) => string(v[key]))
   && nullableNumber(v.draw) && numericFields(v, ["opened", "ended", "peak", "worth"]) && (v.how === "bankrupt" || v.how === "running");
-export const marathonValid = (v: unknown): boolean => record(v) && valuesMatch(v.accounts, accountValid)
+export const liveValid = (v: unknown): boolean => record(v) && valuesMatch(v.accounts, accountValid)
   && Array.isArray(v.runs) && v.runs.every(runValid) && valuesMatch(v.waits, finite) && finite(v.slot)
   && optional(v.names, (names) => valuesMatch(names, (entry) => Array.isArray(entry) && entry.length === 2 && string(entry[0]) && nullableNumber(entry[1])));
-export const migrateMarathon = (v: unknown): unknown => record(v) ? { ...v, runs: v.runs ?? [], waits: v.waits ?? {}, slot: v.slot ?? 0 } : v;
+export const migrateLive = (v: unknown): unknown => record(v) ? { ...v, runs: v.runs ?? [], waits: v.waits ?? {}, slot: v.slot ?? 0 } : v;

@@ -7,11 +7,11 @@ it.skipIf(live)("sets a pending order at the level typed, shows it back, replace
   await open();
   const me = await visitor();
   const price = (await state(me)).prices.at(-1)!;
-  expect((await act(me, { kind: "pend", side: 1, at: price * 0.98, leverage: 10, stake: 0.5 })).status).toBe(200);
+  expect((await act(me, { kind: "pend", side: 1, at: price * 0.98, leverage: 10, share: 0.5 })).status).toBe(200);
   const first = (await state(me)).you as unknown as { pending: { type: string; at: number; leverage: number } | null };
   expect(first.pending).toMatchObject({ type: "buy-limit", leverage: 10 });
   expect(first.pending!.at).toBeCloseTo(price * 0.98, 6);
-  await act(me, { kind: "pend", side: -1, at: price * 1.05, leverage: 30, stake: 0.25 });
+  await act(me, { kind: "pend", side: -1, at: price * 1.05, leverage: 30, share: 0.25 });
   const second = (await state(me)).you as unknown as { pending: { type: string; at: number } | null };
   expect(second.pending?.type).toBe("sell-limit");
   expect((await act(me, { kind: "unpend" })).status).toBe(200);
@@ -23,5 +23,5 @@ it.skipIf(live)("refuses a pending level more than half the price away", async (
   await open();
   const me = await visitor();
   const price = (await state(me)).prices.at(-1)!;
-  expect((await act(me, { kind: "pend", side: 1, at: price * 0.4, leverage: 10, stake: 0.5 })).status).toBe(409);
+  expect((await act(me, { kind: "pend", side: 1, at: price * 0.4, leverage: 10, share: 0.5 })).status).toBe(409);
 });

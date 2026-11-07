@@ -15,7 +15,7 @@ describe("Kurumi", () => {
     desk.mark(99);
     const action = hana.act(desk, hana.id, [100, 99], always);
     expect(action).toMatchObject({ kind: "order", side: 1 });
-    const result = desk.order(hana.id, 1, (action as { leverage: number }).leverage, (action as { stake: number }).stake);
+    const result = desk.order(hana.id, 1, (action as { leverage: number }).leverage, (action as { share: number }).share);
     expect(result).toMatchObject([{ kind: "add" }]);
   });
 
@@ -59,7 +59,7 @@ describe("Zenba Nana", () => {
     const nana = by("bot:nana");
     const desk = new Desk(100);
     desk.join(nana.id);
-    expect(nana.act(desk, nana.id, [100, 90], always)).toEqual({ kind: "order", side: 1, leverage: 1, stake: expect.any(Number) });
+    expect(nana.act(desk, nana.id, [100, 90], always)).toEqual({ kind: "order", side: 1, leverage: 1, share: expect.any(Number) });
     desk.order(nana.id, 1, 1, 0.5);
     desk.mark(80);
     expect(nana.act(desk, nana.id, [100, 80], always)).toBeNull();
@@ -115,7 +115,7 @@ describe("every bot's orders", () => {
           const a = bot.act(desk, bot.id, prices.slice(0, i + 1), rnd);
           if (a?.kind !== "order") continue;
           expect(LEVERAGES, `${bot.id} seed ${seed}`).toContain(a.leverage);
-          const out = desk.order(bot.id, a.side, a.leverage, a.stake, { sl: a.sl, tp: a.tp });
+          const out = desk.order(bot.id, a.side, a.leverage, a.share, { sl: a.sl, tp: a.tp });
           // Being out of the market, or short of margin, is the round's doing;
           // a refusal about the order itself is the bot's.
           if (typeof out === "string") expect(out, `${bot.id} seed ${seed}`).toMatch(/out of the market|No free margin|left this round/);

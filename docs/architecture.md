@@ -2,7 +2,7 @@
 
 ## 1 Ownership
 
-`src/server.ts` is the process entry point. `createApp` in `src/app.ts` owns each instance and accepts a clock, data directory, storage factory, Live feed, News feed and rate fetcher. Importing it opens no socket. Call `start` to listen and await `stop` to release timers and sockets and save pending state. Startup failures release previously registered resources. `ManualClock` drives expiry tests without replacing global timers. Round and portfolio accounting remain separate engines.
+`src/server.ts` is the process entry point. `createApp` in `src/app.ts` owns each instance and accepts a clock, data directory, storage factory, price `Feed`, `News` feed and rate fetcher. Importing it opens no socket. Call `start` to listen and await `stop` to release timers and sockets and save pending state. Startup failures release previously registered resources. `ManualClock` drives expiry tests without replacing global timers. Round and portfolio accounting remain separate engines: the Rewind and Random markets in `src/app.ts`, and the Live market in `src/live.ts`, whose prices come from `src/feed.ts`.
 
 ## 2 Public Contracts and Browser Modules
 

@@ -34,10 +34,10 @@ describe("achievements", () => {
     expect(fromCredit("repay", 125)).toEqual([]);
     expect(fromCredit("repay", 0)).toEqual(["debtFree"]);
   });
-  it("awards at the bell a bankruptcy, a replay ended up, and a replay's year named", () => {
-    expect(fromBell({ replay: false, net: -1, start: 1, yearRight: false })).toEqual(["bankrupt"]);
-    expect(fromBell({ replay: true, net: 2, start: 1, yearRight: true })).toEqual(["swan", "historian"]);
-    expect(fromBell({ replay: false, net: 2, start: 1, yearRight: false })).toEqual([]);
+  it("awards at the bell a bankruptcy, a rewind ended up, and a rewind's year named", () => {
+    expect(fromBell({ rewind: false, net: -1, start: 1, yearRight: false })).toEqual(["bankrupt"]);
+    expect(fromBell({ rewind: true, net: 2, start: 1, yearRight: true })).toEqual(["swan", "historian"]);
+    expect(fromBell({ rewind: false, net: 2, start: 1, yearRight: false })).toEqual([]);
   });
   it("tells a held margin call from the desk's own fills, and a pending fill from a click", () => {
     const desk = new Desk(100);
@@ -47,7 +47,7 @@ describe("achievements", () => {
     desk.mark(100.2);
     const [closed] = desk.close("a") as ReturnType<Desk["mark"]>;
     expect(closed.called, "the call is remembered after the level recovers").toBe(true);
-    desk.pend("a", { side: 1, at: 99, leverage: 10, stake: 0.5 });
+    desk.pend("a", { side: 1, at: 99, leverage: 10, share: 0.5 });
     const [opened] = desk.mark(98.9);
     expect(opened).toMatchObject({ kind: "open", pending: true });
   });

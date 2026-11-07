@@ -26,7 +26,7 @@ export function client(base: string, guard = false) {
       headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  const state = async <M extends Mode = "replay">(cookie?: string, mode: M = "replay" as M): Promise<StateFor<M>> =>
+  const state = async <M extends Mode = "rewind">(cookie?: string, mode: M = "rewind" as M): Promise<StateFor<M>> =>
     (await fetch(url(`/api/state?mode=${mode}`), { headers: cookie ? { cookie } : {} })).json() as Promise<StateFor<M>>;
   // A cookie jar of one: each visitor is the v= cookie the server hands out.
   async function visitor(): Promise<string> {
@@ -36,7 +36,7 @@ export function client(base: string, guard = false) {
     return cookie;
   }
   // An open page: the visitor's event stream, read with next(), until close().
-  async function page(cookie?: string, mode: Mode = "replay"): Promise<{ res: Response; next: Listener["next"]; close: () => void }> {
+  async function page(cookie?: string, mode: Mode = "rewind"): Promise<{ res: Response; next: Listener["next"]; close: () => void }> {
     const controller = new AbortController();
     const res = await fetch(url(`/api/events?mode=${mode}`), { headers: cookie ? { cookie } : {}, signal: controller.signal });
     return { res, next: listen(res.body!).next, close: () => controller.abort() };
@@ -55,7 +55,7 @@ export function client(base: string, guard = false) {
     // Waits until the market is trading with at least `ticks` left. A
     // market in the lobby waits for someone on its tab to press Start, so
     // this opens the tab as a visitor of its own and presses it.
-    async open(ticks = 8, mode: Mode = "replay"): Promise<void> {
+    async open(ticks = 8, mode: Mode = "rewind"): Promise<void> {
       if (guard) throw new Error("a test started a round on the live market; skip it there with it.skipIf(live)");
       const starter = await visitor();
       const tab = await page(starter, mode);

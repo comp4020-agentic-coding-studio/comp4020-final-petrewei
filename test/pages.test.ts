@@ -36,7 +36,7 @@ it("finds every element the page script asks for by id", () => {
   for (const id of asked) expect(html.includes(`id="${id}"`) || made.has(id), id).toBe(true);
 });
 
-// A tab named in the address (/#replay, or an old /#history) opens that
+// A tab named in the address (/#rewind, or an old /#history) opens that
 // tab on load. Typed into the address bar of an open page it is a hash
 // change, not a load, so the page must listen for that too, with the same
 // handling, or the tab never switches.

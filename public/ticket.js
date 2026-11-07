@@ -1,29 +1,29 @@
 // The order ticket's arithmetic (ADR 0024), shared by the page and the
 // checks: where a leverage sits on its log-scale slider and which rung a
-// slider position snaps to, the stakes, a signed percentage, and where a
+// slider position snaps to, the shares, a signed percentage, and where a
 // net worth sits on the meter. One rule here is the desk's own, not only
-// the page's: stakeMargin is what src/fx.ts takes for an order (ADR 0076),
+// the page's: shareMargin is what src/fx.ts takes for an order (ADR 0076),
 // so a change to it changes every fill, not just the preview.
 
 // A position on a slider or a meter, held to its ends.
 const unit = (x) => Math.min(1, Math.max(0, x));
 
 // What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
-export const STAKES = [0.25, 0.5, 0.75, 1];
-// The margin an order puts up (ADR 0076): `stake` of net worth, cut to what is free, whole dollars, never below nothing.
+export const SHARES = [0.25, 0.5, 0.75, 1];
+// The margin an order puts up (ADR 0076): `share` of net worth, cut to what is free, whole dollars, never below nothing.
 // The desk's rule (src/fx.ts calls it for every order); the ticket calls it too, to show the amount beforehand.
-export const stakeMargin = (equity, used, stake) => Math.max(0, Math.floor(Math.min(equity * stake, equity - used)));
-// The stake slider's track as a bar of the whole account (ADR 0077): what is already in use and what this order would
+export const shareMargin = (equity, used, share) => Math.max(0, Math.floor(Math.min(equity * share, equity - used)));
+// The share slider's track as a bar of the whole account (ADR 0077): what is already in use and what this order would
 // add, each as a share of net worth, from nothing at the track's left end to all of it at the right, the scale the
-// slider's own marks stand on (a quarter at a quarter of the way). `cut` says the order is less than the stake asked
+// slider's own marks stand on (a quarter at a quarter of the way). `cut` says the order is less than the share asked
 // for, because no more is free.
-export function stakeBar(equity, used, stake) {
+export function shareBar(equity, used, share) {
   const whole = Math.max(0, equity);
   const inUse = whole ? unit(used / whole) : 0;
-  const margin = stakeMargin(equity, used, stake);
+  const margin = shareMargin(equity, used, share);
   const order = whole ? margin / whole : 0;
   // cut when what goes in is less than the whole share asked for, in dollars as the desk counts it, or is nothing at all
-  return { used: inUse, order: unit(inUse + order) - inUse, cut: margin === 0 || margin < Math.floor(whole * stake) };
+  return { used: inUse, order: unit(inUse + order) - inUse, cut: margin === 0 || margin < Math.floor(whole * share) };
 }
 
 // The rungs of the leverage ladder sit evenly along the slider, however far
@@ -103,7 +103,7 @@ export function feePerMinute(fee, leverage, ticksPerMinute) {
 
 // A slider's heat, 0 calm to 1 alarm (ADR 0059): green up to the legal cap, amber
 // at it, then through orange to red as leverage climbs from the cap to the top
-// rung. Stake has no legal cap, and gives its own heat.
+// rung. Share has no legal cap, and gives its own heat.
 export function levHeat(leverage, cap, top) {
   return leverage <= cap ? (0.35 * Math.log(leverage)) / Math.log(cap) : 0.35 + (0.65 * Math.log(leverage / cap)) / Math.log(top / cap);
 }

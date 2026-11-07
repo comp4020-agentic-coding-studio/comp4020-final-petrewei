@@ -1,7 +1,7 @@
 // Types for ticket.js, which the page and the checks share.
-export declare const STAKES: number[];
-export declare function stakeMargin(equity: number, used: number, stake: number): number;
-export declare function stakeBar(equity: number, used: number, stake: number): { used: number; order: number; cut: boolean };
+export declare const SHARES: number[];
+export declare function shareMargin(equity: number, used: number, share: number): number;
+export declare function shareBar(equity: number, used: number, share: number): { used: number; order: number; cut: boolean };
 export declare function levPos(lev: number, ladder: number[]): number;
 export declare function levAt(pos: number, ladder: number[]): number;
 export declare function pct(change: number): string;

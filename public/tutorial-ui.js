@@ -1,9 +1,9 @@
 import { element, button, input } from "./dom.js";
 import { T } from "./i18n.js";
-import { STAKES } from "./ticket.js";
+import { SHARES } from "./ticket.js";
 import { autoMove, currentStep as planStep } from "./plan.js";
 import { refresh as retip } from "./tips.js";
-/** @param {{ getState: () => import("./protocol.js").State | null, getMode: () => import("./protocol.js").Mode, getChoice: () => { leverage: number, stake: number }, getLadder: () => number[], getLanguage: () => "en" | "ja" | "zh", isFresh: () => boolean, act: (kind: string, args?: object) => unknown, t: (key: string, args?: object) => string }} options */
+/** @param {{ getState: () => import("./protocol.js").State | null, getMode: () => import("./protocol.js").Mode, getChoice: () => { leverage: number, share: number }, getLadder: () => number[], getLanguage: () => "en" | "ja" | "zh", isFresh: () => boolean, act: (kind: string, args?: object) => unknown, t: (key: string, args?: object) => string }} options */
 export function createTutorial({ getState, getMode, getChoice, getLadder, getLanguage, isFresh, act, t }) {
   const $ = element;
   const controller = new AbortController();
@@ -55,7 +55,7 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   // and not its whole block, the one button, the one figure. A step is lit while
   // the page can see it is still to do.
   /** @type {Record<string, string>} */
-  const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", stake: "stake", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow" };
+  const TARGETS = { chart: "chart", equity: "equity", leverage: "leverage", margin: "margin", buy: "buy", sell: "sell", close: "close", pnl: "pnl", level: "level", stop: "pexits", stopthumb: "psl-dist", borrow: "borrow" };
   /** @param {import("./protocol.js").State} s */
   function lesson(s) {
     $("lesson").hidden = !s.lesson;
@@ -124,7 +124,7 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   function tickAuto() {
     const l = getState()?.lesson;
     if (!l || l.finished || getState()?.phase === "moving") return clearInterval(autoTimer);
-    if (!playing() || !isFresh() || document.hidden || document.querySelector("dialog[open]:not(#dad)") || sliding) return;
+    if (!playing() || !isFresh() || document.hidden || document.querySelector("dialog[open]:not(#credit-offer)") || sliding) return;
     if (--autoLeft > 0) return showCount();
     clearInterval(autoTimer);
     doForPlayer(l);
@@ -157,10 +157,10 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   // A slider moves to the value a step asks for, a few frames at a time, so the
   // player sees it go; it fires the same input events a hand would, so every
   // handler runs as usual. Reduced motion jumps there.
-  /** @param {"leverage" | "stake"} which @param {number} value @param {() => void} done */
+  /** @param {"leverage" | "margin"} which @param {number} value @param {() => void} done */
   function slideTo(which, value, done) {
     const slider = input(which);
-    const target = which === "leverage" ? getLadder().indexOf(value) : STAKES.indexOf(value);
+    const target = which === "leverage" ? getLadder().indexOf(value) : SHARES.indexOf(value);
     const from = Number(slider.value);
     const steps = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 24;
     let i = 0;
@@ -198,7 +198,7 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   // where the same key does something else, is left alone (ADR 0053). Space and the arrows are
   // the transport's now, so each key has one meaning.
   listenWindow("pointerdown", (e) => {
-    if (e.target instanceof Element && e.target.closest("dialog[open]:not(#dad), #name-box")) return;
+    if (e.target instanceof Element && e.target.closest("dialog[open]:not(#credit-offer), #name-box")) return;
     // A click on the lesson card's own buttons (the transport) is not a
     // click on the page: it must not move a look step on.
     if (!(e.target instanceof Element && e.target.closest("#lesson")) && nextLook()) return;
@@ -207,12 +207,12 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   listenWindow("keydown", (e) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.key !== "Enter") return;
     const t = e.target instanceof HTMLElement ? e.target : null;
-    if (document.querySelector("dialog[open]:not(#dad)") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
+    if (document.querySelector("dialog[open]:not(#credit-offer)") || t?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(t?.tagName ?? "")) return;
     if (nextLook()) e.preventDefault();
   });
   // A key or a slider move by the player starts the countdown again.
   listenWindow("keydown", () => getState()?.lesson && !sliding && armAuto(), true);
-  for (const id of ["leverage", "stake"]) input(id).addEventListener("input", () => !sliding && getState()?.lesson && armAuto(), { signal: controller.signal });
+  for (const id of ["leverage", "margin"]) input(id).addEventListener("input", () => !sliding && getState()?.lesson && armAuto(), { signal: controller.signal });
   // The step's words, in this language, kept beside the lit control: a small
   // label that follows it, so the instruction is where the eye already is.
   const hint = Object.assign(document.createElement("div"), { id: "step-hint", className: "step-hint", hidden: true });

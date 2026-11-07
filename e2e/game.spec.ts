@@ -111,24 +111,24 @@ test("two independent players see orders, recover from offline and receive their
     await join(observer, lang);
     // Round selection lives beside the quote and is shared by both people.
     const state = async () => (await (await page.request.get(`${baseURL}/api/state`)).json());
-    const replayPair = page.locator(".quote #replay-pair");
+    const replayPair = page.locator(".quote #rewind-pair");
     await expect(replayPair).toBeVisible();
     const initial = await state();
-    expect(initial.replayPlots.length).toBeGreaterThanOrEqual(19);
-    await expect(replayPair.locator("option")).toHaveCount(initial.replayPlots.length);
-    for (const plot of initial.replayPlots) {
+    expect(initial.rewindPlots.length).toBeGreaterThanOrEqual(19);
+    await expect(replayPair.locator("option")).toHaveCount(initial.rewindPlots.length);
+    for (const plot of initial.rewindPlots) {
       await page.waitForTimeout(300);
       await replayPair.selectOption(String(plot.n));
-      await expect.poll(async () => (await state()).replayPlot).toBe(plot.n);
-      await expect(observer.locator("#replay-pair")).toHaveValue(String(plot.n));
+      await expect.poll(async () => (await state()).rewindPlot).toBe(plot.n);
+      await expect(observer.locator("#rewind-pair")).toHaveValue(String(plot.n));
     }
     const raw = (await state()).prices.at(-1);
     await expect(page.locator("#price")).toHaveText(raw.toPrecision(5));
     expect((await replayPair.boundingBox())!.width).toBeLessThan(100);
     const clock = page.locator("#clock");
     expect((await clock.boundingBox())!.width).toBeLessThan(90);
-    await page.locator('[data-mode="simulation"]').click();
-    await observer.locator('[data-mode="simulation"]').click();
+    await page.locator('[data-mode="random"]').click();
+    await observer.locator('[data-mode="random"]').click();
     const base = page.locator(".quote #pair-base");
     const quote = page.locator(".quote #pair-quote");
     await expect(base).toBeVisible();
@@ -137,13 +137,13 @@ test("two independent players see orders, recover from offline and receive their
     for (const [currency, select] of [["GBP", base], ["CHF", quote]] as const) {
       await page.waitForTimeout(300);
       await select.selectOption(currency);
-      await expect.poll(async () => (await (await page.request.get(`${baseURL}/api/state?mode=simulation`)).json()).pair).toContain(currency);
+      await expect.poll(async () => (await (await page.request.get(`${baseURL}/api/state?mode=random`)).json()).pair).toContain(currency);
     }
     await expect(observer.locator("#pair-base")).toHaveValue("GBP");
     await expect(observer.locator("#pair-quote")).toHaveValue("CHF");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
-    await page.locator('[data-mode="replay"]').click();
-    await observer.locator('[data-mode="replay"]').click();
+    await page.locator('[data-mode="rewind"]').click();
+    await observer.locator('[data-mode="rewind"]').click();
     await page.locator("#start").click();
     await expect(page.locator("#buy")).toBeEnabled();
     await expect(replayPair).toBeDisabled();
@@ -300,12 +300,12 @@ test("keeps who you are on the first row of a phone, with the tabs below", async
   if (m.wide <= 419) expect(m.subShown, "the subtitle goes on a narrow phone").toBe(false);
 });
 
-// ADR 0087: four tabs, each label whole in every language and on a phone, whichever is chosen; and Marathon's board
-// shows on Marathon alone, the room's list on the others.
-test("shows every tab's whole label, and Marathon's board only on Marathon", async ({ page }, info) => {
+// ADR 0087: four tabs, each label whole in every language and on a phone, whichever is chosen; and Live's board
+// shows on Live alone, the room's list on the others.
+test("shows every tab's whole label, and Live's board only on Live", async ({ page }, info) => {
   const lang = info.project.metadata.lang as Lang;
   await join(page, lang);
-  for (const m of ["replay", "simulation", "marathon", "tutorial"]) {
+  for (const m of ["rewind", "random", "live", "tutorial"]) {
     await page.locator(`[data-mode="${m}"]`).click();
     await expect(page.locator(`[data-mode="${m}"]`)).toHaveAttribute("aria-selected", "true");
     // a label cut inside its tab, or a tab run past the bar around them
@@ -315,7 +315,7 @@ test("shows every tab's whole label, and Marathon's board only on Marathon", asy
       return [...bar.querySelectorAll("[role=tab]")].filter((t) => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > edge.right + 0.5).map((t) => (t as HTMLElement).dataset.mode);
     });
     expect(cut, `labels cut on ${m}`).toEqual([]);
-    if (m === "marathon") await expect(page.locator("#board")).toBeVisible();
+    if (m === "live") await expect(page.locator("#board")).toBeVisible();
     else await expect(page.locator("#board")).toBeHidden();
   }
 });
@@ -325,7 +325,7 @@ test("shows every tab's whole label, and Marathon's board only on Marathon", asy
 test("opens a tab from its name in the address", async ({ page }, info) => {
   const lang = info.project.metadata.lang as Lang;
   await join(page, lang);
-  for (const [hash, mode] of [["rewind", "replay"], ["flashback", "replay"], ["random", "simulation"], ["sandbox", "simulation"], ["live", "marathon"]]) {
+  for (const [hash, mode] of [["rewind", "rewind"], ["flashback", "rewind"], ["random", "random"], ["sandbox", "random"], ["live", "live"]]) {
     await page.evaluate((h) => { location.hash = h; }, hash);
     await expect(page.locator(`[data-mode="${mode}"]`), `#${hash}`).toHaveAttribute("aria-selected", "true");
   }

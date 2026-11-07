@@ -1,156 +1,429 @@
-// Marathon's real prices (ADR 0087): six dollar rates from Yahoo Finance's public chart service, polled every few
-// seconds while anyone watches, from which all twenty-one pairs of the seven currencies are crossed, so every pair agrees
-// with every other. The offshore yuan, CNH, stands for the yuan: the onshore rate stops overnight. Prices are kept as
-// fifteen-minute closes, the game's own tick (ADR 0085), the newest slot's close being the price now.
+import type { LiveState } from "../public/protocol.js";
+// Live (ADR 0087): a market that never closes, on real prices. Every player has one Australian-dollar account kept
+// on the volume, trades any of the twenty-one pairs at the price now, and keeps it across days until it goes bankrupt;
+// then the run is put on the Live board and a new account opens at the next midnight in Sydney. There is no round,
+// no bell and no house trader: the prices, the central banks' news and the week's releases are all real.
+//
+// The prices are fifteen-minute slots, the game's tick (ADR 0085): the chart is a pair's closes for five days, the
+// newest slot's close moving with each poll. Each slot that passes charges every account its fees and interest, and
+// the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
+// order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
+import { join } from "node:path";
+import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
+import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
+import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
+import { News } from "./news.ts";
 import { PAIRS, type Pair } from "./market.ts";
-import { CURRENCIES, SLOT_MS, SYMBOLS, parseQuotes, type Currency, type Fetcher, type Usd } from "./quotes.ts";
-import { SETTLED_MS, slotQuality, type Quality } from "./history-policy.ts";
-import { yahoo } from "./yahoo.ts";
-export { CURRENCIES, SLOT_MS, type Currency, type Fetcher, type Usd } from "./quotes.ts";
-export const STALE_MS = 10 * 60_000;
-const KEEP = 96 * 6;
-const currenciesFor = (pairs: readonly string[]): Set<Currency> => new Set<Currency>(["AUD", ...pairs.flatMap((pair) => pair.split("/") as Currency[])]);
-export const cross = (usd: Usd, pair: string): number => {
-  const [b, q] = pair.split("/") as [Currency, Currency];
-  return usd[b] / usd[q];
-};
-// What one unit of `from` is worth in `to`.
-export const convert = (usd: Usd, from: Currency, to: Currency): number => usd[from] / usd[to];
+import { systemClock, type Clock, type Timer } from "./clock.ts";
+import { jsonStorage, renameStore, type Store, type Storage } from "./storage.ts";
+import { liveValid, migrateLive } from "./saved.ts";
+
+export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
+type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
+export type Who = { nameAt: (k: string) => { name: string; draw: number | null }; named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
+export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number> };
+
+const POLL_MS = Number(process.env.LIVE_POLL_MS ?? 5_000);
+const NEWS_MS = 10 * 60_000;
+const CAL_MS = 60 * 60_000;
+const BOARD = 10;
+// Yahoo keeps a month of fifteen-minute closes: history missing from further back never comes, so trading resumes on
+// what there is rather than staying paused for everyone.
+const HISTORY_MS = 30 * 86_400_000;
 
 export class Live {
-  // slot number (ms since epoch / SLOT_MS) to dollar rates, in order
-  slots: { slot: number; usd: Usd }[] = [];
-  // when the newest price was struck, by the source's clock
-  at = 0;
-  private fetched = new Map<number, Set<Currency>>();
-  private traded = new Set<number>();
-  private times: Partial<Record<Currency, number>> = {};
-  failures = 0;
-  private get: Fetcher;
-  private host: string;
-  lastSuccess = 0;
-  private url(range: string): string { return `${this.host}/v7/finance/spark?symbols=${Object.values(SYMBOLS).map(([s]) => s).join(",")}&range=${range}&interval=15m`; }
-  private now: () => number;
-  constructor(get: Fetcher = yahoo, now: () => number = Date.now, privateHost = process.env.MARATHON_FEED ?? "https://query2.finance.yahoo.com") {
-    this.get = get;
-    this.host = privateHost;
-    this.now = now;
-  }
+  quotes: Feed;
+  news: News;
+  private store: Store<Saved>;
+  accounts = new Map<string, BookAccount>();
+  private names = new Map<string, string>();
+  private draws = new Map<string, number | null>();
+  runs: Run[] = [];
+  // a bankrupt player's key, and when their next account opens
+  waits = new Map<string, number>();
+  feed: FeedLine[] = [];
+  headline: { cur: string; title: string; source: string; link: string; at: number } | null = null;
+  // the last slot the accounts were charged for
+  slot = 0;
+  private refreshing = false;
+  private gap = false;
+  private selections = new Map<string, string>();
+  private polling: Timer | null = null;
+  private saving: Timer;
+  private clock: Clock;
+  private pollMs: number;
+  private disposed = false;
+  private lastNews = 0;
+  private lastCal = 0;
+  private lastBack = 0;
+  private lastExtended = 0;
+  private dirty = false;
+  private watching: () => number;
+  private onChange: () => void;
+  private log: (who: string | null, ev: string, fields: Record<string, unknown>) => void;
+  readonly w: Who;
 
-  private merge(data: unknown): void {
-    const observations = parseQuotes(data);
-    const bySlot = new Map<number, Partial<Usd>>();
-    const fetched = new Map<number, Set<Currency>>();
-    const traded = new Set<number>();
-    const record = (slot: number, cur: Currency, price: number): void => {
-      bySlot.set(slot, { ...bySlot.get(slot), [cur]: price });
-      const currencies = fetched.get(slot) ?? new Set<Currency>();
-      currencies.add(cur);
-      fetched.set(slot, currencies);
-    };
-    const times: Partial<Record<Currency, number>> = {};
-    const quotes: Partial<Usd> = {};
-    for (const observation of observations) {
-      const { slot, cur, price, historical, at } = observation;
-      record(slot, cur, price);
-      if (historical) traded.add(slot);
-      if (at !== undefined) { times[cur] = at; quotes[cur] = price; }
-    }
-    this.fetched = fetched;
-    this.traded = traded;
-    const known = new Map(this.slots.map((x) => [x.slot, x.usd]));
-    for (const [s, part] of bySlot) known.set(s, { ...(known.get(s) ?? ({} as Usd)), ...part, USD: 1 } as Usd);
-    // a currency missing from a slot carries its last price forward
-    let last: Partial<Usd> = {};
-    this.slots = [...known.entries()].sort((a, b) => a[0] - b[0]).map(([slot, usd]) => {
-      const full = { ...last, ...usd } as Usd;
-      last = full;
-      return { slot, usd: full };
-    }).filter((x) => CURRENCIES.every((c) => x.usd[c] > 0));
-    const newest = this.slots.at(-1);
-    if (newest) {
-      const cutoff = newest.slot * SLOT_MS - STALE_MS;
-      for (const cur of CURRENCIES) {
-        const price = quotes[cur];
-        if (price !== undefined && (times[cur] ?? 0) >= cutoff) newest.usd[cur] = price;
+  constructor(dir: string, w: Who, opts: { quotes?: Feed; news?: News; clock?: Clock; storage?: Storage; pollMs?: number; watching: () => number; onChange: () => void; log: (who: string | null, ev: string, fields: Record<string, unknown>) => void }) {
+    // the accounts were saved as marathon.json before the tab was renamed Live (ADR 0091)
+    renameStore(join(dir, "marathon.json"), join(dir, "live.json"));
+    this.store = (opts.storage ?? jsonStorage).open<Saved>(join(dir, "live.json"), { initial: () => ({ accounts: {}, runs: [], waits: {}, slot: 0 }), validate: liveValid, migrateLegacy: migrateLive });
+    this.w = w;
+    this.clock = opts.clock ?? systemClock;
+    this.pollMs = opts.pollMs ?? POLL_MS;
+    this.quotes = opts.quotes ?? new Feed(undefined, this.clock.now);
+    this.news = opts.news ?? new News();
+    this.watching = opts.watching;
+    this.onChange = opts.onChange;
+    this.log = opts.log;
+    {
+      const s = this.store.read();
+      this.accounts = new Map(Object.entries(s.accounts));
+      this.runs = s.runs ?? [];
+      this.waits = new Map(Object.entries(s.waits ?? {}));
+      this.slot = s.slot ?? 0;
+      // the names last seen, so the board names a player who has not looked in since a restart
+      for (const [k, [n, d]] of Object.entries(s.names ?? {})) {
+        this.names.set(k, n);
+        this.draws.set(k, d);
       }
     }
-    this.times = times;
-    this.at = Math.max(0, ...Object.values(times));
-    this.lastSuccess = this.now();
+    this.saving = this.clock.every(() => this.save(), 5_000).unref();
   }
 
-  // Five days of fifteen-minute closes, at start and on the hour after.
-  async backfill(extended = false): Promise<void> {
-    this.merge(await this.get(this.url(extended ? "1mo" : "5d")));
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.saving.cancel();
+    this.polling?.cancel();
+    this.polling = null;
+    this.save(true);
   }
 
-  trim(): void {
-    this.slots = this.slots.slice(-KEEP);
-  }
-  // The day's closes and the price now, every few seconds.
-  async poll(): Promise<void> {
+  save(force = false): void {
+    if (!this.dirty && !force) return;
     try {
-      this.merge(await this.get(this.url("1d")));
-      this.failures = 0;
+      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])) };
+      this.store.write(data);
+      this.dirty = false;
     } catch (e) {
-      this.failures++;
-      throw e;
+      console.error("marathon save failed:", e instanceof Error ? e.message : "unknown");
     }
   }
-  // Whether every trading slot from `slot` on has a price of its own for each of these pairs' currencies, so that
-  // settling an account across them misses nothing. Yahoo leaves a few fifteen-minute bars out of most weeks and never
-  // sends them; a slot older than SETTLED_MS is therefore taken as final, its hole carried over from the slot before,
-  // and only a recent slot, which may still arrive, is waited for.
-  coversSince(slot: number, pairs: readonly string[]): boolean {
-    const last = this.slots.at(-1)?.slot;
-    if (last === undefined) return false;
-    const settled = Math.floor((this.now() - SETTLED_MS) / SLOT_MS);
-    for (let at = Math.max(slot, settled + 1); at <= last; at++) if (this.quality(at, pairs) === "pending") return false;
-    return true;
+
+  say(text: string, kind: string, key: string, args: Record<string, string | number> = {}): void {
+    this.feed = [...this.feed, { text, kind, key, args }].slice(-60);
   }
 
-  quality(slot: number, pairs: readonly string[] = PAIRS): Quality {
-    return slotQuality(slot, [...currenciesFor(pairs)], this.fetched.get(slot), this.traded.has(slot), this.now());
+  // Polls run only while someone has the tab open; the first look fetches the days before.
+  wake(): void {
+    if (this.polling || this.disposed) return;
+    const tick = () => void this.refresh().catch(() => {});
+    this.lastBack = 0;
+    tick();
+    this.polling = this.clock.every(() => {
+      if (!this.watching()) {
+        this.polling!.cancel();
+        this.polling = null;
+        return;
+      }
+      tick();
+    }, this.pollMs);
+    this.polling.unref?.();
   }
-  // A settled hole for every currency needs a carry just as a single-currency hole does.
-  // Keep synthesized slots separate from provider observations, and bound recovery to the provider's month.
-  settlementSlots(): { slot: number; usd: Usd }[] {
-    const first = this.slots[0]; const last = this.slots.at(-1);
-    if (!first || !last) return [];
-    const observed = new Map(this.slots.map((row) => [row.slot, row]));
-    const result: { slot: number; usd: Usd }[] = [];
-    let previous = first.usd;
-    for (let slot = Math.max(first.slot, last.slot - 31 * 96); slot <= last.slot; slot++) {
-      const row = observed.get(slot);
-      if (row) { result.push(row); previous = row.usd; }
-      else if (this.quality(slot) === "carried") result.push({ slot, usd: { ...previous } });
+
+  async refresh(at?: number): Promise<void> {
+    if (this.refreshing || this.disposed) return;
+    const now = at ?? this.clock.now();
+    this.refreshing = true;
+    try {
+      if (!this.quotes.slots.length || now - this.lastBack > CAL_MS) {
+        await this.quotes.backfill();
+        this.lastBack = now;
+      } else await this.quotes.poll();
+      if (this.disposed) return;
+      this.gap = this.missingHistory(now);
+      if (this.gap && now - this.lastExtended > CAL_MS) {
+        this.lastExtended = now;
+        await this.quotes.backfill(true);
+        if (this.disposed) return;
+        this.gap = this.missingHistory(now);
+      }
+      if (!this.gap) this.advance(at ?? this.clock.now());
+    } catch {
+      if (this.disposed) return;
+      // A newly fetched quote remains unavailable if historical recovery failed.
+      this.gap ||= this.missingHistory(now);
+    } finally {
+      this.quotes.trim();
+      this.refreshing = false;
     }
-    return result;
-  }
-  diagnostics() {
-    const quality: Record<Quality, number> = { observed: 0, carried: 0, pending: 0, closed: 0 };
-    const last = this.slots.at(-1)?.slot;
-    if (last !== undefined) for (let slot = Math.max(this.slots[0].slot, last - KEEP + 1); slot <= last; slot++) quality[this.quality(slot)]++;
-    return { failures: this.failures, lastSuccess: this.lastSuccess, priceAt: this.at, latestSlot: this.slots.at(-1)?.slot ?? null, quality, settlementMs: SETTLED_MS };
+    if (this.disposed) return;
+    this.onChange();
+    await this.updateNews(now);
   }
 
-  live(pairs?: readonly string[]): boolean {
-    const currencies = pairs ? currenciesFor(pairs) : CURRENCIES;
-    const now = this.now();
-    return this.slots.length > 0 && [...currencies].every((cur) => {
-      if (cur === "USD") return true;
-      const at = this.times[cur];
-      return at !== undefined && at <= now && now - at < STALE_MS;
-    });
+  // Whether slots since the last one charged are missing from what the source sent, while some account is exposed to
+  // them: settling those accounts on later prices would skip a stop-out or a bankruptcy that happened in between.
+  private missingHistory(now: number): boolean {
+    if (!this.slot || (this.quotes.slots.at(-1)?.slot ?? 0) <= this.slot || now - this.slot * SLOT_MS > HISTORY_MS) return false;
+    const exposed = [...this.accounts.values()].filter((a) => a.debt > 0 || used(a) > 0);
+    return exposed.length > 0 && !this.quotes.coversSince(this.slot + 1, exposed.flatMap((a) => Object.keys(a.positions)));
   }
-  latest(): Usd | null {
-    return this.slots.at(-1)?.usd ?? null;
+
+  private async updateNews(now: number): Promise<void> {
+    if (now - this.lastNews <= NEWS_MS && now - this.lastCal <= CAL_MS) return;
+    if (now - this.lastNews > NEWS_MS) {
+      this.lastNews = now;
+      const first = !this.news.items.length;
+      const fresh = await this.news.banks().catch(() => []);
+      if (this.disposed) return;
+      // the first look sets what has already been said; only what is new after it, or from the last day, is told
+      for (const i of fresh.filter((i) => !first || now - i.at < 86_400_000)) {
+        this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title });
+        this.headline = { cur: i.cur, title: i.title, source: i.source, link: i.link, at: i.at };
+      }
+    }
+    if (now - this.lastCal > CAL_MS) {
+      this.lastCal = now;
+      await this.news.week();
+      if (this.disposed) return;
+    }
+    this.onChange();
   }
-  // A pair's closes, oldest first, and the slot number of the newest.
-  series(pair: Pair | string): { prices: number[]; last: number } {
-    return { prices: this.slots.map((x) => cross(x.usd, pair)), last: this.slots.at(-1)?.slot ?? 0 };
+
+  // Charge each slot that has passed since the last, in order, with that slot's prices, and act on the rules at each.
+  advance(now = this.clock.now()): void {
+    if (this.disposed) return;
+    const slots = this.quotes.settlementSlots();
+    if (!slots.length) return;
+    const last = slots.at(-1)!.slot;
+    if (!this.slot) this.slot = last;
+    for (const { slot, usd } of slots) {
+      if (slot <= this.slot) continue;
+      const at = slot * SLOT_MS;
+      // A past slot's close is final. The newest slot can still move and requires live prices.
+      const closed = slot !== last || now - at >= SLOT_MS;
+      for (const [k, a] of this.accounts) {
+        charge(a);
+        if (closed || this.quotes.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, at));
+      }
+      this.bust(at, usd);
+      this.slot = slot;
+      this.dirty = true;
+    }
+    // and the rules on the price now
+    const usd = this.quotes.latest()!;
+    for (const [k, a] of this.accounts) {
+      if (this.quotes.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, now));
+    }
+    this.bust(now, usd);
+  }
+
+  private report(k: string, fills: BookFill[]): void {
+    if (!fills.length) return;
+    this.dirty = true;
+    const name = this.names.get(k) ?? "A trader";
+    for (const f of fills) {
+      const args = { who: k.slice(0, 6), name, draw: this.draws.get(k) ?? -1, pair: f.pair, pnl: Math.round(f.pnl) };
+      if (f.kind === "stop") this.say(`${name}'s stop filled on ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-stopped", args);
+      else if (f.kind === "take") this.say(`${name} took profit on ${f.pair}`, "win", "m-took", args);
+      else if (f.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out on ${f.pair}`, "bust", "m-stopout", args);
+      else if (f.kind === "call") this.say(`Margin call for ${name}.`, "call", "m-call", { who: k.slice(0, 6), name, draw: this.draws.get(k) ?? -1 });
+    }
+  }
+
+  // Accounts with nothing open and worth too little to trade are closed and put on the board.
+  private bust(now: number, usd: Usd): void {
+    for (const [k, a] of this.accounts) {
+      if (!bankrupt(a, usd)) continue;
+      const until = nextSydneyMidnight(now);
+      this.runs.push({ key: k, name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? null, face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "bankrupt", worth: Math.round(worth(a, usd)) });
+      this.runs = this.runs.slice(-500);
+      this.accounts.delete(k);
+      this.waits.set(k, until);
+      this.say(`${this.names.get(k) ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: k.slice(0, 6), name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? -1, days: days(now - a.opened) });
+      this.log(null, "marathon-bankrupt", { code: k.slice(0, 6), days: days(now - a.opened), peak: a.peak });
+      this.dirty = true;
+    }
+  }
+
+  // Names by key, kept from the last time each person was seen, for the feed and the board.
+  private seen(who: string, k: string): void {
+    const name = this.w.name(who);
+    const draw = this.w.draw(who);
+    if (this.names.get(k) !== name || this.draws.get(k) !== draw) this.dirty = true;
+    this.names.set(k, name);
+    this.draws.set(k, draw);
+  }
+
+  // An unopened account is a preview. Only a successful financial action persists it.
+  private preview(k: string, now: number): BookAccount | null {
+    const a = this.accounts.get(k);
+    if (a) return a;
+    if (now < (this.waits.get(k) ?? 0)) return null;
+    return fresh(now, this.slot, this.selections.get(k));
+  }
+
+  private tradable(a: BookAccount | null, pair: string): boolean {
+    return !this.gap && this.quotes.live([pair, ...Object.keys(a?.positions ?? {})]);
+  }
+
+  act(who: string, input: Record<string, unknown>, now = this.clock.now()): string | null {
+    const kind = input.kind;
+    const k = this.w.key(who);
+    const a = this.preview(k, now);
+    if (!a) return "Your account is closed until midnight in Sydney.";
+    if (kind === "pair") {
+      if (typeof input.pair !== "string" || !PAIRS.includes(input.pair as Pair)) return "No such pair.";
+      a.pair = input.pair;
+      if (this.accounts.has(k)) this.dirty = true;
+      else {
+        this.selections.delete(k);
+        this.selections.set(k, a.pair);
+        if (this.selections.size > 1024) this.selections.delete(this.selections.keys().next().value!);
+      }
+      return null;
+    }
+    const pair = typeof input.pair === "string" && PAIRS.includes(input.pair as Pair) ? input.pair : a.pair;
+    const usd = this.quotes.latest();
+    if (this.gap) return "Live is waiting for missing price history.";
+    if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
+    let result: BookFill[] | string | null;
+    if (kind === "buy" || kind === "sell") {
+      const dist = (v: unknown) => (typeof v === "number" ? v : null);
+      const side = kind === "buy" ? 1 : -1;
+      const leverage = Number(input.leverage);
+      const share = typeof input.share === "number" ? input.share : typeof input.stake === "number" ? input.stake : 1;
+      result = order(a, pair, usd, side, leverage, share, { sl: dist(input.sl), tp: dist(input.tp) }, now);
+    } else if (kind === "close") {
+      result = close(a, pair, usd, now);
+    } else if (kind === "stop" || kind === "take") {
+      result = exit(a, pair, usd, kind, typeof input.pct === "number" ? input.pct : null);
+    } else if (kind === "borrow" || kind === "repay") {
+      result = kind === "borrow" ? borrow(a) : repay(a);
+      if (!result) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
+    } else return "Unknown action.";
+    if (typeof result === "string") return result;
+    if (Array.isArray(result)) for (const fill of result) this.told(who, fill);
+    this.seen(who, k);
+    if (!this.accounts.has(k)) {
+      this.accounts.set(k, a);
+      this.waits.delete(k);
+      this.selections.delete(k);
+      this.log(who, "marathon-open", {});
+    }
+    this.log(who, `marathon-${kind}`, { pair });
+    this.dirty = true;
+    this.report(k, enforce(a, usd, now));
+    this.bust(now, usd);
+    return null;
+  }
+
+  private told(who: string, f: BookFill): void {
+    const name = this.w.name(who);
+    const args = { who: this.w.short(who), name, draw: this.w.draw(who) ?? -1, pair: f.pair, pnl: Math.round(f.pnl), lev: f.leverage ?? 0 };
+    if (f.kind === "open" || f.kind === "add") this.say(`${name} ${f.side === 1 ? "bought" : "sold"} ${f.pair} at ${f.leverage}×`, f.side === 1 ? "buy" : "sell", f.side === 1 ? "m-bought" : "m-sold", args);
+    else if (f.kind === "close") this.say(`${name} closed ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-closed", args);
+  }
+
+  board(now = this.clock.now()): (Run & { you?: boolean })[] {
+    const usd = this.quotes.latest();
+    const running: Run[] = usd ? [...this.accounts].filter(([, a]) => used(a) > 0 || a.trades.length > 0).map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
+    // longest-lasting first: the live's measure is how long an account survives
+    return [...running, ...this.runs].sort((a, b) => b.ended - b.opened - (a.ended - a.opened)).slice(0, BOARD);
+  }
+
+  diagnostics() { return { ...this.quotes.diagnostics(), historyGap: this.gap, settledSlot: this.slot, recovery: this.gap ? "waiting-for-recent-history" : "ready" }; }
+
+  view(who: string, here: Record<string, number>) {
+    const now = this.clock.now();
+    const k = this.w.key(who);
+    const a = this.preview(k, now);
+    if (this.accounts.has(k)) this.seen(who, k);
+    const usd = this.quotes.latest();
+    const pair = a?.pair ?? "AUD/USD";
+    const { prices, last } = this.quotes.series(pair);
+    const mid = prices.at(-1) ?? 1;
+    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
+    const pos = positions.find((p) => p.pair === pair) ?? null;
+    const eq = a ? (usd ? equity(a, usd) : a.balance) : 0;
+    const live = this.tradable(a, pair);
+    const state = {
+      mode: "live" as const,
+      simulated: false,
+      phase: live ? "trade" as const : this.quotes.slots.length ? "shut" as const : "waiting" as const,
+      live,
+      historyGap: this.gap,
+      priceAt: this.quotes.at,
+      pair,
+      pairs: PAIRS,
+      currencies: CURRENCIES,
+      // a yen pair is priced to two places and its pip is 0.01; the page reads the pip from this (3 for yen pairs)
+      digits: pair.endsWith("/JPY") ? 3 : 5,
+      // the chart's prices: the pair's closes, the newest moving; the slot is the clock, 96 a day
+      prices,
+      from: 0,
+      tick: last,
+      total: prices.length - 1,
+      steps: 8,
+      dayTicks: 96,
+      history: [],
+      slotMs: SLOT_MS,
+      start: START,
+      speed: 1,
+      rules: false,
+      ironman: false,
+      paused: null,
+      round: 0,
+      headline: this.headline,
+      calendar: this.news.calendar.filter((c) => c.at > now - 86_400_000).slice(0, 12),
+      bankNews: this.news.items.slice(0, 8).map((i) => ({ cur: i.cur, source: i.source, title: i.title, at: i.at, link: i.link })),
+      reopens: a ? null : this.waits.get(k) ?? null,
+      you: {
+        name: this.w.name(who),
+        draw: this.w.draw(who),
+        named: this.w.named(who),
+        face: this.w.face(who),
+        code: this.w.short(who),
+        balance: a?.balance ?? 0,
+        equity: Math.round(eq),
+        pnl: a && usd ? Math.round(openPnl(a, usd)) : 0,
+        level: a && usd && used(a) ? Math.round(level(a, usd) * 100) : null,
+        out: !a,
+        guess: null,
+        debt: Math.round(a?.debt ?? 0),
+        credit: Math.max(0, LIMIT - Math.round(a?.debt ?? 0)),
+        broke: false,
+        bankrupt: !a,
+        cuts: a?.cuts ?? 0,
+        opened: a?.opened ?? null,
+        peak: a?.peak ?? null,
+        used: a ? used(a) : 0,
+        pos: pos && { side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, called: !!a?.called, call: pos.call, cut: pos.cut },
+        positions,
+        pending: null,
+        feats: [],
+        trades: (a?.trades ?? []).slice(-20).reverse(),
+      },
+      traders: [],
+      feed: this.feed,
+      pops: [],
+      marks: [],
+      result: null,
+      board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, days: days(r.ended - r.opened), you: rk === k })),
+      career: [],
+      leverages: LEVERAGES,
+      desk: { ...RULES, ticksPerMinute: 60_000 / SLOT_MS },
+      minRounds: 0,
+      ...quote(mid),
+      here,
+    };
+    return state satisfies LiveState;
   }
 }
 
-export const MARATHON_PAIRS: readonly Pair[] = PAIRS;
+// How long, in whole days and hours, for the feed and the board.
+export function days(ms: number): string {
+  const h = Math.max(0, Math.floor(ms / 3_600_000));
+  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d ${h % 24}h`;
+}

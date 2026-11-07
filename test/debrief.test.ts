@@ -22,7 +22,7 @@ it("gives each player a private bell breakdown that reconciles money, fees, cred
     const bought = await c.act(me, { kind: "buy", leverage: 100 });
     expect(bought.status, JSON.stringify(await bought.clone().json())).toBe(200);
     expect(await tabs[0].next((e) => Number(e.tick) >= 20, 5000), "twenty ticks pass while the position is open").not.toBeNull();
-    // A replay opens on a day the market broke, so the price may already have cut this position
+    // A rewind opens on a day the market broke, so the price may already have cut this position
     // (a 100x one in a few ticks): the market's verdict is a way the round can go, and the
     // breakdown must reconcile either way. Only a refusal that is not "nothing to close" is wrong.
     const closed = await c.act(me, { kind: "close" });
@@ -61,7 +61,7 @@ it("explains a forced cut and emergency credit, with its interest, without deduc
     await c.act(me, { kind: "start" });
     expect(await tab.next((e) => e.phase === "trade", 2000)).not.toBeNull();
     await c.act(me, { kind: "buy", leverage: 30 });
-    const cut = await fetch(`${s.base}/api/debug`, { method: "POST", headers: { cookie: `${me}; ${debugCookie}`, "content-type": "application/json" }, body: JSON.stringify({ kind: "cut", mode: "replay" }) });
+    const cut = await fetch(`${s.base}/api/debug`, { method: "POST", headers: { cookie: `${me}; ${debugCookie}`, "content-type": "application/json" }, body: JSON.stringify({ kind: "cut", mode: "rewind" }) });
     expect(cut.status).toBe(200);
     expect((await c.act(me, { kind: "borrow" })).status).toBe(200);
     await c.act(me, { kind: "finish" });

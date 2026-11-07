@@ -3,14 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CANDLE, DAY_TICKS, EVENTS, History, Minutes, PLAY_DAYS, PRE_ROLL_DAYS, random, replayRound, SWAN_DAY } from "../src/market.ts";
 
-// Replay on the new clock (ADR 0075): two days of the market before the round and five played, 48 half-hour ticks a
+// Rewind on the new clock (ADR 0075): two days of the market before the round and five played, 48 half-hour ticks a
 // day, the real minutes where a plot has them and the ECB's closes bridged where it has not. These hold what the
 // server and the page rely on, for every plot, real and simulated alike.
 const root = join(import.meta.dirname, "..");
 const history = new History(readFileSync(join(root, "data", "ecb.csv"), "utf8"));
 const minutes = new Minutes(readFileSync(join(root, "data", "minutes.csv"), "utf8"));
 
-describe("a replay round on the new clock", () => {
+describe("a rewind round on the new clock", () => {
   it("is five played days of 48 ticks after two days of history, for every plot", () => {
     for (const e of EVENTS) {
       const r = replayRound(history, minutes, random(3), e.id);
@@ -38,8 +38,8 @@ describe("a replay round on the new clock", () => {
   it("plays a plot's real minutes exactly, and calls only the plots without them bridged, never simulated", () => {
     for (const e of EVENTS) {
       const r = replayRound(history, minutes, random(9), e.id);
-      // `simulated` is the Simulation tab's word for a market made up from today's rate: a Replay is real days, always
-      expect(r.source, `${e.id}: real minutes where it has them, and bridged closes where not, never a Simulation`).toBe(minutes.of(e.id) ? "minutes" : "bridged");
+      // `simulated` is the Random tab's word for a market made up from today's rate: a Rewind is real days, always
+      expect(r.source, `${e.id}: real minutes where it has them, and bridged closes where not, never a Random round`).toBe(minutes.of(e.id) ? "minutes" : "bridged");
       if (!minutes.of(e.id)) continue;
       const real = minutes.of(e.id)!;
       const open = PRE_ROLL_DAYS * DAY_TICKS;

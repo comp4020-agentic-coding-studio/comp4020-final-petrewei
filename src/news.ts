@@ -1,7 +1,7 @@
-// Marathon's real news (ADR 0087): the central banks of the seven currencies, from their own press feeds, and this
+// Live's real news (ADR 0087): the central banks of the seven currencies, from their own press feeds, and this
 // week's high-impact releases for them, from a public economic calendar. Each item is what the source said, its
 // headline in English with its time and a link to the source, never rewritten; pages say it is the source's own words.
-import type { Currency } from "./live.ts";
+import type { Currency } from "./feed.ts";
 
 export type Item = { id: string; cur: Currency; source: string; title: string; at: number; link: string };
 export type Release = { cur: Currency; title: string; at: number; forecast: string; previous: string; actual: string };
@@ -19,9 +19,9 @@ const BANKS: { cur: Currency; source: string; url: string; keep: RegExp }[] = [
 const CALENDAR = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const UA = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Losscut/1.0" };
 type Get = (url: string) => Promise<string>;
-// MARATHON_NEWS=off keeps the checks off the network; the bank feeds and the calendar are then empty
+// LIVE_NEWS=off keeps the checks off the network; the bank feeds and the calendar are then empty
 const get: Get = async (url) => {
-  if (process.env.MARATHON_NEWS === "off") throw new Error("news off");
+  if (process.env.LIVE_NEWS === "off") throw new Error("news off");
   const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(8_000), redirect: "follow" });
   if (!res.ok) throw new Error(`${url} ${res.status}`);
   return res.text();

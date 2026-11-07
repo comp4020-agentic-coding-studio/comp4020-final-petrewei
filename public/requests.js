@@ -4,7 +4,7 @@ function number(value) { if (typeof value !== "number" || !Number.isFinite(value
 function distance(value) { return value == null ? null : number(value); }
 /** @param {string} kind @param {Record<string, unknown>} fields @returns {import("./protocol.js").TradeAction | null} */
 function trade(kind, fields) {
-  if (kind === "buy" || kind === "sell") return { kind, leverage: number(fields.leverage), stake: fields.stake === undefined ? 1 : number(fields.stake), sl: distance(fields.sl), tp: distance(fields.tp) };
+  if (kind === "buy" || kind === "sell") return { kind, leverage: number(fields.leverage), share: fields.share === undefined ? 1 : number(fields.share), sl: distance(fields.sl), tp: distance(fields.tp) };
   if (kind === "close" || kind === "borrow" || kind === "repay") return { kind };
   if (kind === "stop" || kind === "take") return { kind, pct: distance(fields.pct) };
   return null;
@@ -12,7 +12,7 @@ function trade(kind, fields) {
 /** @param {import("./protocol.js").Mode} mode @param {string} kind @param {Record<string, unknown>} [fields] @returns {import("./protocol.js").Action} */
 export function makeAction(mode, kind, fields = {}) {
   const chosen = trade(kind, fields);
-  if (mode === "marathon") {
+  if (mode === "live") {
     if (kind === "pair" && typeof fields.pair === "string") return { mode, kind, pair: fields.pair };
     if (chosen) return { mode, ...chosen, ...(typeof fields.pair === "string" ? { pair: fields.pair } : {}) };
   } else if (mode === "tutorial") {
@@ -26,7 +26,7 @@ export function makeAction(mode, kind, fields = {}) {
     if (kind === "choose" && (typeof fields.what === "number" || typeof fields.what === "string")) return { mode, kind, what: fields.what };
     if (kind === "guess") return { mode, kind, year: number(fields.year) };
     if (kind === "pray") return { mode, kind, way: fields.way === -1 ? -1 : 1 };
-    if (kind === "pend") return { mode, kind, side: fields.side === -1 ? -1 : 1, at: number(fields.at), leverage: number(fields.leverage), stake: number(fields.stake), sl: distance(fields.sl), tp: distance(fields.tp) };
+    if (kind === "pend") return { mode, kind, side: fields.side === -1 ? -1 : 1, at: number(fields.at), leverage: number(fields.leverage), share: number(fields.share), sl: distance(fields.sl), tp: distance(fields.tp) };
   }
   throw new Error("Invalid action for mode");
 }

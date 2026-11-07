@@ -50,7 +50,7 @@ it("refuses malformed dispatch values without stopping the server or exposing a 
   for (const mode of ["toString", "constructor", "__proto__"]) {
     const res = await fetch(`${s.base}/api/state?mode=${mode}`);
     expect(res.status).toBe(200);
-    expect((await res.json()).mode).toBe("replay");
+    expect((await res.json()).mode).toBe("rewind");
   }
   const badMode = await client(s.base).attempt({ kind: "buy", leverage: 1, mode: { toString: null } });
   expect(badMode.status).toBe(409);
@@ -66,16 +66,16 @@ it("updates idle pages when people enter, leave or switch markets", async () => 
   let tutorial: Awaited<ReturnType<typeof c.page>> | undefined;
   let simulation: Awaited<ReturnType<typeof c.page>> | undefined;
   try {
-    const joined = await a.next((e) => (e.here as { replay: number }).replay === 2, 1000);
+    const joined = await a.next((e) => (e.here as { rewind: number }).rewind === 2, 1000);
     expect(joined?.traders).toHaveLength(9);
     b.close();
-    const left = await a.next((e) => (e.here as { replay: number }).replay === 1, 1000);
+    const left = await a.next((e) => (e.here as { rewind: number }).rewind === 1, 1000);
     expect(left).not.toBeNull();
     expect(left?.traders).toHaveLength(8);
     tutorial = await c.page(await c.visitor(), "tutorial");
-    simulation = await c.page(await c.visitor(), "simulation");
-    expect(await tutorial.next((e) => (e.here as { simulation: number }).simulation === 1, 1000)).not.toBeNull();
-    expect(await a.next((e) => (e.here as { simulation: number }).simulation === 1, 1000)).not.toBeNull();
+    simulation = await c.page(await c.visitor(), "random");
+    expect(await tutorial.next((e) => (e.here as { random: number }).random === 1, 1000)).not.toBeNull();
+    expect(await a.next((e) => (e.here as { random: number }).random === 1, 1000)).not.toBeNull();
   } finally {
     a.close();
     b.close();
@@ -84,7 +84,7 @@ it("updates idle pages when people enter, leave or switch markets", async () => 
   }
 });
 
-it("uses a successful latest-rate fetch for the first Simulation round, including concurrent starts", async () => {
+it("uses a successful latest-rate fetch for the first Random round, including concurrent starts", async () => {
   s = await server(8190, {
     TICK_MS: "20",
     COUNTDOWN_TICKS: "1",
@@ -96,18 +96,18 @@ it("uses a successful latest-rate fetch for the first Simulation round, includin
   });
   const c = client(s.base);
   const me = await c.visitor();
-  const unopened = await c.state(me, "simulation");
-  expect((await c.attempt({ kind: "start", mode: "simulation" }, me)).status).toBe(409);
-  expect((await c.state(me, "simulation")).prices).toEqual(unopened.prices);
-  const tab = await c.page(me, "simulation");
+  const unopened = await c.state(me, "random");
+  expect((await c.attempt({ kind: "start", mode: "random" }, me)).status).toBe(409);
+  expect((await c.state(me, "random")).prices).toEqual(unopened.prices);
+  const tab = await c.page(me, "random");
   try {
-    await c.act(me, { kind: "choose", what: "USD/JPY", mode: "simulation" });
-    const starts = await Promise.all([c.act(me, { kind: "start", mode: "simulation" }), c.act(me, { kind: "start", mode: "simulation" })]);
+    await c.act(me, { kind: "choose", what: "USD/JPY", mode: "random" });
+    const starts = await Promise.all([c.act(me, { kind: "start", mode: "random" }), c.act(me, { kind: "start", mode: "random" })]);
     expect(starts.map((r) => r.status).sort()).toEqual([200, 409]);
     const trading = await tab.next((e) => e.phase === "trade", 2000);
     expect((trading?.prices as number[])[0]).toBe(100);
-    await c.act(me, { kind: "finish", mode: "simulation" });
-    const bell = await c.state(me, "simulation") as unknown as { result: { facts: { from: string; source: string } } };
+    await c.act(me, { kind: "finish", mode: "random" });
+    const bell = await c.state(me, "random") as unknown as { result: { facts: { from: string; source: string } } };
     expect(bell.result.facts.from).toBe("2026-10-30");
     expect(bell.result.facts.source).toContain("Frankfurter");
   } finally {
@@ -122,12 +122,12 @@ it("keeps the lobby's opening market when the rate service is unavailable", asyn
   });
   const c = client(s.base);
   const me = await c.visitor();
-  const tab = await c.page(me, "simulation");
+  const tab = await c.page(me, "random");
   try {
-    const before = await c.state(me, "simulation");
-    expect((await c.act(me, { kind: "start", mode: "simulation" })).status).toBe(200);
+    const before = await c.state(me, "random");
+    expect((await c.act(me, { kind: "start", mode: "random" })).status).toBe(200);
     expect(await tab.next((e) => e.phase === "trade", 2000)).not.toBeNull();
-    const trading = await c.state(me, "simulation");
+    const trading = await c.state(me, "random");
     expect(trading.pair).toBe(before.pair);
     expect(trading.prices.slice(0, before.prices.length)).toEqual(before.prices);
     expect(trading.history).toEqual(before.history);
@@ -143,12 +143,12 @@ it("ignores a failed latest-rate reply, even one that carries a body", async () 
   });
   const c = client(s.base);
   const me = await c.visitor();
-  const tab = await c.page(me, "simulation");
+  const tab = await c.page(me, "random");
   try {
-    const before = await c.state(me, "simulation");
-    expect((await c.act(me, { kind: "start", mode: "simulation" })).status).toBe(200);
+    const before = await c.state(me, "random");
+    expect((await c.act(me, { kind: "start", mode: "random" })).status).toBe(200);
     expect(await tab.next((e) => e.phase === "trade", 2000)).not.toBeNull();
-    expect((await c.state(me, "simulation")).prices[0]).toBe(before.prices[0]);
+    expect((await c.state(me, "random")).prices[0]).toBe(before.prices[0]);
   } finally {
     tab.close();
   }

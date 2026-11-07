@@ -152,7 +152,7 @@ it("has language, music and theme tools in the name box, above its title, and tw
   expect(kids.findIndex((e) => e.classList.contains("name-tools"))).toBeLessThan(kids.findIndex((e) => e.id === "name-title"));
   const first = box.querySelector("#name-first")!;
   // the tutorial on the left, free play on the right
-  expect([...first.querySelectorAll("button")].map((b) => b.getAttribute("value"))).toEqual(["tutorial", "replay"]);
+  expect([...first.querySelectorAll("button")].map((b) => b.getAttribute("value"))).toEqual(["tutorial", "rewind"]);
   expect(kids.indexOf(first)).toBeGreaterThan(kids.findIndex((e) => e.classList.contains("name-row") || e.id === "name-error"));
 });
 it("says the name alone, never 'You are', in any language", () => {
@@ -201,8 +201,8 @@ it("shows the language as a globe alone, and lets the footer take the page's wid
 });
 it("translates the lobby's line, note and the ticket's title in every language, each text on one line", () => {
   for (const lang of LANGS) {
-    for (const k of ["lobbyReplayText", "lobbySimulationText", "lobbyNote", "ticketTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).toBeTruthy();
-    for (const k of ["lobbyReplayText", "lobbySimulationText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
+    for (const k of ["lobbyRewindText", "lobbyRandomText", "lobbyNote", "ticketTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).toBeTruthy();
+    for (const k of ["lobbyRewindText", "lobbyRandomText"]) expect(T[lang].ui[k].length, `${lang} ${k}`).toBeLessThanOrEqual(36);
   }
 });
 
@@ -249,7 +249,7 @@ const titleCase = (text: string): boolean => {
   });
 };
 it("writes the English headings and titles in Title Case", () => {
-  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyReplay", "lobbySimulation", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
+  const keys = ["nameTitle", "nameWelcome", "chartTitle", "positionTitle", "ticketTitle", "feed", "fame", "room", "bell", "lobbyRewind", "lobbyRandom", "thTrader", "thRounds", "thAvg", "thProfit", "thWins", "thBusts", "thPosition", "thEntry", "thNow", "thMargin", "yourTurn", "doneTitle", "guessLabel", "netWorth", "level", "indicators", "about"];
   for (const k of keys) expect(titleCase(T.en.ui[k]), `${k}: ${T.en.ui[k]}`).toBe(true);
 });
 it("writes every lesson title and About heading in Title Case", async () => {
@@ -266,46 +266,38 @@ it("shows the same Title Case in the page's own markup as in its translations", 
   }
 });
 
-// ADR 0046, 0047: Simulation is drawn at random, not a script. Nothing a
+// ADR 0046, 0047: Random is drawn at random, not a script. Nothing a
 // player reads about it says script, 剧本 or 筋書き, and the Chinese tab is
 // 模拟.
-it("describes Simulation as a random simulation, never a script", async () => {
+it("describes Random as a random random, never a script", async () => {
   const { ABOUT } = await import("../public/about.js");
   const words = /script|剧本|脚本|筋書き|台本/i;
   for (const lang of LANGS) {
     const own = Object.entries(T[lang].ui).map(([k, v]) => `${k}: ${v}`);
-    for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { scenarios: unknown }).scenarios)]) expect(line, lang).not.toMatch(words);
+    for (const line of [...own, ...Object.values(T[lang].tips), ...Object.keys(T[lang].events ?? {}), JSON.stringify(ABOUT[lang]), JSON.stringify((T[lang] as unknown as { situations: unknown }).situations)]) expect(line, lang).not.toMatch(words);
   }
   // the tabs' names (ADR 0088), Rewind, Random and Live in every language (ADRs 0089, 0090)
-  expect([T.en.ui.replay, T.en.ui.simulation, T.en.ui.marathon]).toEqual(["Rewind", "Random", "Live"]);
-  expect([T.ja.ui.replay, T.ja.ui.simulation, T.ja.ui.marathon]).toEqual(["巻き戻し", "ランダム", "ライブ"]);
-  expect([T.zh.ui.replay, T.zh.ui.simulation, T.zh.ui.marathon]).toEqual(["复盘", "随机", "实时"]);
-  expect(T.en.ui.lobbySimulationText).toMatch(/random/);
+  expect([T.en.ui.rewind, T.en.ui.random, T.en.ui.live]).toEqual(["Rewind", "Random", "Live"]);
+  expect([T.ja.ui.rewind, T.ja.ui.random, T.ja.ui.live]).toEqual(["巻き戻し", "ランダム", "ライブ"]);
+  expect([T.zh.ui.rewind, T.zh.ui.random, T.zh.ui.live]).toEqual(["复盘", "随机", "实时"]);
+  expect(T.en.ui.lobbyRandomText).toMatch(/random/);
   expect(ABOUT.en.sections.flat(2).join(" ")).toMatch(/at random/);
 });
 
-// ADR 0047: the tab is Simulation in English and 模拟 in Chinese, with the mode
-// id `simulation`; Japanese keeps シナリオ, which fits the phone tab bar where
-// シミュレーション does not. Its old names, Scenario, Live and History, still
-// lead to the tabs, in the page and the server.
-it("names the mode simulation, and keeps its old names working", () => {
-  expect(page.querySelector('[data-mode="simulation"]')).not.toBeNull();
-  expect(page.querySelector('[data-mode="scenario"]')).toBeNull();
-  expect(page.querySelector("#here-simulation")).not.toBeNull();
-  const app = readFileSync("public/app.js", "utf8");
-  expect(app).toMatch(/const MODES = \["replay", "simulation", "marathon", "tutorial"\]/);
-  expect(app).toMatch(/renamed = \(m\) => \(\{ history: "replay", scenario: "simulation", rewind: "replay", flashback: "replay", random: "simulation", sandbox: "simulation", live: "marathon" \}\)/);
-  const server = readFileSync("src/app.ts", "utf8");
-  expect(server).toMatch(/const MODES = \["replay", "simulation"\] as const/);
-  expect(server).toMatch(/OLD: Record<string, Mode> = \{ history: "replay", live: "simulation", scenario: "simulation" \}/);
+// ADR 0091: each tab's id is its player-facing name, rewind, random and live, with a head count of its own; the
+// old ids lead to them, which the server's and the page's own checks of addresses hold (spec/modes, e2e).
+it("gives each tab its name as its id", () => {
+  for (const id of ["rewind", "random", "live", "tutorial"]) expect(page.querySelector(`[data-mode="${id}"]`), id).not.toBeNull();
+  for (const old of ["replay", "simulation", "marathon", "scenario"]) expect(page.querySelector(`[data-mode="${old}"]`), old).toBeNull();
+  for (const id of ["rewind", "random", "live"]) expect(page.querySelector(`#here-${id}`), id).not.toBeNull();
 });
 it("never calls the tab Scenario to a player", () => {
   for (const lang of LANGS) for (const [k, v] of Object.entries(T[lang].ui)) if (lang !== "ja") expect(`${k}: ${v}`, lang).not.toMatch(/Scenario|scenario:/);
-  expect(T.en.tips.tabSimulation).toBeTruthy();
+  expect(T.en.tips.tabRandom).toBeTruthy();
   expect(T.en.tips).not.toHaveProperty("tabScenario");
 });
 
-// ADR 0048: the tab bar is wide enough for the longest tab with a player count on it, Simulation 12,
+// ADR 0048: the tab bar is wide enough for the longest tab with a player count on it, Random 12,
 // in every state, and who you are never runs over it or the tools. That is a matter of where things
 // land on a screen, so it is measured in a browser, at each zoom, in e2e/game.spec.ts.
 
@@ -376,7 +368,7 @@ it("never breaks inside a clause: each is one unbreakable span", () => {
   expect(readFileSync("public/tips.js", "utf8")).toMatch(/className: "clause"/);
 });
 
-// ADR 0052: the Dad's Savings lesson tells the player to press Borrow, so the
+// ADR 0052: the credit lesson tells the player to press Borrow, so the
 // button must be there in the tutorial, whose rounds are never in the trade
 // phase that a market's Borrow waits for.
 it("shows Borrow in the tutorial when the player is broke, not only in a trading round", () => {
@@ -438,15 +430,15 @@ describe("the ticket, the account and the credit pop-up", () => {
   it("gives credit a card of its own, offers it in a pop-up when broke, and names it plainly in every language", () => {
     const card = doc.querySelector('.panel[data-fold="credit"]')!;
     for (const id of ["credit-owe", "credit-rate", "credit-borrow", "credit-repay"]) expect(card.querySelector("#" + id), id).not.toBeNull();
-    const dad = doc.getElementById("dad")!;
-    expect(dad.tagName).toBe("DIALOG");
-    expect(dad.querySelector("#borrow")).not.toBeNull();
+    const offer = doc.getElementById("credit-offer")!;
+    expect(offer.tagName).toBe("DIALOG");
+    expect(offer.querySelector("#borrow")).not.toBeNull();
     for (const lang of LANGS) {
-      for (const k of ["borrow", "dadText", "dadTitle", "dadNo", "repay", "bankruptText", "bankruptBig", "creditOweLabel", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
-      expect(T[lang].ui.dadText, lang).toContain("{rate}");
+      for (const k of ["borrow", "creditOfferText", "creditOfferTitle", "creditOfferNo", "repay", "bankruptText", "bankruptBig", "creditOweLabel", "creditRate"]) expect(T[lang].ui[k], `${lang} ${k}`).toEqual(expect.stringMatching(/\S/));
+      expect(T[lang].ui.creditOfferText, lang).toContain("{rate}");
       expect(T[lang].news.borrowed, lang).toContain("{debt}");
       // Dad's savings are gone from the money's words
-      for (const k of ["borrow", "dadText", "dadTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).not.toMatch(/Dad|パパ|老爹/);
+      for (const k of ["borrow", "creditOfferText", "creditOfferTitle"]) expect(T[lang].ui[k], `${lang} ${k}`).not.toMatch(/Dad|パパ|老爹/);
     }
   });
 
@@ -475,18 +467,18 @@ describe("the ticket, the account and the credit pop-up", () => {
     expect(T.zh.ui.notes[30]).toMatch(/澳洲|澳大利亚/);
   });
 
-  // The ticks of leverage, stake, Stop Loss and Take Profit each carry a line of their own on hover. The
+  // The ticks of leverage, share, Stop Loss and Take Profit each carry a line of their own on hover. The
   // lists the desk offers are the keys, so a rung added there with no joke here is caught, and two rungs
   // never share a line, since a joke said twice is no joke. A tip is one line, within the length limit.
-  it("gives every tick of leverage, stake, Stop Loss and Take Profit its own line, in every language", async () => {
+  it("gives every tick of leverage, share, Stop Loss and Take Profit its own line, in every language", async () => {
     const { LEVERAGES, DISTANCES } = await import("../src/fx.ts");
-    const { STAKES } = await import("../public/ticket.js");
+    const { SHARES } = await import("../public/ticket.js");
     const limit = { en: 60, ja: 40, zh: 36 };
     for (const lang of LANGS) {
       const ui = T[lang].ui as Record<string, unknown>;
       const scales: [string, string[]][] = [
         ["leverage", LEVERAGES.map((l) => (ui.notes as Record<number, string>)[l])],
-        ["stake", STAKES.map((_, i) => (ui.stakeNotes as string[])[i])],
+        ["margin", SHARES.map((_, i) => (ui.marginNotes as string[])[i])],
         ["Stop Loss", DISTANCES.map((d) => (ui.slNotes as Record<number, string>)[d])],
         ["Take Profit", DISTANCES.map((d) => (ui.tpNotes as Record<number, string>)[d])],
       ];
@@ -499,7 +491,7 @@ describe("the ticket, the account and the credit pop-up", () => {
       }
       expect(Object.keys(ui.slNotes as object).map(Number).sort((a, b) => a - b), `${lang} slNotes has no stray rung`).toEqual([...DISTANCES]);
       expect(Object.keys(ui.tpNotes as object).map(Number).sort((a, b) => a - b), `${lang} tpNotes has no stray rung`).toEqual([...DISTANCES]);
-      expect([...(ui.stakeNotes as string[])].length, lang).toBe(STAKES.length);
+      expect([...(ui.marginNotes as string[])].length, lang).toBe(SHARES.length);
     }
   });
 

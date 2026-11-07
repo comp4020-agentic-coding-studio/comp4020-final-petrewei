@@ -12,7 +12,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { STAKES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, stakeBar, stakeMargin, verdict } from "/ticket.js";
+import { SHARES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted } from "/format.js";
@@ -87,7 +87,7 @@ let state = null;
 let fresh = false;
 let connectionStatus = "connectionConnecting";
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "replay-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "rewind-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -110,7 +110,7 @@ function connection(status) {
 }
 // Forced closes seen so far; a new one takes the screen.
 let cuts = null;
-// Loans Dad has found out about, as last seen; null before the first state.
+// Loans the player has taken, as last seen; null before the first state.
 let bankrupt = null;
 // The last pop shown, by number; the first message's pops are old news.
 let popped = null;
@@ -159,14 +159,14 @@ function fameChart(s) {
   for (const tr of $("career").children) tr.classList.toggle("picked", s.career[tr.sectionRowIndex] === c);
 }
 
-// Leverage and stake are sliders that hold their choice (ADR 0024).
+// Leverage and margin are sliders that hold their choice (ADR 0024).
 // Leverage runs on a log scale and snaps to the desk's ladder, its ends
-// and the two legal caps marked; stake runs evenly. What a leverage means
+// and the two legal caps marked; margin runs evenly. What a leverage means
 // is said beside it, in the parody's voice.
-const choice = { leverage: 30, stake: 1 };
+const choice = { leverage: 30, share: 1 };
 let seated = false;
 // The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
-// amount Dad's savings offer, so the page keeps no copy of them.
+// amount the emergency credit offers, so the page keeps no copy of them.
 let ladder = [];
 let broker = { cap: 1, fee: 0, step: 0, limit: 0, tiers: [[null, 0]], ticksPerMinute: 120, distances: [1] };
 // A scale's marks, each at its place on the track, with the joke it carries on hover.
@@ -188,8 +188,8 @@ function sliders() {
   // rung is easy to find; Australia's cap is said in the note, not here (ADR 0058).
   const ui = T[lang].ui;
   ticks("lev-ticks", ladder.map((v) => [levPos(v, ladder), `${v}`, `rung-${v}`, ui.notes[v]]));
-  // each stake marked at its share of the account, the scale the track's bar is drawn on (ADR 0077)
-  ticks("stake-ticks", STAKES.map((v, i) => [v, `${v * 100}%`, "", ui.stakeNotes[i]]));
+  // each share marked at its share of the account, the scale the track's bar is drawn on (ADR 0077)
+  ticks("margin-ticks", SHARES.map((v, i) => [v, `${v * 100}%`, "", ui.marginNotes[i]]));
   // The six distances, once for the stop loss on the left of the track and once for the
   // take profit on the right, each rung's number under its place on the track (ADR 0064).
   const marks = broker.distances.flatMap((d) => ["sl", "tp"].map((kind) => [exitPos({ kind, dist: d }, broker.distances), `${d}`, "", ui[`${kind}Notes`][d]]));
@@ -201,19 +201,19 @@ function sliders() {
 }
 function mark() {
   $("leverage").value = String(ladder.indexOf(choice.leverage));
-  $("stake").value = String(STAKES.indexOf(choice.stake));
+  $("margin").value = String(SHARES.indexOf(choice.share));
   $("lev-out").textContent = `${choice.leverage}×`;
-  $("stake-out").textContent = `${choice.stake * 100}%`;
+  $("margin-out").textContent = `${choice.share * 100}%`;
   // A leverage over the cap says so in the note's colour too, and the page
   // marks the box, so a style can tell a legal choice from an offshore one.
   $("leverage-box").style.setProperty("--heat", hue(levHeat(choice.leverage, broker.cap, ladder.at(-1))));
   $("leverage-box").classList.toggle("offshore", choice.leverage > broker.cap);
-  $("stake-box").style.setProperty("--heat", hue(0.1 + 0.55 * ((STAKES.indexOf(choice.stake) + 1) / STAKES.length)));
+  $("margin-box").style.setProperty("--heat", hue(0.1 + 0.55 * ((SHARES.indexOf(choice.share) + 1) / SHARES.length)));
   $("leverage").setAttribute("aria-valuetext", `${choice.leverage}×`);
-  $("stake").setAttribute("aria-valuetext", `${choice.stake * 100}%`);
+  $("margin").setAttribute("aria-valuetext", `${choice.share * 100}%`);
 
   for (const el of $("lev-ticks").children) el.classList.toggle("on", el.classList.contains(`rung-${choice.leverage}`));
-  for (const [i, el] of [...$("stake-ticks").children].entries()) el.classList.toggle("on", i === STAKES.indexOf(choice.stake));
+  for (const [i, el] of [...$("margin-ticks").children].entries()) el.classList.toggle("on", i === SHARES.indexOf(choice.share));
   leverageNote();
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
@@ -225,8 +225,8 @@ $("leverage").oninput = () => {
 };
 // Let go, and the thumb settles on the rung it chose.
 $("leverage").onchange = mark;
-$("stake").oninput = () => {
-  choice.stake = STAKES[Number($("stake").value)];
+$("margin").oninput = () => {
+  choice.share = SHARES[Number($("margin").value)];
   mark();
   if (state) (ticket(state), pending(state));
 };
@@ -238,24 +238,22 @@ $("ironman-fist").innerHTML = prop("fist", 20);
 
 // The market this page is on, from the tab: kept in this browser, so a
 // reload, or a switch of language, returns to it.
-const MODES = ["replay", "simulation", "marathon", "tutorial"];
-// The tabs' old names, History, Live and Scenario, still lead to them (ADRs
-// 0027, 0028, 0047).
-// The tabs' names as players see them lead to them too, #rewind, #random and #live (ADRs 0088–0090), and so do the
-// older names, History, Flashback, Scenario and Sandbox; Live, once Simulation's first name, now means the real-prices tab.
-const renamed = (m) => ({ history: "replay", scenario: "simulation", rewind: "replay", flashback: "replay", random: "simulation", sandbox: "simulation", live: "marathon" })[m] ?? m;
+const MODES = ["rewind", "random", "live", "tutorial"];
+// The tabs' old names still lead to them (ADR 0091), from an address or a tab saved in this browser: the ids before the
+// tabs were renamed, replay, simulation and marathon; the names before those, History, Scenario, Flashback and
+// Sandbox. The tabs' own ids, rewind, random and live, are their player-facing names.
+const renamed = (m) => ({ replay: "rewind", simulation: "random", marathon: "live", history: "rewind", scenario: "random", flashback: "rewind", sandbox: "random" })[m] ?? m;
 let mode = (() => {
   try {
-    // the tabs were called History and Live; a browser that remembers either
-    // lands on its new name
+    // a browser that remembers a tab by an old name lands on its new one
     const saved = renamed(localStorage.getItem("tab"));
     if (MODES.includes(saved)) return saved;
   } catch {
-    // no storage: start on Replay
+    // no storage: start on Rewind
   }
-  return "replay";
+  return "rewind";
 })();
-// An address may name a tab (/#simulation, or an old /#history or /#scenario); honour it,
+// An address may name a tab (/#random, or an old name such as /#simulation); honour it,
 // then drop it, so the address names only the language. Called on load,
 // before the page connects, and on every hash change after.
 let connected = false;
@@ -294,14 +292,14 @@ async function act(kind, extra = {}) {
   }
   $("error").textContent = "";
   const source = transport.source;
-  // in Marathon an order is for the pair on the chart (ADR 0087)
-  const reply = await post("/api/act", { kind, mode, ...(mode === "marathon" && state?.pair && !extra.pair ? { pair: state.pair } : {}), ...extra });
+  // in Live an order is for the pair on the chart (ADR 0087)
+  const reply = await post("/api/act", { kind, mode, ...(mode === "live" && state?.pair && !extra.pair ? { pair: state.pair } : {}), ...extra });
   if (source === transport.source) $("error").textContent = reply.why;
 }
 // A stop loss and a take profit each ride on the order when their own
 // toggle is on (ADR 0032, 0034); off, each is still shown, grey, and not sent.
 const exits = { sl: { on: false, dist: 5 }, tp: { on: false, dist: 10 } };
-const order = (kind) => () => act(kind, { leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
+const order = (kind) => () => act(kind, { leverage: choice.leverage, share: choice.share, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
 $("close").onclick = () => act("close");
@@ -337,7 +335,7 @@ $("pend").ontoggle = () => {
     pending(state);
   }
 };
-$("pend-place").onclick = () => act("pend", { side: pend.side, at: pend.at, leverage: choice.leverage, stake: choice.stake, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
+$("pend-place").onclick = () => act("pend", { side: pend.side, at: pend.at, leverage: choice.leverage, share: choice.share, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
 $("pend-cancel").onclick = $("pend-row-cancel").onclick = () => act("unpend");
 // A round's controls (ADR 0022). Ending for everyone asks first.
 $("cancel").onclick = () => act("cancel");
@@ -430,14 +428,14 @@ $("credit-borrow").onclick = () => act("borrow");
 $("credit-repay").onclick = () => act("repay");
 $("borrow").onclick = () => {
   act("borrow");
-  dadAsked = true;
-  $("dad").close();
+  creditOffered = true;
+  $("credit-offer").close();
 };
-$("dad-no").onclick = () => {
-  dadAsked = true;
-  $("dad").close();
+$("credit-offer-no").onclick = () => {
+  creditOffered = true;
+  $("credit-offer").close();
 };
-let dadAsked = false;
+let creditOffered = false;
 
 // Light or dark: the system's choice until the toggle is used, then the
 // toggle's, remembered in this browser. The chart reads its colours from
@@ -670,14 +668,14 @@ $("name-form").onsubmit = async (e) => {
 // pressed Start may cancel it.
 function lobby(s) {
   const waiting = s.phase === "lobby" || s.phase === "countdown";
-  $("lobby").hidden = s.mode === "tutorial" || s.mode === "marathon" || !waiting;
+  $("lobby").hidden = s.mode === "tutorial" || s.mode === "live" || !waiting;
   if (!waiting) return;
   const counting = s.phase === "countdown";
   $("lobby").classList.toggle("counting", counting);
   $("cancel").hidden = !(counting && s.rules);
   $("ironman").hidden = counting;
-  $("lobby-title").textContent = counting ? String(s.countdown) : t(s.mode === "simulation" ? "lobbySimulation" : "lobbyReplay");
-  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "simulation" ? "lobbySimulationText" : "lobbyReplayText");
+  $("lobby-title").textContent = counting ? String(s.countdown) : t(s.mode === "random" ? "lobbyRandom" : "lobbyRewind");
+  $("lobby-text").textContent = counting ? t("lobbyCounting", { who: nameIn(s.startedBy, s.startedDraw) }) : t(s.mode === "random" ? "lobbyRandomText" : "lobbyRewindText");
   $("start").hidden = counting;
 }
 // Round selection stays beside the quoted pair. Menus use only the pairs
@@ -690,17 +688,17 @@ function options(id, values, selected) {
   if (rebuilt || document.activeElement !== sel) sel.value = selected;
 }
 function pairChoices(s) {
-  // Marathon's pair is the account's to switch at any time (ADR 0087), with the same two menus as Simulation's lobby
-  const simulation = s.mode === "simulation" || s.mode === "marathon";
-  $("pair").hidden = simulation || s.mode === "replay";
+  // Live's pair is the account's to switch at any time (ADR 0087), with the same two menus as Random's lobby
+  const simulation = s.mode === "random" || s.mode === "live";
+  $("pair").hidden = simulation || s.mode === "rewind";
   $("pair-controls").hidden = !simulation;
-  $("replay-pair").hidden = s.mode !== "replay";
-  const closed = (s.mode !== "marathon" && s.phase !== "lobby") || !fresh;
-  for (const id of ["replay-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
-  if (s.replayPlots) {
-    const sel = $("replay-pair");
-    if (sel.options.length !== s.replayPlots.length) sel.replaceChildren(...s.replayPlots.map((p) => Object.assign(document.createElement("option"), { value: String(p.n), textContent: `${p.pair} · ${String(p.n).padStart(2, "0")}` })));
-    if (document.activeElement !== sel) sel.value = String(s.replayPlot);
+  $("rewind-pair").hidden = s.mode !== "rewind";
+  const closed = (s.mode !== "live" && s.phase !== "lobby") || !fresh;
+  for (const id of ["rewind-pair", "pair-base", "pair-quote"]) $(id).disabled = closed;
+  if (s.rewindPlots) {
+    const sel = $("rewind-pair");
+    if (sel.options.length !== s.rewindPlots.length) sel.replaceChildren(...s.rewindPlots.map((p) => Object.assign(document.createElement("option"), { value: String(p.n), textContent: `${p.pair} · ${String(p.n).padStart(2, "0")}` })));
+    if (document.activeElement !== sel) sel.value = String(s.rewindPlot);
   }
   if (simulation && s.pairs) {
     const [base, quote] = s.pair.split("/");
@@ -708,8 +706,8 @@ function pairChoices(s) {
     options("pair-quote", s.pairs.filter((p) => p.startsWith(`${base}/`)).map((p) => p.split("/")[1]), quote);
   }
 }
-$("replay-pair").onchange = async () => {
-  await act("choose", { what: Number($("replay-pair").value) });
+$("rewind-pair").onchange = async () => {
+  await act("choose", { what: Number($("rewind-pair").value) });
   if (state) pairChoices(state);
 };
 async function choosePair() {
@@ -717,7 +715,7 @@ async function choosePair() {
   const pair = offered.find((p) => p.endsWith(`/${$("pair-quote").value}`)) ?? offered[0];
   if (!pair) return;
   options("pair-quote", offered.map((p) => p.split("/")[1]), pair.split("/")[1]);
-  await (mode === "marathon" ? act("pair", { pair }) : act("choose", { what: pair }));
+  await (mode === "live" ? act("pair", { pair }) : act("choose", { what: pair }));
   if (state) pairChoices(state);
 }
 $("pair-base").onchange = $("pair-quote").onchange = choosePair;
@@ -811,23 +809,23 @@ function leverageNote() {
   $("fee-note").textContent = t("levNote", { away, pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
 }
 // The ticket: the prices a sell and a buy fill at, and what the chosen
-// order would put at stake, worked out from the account the server sent.
+// order would put up, worked out from the account the server sent.
 function ticket(s) {
   $("bid").textContent = s.prices.length ? quoted(s.bid) : "—";
   $("ask").textContent = s.prices.length ? quoted(s.ask) : "—";
   $("spread").textContent = s.prices.length ? t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) }) : "—";
   // the desk's own rule, from the module both share
   const used = s.you.used ?? s.you.pos?.margin ?? 0;
-  const margin = stakeMargin(s.you.equity, used, choice.stake);
-  // the stake's track as the whole account: what is in use, and what this order would add after it (ADR 0077)
-  const bar = stakeBar(s.you.equity, used, choice.stake);
-  $("stake-used").style.width = `${bar.used * 100}%`;
-  $("stake-order").style.left = `${bar.used * 100}%`;
-  $("stake-order").style.width = `${bar.order * 100}%`;
-  $("stake-box").classList.toggle("cut", bar.cut && !s.you.out);
+  const margin = shareMargin(s.you.equity, used, choice.share);
+  // the margin's track as the whole account: what is in use, and what this order would add after it (ADR 0077)
+  const bar = shareBar(s.you.equity, used, choice.share);
+  $("margin-used").style.width = `${bar.used * 100}%`;
+  $("margin-order").style.left = `${bar.used * 100}%`;
+  $("margin-order").style.width = `${bar.order * 100}%`;
+  $("margin-box").classList.toggle("cut", bar.cut && !s.you.out);
   const controls = margin * choice.leverage;
-  // beside the stake, what this order puts in and the position it controls, in dollars (ADR 0079)
-  $("stake-note").textContent = t("stakeNote", { margin: cash(margin), controls: cash(controls) });
+  // beside the margin, what this order puts in and the position it controls, in dollars (ADR 0079)
+  $("margin-note").textContent = t("marginNote", { margin: cash(margin), controls: cash(controls) });
   // The preview's row is gone (ADR 0085): what a move against you costs joins the leverage's note, and with a position
   // open the opposite button says it closes it, where it would otherwise say what it earns on.
   const pos = s.you.pos;
@@ -836,10 +834,10 @@ function ticket(s) {
   }
   leverageNote();
 }
-// Marathon's other open pairs (ADR 0087): each with its side, leverage, result and its own Close; clicking a pair puts
+// Live's other open pairs (ADR 0087): each with its side, leverage, result and its own Close; clicking a pair puts
 // it on the chart. The chart's own pair is the position row above.
 function book(s) {
-  const rows = s.mode === "marathon" ? s.you.positions.filter((p) => p.pair !== s.pair) : [];
+  const rows = s.mode === "live" ? s.you.positions.filter((p) => p.pair !== s.pair) : [];
   $("book").hidden = !rows.length;
   $("book-rows").replaceChildren(...rows.map((p) => {
     const tr = document.createElement("tr");
@@ -861,11 +859,11 @@ function book(s) {
     return tr;
   }));
 }
-// Marathon's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
+// Live's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
 // the forecast and, once out, the actual figure, as the calendar's source gives them; then the central banks' latest
 // words, each a link to the bank's own page. The titles are the sources' own, in English.
 function realCalendar(s) {
-  const on = s.mode === "marathon";
+  const on = s.mode === "live";
   const rows = on ? s.calendar ?? [] : [];
   const banks = on ? s.bankNews ?? [] : [];
   $("real-calendar").hidden = !rows.length && !banks.length;
@@ -888,9 +886,9 @@ function realCalendar(s) {
     }),
   );
 }
-// Marathon's board in the room's place (ADR 0087): who lasted longest, running or bankrupt.
+// Live's board in the room's place (ADR 0087): who lasted longest, running or bankrupt.
 function board(s) {
-  const on = s.mode === "marathon";
+  const on = s.mode === "live";
   $("board").hidden = !on;
   $("traders").hidden = on;
   if (!on) return;
@@ -911,7 +909,7 @@ function pending(s) {
   $("pend-waiting").textContent = waiting ? t("pendWaiting", { type: typeName(waiting.type), at: quoted(waiting.at) }) : "";
   const price = s.prices.at(-1);
   if (price !== undefined) $("pend-at").step = String(10 ** -(quoted(price).split(".")[1]?.length ?? 0));
-  const share = `${Math.round(choice.stake * 100)}%`;
+  const share = `${Math.round(choice.share * 100)}%`;
   // what the typed level makes, against the price now: a limit or a stop, or nothing yet at the price itself
   $("pend-what").textContent = pend.at === null || pend.at === price ? "" : t("pendWhat", { type: typeName(pendType(pend.side, pend.at, price)), lev: choice.leverage, share });
   $("pend-place").disabled = deskClosed || pend.at === null;
@@ -1043,12 +1041,12 @@ function headlineText(head) {
   if (head.source) return `${head.source}: ${head.title}`;
   if (head.release) return releaseText(lang, "release", head.release);
   if (head.story !== undefined) return T[lang].stories[head.story];
-  if (head.scenario) return T[lang].scenarios[head.scenario]?.headlines[head.n];
+  if (head.situation) return T[lang].situations[head.situation]?.headlines[head.n];
   return clueText(lang, head.clue, head.n);
 }
 
 function clockKey(s) {
-  if (s.mode === "marathon") return s.live ? "clockLive" : "clockShut";
+  if (s.mode === "live") return s.live ? "clockLive" : "clockShut";
   if (s.mode === "tutorial") return "clockTutorial";
   if (s.phase === "trade") return "clockDay";
   if (s.phase === "countdown") return "clockOpens";
@@ -1061,9 +1059,9 @@ function render(s) {
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.
-  const marathon = s.mode === "marathon";
+  const marathon = s.mode === "live";
   const open = tutorial ? s.phase === "waiting" && !s.lesson.finished : s.phase === "trade" || s.phase === "countdown";
-  document.body.classList.toggle("marathon", marathon);
+  document.body.classList.toggle("live", marathon);
   // End is the starter's, in a trading round.
   $("finish").hidden = !(s.phase === "trade" && s.rules);
   // 2× (ADR 0085): the ruler's to press; when it is on, everyone sees the lit button, pressable or not
@@ -1076,9 +1074,9 @@ function render(s) {
   // the chart for everyone, with the seconds until it resumes by itself.
   $("pause").hidden = !(s.phase === "trade" && !s.ironman && !s.paused);
   $("round-ctl").hidden = ["speed", "pause", "finish"].every((id) => $(id).hidden);
-  // Name that year opens halfway through a replay; your guess is shown
+  // Name that year opens halfway through a rewind; your guess is shown
   // back to you, and to nobody else, until the bell.
-  const guessing = s.mode === "replay" && s.phase === "trade" && s.tick >= s.total / 2;
+  const guessing = s.mode === "rewind" && s.phase === "trade" && s.tick >= s.total / 2;
   $("guess").hidden = !guessing;
   $("guess").classList.toggle("made", s.you.guess !== null);
   $("guess").querySelector("button[type=submit]").disabled = !guessing;
@@ -1091,9 +1089,9 @@ function render(s) {
   lobby(s);
   pairChoices(s);
   // The tab shows a head count as a bare number; its tooltip says what.
-  for (const m of ["replay", "simulation", "marathon"]) {
+  for (const m of ["rewind", "random", "live"]) {
     $(`here-${m}`).textContent = s.here[m] ? String(s.here[m]) : "";
-    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "simulation" ? "tabSimulation" : m === "marathon" ? "tabMarathon" : "tabReplay")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
+    setTip(document.querySelector(`[data-mode="${m}"]`), `${tip(m === "random" ? "tabRandom" : m === "live" ? "tabLive" : "tabRewind")}${s.here[m] ? ` · ${t(s.here[m] === 1 ? "human" : "humans", { n: s.here[m] })}` : ""}`);
   }
   names = new Map(s.traders.map((tr) => [tr.id, tr.bot ? botName(tr.id, tr.name) : nameIn(tr.name, tr.draw)]));
   // On first load the menu starts at the open position's leverage, if
@@ -1116,7 +1114,7 @@ function render(s) {
   const ch = price === undefined ? 0 : (price / first - 1) * 100;
   $("change").textContent = price === undefined ? "" : pct(ch / 100);
   $("change").className = ch >= 0 ? "up" : "down";
-  // A Scenario's latest headline takes the mode line, so the clue stays
+  // A Situation's latest headline takes the mode line, so the clue stays
   // in view after the feed has moved on (ADR 0027).
   const head = headlineText(s.headline);
   // Only a clue or headline is shown here; the static label that said which
@@ -1127,11 +1125,11 @@ function render(s) {
   const clock = clockKey(s);
   // the clock counts days, 48 ticks each; `steps` is the chart's candle and a different thing
   // the hour is the game's hour of the trading day, counted from its start, never the replay's own time of day (ADR 0079)
-  // Marathon's clock is Sydney's time of the last price (ADR 0087)
+  // Live's clock is Sydney's time of the last price (ADR 0087)
   const sydney = s.priceAt ? new Date(s.priceAt).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—";
   const clockValues = { at: sydney, d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
   $("clock").textContent = price === undefined ? t("clockWaitShort") : t(`${clock}Short`, clockValues);
-  const clockLabel = s.historyGap ? t("marathonGap") : t(clock, clockValues);
+  const clockLabel = s.historyGap ? t("liveGap") : t(clock, clockValues);
   $("clock").setAttribute("aria-label", clockLabel);
   setTip($("clock"), clockLabel);
   // Built from text nodes: the name comes from the server, never as HTML.
@@ -1169,11 +1167,11 @@ function render(s) {
   const offer = y.broke && y.credit > 0 && lending && !s.paused;
   $("borrow").hidden = !offer;
   if (!offer) {
-    dadAsked = false;
-    if ($("dad").open) $("dad").close();
-  } else if (!dadAsked && !$("dad").open && !document.querySelector("dialog[open]:not(#dad)")) {
-    $("dad-text").textContent = t("dadText", { amount: cash(broker.step), rate: ratePct(creditRate(y.debt + broker.step)) });
-    $("dad").show();
+    creditOffered = false;
+    if ($("credit-offer").open) $("credit-offer").close();
+  } else if (!creditOffered && !$("credit-offer").open && !document.querySelector("dialog[open]:not(#credit-offer)")) {
+    $("credit-offer-text").textContent = t("creditOfferText", { amount: cash(broker.step), rate: ratePct(creditRate(y.debt + broker.step)) });
+    $("credit-offer").show();
   }
   warn(s, open);
   // Your position: one row with its own close and stop, as on any
@@ -1187,7 +1185,7 @@ function render(s) {
     $("pos-entry").textContent = quoted(y.pos.entry);
     $("pos-now").textContent = quoted(price);
     $("pos-margin").textContent = cash(y.pos.margin);
-    // in Marathon the row is the chart's pair, one of several open, so its own result (ADR 0087)
+    // in Live the row is the chart's pair, one of several open, so its own result (ADR 0087)
     const rowPnl = marathon ? (y.positions.find((p) => p.pair === s.pair)?.pnl ?? 0) : y.pnl;
     $("pos-pnl").textContent = cash(rowPnl);
     $("pos-pnl").className = tone(rowPnl);
@@ -1211,7 +1209,7 @@ function render(s) {
     const typeName = T[lang].ui.pendTypes?.[waiting.type] ?? T.en.ui.pendTypes[waiting.type];
     $("pend-row-type").replaceChildren(Object.assign(document.createElement("span"), { className: `tag ${waiting.side === 1 ? "long" : "short"}`, textContent: typeName }), ` ${s.pair} ${waiting.leverage}×`);
     $("pend-row-at").textContent = quoted(waiting.at);
-    $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.stake * 100)}%` });
+    $("pend-row-what").textContent = t("pendRow", { share: `${Math.round(waiting.share * 100)}%` });
   }
   feats(s);
   book(s);
@@ -1241,7 +1239,7 @@ function render(s) {
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
-  if (marathon && !y.pos) $("position").textContent = y.out ? t("marathonClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "marathonOther" : "noPos") : t(s.historyGap ? "marathonGap" : "marathonShut");
+  if (marathon && !y.pos) $("position").textContent = y.out ? t("liveClosed", { at: s.reopens ? new Date(s.reopens).toLocaleString(lang === "en" ? "en-AU" : lang, { timeZone: "Australia/Sydney", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "—" }) : s.live ? t(y.positions.length ? "liveOther" : "noPos") : t(s.historyGap ? "liveGap" : "liveShut");
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;
@@ -1279,7 +1277,7 @@ function render(s) {
   bankrupt = y.bankrupt;
 
   board(s);
-  const humans = s.mode === "marathon" ? s.here.marathon : s.traders.filter((t) => !t.bot).length;
+  const humans = s.mode === "live" ? s.here.live : s.traders.filter((t) => !t.bot).length;
   $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
   const list = $("traders");
   // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
@@ -1329,7 +1327,7 @@ function render(s) {
     return li;
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
-  const cal = s.mode === "marathon" ? [] : s.calendar ?? [];
+  const cal = s.mode === "live" ? [] : s.calendar ?? [];
   realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {
@@ -1444,7 +1442,7 @@ function render(s) {
         // cost of each forced cut and loan. The amount is in the tip.
         if (!r.sat) result.append(Object.assign(document.createElement("b"), { textContent: pct(delta / s.start) }), " ", Object.assign(document.createElement("small"), { className: "pts", textContent: pts(r.score) }));
         li.dataset.tipText = tip("rankRow", { worth: cash(r.balance), code: r.code, change: `${delta >= 0 ? "+" : ""}${cash(delta)}` }) + (r.bonus ? ` · ${t("bonus", { n: r.bonus })}` : "");
-        // A replay guess, shown at the bell, a hit marked by its bonus.
+        // A rewind guess, shown at the bell, a hit marked by its bonus.
         if (r.guess) name.append(" ", Object.assign(document.createElement("span"), { className: `guessed ${r.bonus ? "hit" : ""}`, textContent: t("guessed", { year: r.guess }) }));
         li.append(avatar(r.face, 18), name, result);
         return li;
@@ -1473,7 +1471,7 @@ function watch(next) {
   cuts = null;
   bankrupt = null;
   popped = null;
-  dadAsked = false;
+  creditOffered = false;
   $("error").textContent = "";
   transport.start(mode);
 }
@@ -1577,12 +1575,12 @@ $("share").onclick = () => state?.result && shareCard(state);
 function reveal(result) {
   if (lang === "en") return result.reveal;
   const f = result.facts;
-  // A Scenario names its script, and the real market it was modelled on.
+  // A Situation names its script, and the real market it was modelled on.
   if (f.simulated) {
-    const x = f.scenario && T[lang].scenarios[f.scenario];
-    return x ? t("revealSimulation", { name: x.name, pair: f.pair, date: f.from, note: x.note }) : t("revealSim", { pair: f.pair, date: f.from });
+    const x = f.situation && T[lang].situations[f.situation];
+    return x ? t("revealRandom", { name: x.name, pair: f.pair, date: f.from, note: x.note }) : t("revealSim", { pair: f.pair, date: f.from });
   }
-  const said = t("revealReplay", { pair: f.pair, from: f.from, to: f.to });
+  const said = t("revealRewind", { pair: f.pair, from: f.from, to: f.to });
   const e = f.event && T[lang].events[f.event.date];
   return e ? `${said} ${e.title}（${f.event.date}）：${e.note}` : said;
 }

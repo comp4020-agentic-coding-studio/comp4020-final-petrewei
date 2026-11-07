@@ -1,4 +1,4 @@
-// ADR 0087: Marathon, on real prices. The book's arithmetic with fixed rates (a position's result in dollars, the
+// ADR 0087: Live, on real prices. The book's arithmetic with fixed rates (a position's result in dollars, the
 // account-wide margin level and stop-out, bankruptcy), the feed's crosses from a recorded answer, and the news filter,
 // without the network: the sources are replaced by fixed text.
 import { mkdtempSync, rmSync } from "node:fs";
@@ -7,14 +7,14 @@ import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { bankrupt, borrow, charge, close, enforce, equity, fresh, level, lines, nextSydneyMidnight, order, pnlOf, worth } from "../src/book.ts";
 import { START, STEP } from "../src/fx.ts";
-import { cross, Live, SLOT_MS, type Usd } from "../src/live.ts";
+import { cross, Feed, SLOT_MS, type Usd } from "../src/feed.ts";
 import { News, parseCalendar, parseFeed } from "../src/news.ts";
-import { Marathon, type Who } from "../src/marathon.ts";
-import { spark } from "./feed.ts";
+import { Live, type Who } from "../src/live.ts";
+import { spark } from "./yahoo-fake.ts";
 
 const usd = (over: Partial<Usd> = {}): Usd => ({ EUR: 1.12, GBP: 1.35, AUD: 0.7, USD: 1, CHF: 1 / 0.82, CNY: 1 / 6.67, JPY: 1 / 158, ...over });
 
-describe("the Marathon book", () => {
+describe("the Live book", () => {
   it("opens one position per pair and counts each one's result in Australian dollars", () => {
     const a = fresh(0, 0);
     const r = usd();
@@ -98,21 +98,21 @@ describe("the live feed", () => {
     const t = Date.UTC(2026, 10, 4, 21, 0) / 1000;
     const answer = spark(t + 300, [t - 900, t], (_s, p, at) => (at === t ? p : p * 0.999));
     let now = (t + 400) * 1000;
-    const live = new Live(async () => answer, () => now);
-    await live.backfill();
-    const last = live.latest()!;
+    const quotes = new Feed(async () => answer, () => now);
+    await quotes.backfill();
+    const last = quotes.latest()!;
     expect(cross(last, "AUD/JPY")).toBeCloseTo(0.7 * 158, 6);
     expect(cross(last, "EUR/GBP")).toBeCloseTo(1.12 / 1.35, 6);
     expect(cross(last, "CNY/JPY")).toBeCloseTo(158 / 6.67, 6);
     expect(cross(last, "EUR/AUD") * cross(last, "AUD/JPY")).toBeCloseTo(cross(last, "EUR/JPY"), 6);
-    expect(live.live()).toBe(true);
+    expect(quotes.live()).toBe(true);
     answer.spark.result[1].response[0].meta.regularMarketTime -= 3600;
-    await live.poll();
-    expect(live.live(["EUR/USD"])).toBe(true);
-    expect(live.live(["GBP/USD"])).toBe(false);
-    expect(live.live(["EUR/USD", "GBP/USD"])).toBe(false);
+    await quotes.poll();
+    expect(quotes.live(["EUR/USD"])).toBe(true);
+    expect(quotes.live(["GBP/USD"])).toBe(false);
+    expect(quotes.live(["EUR/USD", "GBP/USD"])).toBe(false);
     now += 11 * 60_000;
-    expect(live.live(), "no price for over ten minutes is a shut market").toBe(false);
+    expect(quotes.live(), "no price for over ten minutes is a shut market").toBe(false);
   });
 
   it("requires intermediate quotes for the account's currencies, even when another currency has the slot", async () => {
@@ -121,10 +121,10 @@ describe("the live feed", () => {
     const pound = answer.spark.result.find((row) => row.symbol === "GBPUSD=X")!;
     const closes: (number | null)[] = pound.response[0].indicators.quote[0].close;
     closes[1] = null;
-    const live = new Live(async () => answer, () => (start + 2700) * 1000);
-    await live.backfill();
-    expect(live.coversSince(start * 1000 / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
-    expect(live.coversSince(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
+    const quotes = new Feed(async () => answer, () => (start + 2700) * 1000);
+    await quotes.backfill();
+    expect(quotes.coversSince(start * 1000 / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
+    expect(quotes.coversSince(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
   });
 
   it.each([
@@ -134,12 +134,12 @@ describe("the live feed", () => {
   ])("allows the weekly closure from %s to %s, and waits for the last trading slot only while it may still come", async (friday, sunday) => {
     const last = Date.parse(friday);
     const opens = Date.parse(sunday);
-    const complete = new Live(async () => spark(opens / 1000, [last / 1000]), () => opens);
+    const complete = new Feed(async () => spark(opens / 1000, [last / 1000]), () => opens);
     await complete.backfill();
     expect(complete.coversSince(last / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
     // Friday's last bar not yet sent, asked minutes after it: it may still come, so it is waited for
     let now = last + 20 * 60_000;
-    const missing = new Live(async () => spark(now / 1000, [(last - SLOT_MS) / 1000]), () => now);
+    const missing = new Feed(async () => spark(now / 1000, [(last - SLOT_MS) / 1000]), () => now);
     await missing.backfill();
     expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(false);
     // still not sent when the market opens two days later: Yahoo never will, and waiting would never end
@@ -154,7 +154,7 @@ describe("the live feed", () => {
   ])("allows the holiday closure from %s to %s, and a bar that proves the feed traded is waited for only while recent", async (before, after) => {
     const last = Date.parse(before);
     const opens = Date.parse(after);
-    const closed = new Live(async () => spark(opens / 1000, [last / 1000]), () => opens);
+    const closed = new Feed(async () => spark(opens / 1000, [last / 1000]), () => opens);
     await closed.backfill();
     expect(closed.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
     const answer = spark(opens / 1000, [last / 1000, (last + SLOT_MS) / 1000]);
@@ -163,7 +163,7 @@ describe("the live feed", () => {
     prices[1] = null;
     // asked minutes after the slot the euro traded in and the pound has not yet been sent: the pound is waited for
     let now = last + 2 * SLOT_MS + 5 * 60_000;
-    const partial = new Live(async () => answer, () => now);
+    const partial = new Feed(async () => answer, () => now);
     await partial.backfill();
     expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
     // once the holiday is over, a bar never sent is not waited for
@@ -178,11 +178,11 @@ const people: Who = {
 };
 
 // Yahoo leaves a few fifteen-minute bars out of most weeks, for one currency or another, and never sends them: a server
-// that slept over one must not wait for it for ever, or Marathon would stand still for everyone after most restarts.
+// that slept over one must not wait for it for ever, or Live would stand still for everyone after most restarts.
 it("trades on after a sleep over a bar the source never sends", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
-  const live = new Live(async () => {
+  const quotes = new Feed(async () => {
     const times: number[] = [];
     for (let t = start - 8 * SLOT_MS; t <= now; t += SLOT_MS) times.push(t / 1000);
     const hole = (start + 2 * SLOT_MS) / 1000;
@@ -195,10 +195,10 @@ it("trades on after a sleep over a bar the source never sends", async () => {
   const news = new News(async () => "[]");
   news.banks = async () => [];
   const dir = mkdtempSync(join(tmpdir(), "losscut-never-sent-"));
-  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
   await m.refresh(now);
-  expect(m.act("trader", { kind: "buy", pair: "EUR/USD", leverage: 10, stake: 0.25 }, now)).toBeNull();
+  expect(m.act("trader", { kind: "buy", pair: "EUR/USD", leverage: 10, share: 0.25 }, now)).toBeNull();
   now += 6 * SLOT_MS;
   await m.refresh(now);
   now += 2 * 60 * 60_000;
@@ -211,7 +211,7 @@ it("waits for an internal history gap and charges every recovered trading slot e
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
   let recover = false;
-  const live = new Live(async () => {
+  const quotes = new Feed(async () => {
     const times = now === start ? [start - SLOT_MS] : recover
       ? Array.from({ length: Math.floor((now - start) / SLOT_MS) }, (_, i) => start + (i + 1) * SLOT_MS)
       : [start + SLOT_MS];
@@ -220,7 +220,7 @@ it("waits for an internal history gap and charges every recovered trading slot e
   const news = new News(async () => "[]");
   news.banks = async () => [];
   const dir = mkdtempSync(join(tmpdir(), "losscut-history-gap-"));
-  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
   await m.refresh(now);
   expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
@@ -248,7 +248,7 @@ it("does not advance one slot when an exposed currency has not supplied that slo
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
   let recover = false;
-  const live = new Live(async () => {
+  const quotes = new Feed(async () => {
     const answer = spark(now / 1000, [start / 1000]);
     if (now > start && !recover) answer.spark.result.find((row) => row.symbol === "AUDUSD=X")!.response[0].meta.regularMarketTime = (start + SLOT_MS / 2) / 1000;
     return answer;
@@ -256,7 +256,7 @@ it("does not advance one slot when an exposed currency has not supplied that slo
   const news = new News(async () => "[]");
   news.banks = async () => [];
   const dir = mkdtempSync(join(tmpdir(), "losscut-currency-gap-"));
-  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
   await m.refresh(now);
   expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
@@ -275,7 +275,7 @@ it("waits for missing history, then settles a missed bankruptcy before a new tra
   const monday = Date.parse("2026-11-09T10:00:00Z");
   let now = friday;
   let recover = false;
-  const live = new Live(async (url) => {
+  const quotes = new Feed(async (url) => {
     // Recovery supplies every trading slot, omitting only the Friday 17:00–Sunday 17:00 New York closure.
     const recovered = Array.from({ length: Math.floor((now - friday) / SLOT_MS) + 1 }, (_, i) => friday + i * SLOT_MS)
       .filter((time) => time < Date.parse("2026-11-06T22:00:00Z") || time >= Date.parse("2026-11-08T22:00:00Z"));
@@ -289,7 +289,7 @@ it("waits for missing history, then settles a missed bankruptcy before a new tra
   const news = new News(async () => "");
   news.banks = () => new Promise((resolve) => { releaseNews = () => resolve([]); });
   const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
-  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => {
     m.save();
     rmSync(dir, { recursive: true, force: true });
@@ -319,16 +319,16 @@ it("trades again after a sleep longer than the source's month of history, rather
   const before = Date.parse("2026-09-01T10:00:00Z");
   const after = Date.parse("2026-11-09T10:00:00Z");
   let now = before;
-  const live = new Live(async () => {
+  const quotes = new Feed(async () => {
     return spark(now / 1000, [(now - SLOT_MS) / 1000]);
   }, () => now);
   const news = new News(async () => "");
   news.banks = async () => [];
   const dir = mkdtempSync(join(tmpdir(), "losscut-marathon-test-"));
-  const m = new Marathon(dir, people, { live, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   await m.refresh(now);
-  expect(m.act("sleeper", { kind: "buy", leverage: 10, stake: 0.25 }, now)).toBeNull();
+  expect(m.act("sleeper", { kind: "buy", leverage: 10, share: 0.25 }, now)).toBeNull();
   now = after;
   await m.refresh(now);
   expect(m.act("sleeper", { kind: "close" }, now), "two months on, the missing history cannot come, so trading resumes").toBeNull();
@@ -344,7 +344,7 @@ describe("the news", () => {
   });
 });
 
-// The server's Marathon, on a fake price source the check controls: an account opens at A$10,000, trades any pair at
+// The server's Live, on a fake price source the check controls: an account opens at A$10,000, trades any pair at
 // the server's price, keeps several pairs, survives a restart, and refuses orders when the price is stale.
 import { createServer } from "node:http";
 import { afterEach } from "vitest";
@@ -360,29 +360,29 @@ afterEach(async () => {
   feed = null;
 });
 
-it("runs a Marathon account on the server across pairs and a restart, and shuts with a stale price", async () => {
+it("runs a Live account on the server across pairs and a restart, and shuts with a stale price", async () => {
   let stale = false;
   feed = createServer((_req, res) => {
     const t = Math.floor(Date.now() / 1000) - (stale ? 3600 : 0);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(spark(t, [t - 1800, t - 900], (_s, p, at) => (at === t - 900 ? p : p * 1.001))));
   }).listen(8195);
-  s = await server(8194, { MARATHON_FEED: "http://localhost:8195", MARATHON_NEWS: "off", MARATHON_POLL_MS: "200" });
+  s = await server(8194, { LIVE_FEED: "http://localhost:8195", LIVE_NEWS: "off", LIVE_POLL_MS: "200" });
   const c = client(s.base);
   const me = await c.visitor();
-  const tab = await c.page(me, "marathon");
+  const tab = await c.page(me, "live");
   type M = { phase: string; live: boolean; pair: string; prices: number[]; you: { equity: number; positions: { pair: string; side: number; leverage: number }[]; out: boolean } };
-  const look = async () => (await (await fetch(`${s!.base}/api/state?mode=marathon`, { headers: { cookie: me } })).json()) as M;
+  const look = async () => (await (await fetch(`${s!.base}/api/state?mode=live`, { headers: { cookie: me } })).json()) as M;
   try {
     for (let i = 0; i < 50 && !(await look()).live; i++) await new Promise((r) => setTimeout(r, 100));
     const first = await look();
     expect(first).toMatchObject({ phase: "trade", live: true, pair: "AUD/USD" });
     expect(first.you.equity).toBe(10_000);
     expect(first.prices.at(-1)).toBeCloseTo(0.7, 6);
-    const go = (body: Record<string, unknown>) => c.act(me, { mode: "marathon", ...body });
-    const bought = await go({ kind: "buy", pair: "AUD/JPY", leverage: 30, stake: 0.25 });
+    const go = (body: Record<string, unknown>) => c.act(me, { mode: "live", ...body });
+    const bought = await go({ kind: "buy", pair: "AUD/JPY", leverage: 30, share: 0.25 });
     expect(bought.status, await bought.clone().text()).toBe(200);
-    expect((await go({ kind: "sell", pair: "EUR/USD", leverage: 10, stake: 0.25 })).status).toBe(200);
+    expect((await go({ kind: "sell", pair: "EUR/USD", leverage: 10, share: 0.25 })).status).toBe(200);
     // the page sends no price: a price in the order changes nothing
     expect((await go({ kind: "buy", pair: "NOT/APAIR", leverage: 30, price: 1 })).status).toBe(200);
     expect((await go({ kind: "pair", pair: "XXX/YYY" })).status).toBe(409);
@@ -397,14 +397,14 @@ it("runs a Marathon account on the server across pairs and a restart, and shuts 
     s.proc.kill("SIGTERM");
     await gone;
     await s.restart();
-    const tab1 = await c.page(me, "marathon");
+    const tab1 = await c.page(me, "live");
     for (let i = 0; i < 50 && !(await look()).live; i++) await new Promise((r) => setTimeout(r, 100));
     const back = await look();
     tab1.close();
     expect(back.you.positions.map((p) => p.pair)).toEqual(expect.arrayContaining(["AUD/JPY", "EUR/USD"]));
     // an hour without a price is a shut market: orders wait
     stale = true;
-    const tab2 = await c.page(me, "marathon");
+    const tab2 = await c.page(me, "live");
     for (let i = 0; i < 50 && (await look()).live; i++) await new Promise((r) => setTimeout(r, 100));
     expect((await look()).phase).toBe("shut");
     const refused = await go({ kind: "close", pair: "AUD/JPY" });

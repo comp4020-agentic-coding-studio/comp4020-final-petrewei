@@ -7,7 +7,7 @@ import { act, attempt, baseUrl, live, open, page, sleep, state, type Trader, vis
 
 it("refuses an order the broker does not offer, changing nothing", async () => {
   const me = await visitor();
-  for (const body of [{ kind: "buy", leverage: 7 }, { kind: "buy", leverage: 25 }, { kind: "buy", leverage: 30, stake: 2 }, { kind: "sell", leverage: 30, stake: -1 }, { kind: "hack" }, { kind: "repay" }, { kind: "stop", pct: 1 }, { kind: "stop", at: 1 }]) {
+  for (const body of [{ kind: "buy", leverage: 7 }, { kind: "buy", leverage: 25 }, { kind: "buy", leverage: 30, share: 2 }, { kind: "sell", leverage: 30, share: -1 }, { kind: "hack" }, { kind: "repay" }, { kind: "stop", pct: 1 }, { kind: "stop", at: 1 }]) {
     const res = await attempt(body, me);
     expect(res.status, JSON.stringify(body)).toBeGreaterThanOrEqual(400);
     expect((await res.json()).error).toEqual(expect.any(String));
@@ -35,7 +35,7 @@ it.skipIf(live)("acts only on the sender's own account", async () => {
   const a = await visitor();
   const b = await visitor();
   await open();
-  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5 })).status).toBe(200);
+  expect((await act(a, { kind: "buy", leverage: 10, share: 0.5 })).status).toBe(200);
   // b cannot close or stop a's position: b has none of their own
   expect((await act(b, { kind: "close" })).status).toBe(409);
   expect((await act(b, { kind: "stop", at: 0.0001 })).status).toBe(409);
@@ -49,7 +49,7 @@ it.skipIf(live)("awards an achievement for the first closed trade, to that perso
   const a = await visitor();
   const b = await visitor();
   await open();
-  await act(a, { kind: "buy", leverage: 10, stake: 0.5 });
+  await act(a, { kind: "buy", leverage: 10, share: 0.5 });
   await act(a, { kind: "close" });
   const seen = await state(a);
   expect((seen.you as unknown as { feats: string[] }).feats).toContain("first");
@@ -73,7 +73,7 @@ it.skipIf(live)("shows each player their own closed trades, and nobody else's", 
   const a = await visitor();
   const b = await visitor();
   await open();
-  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5 })).status).toBe(200);
+  expect((await act(a, { kind: "buy", leverage: 10, share: 0.5 })).status).toBe(200);
   expect((await act(a, { kind: "close" })).status).toBe(200);
   const mine = (await state(a)).you as unknown as { trades: { how: string; leverage: number }[] };
   expect(mine.trades[0]).toMatchObject({ how: "close", leverage: 10 });
@@ -83,9 +83,9 @@ it.skipIf(live)("shows each player their own closed trades, and nobody else's", 
 it.skipIf(live)("refuses an order the broker does not offer, even one that would close a position", async () => {
   const a = await visitor();
   await open();
-  await act(a, { kind: "buy", leverage: 10, stake: 0.5 });
+  await act(a, { kind: "buy", leverage: 10, share: 0.5 });
   expect((await act(a, { kind: "sell", leverage: 7 })).status).toBe(409);
-  expect((await act(a, { kind: "sell", leverage: 10, stake: 99 })).status).toBe(409);
+  expect((await act(a, { kind: "sell", leverage: 10, share: 99 })).status).toBe(409);
   expect((await state(a)).you.pos).toMatchObject({ side: 1 });
 });
 
@@ -93,7 +93,7 @@ it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone el
   const a = await visitor();
   const b = await visitor();
   await open();
-  await act(a, { kind: "sell", leverage: 3, stake: 0.5 });
+  await act(a, { kind: "sell", leverage: 3, share: 0.5 });
   // the page asks for each a percentage away; the server sets the level
   expect((await act(a, { kind: "stop", pct: 5 })).status).toBe(200);
   expect((await act(a, { kind: "take", pct: 2 })).status).toBe(200);
@@ -112,7 +112,7 @@ it.skipIf(live)("never shows a person's cookie, stop or take profit to anyone el
 it.skipIf(live)("attaches a stop loss and take profit sent with an order", async () => {
   const a = await visitor();
   await open();
-  expect((await act(a, { kind: "buy", leverage: 10, stake: 0.5, sl: 2, tp: 5 })).status).toBe(200);
+  expect((await act(a, { kind: "buy", leverage: 10, share: 0.5, sl: 2, tp: 5 })).status).toBe(200);
   const s = await state(a);
   const pos = s.you.pos as unknown as { stop: number; take: number; entry: number };
   expect(pos.stop).toBeLessThan(pos.entry);
@@ -124,9 +124,9 @@ it.skipIf(live)("attaches a stop loss and take profit sent with an order", async
   expect((await state(b)).you.pos).toBeNull();
 });
 
-// A replay's dates are the round's secret until the bell, so the page is
+// A rewind's dates are the round's secret until the bell, so the page is
 // sent day numbers and prices, never a date or the event's name.
-it("keeps a replay's dates from the page until the bell", async () => {
+it("keeps a rewind's dates from the page until the bell", async () => {
   const s = await state();
   const text = JSON.stringify({ ...s, result: null, feed: s.feed.filter((f) => !f.text.startsWith("That was")) });
   if (s.phase === "trade") {
@@ -183,7 +183,7 @@ it("sends the buy and sell price, the spread apart, around the price", async () 
 it.skipIf(live)("tells a trader their own margin lines, and nobody theirs", async () => {
   const me = await visitor();
   await open();
-  expect((await act(me, { kind: "buy", leverage: 100, stake: 0.5 })).status).toBe(200);
+  expect((await act(me, { kind: "buy", leverage: 100, share: 0.5 })).status).toBe(200);
   const s = (await state(me)) as unknown as { you: { pos: { entry: number; call: number; cut: number } }; traders: Record<string, unknown>[] };
   expect(s.you.pos.call).toBeLessThan(s.you.pos.entry);
   expect(s.you.pos.cut).toBeLessThan(s.you.pos.call);

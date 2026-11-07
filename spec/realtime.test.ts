@@ -39,7 +39,7 @@ it.skipIf(live)("shows one person's trade on another's page within a second", as
     await open();
     const heard = watcher.next((e) => (e.traders as { name: string; side: number; leverage: number }[]).some((t) => t.name === me.you.name && t.side === -1 && t.leverage === 3), 1000);
     const started = Date.now();
-    expect((await act(trader, { kind: "sell", leverage: 3, stake: 0.25 })).status).toBe(200);
+    expect((await act(trader, { kind: "sell", leverage: 3, share: 0.25 })).status).toBe(200);
     const seen = await heard;
     expect(seen).not.toBeNull();
     expect(Date.now() - started).toBeLessThan(1000);

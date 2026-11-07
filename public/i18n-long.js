@@ -52,7 +52,7 @@ export const LESSONS = {
       task: "レバレッジを1000倍、証拠金を100%にして「買い」を押してください。",
       steps: ["レバレッジを最大の1000倍に。", "証拠金を100%に。", "「買い」を押して、見ていてください。"],
     },
-    dad: {
+    credit: {
       title: "緊急クレジット",
       text: "追証は50%、強制ロスカットは20%で、借りなければこのラウンドは退場です。緊急クレジットはA$1,000ずつ貸し、借りている額に毎日利息がつきます。借りるほど利率は上がります。",
       task: "ポップアップで緊急クレジットを借りてください。",
@@ -114,7 +114,7 @@ export const LESSONS = {
       task: "把杠杆设为1000倍、保证金设为100%，然后按“买入”。",
       steps: ["把杠杆滑到最高的1000倍。", "把保证金设为100%。", "按“买入”，然后看着。"],
     },
-    dad: {
+    credit: {
       title: "应急信贷",
       text: "追保在50%，强平在20%，不借钱本局就到此为止。应急信贷每次借A$1,000，按欠款每天计息，欠得越多利率越高。",
       task: "在弹窗里借应急信贷。",
@@ -177,7 +177,7 @@ export const EVENTS = {
 // The Scenario tab's scripts (ADR 0027), in every language: a name and
 // what real market it was modelled on, told at the bell, and the
 // headlines the feed shows on their day, in the order the script has them.
-export const SCENARIOS = {
+export const SITUATIONS = {
   en: {
     peg: { name: "a peg break", note: "a currency held still at a floor until the central bank let go in a day, as Switzerland did on 15 January 2015.", headlines: ["The central bank calls its floor 'the cornerstone of policy'.", "Reserves to defend the floor have swelled past a year's output."] },
     carry: { name: "a carry-trade unwind", note: "a long, calm climb on cheap borrowed money, then everyone leaving at once, as the yen carry trade did in August 2024.", headlines: ["Borrowing in the cheap currency to buy the dear one: 'free money', says a fund.", "The low-rate central bank hints its rates may finally rise."] },

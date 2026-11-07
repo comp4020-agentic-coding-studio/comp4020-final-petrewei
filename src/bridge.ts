@@ -1,5 +1,5 @@
 // The price between two closes, as a day of 96 fifteen-minute ticks (ADR 0085). Where a plot has real minutes the game
-// plays those; this is for the rest, the two yuan plots and Simulation, and it is made to behave as the
+// plays those; this is for the rest, the two yuan plots and Random, and it is made to behave as the
 // real minutes did when measured over forty-six ordinary days of six pairs (EUR/USD, GBP/USD, USD/JPY,
 // AUD/USD, EUR/CHF, AUD/JPY, from the files in raw/): test/bridge.test.ts holds it to those figures.
 //
@@ -25,7 +25,7 @@ const SHARP = Array.from({ length: TICKS_PER_DAY }, (_, i) => ((BLOCK_SHARE[Math
 const MEAN = SHARP.reduce((a, b) => a + b, 0) / TICKS_PER_DAY;
 const PROFILE = SHARP.map((v) => v / MEAN);
 
-// A standard normal draw (Box–Muller), shared with market.ts so the bridge and Simulation's closes draw alike.
+// A standard normal draw (Box–Muller), shared with market.ts so the bridge and Random's closes draw alike.
 export const normal = (rnd: () => number): number => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
 
 // A Student-t draw with five degrees of freedom, scaled to unit variance, for the fat tails. Five, because at fifteen

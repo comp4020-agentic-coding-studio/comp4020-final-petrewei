@@ -171,8 +171,8 @@ export function createChart({ getState, getLanguage, t }) {
       ctx.moveTo(xd, 0);
       ctx.lineTo(xd, h + pane);
       ctx.stroke();
-      // Marathon's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
-      const dayName = s.mode === "marathon" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(getLanguage() === "en" ? "en-AU" : getLanguage(), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
+      // Live's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
+      const dayName = s.mode === "live" && s.slotMs ? new Date(at * s.slotMs).toLocaleDateString(getLanguage() === "en" ? "en-AU" : getLanguage(), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
       if (!tutorial && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
     }
     // A day's indicator sits at its candle's centre; today's at the price.

@@ -1,4 +1,4 @@
-// Builds data/minutes.csv, the real intraday prices the Replay plots play, from the minute bars
+// Builds data/minutes.csv, the real intraday prices the Rewind plots play, from the minute bars
 // downloaded from HistData (https://www.histdata.com, MetaTrader M1 files, kept in raw/ and never
 // committed). Run it by hand when a file is added:
 //

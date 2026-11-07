@@ -3,7 +3,7 @@
 type Table = Record<string, string>;
 type Lang = {
   // The page's words; the four tables are a line for each tick of a scale, keyed by rung or distance.
-  ui: Record<string, string> & { notes: Record<number, string>; slNotes: Record<number, string>; tpNotes: Record<number, string>; stakeNotes: string[] };
+  ui: Record<string, string> & { notes: Record<number, string>; slNotes: Record<number, string>; tpNotes: Record<number, string>; marginNotes: string[] };
   tips: Table;
   info: Table;
   news: Table;
@@ -15,7 +15,7 @@ type Lang = {
   pops: Record<string, string>;
   lessons: Record<string, { title: string; text: string; task: string; steps?: string[] }>;
   events: Record<string, { title: string; note: string }>;
-  scenarios: Record<string, { name: string; note: string; headlines: string[] }>;
+  situations: Record<string, { name: string; note: string; headlines: string[] }>;
   // News in a Simulation, by number; which way each pushes is kept on the server.
   stories: string[];
   clues: Record<string, string[]>;

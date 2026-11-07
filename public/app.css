@@ -250,9 +250,9 @@ body:not(.tutorial) .panel.folded > :not(h2) { display: none; }
 .quote { position: absolute; z-index: 3; left: 0.5rem; top: 0.35rem; right: 8.5rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.7rem; max-width: max-content; padding: 0.25rem 0.6rem; border-radius: 8px; background: color-mix(in srgb, var(--chart) 82%, transparent); pointer-events: none; }
 .quote > * { pointer-events: auto; }
 .pair-tools, .pair-controls { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
-.replay-pair[hidden], .pair-controls[hidden], .pair[hidden] { display: none; }
+.rewind-pair[hidden], .pair-controls[hidden], .pair[hidden] { display: none; }
 .pair-controls select { width: calc(3ch + 1.8rem); height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
-.replay-pair { width: calc(7ch + 1.8rem); height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
+.rewind-pair { width: calc(7ch + 1.8rem); height: 30px; padding: 0 0.2rem; border: 1px solid var(--line); border-radius: 6px; background: var(--raise); color: var(--ink); font: 0.8rem var(--mono); }
 .chart-box > .mode { position: absolute; z-index: 3; left: 0.6rem; bottom: 6rem; max-width: calc(100% - 6rem); margin: 0; padding: 0.15rem 0.6rem; border-radius: 6px; background: color-mix(in srgb, var(--chart) 85%, transparent); color: var(--ink); font-style: italic; }
 .chart-box > .mode[hidden] { display: none; }
 .quote .round-ctl { align-self: center; }
@@ -396,8 +396,8 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .ticks span.on::before { background: var(--heat); width: 2px; height: 0.3rem; top: -0.3rem; }
 .slide .fee { margin: 0.1rem 0 0; font-size: 0.7rem; line-height: 1.2; color: var(--muted); min-height: 0.85rem; }
 .slide .fee { color: var(--heat); }
-/* the stake's note is the leverage's in form, plain and small, but grey: it is an amount, not a danger */
-#stake-box .fee { color: var(--muted); font-weight: 400; }
+/* the margin's note is the leverage's in form, plain and small, but grey: it is an amount, not a danger */
+#margin-box .fee { color: var(--muted); font-weight: 400; }
 .ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 /* The two caps sit close on a log scale: Japan's leans left, Australia's right. */
 /* Stop loss and take profit on the ticket (ADR 0032, 0034): a toggle for
@@ -437,24 +437,24 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .pend-what { flex-basis: 100%; min-width: 0; margin: 0; font: 600 0.78rem var(--mono); color: var(--ink); }
 .pend-what:empty { display: none; }
 .pend-body .ghost { height: 1.9rem; padding: 0 0.8rem; font-size: 0.82rem; }
-/* The stake's track is the whole account (ADR 0077): a bar from nothing to all of it, the margin already in use shaded
-   at its left, then what this order would add in the stake's heat; the slider lies over its 25% to 100%, so the thumb
+/* The margin's track is the whole account (ADR 0077): a bar from nothing to all of it, the margin already in use shaded
+   at its left, then what this order would add in the margin's heat; the slider lies over its 25% to 100%, so the thumb
    and the marks stand on the shares they mean. Its own track is clear so the bar shows through. */
-.stake-track { position: relative; height: 1.4rem; }
-.stake-track::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: var(--raise); }
-.stake-track .bar { position: absolute; top: calc(50% - 3px); height: 6px; pointer-events: none; transition: left 0.2s, width 0.2s; }
-.stake-track .bar.used { left: 0; border-radius: 3px 0 0 3px; background: repeating-linear-gradient(135deg, var(--muted) 0 3px, color-mix(in srgb, var(--muted) 45%, transparent) 3px 6px); }
-.stake-track .bar.order { background: var(--heat); }
-.stake-track input[type="range"] { position: absolute; top: 0; left: 25%; width: 75%; height: 100%; -webkit-appearance: none; appearance: none; background: none; }
-.stake-track input[type="range"]::-webkit-slider-runnable-track { background: none; height: 100%; }
-.stake-track input[type="range"]::-moz-range-track { background: none; height: 100%; }
-.stake-track input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: calc(0.7rem - 8px); border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
-.stake-track input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
-.stake-track input[type="range"]:focus-visible { outline: none; }
-.stake-track input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--glow); }
-.stake-track input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--glow); }
-/* the order would take less than the stake asked for, as no more is free: the slider's value says so in the cut colour */
-#stake-box.cut output { color: var(--call); }
+.margin-track { position: relative; height: 1.4rem; }
+.margin-track::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: var(--raise); }
+.margin-track .bar { position: absolute; top: calc(50% - 3px); height: 6px; pointer-events: none; transition: left 0.2s, width 0.2s; }
+.margin-track .bar.used { left: 0; border-radius: 3px 0 0 3px; background: repeating-linear-gradient(135deg, var(--muted) 0 3px, color-mix(in srgb, var(--muted) 45%, transparent) 3px 6px); }
+.margin-track .bar.order { background: var(--heat); }
+.margin-track input[type="range"] { position: absolute; top: 0; left: 25%; width: 75%; height: 100%; -webkit-appearance: none; appearance: none; background: none; }
+.margin-track input[type="range"]::-webkit-slider-runnable-track { background: none; height: 100%; }
+.margin-track input[type="range"]::-moz-range-track { background: none; height: 100%; }
+.margin-track input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: calc(0.7rem - 8px); border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
+.margin-track input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--panel); background: var(--heat); cursor: pointer; }
+.margin-track input[type="range"]:focus-visible { outline: none; }
+.margin-track input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--glow); }
+.margin-track input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--glow); }
+/* the order would take less than the margin asked for, as no more is free: the slider's value says so in the cut colour */
+#margin-box.cut output { color: var(--call); }
 .exit-track { position: relative; height: 1.4rem; }
 .exit-track .fill { position: absolute; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: var(--muted); opacity: 0.55; pointer-events: none; }
 .exit-track[data-sl="true"] .fill.sl { background: var(--down); opacity: 1; }
@@ -541,13 +541,13 @@ input[type="range"] { width: 100%; height: 1.4rem; margin: 0; accent-color: var(
 .credit:not(:has(.owing)) .credit-body { gap: 0; }
 .credit-meter { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--call) 18%, transparent); overflow: hidden; }
 .credit-meter span { display: block; height: 100%; background: var(--call); transition: width 0.3s; }
-/* Dad's savings, a pop-up beside the ticket after a margin call or a cut. */
-.dad { position: fixed; inset: auto 1rem 3rem auto; margin: 0; z-index: 43; width: min(22rem, calc(100vw - 2rem)); padding: 1rem 1.1rem; border: 2px solid var(--call); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 8px 28px rgb(0 0 0 / 0.4); }
-.dad:not([open]) { display: none; }
-.dad h2 { margin: 0 0 0.4rem; padding: 0; border: none; font-size: 1.1rem; color: var(--call); }
-.dad p { margin: 0 0 0.7rem; font-size: 0.86rem; line-height: 1.5; color: var(--soft); }
-.dad .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.dad .row .borrow { flex: 1 1 auto; }
+/* Emergency credit's offer, a pop-up beside the ticket after a margin call or a cut. */
+.credit-offer { position: fixed; inset: auto 1rem 3rem auto; margin: 0; z-index: 43; width: min(22rem, calc(100vw - 2rem)); padding: 1rem 1.1rem; border: 2px solid var(--call); border-radius: 14px; background: var(--panel); color: var(--ink); box-shadow: 0 8px 28px rgb(0 0 0 / 0.4); }
+.credit-offer:not([open]) { display: none; }
+.credit-offer h2 { margin: 0 0 0.4rem; padding: 0; border: none; font-size: 1.1rem; color: var(--call); }
+.credit-offer p { margin: 0 0 0.7rem; font-size: 0.86rem; line-height: 1.5; color: var(--soft); }
+.credit-offer .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.credit-offer .row .borrow { flex: 1 1 auto; }
 /* The two prayers float over the chart's lower left, small and dashed: a joke, not a control. */
 .prayers { position: absolute; z-index: 3; left: 0.5rem; bottom: 0.5rem; display: flex; gap: 0.35rem; }
 .pray { height: 1.9rem; padding: 0 0.6rem; background: color-mix(in srgb, var(--chart) 82%, transparent); border-style: dashed; color: var(--soft); font-size: 0.9rem; white-space: nowrap; }
@@ -637,7 +637,7 @@ th:first-child, td:first-child { text-align: left; }
    busy round, never pushes the panels below. */
 #feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; height: 15rem; overflow: auto; }
 /* the latest market news stays at the top, marked, so a headline is never buried under chatter */
-/* Simulation's economic calendar (ADR 0085): a short list over the feed, upcoming releases plain, told ones coloured
+/* Random's economic calendar (ADR 0085): a short list over the feed, upcoming releases plain, told ones coloured
    by whether they lifted or sank their currency. */
 .calendar { margin: 0; padding: 0.4rem 0.9rem; list-style: none; border-bottom: 1px solid var(--line); background: var(--raise); font-size: 0.8rem; }
 .calendar[hidden] { display: none; }
@@ -659,7 +659,7 @@ th:first-child, td:first-child { text-align: left; }
 #feed .k-loss { color: var(--down); }
 #feed .k-wild { color: var(--pink); }
 #feed .k-pray, #feed .k-info { color: var(--muted); }
-/* A Simulation's headline: the clue, so it reads as news, not chatter. */
+/* A Random's headline: the clue, so it reads as news, not chatter. */
 #feed .k-news { color: var(--ink); font-style: italic; }
 /* A house trader's line, said off screen: face, name, the quote. */
 #feed .k-said { color: var(--soft); }
@@ -1015,7 +1015,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .ticks span[data-tip-text] { pointer-events: auto; cursor: help; }
 #fee-note { font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 
-.slide .label #fee-note, .slide .label #stake-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.slide .label #fee-note, .slide .label #margin-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .slide .label output { flex: none; }
 
 /* The first screen (ADR 0076, 0078). On a desktop the chart and the Account / Order panel are the window's height
@@ -1072,9 +1072,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   }
 }
 
-/* Marathon (ADR 0087): a market with no round, so no lobby, praying, pending order or round controls; the board in the
+/* Live (ADR 0087): a market with no round, so no lobby, praying, pending order or round controls; the board in the
    room's place, the account's other pairs under the position, and the real calendar with links to its sources. */
-body.marathon .prayers, body.marathon #pend, body.marathon #round-ctl, body.marathon #guess { display: none; }
+body.live .prayers, body.live #pend, body.live #round-ctl, body.live #guess { display: none; }
 .board { list-style: none; margin: 0; padding: 0.3rem 0.9rem; display: grid; gap: 0.25rem; }
 .board li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; min-width: 0; }
 .board li strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

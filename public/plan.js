@@ -13,8 +13,9 @@ export function met(step, index, { choice, looked, moves = 0 }) {
   // moves are made, and not yet due before then (ADR 0059).
   if (step.until === "press" && step.move !== undefined) return moves !== step.move;
   if (step.until === "press" && moves > 0 && step.move === undefined) return true;
-  const m = step.until.match(/^(leverage|stake)=(\d+)$/);
-  if (m) return Number(choice[m[1]]) === Number(m[2]);
+  // the margin slider sets the share of the account an order puts up
+  const m = step.until.match(/^(leverage|margin)=(\d+)$/);
+  if (m) return Number(choice[m[1] === "margin" ? "share" : m[1]]) === Number(m[2]);
   if (step.until === "look") return index < looked;
   return false;
 }
@@ -35,12 +36,12 @@ export function currentStep(plan, ctx, visible = () => true) {
 // What the tutorial does for a player who has waited on a step (ADR 0054),
 // from the plan alone. A step to look at only moves on. A slider step slides
 // the slider to the value it asks for. A step to press sends the lesson's own
-// move: a Buy or a Sell at the leverage and stake that the lesson's sliders ask
+// move: a Buy or a Sell at the leverage and margin that the lesson's sliders ask
 // for, the stop it teaches, or a bare Close, Borrow or Next. Nothing here can
 // send a move the lesson would not accept, since the sliders it reads are the
 // plan's own.
-export function autoMove(step, lessonId, plan = [], choice = { leverage: 25, stake: 1 }) {
-  const m = step.until.match(/^(leverage|stake)=(\d+)$/);
+export function autoMove(step, lessonId, plan = [], choice = { leverage: 25, share: 1 }) {
+  const m = step.until.match(/^(leverage|margin)=(\d+)$/);
   if (m) return { slide: { slider: m[1], value: Number(m[2]) } };
   if (step.until === "look") return { look: true };
   if (step.until !== "press") return null;
@@ -48,7 +49,7 @@ export function autoMove(step, lessonId, plan = [], choice = { leverage: 25, sta
     const s = plan.find((x) => x.until.startsWith(`${what}=`));
     return s ? Number(s.until.split("=")[1]) : undefined;
   };
-  if (step.target === "buy" || step.target === "sell") return { act: { kind: step.target, leverage: asked("leverage") ?? choice.leverage, stake: asked("stake") ?? choice.stake } };
+  if (step.target === "buy" || step.target === "sell") return { act: { kind: step.target, leverage: asked("leverage") ?? choice.leverage, share: asked("margin") ?? choice.share } };
   if (step.target === "stopthumb") return { act: { kind: "stop", pct: 1 } };
   if (step.target === "close") return { act: { kind: "close" } };
   if (step.target === "borrow") return { act: { kind: "borrow" } };

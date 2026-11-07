@@ -45,3 +45,25 @@ it("rejects unrecoverable corruption and does not replace a valid primary when a
     expect(() => store.read()).toThrow(/Cannot recover/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ADR 0091: Live's accounts were saved as marathon.json; they move to live.json once, with their backup and version
+// marker, and a second start, or one with live.json already there, leaves everything as it is.
+it("moves a renamed store once, with its backup and version marker", async () => {
+  const { renameStore } = await import("../src/storage.ts");
+  const dir = mkdtempSync(join(tmpdir(), "losscut-rename-"));
+  const old = join(dir, "marathon.json"), next = join(dir, "live.json");
+  try {
+    writeFileSync(old, '{"accounts":{"k":1}}');
+    writeFileSync(`${old}.bak`, '{"accounts":{}}');
+    writeFileSync(`${old}.version`, "1\n");
+    renameStore(old, next);
+    expect(readFileSync(next, "utf8")).toBe('{"accounts":{"k":1}}');
+    expect(readFileSync(`${next}.bak`, "utf8")).toBe('{"accounts":{}}');
+    expect(readFileSync(`${next}.version`, "utf8")).toBe("1\n");
+    expect(() => readFileSync(old)).toThrow();
+    // a file left under the old name later is not moved over the new one
+    writeFileSync(old, '{"accounts":{"stale":1}}');
+    renameStore(old, next);
+    expect(readFileSync(next, "utf8")).toBe('{"accounts":{"k":1}}');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

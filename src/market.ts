@@ -1,20 +1,20 @@
-// Where a round's prices come from. A replay plays one of nineteen plots, five real
+// Where a round's prices come from. A rewind plays one of nineteen plots, five real
 // trading days in which a market broke, with the dates hidden until the round ends: real
 // minute prices (data/minutes.csv, from HistData) for seventeen, and for the two yuan plots
 // the ECB's daily reference rates (data/ecb.csv, source: ECB) with the price between closes
-// on a random bridge that always lands on the real close. A Simulation round starts from
+// on a random bridge that always lands on the real close. A Random round starts from
 // today's rate and simulates a random market, thirty candles long.
 
 import { dayOf, normal, span, TICKS_PER_DAY } from "./bridge.ts";
 
-// The pairs a Simulation may start from: every one is two of the six currencies the ECB
+// The pairs a Random may start from: every one is two of the six currencies the ECB
 // publishes, so each has its real history since 1999 (the yuan since April 2005).
 // Every pair of the seven currencies (ADR 0085), each written with the base the market uses: the euro first, then
-// sterling, the Australian dollar, the US dollar, the franc, the yuan and the yen last. Twenty-one, so Simulation's two
+// sterling, the Australian dollar, the US dollar, the franc, the yuan and the yen last. Twenty-one, so Random's two
 // menus make any pair; any of them is worked out from the euro's rates.
 export const PAIRS = ["EUR/GBP", "EUR/AUD", "EUR/USD", "EUR/CHF", "EUR/CNY", "EUR/JPY", "GBP/AUD", "GBP/USD", "GBP/CHF", "GBP/CNY", "GBP/JPY", "AUD/USD", "AUD/CHF", "AUD/CNY", "AUD/JPY", "USD/CHF", "USD/CNY", "USD/JPY", "CHF/CNY", "CHF/JPY", "CNY/JPY"] as const;
 export type Pair = (typeof PAIRS)[number];
-// A Simulation's plan, headlines and news count in units, thirty of them a round: a candle each.
+// A Random's plan, headlines and news count in units, thirty of them a round: a candle each.
 export const UNITS = 30;
 // The clock (ADR 0075, 0085): a day is 96 fifteen-minute ticks, a chart candle 8 of them (two hours), a plot's round five days
 // and the market before it two, drawn to the left of the open so the chart is never empty and the new price arrives
@@ -22,7 +22,7 @@ export const UNITS = 30;
 export const DAY_TICKS = TICKS_PER_DAY;
 // the chart's candle: 8 ticks, two hours, twelve to a day and twenty-four across the two days shown
 export const CANDLE = 8;
-// a Simulation's unit, the step its scripts, headlines and news count in: 16 ticks, four hours, two chart candles
+// a Random's unit, the step its scripts, headlines and news count in: 16 ticks, four hours, two chart candles
 export const UNIT = 16;
 export const PLAY_DAYS = 5;
 export const PRE_ROLL_DAYS = 2;
@@ -35,12 +35,12 @@ type Day = { date: string; rate: number };
 // `history` is the market in the two days before the open, as ticks ending at
 // the open price, so `prices[0]` follows it; it is part of the chart and of
 // nothing else: no order, score or clock reads it.
-export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; source: Source; scenario?: string; headlines?: Headline[]; news?: News[]; unit: number };
-// Where a round's prices come from: a made-up market from today's rate (Simulation), a plot's real minutes, or a plot's
+export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; source: Source; situation?: string; headlines?: Headline[]; news?: News[]; unit: number };
+// Where a round's prices come from: a made-up market from today's rate (Random), a plot's real minutes, or a plot's
 // real daily closes with the ticks between them bridged (the two yuan plots). The feed says which as the round opens.
 export type Source = "simulation" | "minutes" | "bridged";
 
-// The plots of a replay: nineteen real stories in which the market broke, each with the
+// The plots of a rewind: nineteen real stories in which the market broke, each with the
 // pair it broke on. The day it broke is the third of the five played, with two days to read first.
 // Each note is shown when the round ends, so the room learns what it just
 // traded through, and its clues, in every language, are in public/i18n-long.js.
@@ -131,7 +131,7 @@ export class History {
   }
 }
 
-// A small seeded generator, so tests and replays can be repeated.
+// A small seeded generator, so tests and rewinds can be repeated.
 export function random(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -165,7 +165,7 @@ export function replayRound(history: History, minutes: Minutes, rnd: () => numbe
     source: real ? "minutes" : "bridged",
     // a clue on each day before the one the market broke, the first and second played; the text is the server's to look up
     headlines: Array.from({ length: SWAN_DAY - 1 }, (_, day) => ({ day })),
-    // a replay's clues are counted in days
+    // a rewind's clues are counted in days
     unit: DAY_TICKS,
   };
 }
@@ -212,10 +212,10 @@ function simulated(history: History, event: Episode, rnd: () => number): number[
 // enough, on the day, for a careful trader to read it. The reveal names the real market
 // it was modelled on, so the bell teaches as History's does.
 // A headline is shown on its day; its words, in every language, are in
-// public/i18n-long.js under the scenario's id, in the same order.
+// public/i18n-long.js under the situation's id, in the same order.
 export type Headline = { day: number };
 
-// News in a Simulation (ADR 0064): a story that breaks on a day, and may do something to the
+// News in a Random (ADR 0064): a story that breaks on a day, and may do something to the
 // price afterwards, or nothing. `rise` and `fall` push it three days on, `vshape` drops it for
 // two days and brings it back over three, and `none` is a rumour that moves nothing. The text
 // is only a hint: it says what the market is worried about, never what it will do. `n` picks
@@ -253,10 +253,10 @@ export const storyOf = (news: News): number => EFFECTS.indexOf(news.effect) * NE
 // blurred a carry trade's unwind in a quarter of rounds, at 2 the unwind still shows in four in five.
 export const NEWS_SIZE = 2;
 
-export type Scenario = {
+export type Situation = {
   id: string;
   // The day's drift (in daily volatilities, signed) and wildness, given the
-  // day, the day the scenario turns, and how far the price has wandered
+  // day, the day the situation turns, and how far the price has wandered
   // from the open, in daily volatilities.
   plan: (day: number, crash: number, away: number) => { drift: number; vol: number };
   headlines: Headline[];
@@ -264,7 +264,7 @@ export type Scenario = {
 
 // Days of the round, counted from 0.
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-export const SCENARIOS: Scenario[] = [
+export const SITUATIONS: Situation[] = [
   {
     // A currency held to a floor, very still, until the floor is dropped in
     // one day: Switzerland, 15 January 2015.
@@ -327,10 +327,10 @@ export const SCENARIOS: Scenario[] = [
   },
 ];
 
-// Up to three stories break in a Simulation, all before the scenario turns: between day 3 and two
+// Up to three stories break in a Random round, all before the situation turns: between day 3 and two
 // days before the turn, at least three days apart. News is the build-up, a hint at what is
 // coming or a false alarm; it never lands on the turn or after it, where it would blur the
-// scenario the round is about. A story is a rise, a fall or a V a little less than half the
+// situation the round is about. A story is a rise, a fall or a V a little less than half the
 // time each, and a rumour that does nothing for the rest: news is a hint, and some of it is wrong.
 export function drawNews(rnd: () => number, crash: number): News[] {
   const out: News[] = [];
@@ -377,8 +377,8 @@ export function newsDrift(news: News[], day: number): number {
   return push;
 }
 
-// A Simulation round on the new clock (ADR 0075): thirty simulated candles of eight half-hour ticks, a round as long
-// as Replay's five days. A candle is the scenario's unit, what its plan and its headlines and its news call a day, so
+// A Random round on the new clock (ADR 0075): thirty simulated candles of eight half-hour ticks, a round as long
+// as Rewind's five days. A candle is the situation's unit, what its plan and its headlines and its news call a day, so
 // every script and every day it names is as it was written; only what a unit is on the screen has changed, a four-hour
 // candle where it was a day of nine ticks. Each candle is bridged by `span` from the close before it to its own, so the
 // ticks between are real-looking half hours. The history before the open is the pair's real last days, two of them,
@@ -388,7 +388,7 @@ export function simulation(history: History, pair: Pair, rate: number, rnd: () =
   const moves = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
   // A floor of 0.4% a unit, so a pegged pair still moves enough to play.
   const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
-  const script = SCENARIOS.find((x) => x.id === pick) ?? SCENARIOS[Math.floor(rnd() * SCENARIOS.length)];
+  const script = SITUATIONS.find((x) => x.id === pick) ?? SITUATIONS[Math.floor(rnd() * SITUATIONS.length)];
   // The turn comes between unit 13 and unit 22, as before.
   const crash = 13 + Math.floor(rnd() * 10);
   const way = rnd() < 0.5 ? 1 : -1;
@@ -406,8 +406,8 @@ export function simulation(history: History, pair: Pair, rate: number, rnd: () =
   const real = [...history.series(pair).slice(-PRE_ROLL_DAYS).map((d) => d.rate), rate];
   const before: number[] = [real[0]];
   for (let d = 1; d < real.length; d++) before.push(...dayOf(before.at(-1)!, real[d], vol, rnd));
-  return { pair, days: closes.map((_, d) => `day ${d}`), prices, history: before, event: null, source: "simulation", scenario: script.id, headlines: script.headlines, news,
-    // a simulation's headlines and news are counted in its units, which are candles
+  return { pair, days: closes.map((_, d) => `day ${d}`), prices, history: before, event: null, source: "simulation", situation: script.id, headlines: script.headlines, news,
+    // a random's headlines and news are counted in its units, which are candles
     unit: UNIT };
 }
 

@@ -1,11 +1,11 @@
 import { tradeAction } from "./actions.ts";
 import type { RoundState, TutorialState } from "../public/protocol.js";
-// Losscut!'s server: two shared markets, Replay and Simulation, each traded
+// Losscut!'s server: two shared markets, Rewind and Random, each traded
 // live by everyone on that tab, plus seven house bots in each. The server
 // owns the price, fills every order at the price when it arrives, and
 // enforces margin calls and stop-outs; pages only show what it sends (ADR
-// 0010). A round is about two minutes: Replay plays real days with the
-// date hidden, Simulation simulates a random market from today's rate. The hall of fame,
+// 0010). A round is about two minutes: Rewind plays real days with the
+// date hidden, Random simulates a random market from today's rate. The hall of fame,
 // across both, is kept on the volume.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
@@ -25,10 +25,10 @@ import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
 import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
-import { Marathon } from "./marathon.ts";
+import { Live } from "./live.ts";
 
 import { systemClock, type Clock, type Timer } from "./clock.ts";
-import { Live } from "./live.ts";
+import { Feed } from "./feed.ts";
 import type { News } from "./news.ts";
 import { jsonStorage, type Storage } from "./storage.ts";
 import { namesValid, migrateNames, facesValid, careerValid } from "./saved.ts";
@@ -37,7 +37,7 @@ export type AppOptions = {
   dataDir?: string;
   storage?: Storage;
   clock?: Clock;
-  live?: Live;
+  quotes?: Feed;
   news?: News;
   fetch?: typeof globalThis.fetch;
   env?: NodeJS.ProcessEnv;
@@ -71,15 +71,15 @@ export function createApp(options: AppOptions = {}) {
     const ACTIVITY = join(DATA_DIR, "activity.log");
     // Half a second a tick: five days of 96 ticks is 481 ticks, four minutes at 1×, two at 2× (ADR 0085).
     const TICK_MS = Number(env.TICK_MS ?? 500);
-    // The feed's line as a round opens, by where its prices come from; a bridged replay says its moves are simulated.
-    const OPENING = { simulation: "scenario-round", minutes: "replay-round", bridged: "replay-bridged-round" } as const;
+    // The feed's line as a round opens, by where its prices come from; a bridged rewind says its moves are simulated.
+    const OPENING = { simulation: "random-round", minutes: "rewind-round", bridged: "rewind-bridged-round" } as const;
     // A pop lasts about four seconds on the wire; a busy room keeps 40.
     const POP_TICKS = 8;
     const POPS_MAX = 40;
     // The broker's numbers a page is told with every state, and which never change while it runs.
     const DESK = { ...RULES, ticksPerMinute: Math.round(60_000 / TICK_MS) };
-    // Replay's plots by number and pair, for its lobby's choice; the number is all that names one.
-    const REPLAY_PLOTS = EVENTS.map((e, i) => ({ n: i + 1, pair: e.pair }));
+    // Rewind's plots by number and pair, for its lobby's choice; the number is all that names one.
+    const REWIND_PLOTS = EVENTS.map((e, i) => ({ n: i + 1, pair: e.pair }));
     // The least time between one person's choices of round in the lobby.
     const CHOOSE_MS = Number(env.CHOOSE_MS ?? 250);
     // The chart marks a trader's fills, as many as the window can show before they crowd it.
@@ -349,7 +349,7 @@ export function createApp(options: AppOptions = {}) {
     const seed = clock.now() % 2 ** 31;
     const rnd = random(seed);
 
-    // Today's real rates for live rounds (ADR 0085): fetched again when a Simulation round is set up and the last fetch is
+    // Today's real rates for live rounds (ADR 0085): fetched again when a Random round is set up and the last fetch is
     // ten minutes old, so a refresh brings the latest; a failed fetch is tried again after a minute rather than an hour.
     // Without them, the newest ECB row in the bundled history.
     let today: { date: string; rates: Record<string, number> } | null = null;
@@ -435,18 +435,18 @@ export function createApp(options: AppOptions = {}) {
       guess: (m, who, input) => m.guess(who, input.year as number),
       choose: (m, who, input) => m.choose(who, input.what),
     };
-    // The first year of the ECB's rates, so the first a replay can be from.
+    // The first year of the ECB's rates, so the first a rewind can be from.
     const FIRST_YEAR = 1999;
 
     // The two markets a visitor can pick between by tab. Each is a room of
     // its own, with its own round, desk, bots, feed and bell, and both run
-    // all the time: Replay plays real days with the date hidden, Simulation
+    // all the time: Rewind plays real days with the date hidden, Random
     // starts from today's real rate and simulates a random market (ADR 0027).
-    const MODES = ["replay", "simulation"] as const;
+    const MODES = ["rewind", "random"] as const;
     type Mode = (typeof MODES)[number];
-    type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "marathon" };
+    type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "live" };
     type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
-    type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; scenario?: string };
+    type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string };
     type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
     const listeners = new Set<Listener>();
 
@@ -468,9 +468,9 @@ export function createApp(options: AppOptions = {}) {
       // (ADR 0085); the countdown, a pause and the bell keep to the clock.
       speed = 1;
       ironman = false;
-      // The latest Simulation headline, pinned under the price until the next.
-      headline: { scenario: string; n: number } | { clue: number; n: number } | { story: number } | { release: Record<string, string | number> } | null = null;
-      // Each trader's guess at a replay's year, private until the bell.
+      // The latest Random headline, pinned under the price until the next.
+      headline: { situation: string; n: number } | { clue: number; n: number } | { story: number } | { release: Record<string, string | number> } | null = null;
+      // Each trader's guess at a rewind's year, private until the bell.
       guesses = new Map<string, number>();
       // Ticks left in a pause, or 0 when the market runs.
       paused = 0;
@@ -505,34 +505,34 @@ export function createApp(options: AppOptions = {}) {
       // feed already says in words, and no more: never a stop, a take profit or a cookie.
       marks: { tick: number; who: string; face: string; kind: string; side: number; key: string }[] = [];
 
-      // What the lobby chose for the round it shows: a plot's id in Replay, a pair in Simulation,
+      // What the lobby chose for the round it shows: a plot's id in Rewind, a pair in Random,
       // or nothing, which is drawn at random (ADR 0064). A choice is for that round only: when it
-      // starts, the next is drawn at random again, or the lobby would replay one plot for ever.
+      // starts, the next is drawn at random again, or the lobby would rewind one plot for ever.
       pick: string | null = null;
       // When each person last chose, so one pressing "next" over and over cannot make every viewer
       // take a whole new round and a full state each time.
       private chose = new Map<string, number>();
 
-      // Someone on the tab changes what the next round is, in the lobby only: Replay moves to
-      // a plot by its number; Simulation takes a pair. The round behind the lobby is
+      // Someone on the tab changes what the next round is, in the lobby only: Rewind moves to
+      // a plot by its number; Random takes a pair. The round behind the lobby is
       // drawn again at once, so everyone's chart shows the new choice.
       choose(who: string, what: unknown): string | null {
         if (this.phase !== "lobby") return "The round is already about to start.";
         if (!this.listeners().some((l) => l.who === who)) return "Open this tab to choose its round.";
         if (clock.now() - (this.chose.get(who) ?? 0) < CHOOSE_MS) return "Slow down. Choose again in a moment.";
         this.chose.set(who, clock.now());
-        if (this.mode === "simulation") {
+        if (this.mode === "random") {
           if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
           this.pick = what as string;
         } else {
-          // A plot's number names its exact replay; its title and date stay hidden until the bell.
+          // A plot's number names its exact rewind; its title and date stay hidden until the bell.
           const plot = typeof what === "number" ? EVENTS[what - 1] : undefined;
           if (!plot) return "No such plot.";
           this.pick = plot.id;
         }
         log(who, "choose", { mode: this.mode });
-        // Choosing the same plot (or Simulation pair) changes nothing.
-        if (this.mode === "simulation" ? this.round.pair === this.pick : this.round.event?.id === this.pick) return null;
+        // Choosing the same plot (or Random pair) changes nothing.
+        if (this.mode === "random" ? this.round.pair === this.pick : this.round.event?.id === this.pick) return null;
         this.ready();
         this.broadcast(true);
         return null;
@@ -540,13 +540,13 @@ export function createApp(options: AppOptions = {}) {
 
       // Draws the next round and parks it, its price still, in the lobby.
       ready(pick = this.pick): void {
-        if (this.mode === "simulation") {
+        if (this.mode === "random") {
           const pair = PAIRS.find((p) => p === pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
           const now = todayRate(pair);
           this.round = simulation(history, pair, now.rate, rnd);
-          const story = T.en.scenarios[this.round.scenario!];
+          const story = T.en.situations[this.round.situation!];
           this.reveal = `That was ${story.name}, simulated from ${pair} on ${now.date} (${now.source}): ${story.note}`;
-          this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, scenario: this.round.scenario };
+          this.facts = { pair, simulated: true, from: now.date, to: now.date, event: null, source: now.source, situation: this.round.situation };
         } else {
           const round = replayRound(history, minutes, rnd, pick ?? undefined);
           this.round = round;
@@ -576,7 +576,7 @@ export function createApp(options: AppOptions = {}) {
       // including any choice made while the fetch was pending; never redraw a
       // round another request has already started.
       async refreshLobby(): Promise<void> {
-        if (this.mode !== "simulation" || this.phase !== "lobby") return;
+        if (this.mode !== "random" || this.phase !== "lobby") return;
         await refreshToday();
         if (this.phase !== "lobby") return;
         const now = todayRate(this.round.pair);
@@ -633,9 +633,9 @@ export function createApp(options: AppOptions = {}) {
       }
 
       // Name a replay's year (ADR 0030): in the second half of a trading
-      // replay, by anyone on the tab; a later guess replaces an earlier one.
+      // rewind, by anyone on the tab; a later guess replaces an earlier one.
       guess(who: string, year: number): string | null {
-        if (this.mode !== "replay") return "Only a replay has a year to guess.";
+        if (this.mode !== "rewind") return "Only a replay has a year to guess.";
         if (this.phase !== "trade") return "No round is trading.";
         if (!this.listeners().some((l) => l.who === who)) return "Open this tab to guess its year.";
         if (this.tick < (this.round.prices.length - 1) / 2) return "Guesses open halfway through the round.";
@@ -773,8 +773,8 @@ export function createApp(options: AppOptions = {}) {
         // Each trader's score: the % result less the cost of each forced cut and of ending bankrupt (ADR 0029, 0080); the
         // bell ranks by it.
         // A replay's year, named right before the bell, adds its bonus.
-        // The year a replay is "from": its plot's.
-        const year = this.mode === "replay" ? Number(this.round.event!.date.slice(0, 4)) : 0;
+        // The year a rewind is "from": its plot's.
+        const year = this.mode === "rewind" ? Number(this.round.event!.date.slice(0, 4)) : 0;
         const bonus = (who: string): number => (year ? guessBonus(this.guesses.get(who) ?? null, year) : 0);
         const points = (who: string): number => {
           const a = desk.account(who);
@@ -794,7 +794,7 @@ export function createApp(options: AppOptions = {}) {
             ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts }),
             bonus: bonus(r.who), score: Math.round(points(r.who) * 10) / 10,
           });
-          award(this, r.who, fromBell({ replay: this.mode === "replay", net: r.net, start: START, yearRight: !!year && this.guesses.get(r.who) === year }));
+          award(this, r.who, fromBell({ rewind: this.mode === "rewind", net: r.net, start: START, yearRight: !!year && this.guesses.get(r.who) === year }));
           const c = record(r.who)!;
           c.rounds++;
           c.profit += r.net - START;
@@ -848,25 +848,25 @@ export function createApp(options: AppOptions = {}) {
         }
         this.tick++;
         this.report(this.desk.mark(this.round.prices[this.tick]));
-        // Headlines, each on its day: a Simulation's situation (ADR 0027), or a
+        // Headlines, each on its day: a Random's situation (ADR 0027), or a
         // replay's clues before its famous day (ADR 0030); enough, read with
         // care, to see it coming.
-        // headlines and news come on the first tick of a unit: a day for a replay's clues, a candle for a simulation's stories
+        // headlines and news come on the first tick of a unit: a day for a rewind's clues, a candle for a random's stories
         const unit = this.round.unit;
         if (this.tick % unit === 1) {
           const day = Math.floor((this.tick - 1) / unit);
-          const { scenario, event } = this.round;
-          const words = scenario ? T.en.scenarios[scenario].headlines : event ? T.en.clues[event.date] : [];
+          const { situation, event } = this.round;
+          const words = situation ? T.en.situations[situation].headlines : event ? T.en.clues[event.date] : [];
           this.round.headlines?.forEach((h, i) => {
             if (h.day !== day) return;
-            // A replay's clue goes out by number, not by the date it leads to
+            // A rewind's clue goes out by number, not by the date it leads to
             // (ADR 0050): the date is the answer to Name That Year.
             const clue = event ? clueDates("en").indexOf(event.date) : -1;
-            const at: Record<string, string | number> = scenario ? { scenario, n: i } : { clue, n: i };
-            this.say(words[i], "news", scenario ? "headline" : "clue", at);
-            this.headline = scenario ? { scenario, n: i } : { clue, n: i };
+            const at: Record<string, string | number> = situation ? { situation, n: i } : { clue, n: i };
+            this.say(words[i], "news", situation ? "headline" : "clue", at);
+            this.headline = situation ? { situation, n: i } : { clue, n: i };
           });
-          // A Simulation's own news (ADR 0064, 0085): a named release on its day, which the prices then follow, or do not,
+          // A Random round's own news (ADR 0064, 0085): a named release on its day, which the prices then follow, or do not,
           // and a walked-back one told again when it turns. It goes in the feed and is pinned over the chart like a
           // headline. Which way it pushes the pair is never sent; the release, its currency and its outcome are what a
           // trader would read, and the page words them.
@@ -928,7 +928,7 @@ export function createApp(options: AppOptions = {}) {
           const refused = action.kind === "pend" ? desk.pend(who, action) : desk.unpend(who);
           const p = desk.account(who).pending;
           if (!refused) this.pendingNotices.delete(who);
-          if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, stake: p.stake } : {}) });
+          if (!refused) log(who, action.kind, { mode: this.mode, ...(p ? { type: p.type, at: Number(quoted(p.at)), leverage: p.leverage, share: p.share } : {}) });
           return refused;
         }
         // Emergency credit (ADR 0080): a step drawn or repaid, said in the feed, since a room sees who is in debt.
@@ -944,7 +944,7 @@ export function createApp(options: AppOptions = {}) {
           log(who, action.kind, { mode: this.mode, debt });
           return null;
         }
-        const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.stake, { sl: action.sl, tp: action.tp });
+        const out = action.kind === "close" ? desk.close(who) : desk.order(who, action.side, action.leverage, action.share, { sl: action.sl, tp: action.tp });
         if (typeof out === "string") return out;
         this.report(out);
         return null;
@@ -983,7 +983,7 @@ export function createApp(options: AppOptions = {}) {
           rules: this.startedBy !== null && this.mayRule(who),
           ironman: this.ironman,
           headline: this.headline,
-          // Simulation's calendar (ADR 0085), every release with its day and hour, and the outcome of those already told;
+          // Random's calendar (ADR 0085), every release with its day and hour, and the outcome of those already told;
           // what is still to come says nothing of how it will go
           calendar: this.calendarView(),
           // Seconds left in a pause, or null while the market runs.
@@ -991,12 +991,12 @@ export function createApp(options: AppOptions = {}) {
           startedDraw: this.startedBy && drawOf(this.startedBy),
           round: this.count,
           pair: round.pair,
-          // Replay's plots, by number and no more: which plot is on show, of how many. What a
-          // plot is, and when, stays secret until the bell. Simulation has none.
-          // Every pair a Simulation may start from, for its lobby's choice.
-          pairs: this.mode === "simulation" ? PAIRS : null,
-          replayPlots: this.mode === "replay" ? REPLAY_PLOTS : null,
-          replayPlot: this.mode === "replay" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
+          // Rewind's plots, by number and no more: which plot is on show, of how many. What a
+          // plot is, and when, stays secret until the bell. Random has none.
+          // Every pair a Random may start from, for its lobby's choice.
+          pairs: this.mode === "random" ? PAIRS : null,
+          rewindPlots: this.mode === "rewind" ? REWIND_PLOTS : null,
+          rewindPlot: this.mode === "rewind" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
           digits: this.digits(),
           simulated: round.source === "simulation",
           tick,
@@ -1063,9 +1063,9 @@ export function createApp(options: AppOptions = {}) {
     }
 
     const markets = Object.fromEntries(MODES.map((m) => [m, new Market(m)])) as Record<Mode, Market>;
-    // Marathon (ADR 0087): one market on real prices that never closes, its accounts kept on the volume.
-    const marathonHere = (): number => new Set([...listeners].filter((l) => l.mode === "marathon").map((l) => l.who)).size;
-    // A person's name and draw from their career key alone, for Marathon's board after a restart: what they chose, or the
+    // Live (ADR 0087): one market on real prices that never closes, its accounts kept on the volume.
+    const liveHere = (): number => new Set([...listeners].filter((l) => l.mode === "live").map((l) => l.who)).size;
+    // A person's name and draw from their career key alone, for Live's board after a restart: what they chose, or the
     // draw their cookie's hash gives, whose second byte is the key's third and fourth hex characters.
     const nameAt = (k: string): { name: string; draw: Draw | null } => {
       const c = chosen[k];
@@ -1073,22 +1073,29 @@ export function createApp(options: AppOptions = {}) {
       const draw = c ?? Number.parseInt(k.slice(2, 4), 16) % GIVEN.length;
       return { name: drawn("en", draw), draw };
     };
-    const marathon = new Marathon(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
-      clock, storage, live: options.live ?? new Live(undefined, clock.now, env.MARATHON_FEED), news: options.news, pollMs: Number(env.MARATHON_POLL_MS ?? 5000),
-      watching: marathonHere,
-      onChange: () => sendMarathon(),
+    const marathon = new Live(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
+      clock, storage, quotes: options.quotes ?? new Feed(undefined, clock.now, env.LIVE_FEED), news: options.news, pollMs: Number(env.LIVE_POLL_MS ?? 5000),
+      watching: liveHere,
+      onChange: () => sendLive(),
       log: (who, ev, fields) => log(who, ev, fields),
     });
     disposeMarket = () => marathon.dispose();
-    const headCounts = (): Record<string, number> => ({ ...Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])), marathon: marathonHere() });
-    function sendMarathon(except?: Listener): void {
+    const headCounts = (): Record<string, number> => ({ ...Object.fromEntries(MODES.map((m) => [m, new Set([...listeners].filter((l) => l.mode === m).map((l) => l.who)).size])), live: liveHere() });
+    function sendLive(except?: Listener): void {
       const here = headCounts();
-      for (const l of listeners) if (l.mode === "marathon" && l !== except) l.res.write(`data: ${JSON.stringify(marathon.view(l.who, here))}\n\n`);
+      for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(`data: ${JSON.stringify(marathon.view(l.who, here))}\n\n`);
     }
-    // The tabs' old names still lead to them: History and Live (ADRs 0027, 0028),
-    // then Scenario (ADR 0047).
-    const OLD: Record<string, Mode> = { history: "replay", live: "simulation", scenario: "simulation" };
-    const modeOf = (value: unknown): Mode => typeof value === "string" && Object.hasOwn(OLD, value) ? OLD[value] : MODES.includes(value as Mode) ? (value as Mode) : "replay";
+    // The tabs' old ids still lead to them (ADR 0091): replay and simulation, the ids before the tabs were renamed
+    // Rewind and Random, history and situation before that, and marathon, Live's id before it was renamed.
+    const OLD: Record<string, Mode | "live"> = { replay: "rewind", history: "rewind", simulation: "random", scenario: "random", marathon: "live" };
+    // Any mode a page or link asks for, old or new, as the id the server uses now; anything unknown is Rewind.
+    const tabOf = (value: unknown): Mode | "live" | "tutorial" => {
+      if (value === "live" || value === "tutorial") return value;
+      if (typeof value === "string" && Object.hasOwn(OLD, value)) return OLD[value];
+      return MODES.includes(value as Mode) ? (value as Mode) : "rewind";
+    };
+    // the round market a mode names, Rewind when it names Live or the tutorial, which have none
+    const modeOf = (value: unknown): Mode => { const tab = tabOf(value); return tab === "live" || tab === "tutorial" ? "rewind" : tab; };
 
     // The Tutorial tab: each visitor's own private market (src/tutorial.ts),
     // kept in memory, seen by nobody else and never in the hall of fame. One
@@ -1175,7 +1182,7 @@ export function createApp(options: AppOptions = {}) {
       for (const m of MODES) markets[m].broadcast(false, except);
       const watching = new Set([...listeners].filter((l) => l.mode === "tutorial").map((l) => l.who));
       for (const who of watching) sendTutorial(who, except);
-      sendMarathon(except);
+      sendLive(except);
     }
 
     repeat(() => {
@@ -1422,9 +1429,8 @@ export function createApp(options: AppOptions = {}) {
       // Opening a tab joins that market's round in progress with a fresh
       // account; switching tabs opens a new stream on the other market.
       if (req.method === "GET" && path === "/api/events") {
-        const requested = url.searchParams.get("mode");
-        const mode = requested === "marathon" || requested === "tutorial" ? requested : modeOf(requested);
-        const market = mode === "replay" || mode === "simulation" ? markets[mode] : null;
+        const mode = tabOf(url.searchParams.get("mode"));
+        const market = mode === "rewind" || mode === "random" ? markets[mode] : null;
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
         const listener: Listener = { res, who, mode };
         const already = ids().has(who);
@@ -1436,7 +1442,7 @@ export function createApp(options: AppOptions = {}) {
             market.say(`${nameOf(who)} entered the market.`, "info", "entered", { who: short(who) });
           }
           res.write(`data: ${JSON.stringify(market.view(who))}\n\n`);
-        } else if (mode === "marathon") {
+        } else if (mode === "live") {
           res.write(`data: ${JSON.stringify(marathon.view(who, headCounts()))}\n\n`);
           marathon.wake();
         } else {
@@ -1451,15 +1457,16 @@ export function createApp(options: AppOptions = {}) {
           broadcastPresence();
         });
         broadcastPresence(listener);
-        // a page opened or refreshed on Simulation's lobby brings the latest rate, without holding the page for the fetch
+        // a page opened or refreshed on Random's lobby brings the latest rate, without holding the page for the fetch
         // (ADR 0085); refreshLobby redraws the round only if the rate has moved, and the room is sent the new one
-        if (market?.mode === "simulation" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
+        if (market?.mode === "random" && market.phase === "lobby") void market.refreshLobby().then(() => market.broadcast()).catch(() => {});
         return;
       }
 
       if (req.method === "GET" && path === "/api/state") {
-        if (url.searchParams.get("mode") === "tutorial") return json(res, 200, tutorialView(who));
-        if (url.searchParams.get("mode") === "marathon") return json(res, 200, marathon.view(who, headCounts()));
+        const asked = tabOf(url.searchParams.get("mode"));
+        if (asked === "tutorial") return json(res, 200, tutorialView(who));
+        if (asked === "live") return json(res, 200, marathon.view(who, headCounts()));
         return json(res, 200, markets[modeOf(url.searchParams.get("mode"))].view(who));
       }
 
@@ -1480,7 +1487,7 @@ export function createApp(options: AppOptions = {}) {
         }
         for (const m of MODES) markets[m].broadcast();
         sendTutorial(who);
-        sendMarathon();
+        sendLive();
         return json(res, 200, result);
       }
 
@@ -1512,18 +1519,19 @@ export function createApp(options: AppOptions = {}) {
         }
         if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown action." });
         const kind = input.kind;
-        // Marathon's orders go to its own accounts; like every market, the page sends only what the player chose
-        if (input.mode === "marathon") {
+        // Live's orders go to its own accounts; like every market, the page sends only what the player chose
+        const tab = tabOf(input.mode);
+        if (tab === "live") {
           const error = marathon.act(who, input);
           if (error) {
-            log(who, "refused", { mode: "marathon", action: kind, why: error });
+            log(who, "refused", { mode: "live", action: kind, why: error });
             return json(res, 409, { error });
           }
-          sendMarathon();
+          sendLive();
           return json(res, 200, { ok: true });
         }
         const action = tradeAction(input);
-        if (input.mode === "tutorial") {
+        if (tab === "tutorial") {
           const t = tutorialOf(who);
           let error: string | null = null;
           // The transport, as on a disc player: play, pause, stop, and the track keys back and skip.
@@ -1565,7 +1573,7 @@ export function createApp(options: AppOptions = {}) {
           market.broadcast(true);
           return json(res, 200, { ok: true });
         }
-        if (kind === "start" && input.mode !== "tutorial") {
+        if (kind === "start") {
           const market = markets[modeOf(input.mode)];
           // A rejected Start must not redraw the lobby. The request checks
           // membership again after the fetch in case the starter has left.

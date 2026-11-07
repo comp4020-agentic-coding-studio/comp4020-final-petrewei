@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dayOpen, MIN_BARS, parseBars, plotDays, plotTicks, rawFile, stamp, TICK_MINUTES, ticksOf, trades } from "../scripts/build-minutes.ts";
 import { DAY_TICKS, EVENTS, Minutes, PLAY_DAYS, PRE_ROLL_DAYS, SWAN_DAY } from "../src/market.ts";
 
-// Replay's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
+// Rewind's intraday prices are real minute bars, cut by scripts/build-minutes.ts into data/minutes.csv. These
 // checks hold the cutting to its rules on a small file written here, so they run anywhere, and the shipped
 // file to what the plots promise. The raw downloads are not in the repo, so a check on them skips without them.
 const bar = (date: string, time: string, o: number, h = o, l = o, c = o): string => `${date},${time},${o},${h},${l},${c},0`;

@@ -8,7 +8,7 @@
 // stop-out at 20%, and a "zero-cut" that wipes a negative balance but
 // takes the player out of the market until the next round.
 
-import { stakeMargin } from "../public/ticket.js";
+import { shareMargin } from "../public/ticket.js";
 
 // Every account opens with A$10,000 (ADR 0087), about what ¥1,000,000 was, a student's first account.
 export const START = 10_000;
@@ -74,8 +74,8 @@ export type Position = {
 // would, with what it was set with. Its name says which side and where the level sits against the price when set:
 // buying below the price is a Buy Limit, above it a Buy Stop; selling above is a Sell Limit, below a Sell Stop.
 export type PendingType = "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop";
-export type Pending = { type: PendingType; side: Side; at: number; leverage: number; stake: number; sl: number | null; tp: number | null };
-export type PendRequest = { side: Side; at: number; leverage: number; stake: number; sl?: number | null; tp?: number | null };
+export type Pending = { type: PendingType; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null };
+export type PendRequest = { side: Side; at: number; leverage: number; share: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 export const PEND_RANGE = 0.5;
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
@@ -157,21 +157,21 @@ export class Desk {
     return used ? this.equity(who) / used : Infinity;
   }
 
-  // Buy (1) or sell (-1) with a share of the whole account: `stake` of net worth, cut to what is free, so 25% is a
+  // Buy (1) or sell (-1) with a share of the whole account: `share` of net worth, cut to what is free, so 25% is a
   // quarter of what you have however much is already in use (ADR 0076). An order against the
   // open position closes it: the desk keeps one position per player, so a
   // reversal takes two clicks and the second is a decision.
   // A stop loss and a take profit may ride on an order, as distances from
   // the price; they attach only if it opens a position (ADR 0032).
-  order(who: string, side: Side, leverage: number, stake = 1, with_: { sl?: number | null; tp?: number | null } = {}): Fill[] | string {
+  order(who: string, side: Side, leverage: number, share = 1, with_: { sl?: number | null; tp?: number | null } = {}): Fill[] | string {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(leverage)) return "No such leverage.";
-    if (!(stake > 0 && stake <= 1)) return "Margin must be between 0 and 1.";
+    if (!(share > 0 && share <= 1)) return "Margin must be between 0 and 1.";
     if (with_.sl != null && !inRange(with_.sl)) return "A Stop Loss must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (with_.tp != null && !inRange(with_.tp)) return "A Take Profit must be 1%, 2%, 5%, 10%, 20% or 50% away.";
     if (account.pos && account.pos.side !== side) return this.close(who);
-    const margin = stakeMargin(this.equity(who), this.used(who), stake);
+    const margin = shareMargin(this.equity(who), this.used(who), share);
     if (margin <= 0) return "No free margin left.";
     const notional = margin * leverage;
     const units = notional / fill(this.price, side);
@@ -197,7 +197,7 @@ export class Desk {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
     if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
-    if (!(r.stake > 0 && r.stake <= 1)) return "Margin must be between 0 and 1.";
+    if (!(r.share > 0 && r.share <= 1)) return "Margin must be between 0 and 1.";
     if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
     if (r.at === this.price) return "That is the price now. Buy or Sell instead.";
     if (Math.abs(r.at / this.price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
@@ -207,7 +207,7 @@ export class Desk {
     const below = r.at < this.price;
     const limit = (r.side === 1) === below;
     const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
-    account.pending = { type, side: r.side, at: r.at, leverage: r.leverage, stake: r.stake, sl: r.sl ?? null, tp: r.tp ?? null };
+    account.pending = { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null };
     return null;
   }
 
@@ -227,7 +227,7 @@ export class Desk {
     const reached = p.type === "buy-limit" || p.type === "sell-stop" ? this.price <= p.at : this.price >= p.at;
     if (!reached) return [];
     account.pending = null;
-    const out = this.order(who, p.side, p.leverage, p.stake, { sl: p.sl, tp: p.tp });
+    const out = this.order(who, p.side, p.leverage, p.share, { sl: p.sl, tp: p.tp });
     // marked, so what follows can tell a pending order's fill from a click (ADR 0082)
     if (typeof out === "string") return [{ kind: "pending-refused", who, price: this.price, pnl: 0, reason: out }];
     return out.map((f) => ({ ...f, pending: true }));

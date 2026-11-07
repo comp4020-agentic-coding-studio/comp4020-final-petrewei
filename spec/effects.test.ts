@@ -38,7 +38,7 @@ it.skipIf(live)("pops a closed trade's result, and a big bet's leverage", async 
   const theirs = await page(other);
   try {
     const code = (await state(me)).you.code;
-    expect((await act(me, { kind: "buy", leverage: 300, stake: 0.1 })).status).toBe(200);
+    expect((await act(me, { kind: "buy", leverage: 300, share: 0.1 })).status).toBe(200);
     expect(await theirs.next((e) => pops(e).some((p) => p.who === code && p.kind === "wild" && p.lev === 300), 3000)).not.toBeNull();
     expect((await act(me, { kind: "close" })).status).toBe(200);
     const closed = await theirs.next((e) => pops(e).some((p) => p.who === code && p.kind === "close"), 3000);

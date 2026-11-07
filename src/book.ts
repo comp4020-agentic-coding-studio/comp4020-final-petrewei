@@ -1,11 +1,11 @@
-// Marathon's accounts (ADR 0087): one Australian-dollar account per player, held across days until it goes bankrupt,
+// Live's accounts (ADR 0087): one Australian-dollar account per player, held across days until it goes bankrupt,
 // with one position per pair, as a real FX account has. Every position's profit is in its pair's quote currency and
 // counts in dollars at the rate now. The broker's rules act on the whole account: a margin call at 50% of the margin in
 // use and a stop-out at 20%, which closes everything. The fee and the credit's interest are charged each fifteen
 // minutes of real time, the game's tick, so a night's position pays a night's fee.
 import { CALL, DISTANCES, feeRate, LEVERAGES, LIMIT, SPREAD, STEP, START, STOP_OUT, dailyRate, type Side } from "./fx.ts";
-import { convert, type Currency, type Usd, cross } from "./live.ts";
-import { stakeMargin } from "../public/ticket.js";
+import { convert, type Currency, type Usd, cross } from "./feed.ts";
+import { shareMargin } from "../public/ticket.js";
 
 const half = SPREAD / 2;
 const fill = (mid: number, side: Side): number => mid * (1 + side * half);
@@ -76,14 +76,14 @@ function settle(a: BookAccount, pair: string, usd: Usd, how: BookTrade["how"], n
   return { kind: how, pair, price: mid, pnl };
 }
 
-// An order on one pair: `stake` of net worth as margin, cut to what is free; against an open position it closes it.
-export function order(a: BookAccount, pair: string, usd: Usd, side: Side, leverage: number, stake: number, exits: { sl?: number | null; tp?: number | null }, now: number): BookFill[] | string {
+// An order on one pair: `share` of net worth as margin, cut to what is free; against an open position it closes it.
+export function order(a: BookAccount, pair: string, usd: Usd, side: Side, leverage: number, share: number, exits: { sl?: number | null; tp?: number | null }, now: number): BookFill[] | string {
   if (!LEVERAGES.includes(leverage)) return "No such leverage.";
-  if (!(stake > 0 && stake <= 1)) return "Margin must be between 0 and 1.";
+  if (!(share > 0 && share <= 1)) return "Margin must be between 0 and 1.";
   for (const [d, name] of [[exits.sl, "Stop Loss"], [exits.tp, "Take Profit"]] as const) if (d != null && !DISTANCES.includes(d)) return `A ${name} must be 1%, 2%, 5%, 10%, 20% or 50% away.`;
   const pos = a.positions[pair];
   if (pos && pos.side !== side) return [settle(a, pair, usd, "close", now)];
-  const margin = stakeMargin(equity(a, usd), used(a), stake);
+  const margin = shareMargin(equity(a, usd), used(a), share);
   if (margin <= 0) return "No free margin left.";
   const mid = cross(usd, pair);
   const price = fill(mid, side);

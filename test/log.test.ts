@@ -166,7 +166,7 @@ it("keeps the house traders out of the hall of fame", async () => {
   expect(await names()).toEqual(["Hikari"]);
   // a career saved before achievements and recent scores, as Hikari's is, still reaches every page with both, in the
   // market's hall and the tutorial's alike: a missing one froze the tutorial on "reconnecting" (ADR 0085)
-  for (const mode of ["replay", "tutorial"] as const) {
+  for (const mode of ["rewind", "tutorial"] as const) {
     const [row] = (await state(undefined, mode)).career as unknown as { feats: unknown; recent: unknown }[];
     expect(row.feats, `${mode} feats`).toEqual([]);
     expect(row.recent, `${mode} recent`).toEqual([]);
@@ -193,7 +193,7 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
   await act(a, { kind: "sell", leverage: 7 });
   await new Promise((r) => setTimeout(r, 200));
   const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
-  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=replay .*side=buy leverage=3/);
+  expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=rewind .*side=buy leverage=3/);
   const id = opened!.slice(1, 7);
   expect(s.out).toContainEqual(expect.stringMatching(new RegExp(`^\\[${id}\\] POST /api/act 200 \\d+ms who=[0-9a-f]{6}$`)));
   expect(s.out).toContainEqual(expect.stringMatching(/^\[[0-9a-f]{6}\] refused .*why="No such leverage\."/));
@@ -209,16 +209,16 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
 it("starts one round when two people press Start at once", async () => {
   s = await server(8097, { STATS_KEY: KEY });
   const { visitor, page, attempt, state } = app();
-  expect((await state(undefined, "simulation")).phase).toBe("lobby");
+  expect((await state(undefined, "random")).phase).toBe("lobby");
   const a = await visitor();
   const b = await visitor();
-  const pa = await page(a, "simulation");
-  const pb = await page(b, "simulation");
+  const pa = await page(a, "random");
+  const pb = await page(b, "random");
   try {
-    const [ra, rb] = await Promise.all([attempt({ kind: "start", mode: "simulation" }, a), attempt({ kind: "start", mode: "simulation" }, b)]);
+    const [ra, rb] = await Promise.all([attempt({ kind: "start", mode: "random" }, a), attempt({ kind: "start", mode: "random" }, b)]);
     expect([ra.status, rb.status].sort()).toEqual([200, 409]);
     expect((await (ra.status === 409 ? ra : rb).json()).error).toMatch(/about to start/);
-    expect((await state(undefined, "simulation")).phase).toBe("countdown");
+    expect((await state(undefined, "random")).phase).toBe("countdown");
     expect((await log()).recent.filter((l) => l.ev === "ask")).toHaveLength(1);
   } finally {
     pa.close();

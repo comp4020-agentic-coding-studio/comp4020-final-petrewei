@@ -2,12 +2,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { Marathon, type Who } from "../src/marathon.ts";
-import { Live, SLOT_MS } from "../src/live.ts";
+import { Live, type Who } from "../src/live.ts";
+import { Feed, SLOT_MS } from "../src/feed.ts";
 import { ManualClock } from "../src/clock.ts";
 import { News } from "../src/news.ts";
 import { STEP } from "../src/fx.ts";
-import { spark } from "./feed.ts";
+import { spark } from "./yahoo-fake.ts";
 const who: Who = { nameAt: () => ({ name: "Test", draw: null }), named: () => true, key: (key) => key, short: (key) => key.slice(0, 6), name: () => "Test", draw: () => null, face: () => "p0", faceAt: () => "p0" };
 const quiet = () => { const news = new News(async () => "[]"); news.banks = async () => []; return news; };
 it("does not settle an extended refresh that finishes after the account owner stops", async () => {
@@ -17,12 +17,12 @@ it("does not settle an extended refresh that finishes after the account owner st
   let requested!: () => void;
   const requestedPromise = new Promise<void>((resolve) => { requested = resolve; });
   const pending = new Promise<ReturnType<typeof spark>>((resolve) => { release = resolve; });
-  const live = new Live(async (url) => {
+  const quotes = new Feed(async (url) => {
     if (url.includes("range=1mo")) { requested(); return pending; }
     return spark(now / 1000, [(now === start ? start : start + SLOT_MS) / 1000]);
   }, () => now);
   let changes = 0;
-  const market = new Marathon(dir, who, { live, news: quiet(), clock: new ManualClock(start), watching: () => 0, onChange: () => changes++, log: () => {} });
+  const market = new Live(dir, who, { quotes, news: quiet(), clock: new ManualClock(start), watching: () => 0, onChange: () => changes++, log: () => {} });
   try {
     await market.refresh(now);
     expect(market.act("trader", { kind: "borrow" }, now)).toBeNull();
@@ -41,8 +41,8 @@ it("does not settle an extended refresh that finishes after the account owner st
 it("settles a permanently absent trading slot at its carried price and charges it exactly once", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z"); let now = start;
   const dir = mkdtempSync(join(tmpdir(), "losscut-carried-slot-"));
-  const live = new Live(async () => spark(now / 1000, Array.from({ length: (now - start) / SLOT_MS + 1 }, (_, n) => start + n * SLOT_MS).filter((time) => time !== start + SLOT_MS).map((time) => time / 1000)), () => now);
-  const market = new Marathon(dir, who, { live, news: quiet(), clock: new ManualClock(start), watching: () => 0, onChange: () => {}, log: () => {} });
+  const quotes = new Feed(async () => spark(now / 1000, Array.from({ length: (now - start) / SLOT_MS + 1 }, (_, n) => start + n * SLOT_MS).filter((time) => time !== start + SLOT_MS).map((time) => time / 1000)), () => now);
+  const market = new Live(dir, who, { quotes, news: quiet(), clock: new ManualClock(start), watching: () => 0, onChange: () => {}, log: () => {} });
   try {
     await market.refresh(now);
     expect(market.act("trader", { kind: "borrow" }, now)).toBeNull();

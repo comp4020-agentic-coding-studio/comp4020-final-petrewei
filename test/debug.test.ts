@@ -87,11 +87,11 @@ it("starts a round, ends it at the bell, and skips the break", async () => {
   try {
     const cookie = await debugCookie(me);
     expect((await state(me)).phase).toBe("lobby");
-    expect((await debug(cookie, { kind: "start", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "start", mode: "rewind" })).status).toBe(200);
     expect((await state(me)).phase).toBe("trade");
-    expect((await debug(cookie, { kind: "end", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "end", mode: "rewind" })).status).toBe(200);
     expect((await state(me)).phase).toBe("break");
-    expect((await debug(cookie, { kind: "lobby", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "lobby", mode: "rewind" })).status).toBe(200);
     expect((await state(me)).phase).toBe("lobby");
   } finally {
     tab.close();
@@ -105,17 +105,17 @@ it("puts the debugger in a margin call or a losscut, to see the warnings", async
   const tab = await page(me);
   try {
     const cookie = await debugCookie(me);
-    await debug(cookie, { kind: "start", mode: "replay" });
-    expect((await act(me, { kind: "buy", leverage: 100, stake: 0.5 })).status).toBe(200);
-    expect((await debug(cookie, { kind: "call", mode: "replay" })).status).toBe(200);
+    await debug(cookie, { kind: "start", mode: "rewind" });
+    expect((await act(me, { kind: "buy", leverage: 100, share: 0.5 })).status).toBe(200);
+    expect((await debug(cookie, { kind: "call", mode: "rewind" })).status).toBe(200);
     const called = await state(me);
     expect((called.you.pos as unknown as { called: boolean }).called).toBe(true);
-    expect((await debug(cookie, { kind: "cut", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "cut", mode: "rewind" })).status).toBe(200);
     const cut = await state(me);
     expect(cut.you.pos).toBeNull();
     expect(cut.you.cuts).toBe(1);
     // and puts the money back
-    expect((await debug(cookie, { kind: "reset-me", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "reset-me", mode: "rewind" })).status).toBe(200);
     expect((await state(me)).you).toMatchObject({ balance: 10_000, cuts: 0, debt: 0, pos: null });
   } finally {
     tab.close();
@@ -131,10 +131,10 @@ it("ends a paused round with no pause left standing", async () => {
   const tab = await page(me);
   try {
     const cookie = await debugCookie(me);
-    expect((await debug(cookie, { kind: "start", mode: "replay" })).status).toBe(200);
-    expect((await act(me, { kind: "pause", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "start", mode: "rewind" })).status).toBe(200);
+    expect((await act(me, { kind: "pause", mode: "rewind" })).status).toBe(200);
     expect(((await state(me)) as unknown as { paused: number | null }).paused, "it is paused").toBeGreaterThan(0);
-    expect((await debug(cookie, { kind: "end", mode: "replay" })).status).toBe(200);
+    expect((await debug(cookie, { kind: "end", mode: "rewind" })).status).toBe(200);
     const bell = (await state(me)) as unknown as { phase: string; paused: number | null };
     expect(bell.phase).toBe("break");
     expect(bell.paused, "the bell must not remain paused").toBeNull();
