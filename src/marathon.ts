@@ -284,7 +284,7 @@ export class Marathon {
     }
     const pair = typeof input.pair === "string" && PAIRS.includes(input.pair as Pair) ? input.pair : a.pair;
     const usd = this.live.latest();
-    if (this.gap) return "Marathon is waiting for missing price history.";
+    if (this.gap) return "Live is waiting for missing price history.";
     if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
     let result: BookFill[] | string | null;
     if (kind === "buy" || kind === "sell") {

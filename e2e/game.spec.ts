@@ -319,3 +319,14 @@ test("shows every tab's whole label, and Marathon's board only on Marathon", asy
     else await expect(page.locator("#board")).toBeHidden();
   }
 });
+
+// ADR 0088: each tab's player-facing name in the address opens it, and Live, once Simulation's first name, opens the
+// real-prices tab it now names.
+test("opens a tab from its name in the address", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  for (const [hash, mode] of [["flashback", "replay"], ["sandbox", "simulation"], ["live", "marathon"]]) {
+    await page.evaluate((h) => { location.hash = h; }, hash);
+    await expect(page.locator(`[data-mode="${mode}"]`), `#${hash}`).toHaveAttribute("aria-selected", "true");
+  }
+});
