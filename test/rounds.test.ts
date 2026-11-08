@@ -604,3 +604,34 @@ it("lets Random start from any currency first, at the inverse price, its spread 
     tab.close();
   }
 }, 30_000);
+
+// ADR 0095: the bell shows the round's biggest trade as it would have gone at 1x, 30x and 1000x. The leverage a player
+// used reproduces their own result, a smaller one scales it down, and 1000x on the same margin is the wipe-out the
+// lesson is about whenever the price moved against it far enough on the way.
+it("shows at the bell what the biggest trade would have done at 1x, 30x and 1000x", async () => {
+  s = await server(8096, { TICK_MS: "40", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, look, until } = app();
+  const me = await visitor();
+  const tab = await page(me, "random");
+  try {
+    await act(me, { kind: "start", mode: "random" });
+    await until(me, (x) => x.phase === "trade", 10_000, "random");
+    expect((await act(me, { kind: "buy", leverage: 30, share: 0.5, mode: "random" })).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 1200));
+    await act(me, { kind: "close", mode: "random" });
+    await act(me, { kind: "finish", mode: "random" });
+    const bell = (await look(me, "random")) as unknown as { result: { debrief: { whatIf: { leverage: number; pnl: number; at: { leverage: number; pnl: number; stoppedOut: boolean }[] } } } };
+    const w = bell.result.debrief.whatIf;
+    expect(w.leverage).toBe(30);
+    expect(w.at.map((x) => x.leverage)).toEqual([1, 30, 1000]);
+    const at = (l: number) => w.at.find((x) => x.leverage === l)!;
+    // the leverage used is the trade itself, its fees aside
+    expect(Math.abs(at(30).pnl - w.pnl)).toBeLessThanOrEqual(Math.max(5, Math.abs(w.pnl) * 0.05));
+    // 1x is a thirtieth of it, unless 30x was stopped out
+    if (!at(30).stoppedOut) expect(Math.abs(at(1).pnl - at(30).pnl / 30)).toBeLessThanOrEqual(2);
+    // 1000x on half the account loses at most what the stop-out takes, four fifths of the margin
+    expect(at(1000).pnl).toBeGreaterThanOrEqual(-4000);
+  } finally {
+    tab.close();
+  }
+}, 30_000);

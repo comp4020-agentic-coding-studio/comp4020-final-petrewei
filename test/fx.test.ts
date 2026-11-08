@@ -722,3 +722,36 @@ it("reports a pending order refused at its trigger when the player used the free
   }));
   expect(desk.account("me").pending).toBeNull();
 });
+
+// ADR 0095: the bell's "what if", the same trade at another leverage through the prices it was open over.
+describe("a trade at another leverage", () => {
+  it("scales a held trade's result with the leverage", async () => {
+    const { atLeverage } = await import("../src/fx.ts");
+    // A$1,000 long from 100 to 101 held: 1% on A$1,000 at 1x is about A$10, at 30x about A$300
+    expect(atLeverage(1, 100, 101, 1000, 1, [100, 100.5, 101]).pnl).toBe(10);
+    expect(atLeverage(1, 100, 101, 1000, 30, [100, 100.5, 101]).pnl).toBe(300);
+  });
+  it("stops out a high leverage on a dip a low one rides through, at what the stop-out leaves", async () => {
+    const { atLeverage } = await import("../src/fx.ts");
+    // a 0.5% dip on the way to a 1% gain: nothing at 1x, a wipe-out at 1000x, where 0.08% against is 80% of the margin
+    const path = [100, 99.5, 100.5, 101];
+    const low = atLeverage(1, 100, 101, 1000, 1, path);
+    const high = atLeverage(1, 100, 101, 1000, 1000, path);
+    expect(low).toEqual({ pnl: 10, stoppedOut: false });
+    expect(high.stoppedOut).toBe(true);
+    // stopped out at 20%: four fifths of the margin gone
+    expect(high.pnl).toBe(-800);
+    // a short loses on the same rise
+    expect(atLeverage(-1, 100, 101, 1000, 1, path).pnl).toBe(-10);
+  });
+  it("records the marks a trade was open between, for the bell to read its prices", () => {
+    const desk = new Desk(100);
+    desk.join("a");
+    desk.mark(100);
+    desk.order("a", 1, 10, 0.5);
+    desk.mark(100.5);
+    desk.mark(101);
+    desk.close("a");
+    expect(desk.account("a").trades[0]).toMatchObject({ opened: 1, closed: 3, margin: START / 2 });
+  });
+});

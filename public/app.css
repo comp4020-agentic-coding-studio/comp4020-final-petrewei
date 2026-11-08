@@ -1072,6 +1072,17 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   }
 }
 
+/* The bell's "what if" (ADR 0095): three rows, each a leverage and what the trade would have made at it. */
+.what-if { margin: 0.4rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); }
+.what-if[hidden] { display: none; }
+.what-if h3 { margin: 0 0 0.3rem; font-size: 0.8rem; color: var(--soft); }
+.what-if ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+.what-if li { display: flex; gap: 0.6rem; align-items: baseline; font: 600 0.85rem var(--mono); }
+.what-if li b { min-width: 3.4rem; }
+.what-if li.up span { color: var(--up); }
+.what-if li.down span { color: var(--down); }
+.what-if li.yours { font-weight: 800; }
+.what-if li em { font: italic 400 0.75rem var(--sans, inherit); color: var(--muted); }
 /* Live (ADR 0087): a market with no round, so no lobby, praying, pending order or round controls; the board in the
    room's place, the account's other pairs under the position, and the real calendar with links to its sources. */
 body.live .prayers, body.live #pend, body.live #round-ctl, body.live #guess { display: none; }

@@ -12,7 +12,8 @@ export type Player = { name: string; draw: number | null; named: boolean; face: 
   positions?: (Position & { pair: string; now: number; live: boolean; pnl: number })[];
 };
 export type Career = { name: string; draw?: number | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent: number[]; feats: string[]; face: string; average: number; ranked: boolean; you: boolean };
-export type Debrief = { returnPct: number; cutPenalty: number; bankruptPenalty: number; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
+export type WhatIf = { side: number; leverage: number; pnl: number; at: { leverage: number; pnl: number; stoppedOut: boolean }[] };
+export type Debrief = { whatIf?: WhatIf | null; returnPct: number; cutPenalty: number; bankruptPenalty: number; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
 export type Result = { ranking: { code: string; name: string; draw: number | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; you: boolean }[]; reveal: string; facts: { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string }; debrief: Debrief | null };
 export type ClockKey = "clockDay" | "clockOpens" | "clockLobby" | "clockClosed" | "clockTutorial" | "clockLive" | "clockShut" | "clockGap" | "clockWait";
 export type BankNews = { cur: string; title: string; source: string; link: string; at: number };

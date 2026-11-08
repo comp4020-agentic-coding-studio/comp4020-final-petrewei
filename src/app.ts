@@ -16,7 +16,7 @@ import { join } from "node:path";
 import { type Action, BOTS } from "./bots.ts";
 import { type Feat, FEATS, fromBell, fromCredit, fromFill } from "./feats.ts";
 import { MIN_ROUNDS, guessBonus, hall, score, scoreBreakdown } from "./score.ts";
-import { Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP } from "./fx.ts";
+import { atLeverage, CAP, Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP, type Trade } from "./fx.ts";
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { quoted, aud } from "../public/format.js";
@@ -492,7 +492,7 @@ export function createApp(options: AppOptions = {}) {
     type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "live"; feedSeen?: number };
     type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
     type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string };
-    type Debrief = ReturnType<typeof scoreBreakdown> & { beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
+    type Debrief = ReturnType<typeof scoreBreakdown> & { whatIf: ReturnType<Market["whatIf"]>; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
     const listeners = new Set<Listener>();
 
     class Market {
@@ -771,6 +771,15 @@ export function createApp(options: AppOptions = {}) {
         this.feedVersion++;
       }
 
+      // The bell's "what if" (ADR 0095): the round's biggest trade, by its margin, as it would have gone at 1x, Australia's
+      // legal 30x and offshore 1000x, through the prices it was open over. The desk's marks are this round's ticks.
+      whatIf(trades: Trade[]): { side: number; leverage: number; pnl: number; at: { leverage: number; pnl: number; stoppedOut: boolean }[] } | null {
+        const t = trades.filter((x) => x.margin && x.opened !== undefined && x.closed !== undefined).sort((a, b) => b.margin! - a.margin!)[0];
+        if (!t) return null;
+        const prices = this.round.prices.slice(t.opened, t.closed! + 1);
+        return { side: t.side, leverage: t.leverage, pnl: t.pnl, at: [1, CAP, 1000].map((leverage) => ({ leverage, ...atLeverage(t.side, t.entry, t.exit, t.margin!, leverage, prices) })) };
+      }
+
       // Turn the desk's events into the room's feed. A stop-out is everyone's
       // business; that is the point of trading in the same room.
       report(events: Fill[]): void {
@@ -841,6 +850,7 @@ export function createApp(options: AppOptions = {}) {
             balance: a.balance, debt: a.debt, net: r.net, cuts: a.cuts,
             ...scoreBreakdown({ start: START, net: r.net, cuts: a.cuts }),
             bonus: bonus(r.who), score: Math.round(points(r.who) * 10) / 10,
+            whatIf: this.whatIf(a.trades),
           });
           award(this, r.who, fromBell({ rewind: this.mode === "rewind", net: r.net, start: START, yearRight: !!year && this.guesses.get(r.who) === year }));
           const c = record(r.who)!;

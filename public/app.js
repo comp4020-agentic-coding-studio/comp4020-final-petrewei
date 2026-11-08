@@ -1083,6 +1083,21 @@ const SHOWS = {
 };
 const shows = (s) => SHOWS[s.mode] ?? SHOWS.rewind;
 
+// The bell's "what if" (ADR 0095): the round's biggest trade at 1x, 30x and 1000x, each with what it would have made
+// or lost, the leverage you used marked, and a leverage stopped out on the way said so.
+function whatIf(w) {
+  $("what-if").hidden = !w;
+  if (!w) return;
+  $("what-if-rows").replaceChildren(...w.at.map((x) => {
+    const li = document.createElement("li");
+    li.className = `${x.pnl >= 0 ? "up" : "down"}${x.leverage === w.leverage ? " yours" : ""}`;
+    const result = `${x.pnl >= 0 ? "+" : ""}${cash(x.pnl)}`;
+    li.append(Object.assign(document.createElement("b"), { textContent: `${x.leverage}×` }), Object.assign(document.createElement("span"), { textContent: x.stoppedOut ? t("whatIfStopped", { pnl: result }) : result }));
+    if (x.leverage === w.leverage) li.append(Object.assign(document.createElement("em"), { textContent: t("whatIfYours") }));
+    return li;
+  }));
+}
+
 // What the position's line says with nothing open: in Live, whether the account is closed until midnight, the market
 // is shut or waiting for history, or another pair is open; in a round or the tutorial, whether the player is broke, out,
 // or simply has nothing open. Debt is added after, in every mode.
@@ -1468,6 +1483,7 @@ function render(s) {
         return row;
       }));
     }
+    whatIf(d?.whatIf ?? null);
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {

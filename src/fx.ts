@@ -80,6 +80,8 @@ export type Position = {
   everCalled?: boolean;
   // The financing fees paid so far, which count against the position.
   fees: number;
+  // the desk's mark the position opened on
+  opened?: number;
 };
 // `out` is set by a forced cut, or a close that leaves nothing, and is
 // cleared by a loan; `cuts`
@@ -97,7 +99,9 @@ export type PendRequest = { side: Side; at: number; leverage: number; share: num
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 const PEND_RANGE = 0.5;
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
-export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number };
+// `opened` and `closed` are the desk's marks, its ticks, a trade was open between, and `margin` what it put up, so the
+// bell can tell what the same trade would have done at another leverage (ADR 0095).
+export type Trade = { side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout" | "zerocut"; pnl: number; pct: number; margin?: number; opened?: number; closed?: number };
 export type Account = { balance: number; debt: number; interest: number; pos: Position | null; out: boolean; cuts: number; traded: boolean; financing: number; pending: Pending | null; trades: Trade[] };
 export type Fill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout" | "zerocut" | "pending-refused"; who: string; price: number; pnl: number; leverage?: number; side?: Side; pending?: boolean; called?: boolean; reason?: string };
 
@@ -107,9 +111,22 @@ export const fill = (mid: number, side: Side): number => mid * (1 + side * half)
 // The prices a sell and a buy fill at now, for a page to show.
 export const quote = (mid: number): { bid: number; ask: number } => ({ bid: fill(mid, -1), ask: fill(mid, 1) });
 
+// What a trade would have made at `leverage` with the same margin, through the prices it was open over (ADR 0095):
+// held to its exit, or stopped out first when the price crossed the line where its margin level falls to STOP_OUT,
+// leaving that much of the margin. The spread is paid at both ends as the desk pays it; fees are left out, a few cents
+// on a round's margin, so the comparison is the leverage alone. `prices` runs from the open to the close.
+export function atLeverage(side: Side, entry: number, exit: number, margin: number, leverage: number, prices: readonly number[]): { pnl: number; stoppedOut: boolean } {
+  const units = (margin * leverage) / entry;
+  const result = (mid: number) => side * units * (fill(mid, -side as Side) - entry);
+  for (const mid of prices) if (margin + result(mid) <= STOP_OUT * margin) return { pnl: Math.round(-margin * (1 - STOP_OUT)), stoppedOut: true };
+  return { pnl: Math.round(side * units * (exit - entry)), stoppedOut: false };
+}
+
 export class Desk {
   price: number;
   private accounts = new Map<string, Account>();
+  // How many times the price has been marked: a round's tick, which a closed trade records (ADR 0095).
+  marks = 0;
 
   // Ticks in a trading day, for the credit line's daily interest; the server's clock sets it.
   dayTicks = 96;
@@ -197,7 +214,7 @@ export class Desk {
     const pos = account.pos;
     if (!pos) {
       const away = (pct: number | null | undefined, sign: number) => (pct == null ? null : awayFrom(this.price, pct, sign));
-      account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: away(with_.sl, -side), take: away(with_.tp, side), called: false, fees: 0 };
+      account.pos = { side, notional, units, entry: notional / units, leverage, margin, stop: away(with_.sl, -side), take: away(with_.tp, side), called: false, fees: 0, opened: this.marks };
       return [{ kind: "open", who, price: this.price, pnl: 0, leverage, side }];
     }
     // Adding to a position merges it, so the entry is the average paid.
@@ -313,6 +330,7 @@ export class Desk {
   // Move the price and enforce the rules on every account, in join order.
   mark(price: number): Fill[] {
     this.price = price;
+    this.marks++;
     // the broker's rules on what is open first, then any pending order the price has reached
     const fills = [...this.accounts.keys()].flatMap((who) => [...this.enforce(who), ...this.trigger(who)]);
     // Interest on the credit line, a tick's share of a day's rate, added to what is owed (ADR 0080).
@@ -363,7 +381,7 @@ export class Desk {
     const pnl = this.pnl(who);
     const pos = account.pos!;
     const called = !!pos.everCalled;
-    account.trades.push({ side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(this.price, -pos.side as Side), how: kind, pnl: Math.round(pnl), pct: pnl / pos.margin });
+    account.trades.push({ side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(this.price, -pos.side as Side), how: kind, pnl: Math.round(pnl), pct: pnl / pos.margin, margin: pos.margin, opened: pos.opened, closed: this.marks });
     account.balance = Math.max(0, Math.round(account.balance + pnl));
     account.pos = null;
     // A forced cut ends the player's round (ADR 0026): what is left is kept,
