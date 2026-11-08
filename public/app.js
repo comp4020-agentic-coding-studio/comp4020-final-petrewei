@@ -165,6 +165,8 @@ function fameChart(s) {
 // is said beside it, in the parody's voice.
 // a new order starts at the legal cap and a quarter of the account, a stake a beginner can lose and play on
 const choice = { leverage: 30, share: 0.25 };
+// Closing a position, on any of its buttons, asks first when the player has asked for that in Settings.
+const closeAsked = (extra) => () => (!prefs.confirm || confirm(t("closeConfirm"))) && act("close", extra);
 let seated = false;
 // The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
 // amount the emergency credit offers, so the page keeps no copy of them.
@@ -331,8 +333,8 @@ const exits = { sl: { on: false, dist: 5 }, tp: { on: false, dist: 10 } };
 const order = (kind) => () => act(kind, { leverage: choice.leverage, share: choice.share, sl: exits.sl.on ? exits.sl.dist : null, tp: exits.tp.on ? exits.tp.dist : null });
 $("buy").onclick = order("buy");
 $("sell").onclick = order("sell");
-$("close").onclick = () => act("close");
-$("mobile-close").onclick = () => act("close");
+$("close").onclick = closeAsked();
+$("mobile-close").onclick = closeAsked();
 // A pending order (ADR 0078): this ticket's order, placed later at a level. The page keeps which side, which way and
 // how far; the server sets the level from its price and sends back what waits.
 // The pending order being set (ADR 0079): a side and a typed level, null until one is typed. Which side of the price the
@@ -505,9 +507,9 @@ $("start").onclick = () => act("start", { ironman });
 // files, and a calm screen, the page's own reduced-motion rules on demand. Music and the theme keep their own buttons.
 const prefs = (() => {
   try {
-    return { sound: false, calm: false, ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
+    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
   } catch {
-    return { sound: false, calm: false };
+    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30 };
   }
 })();
 const savePrefs = () => {
@@ -520,14 +522,29 @@ const savePrefs = () => {
 const showPrefs = () => {
   $("set-sound").setAttribute("aria-checked", String(prefs.sound));
   $("set-calm").setAttribute("aria-checked", String(prefs.calm));
+  $("set-confirm").setAttribute("aria-checked", String(prefs.confirm));
+  $("set-margin").value = String(prefs.margin);
+  $("set-leverage").value = String(prefs.leverage);
   document.documentElement.classList.toggle("calm", prefs.calm);
 };
 showPrefs();
-for (const k of ["sound", "calm"]) $(`set-${k}`).onclick = () => {
+for (const k of ["sound", "calm", "confirm"]) $(`set-${k}`).onclick = () => {
   prefs[k] = !prefs[k];
   savePrefs();
   showPrefs();
   if (k === "sound" && prefs.sound) sound("fill");
+};
+// Where a new order starts, kept for this viewer: a margin the slider holds and a rung of the leverage ladder. It
+// applies at once to an order not yet shaped, and to every sit-down after.
+$("set-margin").onchange = () => {
+  prefs.margin = Number($("set-margin").value);
+  savePrefs();
+  if (SHARES.includes(prefs.margin)) (choice.share = prefs.margin, mark(), state && ticket(state));
+};
+$("set-leverage").onchange = () => {
+  prefs.leverage = Number($("set-leverage").value);
+  savePrefs();
+  if (ladder.includes(prefs.leverage)) (choice.leverage = prefs.leverage, mark(), state && ticket(state));
 };
 $("settings-btn").onclick = () => $("settings").showModal();
 $("settings-close").onclick = () => $("settings").close();
@@ -605,7 +622,7 @@ try {
 } catch {
   // no storage: music stays off
 }
-$("warn-close").onclick = () => act("close");
+$("warn-close").onclick = closeAsked();
 
 // The broker's warning. In a margin call (the desk's own flag) a red
 // banner says so, with how far the price can move before the forced
@@ -874,7 +891,7 @@ function book(s) {
     go.dataset.tipText = t("showPair", { pair: p.pair });
     go.onclick = () => act("pair", { pair: p.pair });
     const shut = Object.assign(document.createElement("button"), { type: "button", className: "mini", textContent: t("close") });
-    shut.onclick = () => act("close", { pair: p.pair });
+    shut.onclick = closeAsked({ pair: p.pair });
     shut.disabled = !p.live;
     const cells = [[side, go], quoted(p.entry), quoted(p.now), cash(p.margin), cash(p.pnl), pct(p.pnl / p.margin), [shut]];
     for (const [i, c] of cells.entries()) {
@@ -1210,8 +1227,9 @@ function render(s) {
     ladder = s.leverages;
     sliders();
     seatExits();
-    // a new visitor starts at the legal cap
-    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? broker.cap, ladder), ladder);
+    // a new visitor starts where Settings says, the legal cap unless changed; an open position keeps its own leverage
+    choice.leverage = levAt(levPos(s.you.pos?.leverage ?? (ladder.includes(prefs.leverage) ? prefs.leverage : broker.cap), ladder), ladder);
+    if (!s.you.pos && SHARES.includes(prefs.margin)) choice.share = prefs.margin;
     mark();
     translate();
   }

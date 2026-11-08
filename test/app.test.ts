@@ -341,6 +341,43 @@ it("restores a cached page with live controllers and a fresh stream", async () =
   } finally { dom.window.close(); }
 });
 
+// Settings sets where a new order starts, a margin and a rung of leverage, and can ask before closing: Close sends
+// nothing until confirmed, and nothing at all when the player says no.
+it("starts a new order where Settings says, and asks before closing when told to", async () => {
+  const { dom, w, base, emit, fetch, streams } = await app();
+  try {
+    streams.at(-1)!.onopen?.();
+    await emit();
+    const pick = (id: string, v: string) => {
+      const el = w.document.getElementById(id) as HTMLSelectElement;
+      el.value = v;
+      el.dispatchEvent(new w.Event("change"));
+    };
+    pick("set-margin", "0.5");
+    pick("set-leverage", "10");
+    expect(w.document.getElementById("margin-out")!.textContent).toBe("50%");
+    expect(w.document.getElementById("lev-out")!.textContent).toBe("10×");
+    // kept for the next visit
+    expect(JSON.parse(w.localStorage.getItem("prefs")!)).toMatchObject({ margin: 0.5, leverage: 10 });
+    // Close is a button only with a position open
+    const price = base.prices.at(-1)!;
+    await emit({ you: { ...base.you, named: true, pos: { side: 1, entry: price, leverage: 10, margin: 1000, stop: null, take: null, call: price * 0.95, cut: price * 0.92 } } });
+    // with the setting off, Close asks nothing; on, it asks before anything is sent, and a "no" sends nothing
+    let asked = 0;
+    w.confirm = () => (asked++, false);
+    (w.document.getElementById("close") as HTMLButtonElement).click();
+    expect(asked, "off: no question").toBe(0);
+    (w.document.getElementById("set-confirm") as HTMLButtonElement).click();
+    expect(JSON.parse(w.localStorage.getItem("prefs")!).confirm).toBe(true);
+    const sentBefore = fetch.mock.calls.length;
+    (w.document.getElementById("close") as HTMLButtonElement).click();
+    expect(asked, "on: asks first").toBe(1);
+    expect(fetch.mock.calls.length, "a refused confirm sends nothing").toBe(sentBefore);
+  } finally {
+    dom.window.close();
+  }
+});
+
 // Live's market headlines list each story after the pinned one as a link to the outlet, with its source, and only on
 // Live: the headline is the outlet's own words, opened in a new tab.
 it("lists Live's market headlines as links to their outlets", async () => {
