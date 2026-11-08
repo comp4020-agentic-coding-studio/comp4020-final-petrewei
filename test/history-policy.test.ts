@@ -42,3 +42,10 @@ it("names when the FX week next opens: Sunday 17:00 in New York, after the weeke
   // during trading hours there is no next open to wait for
   expect(nextOpen(Date.parse("2026-11-10T12:00:00Z"))).toBeNull();
 });
+it("says when the FX week is open: Sunday 17:00 to Friday 17:00 in New York", async () => {
+  const { weekOpen } = await import("../src/history-policy.ts");
+  expect(weekOpen(Date.parse("2026-11-10T12:00:00Z")), "a Tuesday").toBe(true);
+  expect(weekOpen(Date.parse("2026-11-07T12:00:00Z")), "a Saturday").toBe(false);
+  expect(weekOpen(Date.parse("2026-11-08T21:50:00Z")), "Sunday before the open").toBe(false);
+  expect(weekOpen(Date.parse("2026-11-08T22:10:00Z")), "Sunday after the open").toBe(true);
+});

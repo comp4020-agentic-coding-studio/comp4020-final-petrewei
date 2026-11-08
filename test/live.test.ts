@@ -180,13 +180,15 @@ describe("the live feed", () => {
     expect(cross(last, "CNY/JPY")).toBeCloseTo(158 / 6.67, 6);
     expect(cross(last, "EUR/AUD") * cross(last, "AUD/JPY")).toBeCloseTo(cross(last, "EUR/JPY"), 6);
     expect(quotes.live()).toBe(true);
+    // Live trades 24/5: in the FX week a currency quiet for an hour, as Europe is before it opens on a Sunday evening,
+    // still trades on its last price, so one pair is never shut while the rest trade
     answer.spark.result[1].response[0].meta.regularMarketTime -= 3600;
     await quotes.poll();
     expect(quotes.live(["EUR/USD"])).toBe(true);
-    expect(quotes.live(["GBP/USD"])).toBe(false);
-    expect(quotes.live(["EUR/USD", "GBP/USD"])).toBe(false);
-    now += 11 * 60_000;
-    expect(quotes.live(), "no price for over ten minutes is a shut market").toBe(false);
+    expect(quotes.live(["GBP/USD"]), "an hour's quiet mid-week still trades").toBe(true);
+    // but a price stale for over two hours is a feed outage, never a frozen price to trade against
+    now += 2 * 3_600_000;
+    expect(quotes.live(["GBP/USD"]), "two hours stale is an outage").toBe(false);
   });
 
   it("requires intermediate quotes for the account's currencies, even when another currency has the slot", async () => {

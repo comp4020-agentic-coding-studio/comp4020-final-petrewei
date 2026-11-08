@@ -4,10 +4,13 @@
 // fifteen-minute closes, the game's own tick (ADR 0085), the newest slot's close being the price now.
 import { PAIRS, type Pair } from "./market.ts";
 import { CURRENCIES, SLOT_MS, SYMBOLS, parseQuotes, type Currency, type Fetcher, type Usd } from "./quotes.ts";
-import { SETTLED_MS, slotQuality, type Quality } from "./history-policy.ts";
+import { SETTLED_MS, slotQuality, weekOpen, type Quality } from "./history-policy.ts";
 import { yahoo } from "./yahoo.ts";
 export { CURRENCIES, SLOT_MS, type Currency, type Fetcher, type Usd } from "./quotes.ts";
 const STALE_MS = 10 * 60_000;
+// Live trades 24/5: while the FX week is open, a currency quiet for a while (Europe before it opens on a Sunday
+// evening) trades on its last price; only a price stale for this long is a feed outage, never a frozen one to trade on.
+const WEEK_STALE_MS = 2 * 3_600_000;
 const KEEP = 96 * 6;
 const currenciesFor = (pairs: readonly string[]): Set<Currency> => new Set<Currency>(["AUD", ...pairs.flatMap((pair) => pair.split("/") as Currency[])]);
 export const cross = (usd: Usd, pair: string): number => {
@@ -141,7 +144,7 @@ export class Feed {
     return this.slots.length > 0 && [...currencies].every((cur) => {
       if (cur === "USD") return true;
       const at = this.times[cur];
-      return at !== undefined && at <= now && now - at < STALE_MS;
+      return at !== undefined && at <= now && now - at < (weekOpen(now) ? WEEK_STALE_MS : STALE_MS);
     });
   }
   latest(): Usd | null {

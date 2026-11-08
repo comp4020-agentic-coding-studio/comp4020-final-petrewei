@@ -20,6 +20,9 @@ function tradingSlot(slot: number): boolean {
 }
 
 
+// Whether the FX week is open now, Sunday 17:00 to Friday 17:00 in New York, holidays aside.
+export const weekOpen = (now: number): boolean => tradingSlot(Math.floor(now / SLOT_MS));
+
 // When the FX week next opens, by the same calendar, as a time in ms; null while it trades. The page names it when Live
 // is shut for the weekend or a holiday, so a closed market says when it comes back.
 export function nextOpen(now: number): number | null {
