@@ -635,3 +635,38 @@ it("shows at the bell what the biggest trade would have done at 1x, 30x and 1000
     tab.close();
   }
 }, 30_000);
+
+// ADR 0095: a duel. One person challenges another in the room by the code it shows; the other accepts; at the bell the
+// higher score wins, told in the feed and to each of the two. Bots, oneself and someone not here cannot be challenged.
+it("plays a duel between two people over a round, decided at the bell", async () => {
+  s = await server(8096, { TICK_MS: "40", COUNTDOWN_TICKS: "2" });
+  const { visitor, page, act, look, until, attempt } = app();
+  const a = await visitor();
+  const b = await visitor();
+  const tabs = [await page(a, "random"), await page(b, "random")];
+  try {
+    type Duel = Seen & { you: { code: string }; duel: { with?: string; from?: string } | null; result: { duels?: { a: string; b: string; winner: string | null; you: boolean }[] } | null };
+    const codeA = ((await look(a, "random")) as Duel).you.code;
+    const codeB = ((await look(b, "random")) as Duel).you.code;
+    expect((await attempt({ kind: "challenge", code: codeA, mode: "random" }, a)).status, "not oneself").toBe(409);
+    expect((await attempt({ kind: "challenge", code: "kurumi", mode: "random" }, a)).status, "not a bot").toBe(409);
+    expect((await attempt({ kind: "accept", code: codeA, mode: "random" }, b)).status, "nothing to accept yet").toBe(409);
+    expect((await act(a, { kind: "challenge", code: codeB, mode: "random" })).status).toBe(200);
+    expect(((await look(b, "random")) as Duel).duel).toEqual({ from: codeA });
+    expect((await act(b, { kind: "accept", code: codeA, mode: "random" })).status).toBe(200);
+    expect(((await look(a, "random")) as Duel).duel).toEqual({ with: codeB });
+    await act(a, { kind: "start", mode: "random" });
+    await until(a, (x) => x.phase === "trade", 10_000, "random");
+    await act(a, { kind: "buy", leverage: 10, share: 0.5, mode: "random" });
+    await new Promise((r) => setTimeout(r, 800));
+    await act(a, { kind: "finish", mode: "random" });
+    const bellA = (await look(a, "random")) as Duel;
+    const bellB = (await look(b, "random")) as Duel;
+    const duel = bellA.result!.duels!.find((d) => d.you)!;
+    expect([duel.a, duel.b].sort()).toEqual([codeA, codeB].sort());
+    expect(bellB.result!.duels!.find((d) => d.you), "each of the two sees it as theirs").toBeTruthy();
+    expect(bellA.feed.map((f) => f.key)).toContain(duel.winner === null ? "duel-drawn" : "duel-won");
+  } finally {
+    for (const t of tabs) t.close();
+  }
+}, 30_000);

@@ -171,6 +171,7 @@
       <div class="bell-body">
       <p id="reveal"></p>
       <!-- The bell's "what if" (ADR 0095): your biggest trade as it would have gone at 1x, 30x and 1000x. -->
+      <p class="duel-result" id="duel-result" hidden></p>
       <section id="what-if" class="what-if" hidden>
         <h3 data-t="whatIfTitle">Your biggest trade, at other leverage</h3>
         <ol id="what-if-rows"></ol>
@@ -346,6 +347,8 @@
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
+      <!-- Duels (ADR 0095): a challenge made to you, with Accept, or the duel you are in this round. -->
+      <p class="duel" id="duel" hidden><span id="duel-text"></span> <button type="button" class="mini" id="duel-accept" data-t="duelAccept" data-tip="duelAccept">Accept</button></p>
       <ol id="traders"></ol>
       <!-- Live's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt; above it, your own run's
            day and its change today and yesterday (ADR 0095). -->

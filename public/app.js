@@ -1399,9 +1399,26 @@ function render(s) {
       e.className = `eq ${tr.equity > s.start ? "up" : tr.equity < s.start ? "down" : ""}`;
       li.dataset.id = tr.id;
       li.append(avatar(tr.face, 24), n, p, e);
+      // another person in a round's room can be challenged to a duel over the round (ADR 0095): click their row
+      const duelWith = s.duel && "with" in s.duel ? s.duel.with : null;
+      if (duelWith === tr.id) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: "⚔", ariaLabel: t("duelBadge") }));
+      if (!tr.you && !tr.bot && shows(s).lobby && s.phase !== "break" && !duelWith) {
+        li.classList.add("challengeable");
+        li.dataset.tipText += ` · ${t("duelOffer")}`;
+        li.onclick = () => act("challenge", { code: tr.id });
+      }
       return li;
     }),
   );
+  // a challenge made to you, with its Accept, or the duel you are in
+  const duel = s.duel;
+  $("duel").hidden = !duel;
+  if (duel) {
+    const other = "with" in duel ? duel.with : duel.from;
+    $("duel-text").textContent = t("with" in duel ? "duelOn" : "duelFrom", { who: nameOf(other) });
+    $("duel-accept").hidden = "with" in duel;
+    $("duel-accept").onclick = () => act("accept", { code: other });
+  }
   if (price !== undefined) effects(s, price);
   // What house traders off screen just said leads the feed, with their
   // face and name, for twenty seconds (ADR 0031).
@@ -1518,6 +1535,13 @@ function render(s) {
       }));
     }
     whatIf(d?.whatIf ?? null);
+    // your duel's outcome, under the reveal (ADR 0095)
+    const mine = s.result.duels?.find((x) => x.you);
+    $("duel-result").hidden = !mine;
+    if (mine) {
+      const other = mine.a === s.you.code ? mine.b : mine.a;
+      $("duel-result").textContent = t(mine.winner === null ? "duelDrew" : mine.winner === s.you.code ? "duelWon" : "duelLost", { who: nameOf(other) });
+    }
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {

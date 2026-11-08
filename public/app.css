@@ -1072,6 +1072,12 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   }
 }
 
+/* Duels (ADR 0095): a person's row you can challenge, the banner over the room, and the bell's outcome. */
+#traders li.challengeable { cursor: pointer; }
+#traders li.challengeable:hover { background: var(--raise); }
+.duel { margin: 0; padding: 0.4rem 0.9rem; font-size: 0.82rem; color: var(--ink); background: var(--raise); }
+.duel[hidden], .duel-result[hidden] { display: none; }
+.duel-result { margin: 0.3rem 0; font-weight: 700; }
 /* Live's price alerts (ADR 0095): a typed level and a button, then the alerts set, each with a cancel. */
 .alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.4rem 0.9rem; font-size: 0.82rem; }
 .alerts[hidden] { display: none; }

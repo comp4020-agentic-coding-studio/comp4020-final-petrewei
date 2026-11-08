@@ -14,7 +14,7 @@ export type Player = { name: string; draw: number | null; named: boolean; face: 
 export type Career = { name: string; draw?: number | null; rounds: number; profit: number; wins: number; busts: number; best: number; points: number; recent: number[]; feats: string[]; face: string; average: number; ranked: boolean; you: boolean };
 export type WhatIf = { side: number; leverage: number; pnl: number; at: { leverage: number; pnl: number; stoppedOut: boolean }[] };
 export type Debrief = { whatIf?: WhatIf | null; returnPct: number; cutPenalty: number; bankruptPenalty: number; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
-export type Result = { ranking: { code: string; name: string; draw: number | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; you: boolean }[]; reveal: string; facts: { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string }; debrief: Debrief | null };
+export type Result = { ranking: { code: string; name: string; draw: number | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean; you: boolean }[]; duels?: { a: string; b: string; winner: string | null; you: boolean }[]; reveal: string; facts: { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string }; debrief: Debrief | null };
 export type ClockKey = "clockDay" | "clockOpens" | "clockLobby" | "clockClosed" | "clockTutorial" | "clockLive" | "clockShut" | "clockGap" | "clockWait";
 export type BankNews = { cur: string; title: string; source: string; link: string; at: number };
 export type Release = { cur: string; title: string; at: number; forecast: string; previous: string; actual: string };
@@ -40,7 +40,7 @@ export type CommonState = {
   pops: { n: number; who: string; kind: string; lev?: number; pnl?: number; way?: number }[];
   marks?: { tick: number; face: string; you: boolean; kind: string; side: number }[];
 };
-export type RoundState = CommonState & { mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
+export type RoundState = CommonState & { duel?: { with: string } | { from: string } | null; mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
 export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
   board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean }[];
 };

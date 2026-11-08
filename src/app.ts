@@ -478,6 +478,8 @@ export function createApp(options: AppOptions = {}) {
       dismiss: (m, who) => m.bell(who, false),
       guess: (m, who, input) => m.guess(who, input.year as number),
       choose: (m, who, input) => m.choose(who, input.what),
+      challenge: (m, who, input) => m.challenge(who, input.code),
+      accept: (m, who, input) => m.accept(who, input.code),
     };
     // The first year of the ECB's rates, so the first a rewind can be from.
     const FIRST_YEAR = 1999;
@@ -515,11 +517,15 @@ export function createApp(options: AppOptions = {}) {
       ironman = false;
       // The latest Random headline, pinned under the price until the next.
       headline: { situation: string; n: number } | { clue: number; n: number } | { story: number } | { release: Record<string, string | number> } | null = null;
+      // Duels (ADR 0095): a challenge from one person to another in the room, by who was challenged, and the pairs who
+      // accepted, compared at the bell on the round's own score. Set up again with each round.
+      challenges = new Map<string, string>();
+      duels: [string, string][] = [];
       // Each trader's guess at a rewind's year, private until the bell.
       guesses = new Map<string, number>();
       // Ticks left in a pause, or 0 when the market runs.
       paused = 0;
-      result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean }[]; reveal: string; facts: Facts } | null = null;
+      result: { ranking: { key: string; code: string; name: string; draw: Draw | null; face: string; balance: number; score: number; guess: number | null; bonus: number; sat: boolean }[]; reveal: string; facts: Facts ; duels?: { a: string; b: string; winner: string | null; keys: string[] }[]} | null = null;
       private debriefs = new Map<string, Debrief>();
       // The bell's facts, for a page to tell in its own language.
       facts: Facts = { pair: "", simulated: false, from: "", to: "", event: null };
@@ -720,11 +726,51 @@ export function createApp(options: AppOptions = {}) {
       }
 
       // After the bell: close it now, or hold it longer, by anyone on the tab.
+      // Someone in this room, by the short code it shows, if a person here now; never a house trader.
+      private personHere(code: unknown): string | null {
+        if (typeof code !== "string") return null;
+        const who = this.listeners().map((l) => l.who).find((w) => short(w) === code);
+        return who && !bot(who) ? who : null;
+      }
+      private inDuel(who: string): boolean {
+        return this.duels.some(([a, b]) => a === who || b === who);
+      }
+      // Challenge another person in the room to a duel over this round (ADR 0095), before the bell.
+      challenge(who: string, code: unknown): string | null {
+        if (this.phase === "break") return "The round is over. Challenge someone in the next.";
+        const them = this.personHere(code);
+        if (!them) return "Challenge someone in this room.";
+        if (them === who) return "You cannot challenge yourself.";
+        if (this.inDuel(who) || this.inDuel(them)) return "One of you is already in a duel.";
+        this.challenges.set(them, who);
+        this.say(`${nameOf(who)} challenged ${nameOf(them)} to a duel.`, "info", "challenged", { who: short(who), them: short(them) });
+        return null;
+      }
+      // Accept the challenge someone in the room made you; the two of you are then compared at the bell.
+      accept(who: string, code: unknown): string | null {
+        const from = this.challenges.get(who);
+        if (!from || short(from) !== code) return "No one has challenged you.";
+        if (this.phase === "break") return "The round is over. Challenge someone in the next.";
+        if (this.inDuel(who) || this.inDuel(from)) return "One of you is already in a duel.";
+        this.challenges.delete(who);
+        this.duels.push([from, who]);
+        this.say(`${nameOf(who)} accepted ${nameOf(from)}'s duel.`, "wild", "accepted", { who: short(who), them: short(from) });
+        return null;
+      }
+
+      // The bell is over and the room goes back to the lobby: duels were for the round just played, so they go with it
+      // (ADR 0095); a duel made in the lobby stays for the round it was made for, however the lobby is redrawn.
+      afterBell(): void {
+        this.challenges.clear();
+        this.duels = [];
+        this.ready();
+      }
+
       bell(who: string, hold: boolean): string | null {
         if (this.phase !== "break") return "The bell isn't showing.";
         if (!this.listeners().some((l) => l.who === who)) return "Open this tab to change its bell.";
         if (hold) this.breakLeft = Math.min(BREAK_MAX - this.breakElapsed, this.breakLeft + HOLD_TICKS);
-        else this.ready();
+        else this.afterBell();
         log(who, hold ? "hold" : "dismiss", { mode: this.mode });
         return null;
       }
@@ -872,6 +918,15 @@ export function createApp(options: AppOptions = {}) {
         const aside = (who: string): number => Number(sat(who));
         const shown = ranking.filter((r) => !sat(r.who) || here.has(r.who)).sort((a, b) => aside(a.who) - aside(b.who));
         this.result = { ranking: shown.map((r) => ({ key: key(r.who), code: short(r.who), name: nameOf(r.who), draw: drawOf(r.who), face: faceOf(r.who), balance: r.net, score: Math.round(points(r.who) * 10) / 10, guess: this.guesses.get(r.who) ?? null, bonus: bonus(r.who), sat: sat(r.who) })), reveal: this.reveal, facts: this.facts };
+        // each duel decided on the round's score, the higher winning; equal is a draw (ADR 0095)
+        const duels = this.duels.map(([a, b]) => {
+          const [pa, pb] = [points(a), points(b)];
+          const winner = pa === pb ? null : pa > pb ? a : b;
+          if (winner) this.say(`${nameOf(winner)} won the duel against ${nameOf(winner === a ? b : a)}.`, "win", "duel-won", { who: short(winner), them: short(winner === a ? b : a) });
+          else this.say(`${nameOf(a)} and ${nameOf(b)} drew their duel.`, "info", "duel-drawn", { who: short(a), them: short(b) });
+          return { a: short(a), b: short(b), winner: winner && short(winner), keys: [key(a), key(b)] };
+        });
+        this.result.duels = duels;
         log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
         this.phase = "break";
         this.breakLeft = BREAK_TICKS;
@@ -892,7 +947,7 @@ export function createApp(options: AppOptions = {}) {
         if (this.phase === "break") {
           this.breakElapsed++;
           const over = --this.breakLeft <= 0;
-          if (over) this.ready();
+          if (over) this.afterBell();
           return this.broadcast(over);
         }
         if (this.paused) {
@@ -1094,7 +1149,14 @@ export function createApp(options: AppOptions = {}) {
           feed: whole || withFeed ? (this.pendingNotices.has(who) ? [this.pendingNotices.get(who)!, ...this.feed] : this.feed) : undefined,
           pops: shared.pops,
           marks: this.marks.map(({ key: k, ...m }) => ({ ...m, you: k === me })),
-          result: this.result && { ...this.result, debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
+          // a duel you are in, or a challenge made to you, by short code; never anyone's cookie (ADR 0095)
+          duel: (() => {
+            const pair = this.duels.find(([x, y]) => x === who || y === who);
+            if (pair) return { with: short(pair[0] === who ? pair[1] : pair[0]) };
+            const from = this.challenges.get(who);
+            return from ? { from: short(from) } : null;
+          })(),
+          result: this.result && { ...this.result, duels: this.result.duels?.map(({ keys, ...d }) => ({ ...d, you: keys.includes(me) })), debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
           career: hallFor(me, shared.hall),
           leverages: whole ? LEVERAGES : undefined,
           desk: whole ? DESK : undefined,
