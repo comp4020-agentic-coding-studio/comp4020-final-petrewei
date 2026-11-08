@@ -280,7 +280,8 @@ export class Live {
   // players share is refused, so one removal never takes the wrong one.
   remove(who: { code?: string; name?: string }): boolean | "ambiguous" {
     const all = new Set([...this.accounts.keys(), ...this.runs.map((r) => r.key), ...this.names.keys()]);
-    const nameOf = (k: string) => this.names.get(k) ?? this.runs.find((r) => r.key === k)?.name ?? "";
+    // the name the board shows: Live's own, a past run's, or the app's name for a player Live never named
+    const nameOf = (k: string) => this.names.get(k) ?? this.runs.find((r) => r.key === k)?.name ?? this.w.nameAt(k).name;
     const keys = new Set([...all].filter((k) => (who.code ? k.slice(0, 6) === who.code : nameOf(k) === who.name)));
     if (!keys.size) return false;
     if (!who.code && keys.size > 1) return "ambiguous";

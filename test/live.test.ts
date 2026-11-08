@@ -310,6 +310,22 @@ it("trades on after a sleep over a bar the source never sends", async () => {
   expect(m.slot).toBe(Math.floor(now / SLOT_MS));
 });
 
+// The operator removes a Live player by the name the board shows, even one Live never named itself (a player who
+// traded once and never looked in again), whose board name is the app's name for them.
+it("removes a Live account by the name the board shows, though Live never saved one", async () => {
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const quotes = new Feed(async () => spark(Date.now() / 1000, [Date.now() / 1000 - 900]), () => Date.now());
+  const dir = mkdtempSync(join(tmpdir(), "losscut-remove-"));
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  // an account Live holds no name for: the board shows people.nameAt(key), which here is the key itself
+  m.accounts.set("Lv2459", fresh(0, 0));
+  expect(m.remove({ name: "Lv2459" })).toBe(true);
+  expect(m.accounts.has("Lv2459")).toBe(false);
+  expect(m.remove({ name: "Lv2459" })).toBe(false);
+});
+
 it("waits for an internal history gap and charges every recovered trading slot exactly once", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
