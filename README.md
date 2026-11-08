@@ -1,21 +1,21 @@
 # Losscut! Kurumi's FX Fantasy
 
-A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it. Rewind replays a real crisis with its dates hidden until the bell, Random draws a market from today's rate, shaped by a hidden situation, and Live trades real prices now until your account goes bankrupt. Pick a name and press Start; a second browser profile beside it shows each trade within a second. It reads in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/), in shared rooms.
+A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it. Rewind replays a real crisis with its dates hidden until the bell, Random draws a market from today's rate, shaped by a hidden situation, and Live trades real prices now until your account goes bankrupt. Pick a name and press Start; a second browser profile shows each trade within a second. It plays in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/), in shared rooms; this page is also in [日本語](https://comp4020-final-petrewei.fly.dev/ja/readme/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/readme/).
 
 ## Who it is for
 
-A room playing together: a crit group, or the showcase. Like Shirky's situated software, it is made for one group, where a wipe-out lands in front of friends. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008, a story as funny and grim as this game.
+A room playing together: a crit group or the showcase. Like Shirky's situated software, it is made for one group: a wipe-out lands in front of friends. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008, as funny and grim as this game.
 
 ## What good means here
 
-Good means a room that laughs at a wipe-out and leaves understanding why. Leverage is the joke and the lesson: offshore brokers sell 1000×, ESMA caps it at 30×, and most retail accounts lose.
+Good means a room laughing at a wipe-out, then understanding why. Leverage is the joke and the lesson: offshore brokers sell 1000×, ESMA caps it at 30×, and most retail accounts lose.
 
 - **One price, one room:** the server owns every price and fill; the room sees your side and net worth.
-- **Losing is public:** a stop-out (強制ロスカット) hits the feed, and emergency credit charges a loan shark's rate.
+- **Losing is public:** a stop-out (強制ロスカット) hits the feed; emergency credit charges a loan shark's rate.
 - **The past is a trap:** Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
 - **Risk reads in money:** the ticket says what a 1% move costs at your margin and leverage, and the bell replays your biggest trade at 1×, 30× and 1000×.
 - **Company, then rivals:** seven of the comic's characters trade beside you; you can duel a person.
-- **Beginners start safe:** ten lessons end in a 1000× wipe-out.
+- **Beginners start safe:** ten lessons end in a wipe-out.
 
 ## Enforced and judged
 
