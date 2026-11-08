@@ -1460,7 +1460,7 @@ export function createApp(options: AppOptions = {}) {
     // What the debug console can do. Each acts on the server, where the
     // rules live, and changes only what it names: the hall, a round's phase,
     // or the debugger's own account. It is logged with the debugger's code.
-    async function debugAction(who: string, kind: string, mode: Mode): Promise<{ ok?: true; error?: string; status?: unknown }> {
+    async function debugAction(who: string, kind: string, mode: Mode, input: Record<string, unknown> = {}): Promise<{ ok?: true; error?: string; status?: unknown }> {
       const market = markets[mode];
       const desk = market.desk;
       switch (kind) {
@@ -1502,6 +1502,15 @@ export function createApp(options: AppOptions = {}) {
           desk.reset(who);
           market.broadcast();
           return { ok: true };
+        // remove one Live account by the six-letter code the board shows, such as a test account left on it
+        case "remove-live": {
+          const code = typeof input.code === "string" && /^[0-9a-f]{6}$/.test(input.code) ? input.code : undefined;
+          const name = typeof input.name === "string" && input.name.trim() ? input.name.trim() : undefined;
+          if (!code && !name) return { error: "Give the account's six-letter code or its name on the board." };
+          const done = liveMarket.remove({ code, name });
+          if (done === "ambiguous") return { error: "Two players share that name; give the code instead." };
+          return done ? { ok: true } : { error: "No Live account has that code or name." };
+        }
         default:
           return { error: "Unknown debug action." };
       }
@@ -1597,8 +1606,8 @@ export function createApp(options: AppOptions = {}) {
         const input = await body(req).catch(() => null);
         if (!input) return json(res, 400, { error: "Send JSON." });
         if (typeof input.kind !== "string") return json(res, 400, { error: "Unknown debug action." });
-        const out = await debugAction(who, input.kind, modeOf(input.mode));
-        log(who, "debug", { action: input.kind, mode: modeOf(input.mode), ...(out.error ? { why: out.error } : {}) });
+        const out = await debugAction(who, input.kind, modeOf(input.mode), input);
+        log(who, "debug", { action: input.kind, mode: modeOf(input.mode), ...(typeof input.code === "string" ? { code: input.code } : {}), ...(typeof input.name === "string" ? { name: input.name } : {}), ...(out.error ? { why: out.error } : {}) });
         return json(res, out.error ? 409 : 200, out);
       }
       if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);

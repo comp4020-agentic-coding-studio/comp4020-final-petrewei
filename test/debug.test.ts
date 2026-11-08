@@ -142,3 +142,56 @@ it("ends a paused round with no pause left standing", async () => {
     tab.close();
   }
 });
+
+// The operator can remove one Live account by the short code the board shows, such as a test account left on it; it is
+// gone from the board and stays gone through a restart, the removal is logged, and nobody without the key can do it.
+it("removes one Live account by its short code, for the operator alone", async () => {
+  const { createServer } = await import("node:http");
+  const { spark } = await import("./yahoo-fake.ts");
+  const feed = createServer((_req, res) => {
+    const t = Math.floor(Date.now() / 1000);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(spark(t, [t - 1800, t - 900])));
+  }).listen(8096);
+  try {
+    s = await server(8098, { STATS_KEY: KEY, LIVE_FEED: "http://localhost:8096", LIVE_NEWS: "off", LIVE_POLL_MS: "200" });
+    const { visitor, page, act } = app();
+    const junk = await visitor();
+    const keep = await visitor();
+    const tab = await page(junk, "live");
+    const board = async () => ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: keep } })).json()) as { board: { code?: string; key?: string; name: string }[]; live: boolean });
+    try {
+      for (let i = 0; i < 50 && !(await board()).live; i++) await new Promise((r) => setTimeout(r, 100));
+      for (const who of [junk, keep]) expect((await act(who, { kind: "buy", mode: "live", leverage: 1, share: 0.25 })).status).toBe(200);
+    } finally {
+      tab.close();
+    }
+    const code = ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: junk } })).json()) as { you: { code: string } }).you.code;
+    expect((await board()).board.length).toBe(2);
+    // a visitor without the key cannot remove an account
+    expect((await debug(keep, { kind: "remove-live", code })).status).toBe(404);
+    const cookie = await debugCookie(keep);
+    expect((await debug(cookie, { kind: "remove-live", code: "zzzzzz" })).status, "no such account").toBe(409);
+    expect((await debug(cookie, { kind: "remove-live", name: "nobody-has-this" })).status, "no such name").toBe(409);
+    // the board shows names, not codes, so the operator removes by the name it shows
+    const junkName = ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: junk } })).json()) as { you: { name: string } }).you.name;
+    expect((await debug(cookie, { kind: "remove-live", name: junkName })).status).toBe(200);
+    expect((await board()).board.map((r) => r.name), "only the kept account left").not.toContain(junkName);
+    expect((await board()).board.length).toBe(1);
+    s.proc.kill("SIGTERM");
+    await new Promise((r) => s.proc.once("exit", r));
+    await s.restart();
+    // the board lists running accounts once Live has a price again, so wait for it before reading
+    const reopened = await page(keep, "live");
+    try {
+      for (let i = 0; i < 50 && !(await board()).live; i++) await new Promise((r) => setTimeout(r, 100));
+      expect((await board()).board.length, "still gone after a restart").toBe(1);
+    } finally {
+      reopened.close();
+    }
+    const log = (await (await fetch(`${s.base}/api/log?key=${KEY}`)).json()) as { recent: { ev: string; action?: string }[] };
+    expect(log.recent.some((l) => l.ev === "debug" && l.action === "remove-live")).toBe(true);
+  } finally {
+    feed.close();
+  }
+}, 40_000);

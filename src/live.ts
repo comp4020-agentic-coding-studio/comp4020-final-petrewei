@@ -262,6 +262,29 @@ export class Live {
     }
   }
 
+  // The operator removes one Live player, such as a test account, by their six-letter code or by the name the board
+  // shows: their account, past runs and saved name, so they leave the board. False when nobody matches; a name two
+  // players share is refused, so one removal never takes the wrong one.
+  remove(who: { code?: string; name?: string }): boolean | "ambiguous" {
+    const all = new Set([...this.accounts.keys(), ...this.runs.map((r) => r.key), ...this.names.keys()]);
+    const nameOf = (k: string) => this.names.get(k) ?? this.runs.find((r) => r.key === k)?.name ?? "";
+    const keys = new Set([...all].filter((k) => (who.code ? k.slice(0, 6) === who.code : nameOf(k) === who.name)));
+    if (!keys.size) return false;
+    if (!who.code && keys.size > 1) return "ambiguous";
+    if (!keys.size) return false;
+    for (const k of keys) {
+      this.accounts.delete(k);
+      this.waits.delete(k);
+      this.names.delete(k);
+      this.draws.delete(k);
+    }
+    this.runs = this.runs.filter((r) => !keys.has(r.key));
+    this.dirty = true;
+    this.save(true);
+    this.onChange();
+    return true;
+  }
+
   // Accounts with nothing open and worth too little to trade are closed and put on the board.
   private bust(now: number, usd: Usd): void {
     for (const [k, a] of this.accounts) {

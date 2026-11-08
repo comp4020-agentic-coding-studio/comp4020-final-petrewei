@@ -22,6 +22,8 @@ box.innerHTML = `
       <button type="button" data-do="cut">Losscut</button>
       <button type="button" data-do="reset-me">Reset money</button>
     </div></section>
+  <section><h3>Live</h3>
+    <div class="dbg-row"><input data-code placeholder="name or 6-letter code" maxlength="24" size="16" aria-label="Live account's name or code"><button type="button" class="danger" data-remove>Remove account</button></div></section>
   <section><h3>Hall of Fame</h3>
     <div class="dbg-row"><button type="button" class="danger" data-do="reset-fame" data-confirm="Reset the hall of fame for everyone? This cannot be undone.">Reset the hall</button></div></section>
   <section><h3>Status</h3><pre data-status></pre>
@@ -30,8 +32,8 @@ box.innerHTML = `
 document.body.append(tag, box);
 
 const $ = (sel) => box.querySelector(sel);
-async function run(kind) {
-  const res = await fetch("/api/debug", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode: tab() }) });
+async function run(kind, extra = {}) {
+  const res = await fetch("/api/debug", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, mode: tab(), ...extra }) });
   const out = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
   $("[data-out]").textContent = out.error ? `✕ ${kind}: ${out.error}` : `✓ ${kind}`;
   $("[data-out]").className = `dbg-out ${out.error ? "bad" : "good"}`;
@@ -51,6 +53,12 @@ for (const b of box.querySelectorAll("[data-do]")) {
     run(b.dataset.do);
   };
 }
+// Remove one Live account by the code the board shows, after a confirm, since it cannot be undone.
+$("[data-remove]").onclick = () => {
+  const given = $("[data-code]").value.trim();
+  if (!given || !confirm(`Remove Live account ${given} from the board? This cannot be undone.`)) return;
+  run("remove-live", /^[0-9a-f]{6}$/.test(given) ? { code: given } : { name: given });
+};
 addEventListener("keydown", (e) => {
   if (e.key !== "`" || e.target.closest?.("input, textarea, select")) return;
   e.preventDefault();
