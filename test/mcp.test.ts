@@ -56,3 +56,26 @@ it("holds at most twenty agents, and frees a session left idle half an hour", ()
   expect(mcp.active()).toBe(0);
   expect(rpc(undefined, "initialize", {}).headers["mcp-session-id"]).toBeDefined();
 });
+
+it("tells a shut weekend market's opening, lists common pairs, and gives a pair's history", () => {
+  const opens = Date.parse("2026-11-08T22:00:00Z");
+  const closes = Array.from({ length: 200 }, (_, i) => 0.7 + i / 10_000);
+  const mcp = new Mcp({
+    join: (who) => `Agent ${who.slice(0, 6)}`,
+    view: () => ({ pair: "AUD/USD", prices: closes, live: false, opens, you: { equity: 10_000, balance: 10_000, positions: [] } }),
+    act: () => null,
+    isPair: (p) => typeof p === "string" && /^[A-Z]{3}\/[A-Z]{3}$/.test(p),
+    now: () => 1,
+  });
+  const sid = mcp.handle("POST", undefined, { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }).headers["mcp-session-id"];
+  const call = (name: string, args: Record<string, unknown>) =>
+    (mcp.handle("POST", sid, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: args } }).body as { result: { content: { text: string }[]; isError?: boolean } }).result;
+  const market = call("market", {}).content[0].text;
+  expect(market).toMatch(/shut for the weekend: it opens 2026-11-08 ?T?22:00 UTC/);
+  expect(market).toMatch(/Common pairs: AUD\/USD/);
+  const history = call("history", { pair: "AUD/USD", count: 10 });
+  expect(history.isError).toBeUndefined();
+  expect(history.content[0].text).toMatch(/10 closes/);
+  expect(history.content[0].text).toMatch(/high 0\.71990, low 0\.71900/);
+  expect(call("history", { pair: "nope" }).isError).toBe(true);
+});

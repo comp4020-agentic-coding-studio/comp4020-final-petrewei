@@ -30,7 +30,8 @@ const order = {
   take_profit: { type: "number", description: "Optional: a take profit this many percent from the price, for you." },
 };
 export const TOOLS = [
-  { name: "market", description: "Live's market for one pair: the price now and its recent closes, your account (in Australian dollars) and every position you hold, and whether the market is trading.", inputSchema: { type: "object", properties: { pair }, additionalProperties: false } },
+  { name: "market", description: "Live's market for one pair: the price now and its recent closes, your account (in Australian dollars) and every position you hold, and whether the market is trading (and when it opens if not). With no pair, the pair you last looked at, and a list of common pairs.", inputSchema: { type: "object", properties: { pair }, additionalProperties: false } },
+  { name: "history", description: "A pair's closes every 15 minutes, oldest first, for up to the last six days, with the day's high and low, to judge a trend.", inputSchema: { type: "object", properties: { pair, count: { type: "number", description: "How many closes, up to 576 (six days); 96 if not given (one day)." } }, required: ["pair"], additionalProperties: false } },
   { name: "buy", description: "Buy a pair at the live price: you profit if it rises. One position per pair; buying again adds to it.", inputSchema: { type: "object", properties: order, required: ["pair", "leverage", "margin"], additionalProperties: false } },
   { name: "sell", description: "Sell a pair at the live price: you profit if it falls. One position per pair; selling while long reduces or closes it.", inputSchema: { type: "object", properties: order, required: ["pair", "leverage", "margin"], additionalProperties: false } },
   { name: "close", description: "Close your position on a pair at the live price.", inputSchema: { type: "object", properties: { pair }, required: ["pair"], additionalProperties: false } },
@@ -126,7 +127,16 @@ export class Mcp {
     if (params.name === "market") {
       if (p !== undefined && !this.d.isPair(p)) return text("Give a pair as BASE/QUOTE, such as AUD/USD.", true);
       if (p !== undefined) this.d.act(s.who, { mode: "live", kind: "pair", pair: p });
-      return text(summary(this.d.view(s.who)));
+      return text(`${summary(this.d.view(s.who))}${p === undefined ? `\n\nCommon pairs: ${COMMON.join(", ")}. Any of the 42 orderings of EUR, GBP, AUD, USD, CHF, CNY and JPY works.` : ""}`);
+    }
+    if (params.name === "history") {
+      this.d.act(s.who, { mode: "live", kind: "pair", pair: p });
+      const v = this.d.view(s.who);
+      const all = (v.prices ?? []) as number[];
+      const n = Math.max(1, Math.min(576, Math.round(num(a.count) ?? 96)));
+      const closes = all.slice(-n);
+      if (!closes.length) return text(`No prices for ${String(p)} yet.`, true);
+      return text(`${String(p)}, ${closes.length} closes every 15 minutes, oldest first (high ${Math.max(...closes).toPrecision(5)}, low ${Math.min(...closes).toPrecision(5)}):\n${closes.map((x) => x.toPrecision(5)).join(", ")}`);
     }
     const now = this.d.now();
     if (now - s.acted < ACT_MS) return text("One action a second: wait a moment and try again.", true);
@@ -145,6 +155,8 @@ export class Mcp {
   }
 }
 
+// Pairs a first-time agent can start from: the majors, the yen crosses Kurumi trades, and the Australian dollar at home.
+const COMMON = ["AUD/USD", "EUR/USD", "USD/JPY", "GBP/USD", "AUD/JPY", "EUR/GBP", "USD/CHF", "USD/CNY"];
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const result = (id: string | number, r: unknown) => ({ jsonrpc: "2.0", id, result: r });
 const error = (id: string | number | null, code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
@@ -158,7 +170,7 @@ function summary(v: Record<string, unknown>): string {
     .map((x) => `  ${x.pair} ${x.side === 1 ? "long" : "short"} ${x.leverage}x from ${x.entry.toPrecision(5)}${x.pnl !== undefined ? `, P&L A$${Math.round(x.pnl)}` : ""}`);
   const pend = you.pending as { type: string; at: number } | null | undefined;
   const lines = [
-    `${String(v.pair)} ${prices.length ? prices.at(-1)!.toPrecision(5) : "no price"}${v.live ? "" : " (market shut: orders wait)"}`,
+    `${String(v.pair)} ${prices.length ? prices.at(-1)!.toPrecision(5) : "no price"}${v.live ? "" : typeof v.opens === "number" ? ` (market shut for the weekend: it opens ${new Date(v.opens).toISOString().replace(/:\d\d\.\d+Z$/, " UTC")}; orders wait until then)` : " (market shut for a moment: orders wait for the next live price)"}`,
     `Recent closes, every 15 minutes, oldest first: ${recent || "none"}`,
     `Account: net worth A$${Math.round(Number(you.equity ?? 0))}, cash A$${Math.round(Number(you.balance ?? 0))}${you.level != null ? `, margin level ${String(you.level)}%` : ""}${you.out ? ", closed until midnight in Sydney" : ""}`,
     positions.length ? `Positions:\n${positions.join("\n")}` : "No open positions.",
