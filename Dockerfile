@@ -11,6 +11,6 @@ WORKDIR /app
 COPY src/ src/
 COPY public/ public/
 COPY data/ data/
-COPY README.md README.ja.md README.zh.md package.json ./
+COPY README.md package.json ./
 ENV NODE_ENV=production
 CMD ["node", "src/server.ts"]

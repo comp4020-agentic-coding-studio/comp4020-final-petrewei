@@ -57,21 +57,6 @@ it("serves a player's About page in each language, and keeps the course README",
   expect(readme.doc!.querySelector("footer")?.textContent ?? "", "/readme/ footer").toContain("unofficial fan parody");
 });
 
-// The README in Japanese and Chinese, each at its language's address with every heading of its own file in order, the
-// page's language set, and the fan-parody footer in that language; the English README stays at /readme/.
-it("serves the README in Japanese and Chinese at /ja/readme/ and /zh/readme/", async () => {
-  for (const [lang, html, notice] of [["ja", "ja", "非公式ファンパロディ"], ["zh", "zh-CN", "非官方同人恶搞"]] as const) {
-    const md = readFileSync(`README.${lang}.md`, "utf8");
-    const wanted = [...md.matchAll(/^#{1,6}\s+(.*)$/gm)].map((m) => m[1].replace(/[*`]/g, "").trim());
-    const { res, doc } = await get(`/${lang}/readme/`);
-    expect(res.status, lang).toBe(200);
-    expect(doc!.documentElement.lang, lang).toBe(html);
-    const shown = [...doc!.querySelectorAll("h1, h2")].map((h) => h.textContent!.trim());
-    expect(shown, lang).toEqual(wanted);
-    expect(doc!.querySelector("footer")?.textContent ?? "", lang).toContain(notice);
-  }
-});
-
 // The About page carries the market's header tools and its footer, and none of what only the
 // market can do: its header is cut out of the market page, so a change there must not lose a
 // tool or let the tabs and the name button in.

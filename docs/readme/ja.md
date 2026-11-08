@@ -1,6 +1,6 @@
 # ロスカット！くるみちゃんの FXファンタジー
 
-同じタブの全員がプレイマネーで一つの価格を取引し、ルームのみんなの前で資金を失っていく共有の為替市場です。巻き戻しは本物の危機を日付を伏せたままベルまで再現し、ランダムは隠された状況に沿って今日のレートから市場を作り、ライブは口座が破産するまで今の本物の価格で取引します。名前を選んでラウンド開始を押し、もう一つのブラウザープロファイルを横に開けば、取引が1秒以内に届くのが見えます。[English](https://comp4020-final-petrewei.fly.dev/)、[日本語](https://comp4020-final-petrewei.fly.dev/ja/)、[中文](https://comp4020-final-petrewei.fly.dev/zh/)で遊べ、ルームは共通です。このページは[English](https://comp4020-final-petrewei.fly.dev/readme/)と[中文](https://comp4020-final-petrewei.fly.dev/zh/readme/)でも読めます。
+同じタブの全員がプレイマネーで一つの価格を取引し、ルームのみんなの前で資金を失っていく共有の為替市場です。巻き戻しは本物の危機を日付を伏せたままベルまで再現し、ランダムは隠された状況に沿って今日のレートから市場を作り、ライブは口座が破産するまで今の本物の価格で取引します。名前を選んでラウンド開始を押し、もう一つのブラウザープロファイルを横に開けば、取引が1秒以内に届くのが見えます。[English](https://comp4020-final-petrewei.fly.dev/)、[日本語](https://comp4020-final-petrewei.fly.dev/ja/)、[中文](https://comp4020-final-petrewei.fly.dev/zh/)で遊べ、ルームは共通です。このページは[English](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/README.md)と[中文](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/zh.md)でも読めます。
 
 ## 誰のためのものか
 

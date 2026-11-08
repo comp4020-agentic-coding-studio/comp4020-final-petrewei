@@ -1,6 +1,6 @@
 # 强制平仓！久留美的FX白日梦
 
-这是一个共享的外汇市场：同一个标签页的所有人用游戏币交易同一个价格，整个房间看着你把钱亏光。复盘重现一场真实的危机，日期在收盘铃响之前保密；随机按一个隐藏的情境，从今天的汇率生成市场；实时用当下的真实价格交易，直到账户破产。选一个名字，点开始一局；在旁边再开一个浏览器配置文件，就能看到每笔交易在一秒内送达。游戏有[English](https://comp4020-final-petrewei.fly.dev/)、[日本語](https://comp4020-final-petrewei.fly.dev/ja/)和[中文](https://comp4020-final-petrewei.fly.dev/zh/)三种语言，房间是共用的。本页另有[English](https://comp4020-final-petrewei.fly.dev/readme/)和[日本語](https://comp4020-final-petrewei.fly.dev/ja/readme/)版本。
+这是一个共享的外汇市场：同一个标签页的所有人用游戏币交易同一个价格，整个房间看着你把钱亏光。复盘重现一场真实的危机，日期在收盘铃响之前保密；随机按一个隐藏的情境，从今天的汇率生成市场；实时用当下的真实价格交易，直到账户破产。选一个名字，点开始一局；在旁边再开一个浏览器配置文件，就能看到每笔交易在一秒内送达。游戏有[English](https://comp4020-final-petrewei.fly.dev/)、[日本語](https://comp4020-final-petrewei.fly.dev/ja/)和[中文](https://comp4020-final-petrewei.fly.dev/zh/)三种语言，房间是共用的。本页另有[English](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/README.md)和[日本語](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/ja.md)版本。
 
 ## 为谁而做
 

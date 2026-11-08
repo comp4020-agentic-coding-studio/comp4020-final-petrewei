@@ -1466,8 +1466,6 @@ export function createApp(options: AppOptions = {}) {
       const others = LANGS.filter((l) => l !== lang).map((l) => `<a href="${prefix(l)}/about" hreflang="${HTMLLANG[l]}" lang="${HTMLLANG[l]}">${{ en: "English", ja: "日本語", zh: "简体中文" }[l]}</a>`).join(" · ");
       return `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(a.title)}</title>\n${alternates("about")}<link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme about">${headerIn(lang, false)}<main><p class="logo">${escape(T[lang].ui.logo)}</p><h1>${escape(a.title)}</h1><p class="lead">${escape(a.lead)}</p>${body}<nav class="about-links"><a href="${prefix(lang)}/">${escape(a.back)}</a> · <a href="/readme/">${escape(a.readme)}</a></nav><p class="about-langs">${others}</p></main><footer>${escape(T[lang].ui.footer)}</footer><script type="module" src="/about-controls.js"></script></body></html>`;
     };
-    const readmeIn = (lang: "ja" | "zh"): string =>
-      `<!doctype html><html lang="${HTMLLANG[lang]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(T[lang].ui.logo)}</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read(`README.${lang}.md`))}<p><a href="${prefix(lang)}/">${escape(ABOUT[lang].back)}</a></p></main><footer>${escape(T[lang].ui.footer)}</footer></body></html>`;
     const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main><footer>${escape(T.en.ui.footer)}</footer></body></html>`;
     // The page's scripts, each served from public/ under its own name; one list, so a new module is one word here.
     const JS = "text/javascript; charset=utf-8";
@@ -1478,8 +1476,6 @@ export function createApp(options: AppOptions = {}) {
       "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
       "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
       "/readme": [readme, HTML],
-      // the README in Japanese and Chinese, each from its own file, for a reader of that language (the marked one is English)
-      ...Object.fromEntries((["ja", "zh"] as const).map((l) => [`${prefix(l)}/readme`, [readmeIn(l), HTML]])),
     };
 
     // The activity log names traders by short code next to what they did, so
