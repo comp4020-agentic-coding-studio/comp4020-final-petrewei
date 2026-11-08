@@ -8,6 +8,13 @@
 // A position on a slider or a meter, held to its ends.
 const unit = (x) => Math.min(1, Math.max(0, x));
 
+// A pip, the unit a spread is read in, by the pair's quote currency as FX writes it: a hundredth of a yen, otherwise
+// a ten-thousandth. A pair quoted in yen's reverse, JPY/USD, is priced around a hundredth, so its pip is a hundredth of
+// that, keeping its spread in a few pips as the standard pair's is (ADR 0094).
+export function pipOf(pair) {
+  const [base, quote] = pair.split("/");
+  return quote === "JPY" ? 0.01 : base === "JPY" ? 0.000001 : 0.0001;
+}
 // What share of the whole account (net worth) an order puts up, as far as it is free: evenly spaced.
 export const SHARES = [0.25, 0.5, 0.75, 1];
 // The margin an order puts up (ADR 0076): `share` of net worth, cut to what is free, whole dollars, never below nothing.

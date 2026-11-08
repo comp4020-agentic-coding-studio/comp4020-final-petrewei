@@ -813,7 +813,7 @@ function leverageNote() {
 function ticket(s) {
   $("bid").textContent = s.prices.length ? quoted(s.bid) : "—";
   $("ask").textContent = s.prices.length ? quoted(s.ask) : "—";
-  $("spread").textContent = s.prices.length ? t("spread", { pips: ((s.ask - s.bid) / (s.digits === 3 ? 0.01 : 0.0001)).toFixed(1) }) : "—";
+  $("spread").textContent = s.prices.length ? t("spread", { pips: ((s.ask - s.bid) / s.pip).toFixed(1) }) : "—";
   // the desk's own rule, from the module both share
   const used = s.you.used ?? 0;
   const margin = shareMargin(s.you.equity, used, choice.share);

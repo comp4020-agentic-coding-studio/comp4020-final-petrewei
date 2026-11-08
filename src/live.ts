@@ -12,9 +12,10 @@ import { join } from "node:path";
 import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
+import { pipOf } from "../public/ticket.js";
 import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
 import { News } from "./news.ts";
-import { PAIRS, type Pair } from "./market.ts";
+import { ALL_PAIRS, isPair } from "./market.ts";
 import { systemClock, type Clock, type Timer } from "./clock.ts";
 import { jsonStorage, renameStore, type Store, type Storage } from "./storage.ts";
 import { liveValid, migrateLive } from "./saved.ts";
@@ -275,7 +276,7 @@ export class Live {
     const a = this.preview(k, now);
     if (!a) return "Your account is closed until midnight in Sydney.";
     if (kind === "pair") {
-      if (typeof input.pair !== "string" || !PAIRS.includes(input.pair as Pair)) return "No such pair.";
+      if (!isPair(input.pair)) return "No such pair.";
       a.pair = input.pair;
       if (this.accounts.has(k)) this.dirty = true;
       else {
@@ -285,7 +286,7 @@ export class Live {
       }
       return null;
     }
-    const pair = typeof input.pair === "string" && PAIRS.includes(input.pair as Pair) ? input.pair : a.pair;
+    const pair = isPair(input.pair) ? input.pair : a.pair;
     const usd = this.quotes.latest();
     if (this.gap) return "Live is waiting for missing price history.";
     if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
@@ -359,10 +360,10 @@ export class Live {
       clock: { key: !this.quotes.slots.length ? "clockWait" as const : this.gap ? "clockGap" as const : live ? "clockLive" as const : "clockShut" as const, at: this.quotes.at || null },
       priceAt: this.quotes.at,
       pair,
-      pairs: PAIRS,
+      pairs: ALL_PAIRS,
       currencies: CURRENCIES,
       // a yen pair is priced to two places and its pip is 0.01; the page reads the pip from this (3 for yen pairs)
-      digits: pair.endsWith("/JPY") ? 3 : 5,
+      pip: pipOf(pair),
       // the chart's prices: the pair's closes, the newest moving; the slot is the clock, 96 a day
       prices,
       from: 0,

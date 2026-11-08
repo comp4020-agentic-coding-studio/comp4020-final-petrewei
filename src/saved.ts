@@ -1,7 +1,7 @@
 import { PEOPLE } from "../public/avatars.js";
 import { GIVEN } from "../public/names.js";
 import { FEATS } from "./feats.ts";
-import { PAIRS } from "./market.ts";
+import { isPair } from "./market.ts";
 import { finite, numericFields, record, valuesMatch } from "./storage.ts";
 
 const nullableNumber = (v: unknown): boolean => v === null || finite(v);
@@ -18,11 +18,11 @@ export const careerValid = (v: unknown): boolean => valuesMatch(v, (c) => record
 
 const positionValid = (v: unknown): boolean => record(v) && (v.side === 1 || v.side === -1)
   && numericFields(v, ["units", "entry", "margin", "leverage", "fees", "opened"]) && nullableNumber(v.stop) && nullableNumber(v.take);
-const tradeValid = (v: unknown): boolean => record(v) && PAIRS.some((pair) => pair === v.pair) && (v.side === 1 || v.side === -1)
+const tradeValid = (v: unknown): boolean => record(v) && isPair(v.pair) && (v.side === 1 || v.side === -1)
   && ["close", "stop", "take", "stopout"].includes(String(v.how)) && numericFields(v, ["leverage", "entry", "exit", "pnl", "pct", "at"]);
 const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["balance", "debt", "interest", "cuts", "opened", "peak", "slot"])
-  && typeof v.called === "boolean" && PAIRS.some((pair) => pair === v.pair)
-  && record(v.positions) && Object.entries(v.positions).every(([pair, pos]) => PAIRS.some((known) => known === pair) && positionValid(pos))
+  && typeof v.called === "boolean" && isPair(v.pair)
+  && record(v.positions) && Object.entries(v.positions).every(([pair, pos]) => isPair(pair) && positionValid(pos))
   && Array.isArray(v.trades) && v.trades.every(tradeValid);
 const runValid = (v: unknown): boolean => record(v) && ["key", "name", "face"].every((key) => string(v[key]))
   && nullableNumber(v.draw) && numericFields(v, ["opened", "ended", "peak", "worth"]) && (v.how === "bankrupt" || v.how === "running");

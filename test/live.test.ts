@@ -15,6 +15,24 @@ import { spark } from "./yahoo-fake.ts";
 const usd = (over: Partial<Usd> = {}): Usd => ({ EUR: 1.12, GBP: 1.35, AUD: 0.7, USD: 1, CHF: 1 / 0.82, CNY: 1 / 6.67, JPY: 1 / 158, ...over });
 
 describe("the Live book", () => {
+  // ADR 0094: a pair either way round is a market of its own. Buying AUD/EUR and selling EUR/AUD are the same bet on
+  // the Australian dollar against the euro: when the euro falls, each makes about the same in Australian dollars.
+  it("trades a pair either way round, buying one the mirror of selling the other", () => {
+    const r = usd();
+    const reversed = fresh(0, 0);
+    const standard = fresh(0, 0);
+    expect(order(reversed, "AUD/EUR", r, 1, 10, 0.5, {}, 0)).not.toBeTypeOf("string");
+    expect(order(standard, "EUR/AUD", r, -1, 10, 0.5, {}, 0)).not.toBeTypeOf("string");
+    expect(cross(r, "AUD/EUR") * cross(r, "EUR/AUD")).toBeCloseTo(1, 9);
+    const euroFalls = usd({ EUR: 1.12 * 0.99 });
+    const onReversed = pnlOf(reversed.positions["AUD/EUR"], "AUD/EUR", euroFalls);
+    const onStandard = pnlOf(standard.positions["EUR/AUD"], "EUR/AUD", euroFalls);
+    expect(onReversed).toBeGreaterThan(0);
+    expect(onStandard).toBeGreaterThan(0);
+    // the same move, a little apart: one is sized in Australian dollars, the other in euros
+    expect(Math.abs(onReversed - onStandard) / onStandard).toBeLessThan(0.02);
+  });
+
   it("opens one position per pair and counts each one's result in Australian dollars", () => {
     const a = fresh(0, 0);
     const r = usd();

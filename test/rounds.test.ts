@@ -573,3 +573,34 @@ it("leaves fixed fields and an unchanged feed out of a round's deltas, and sends
     tab.close();
   }
 });
+
+// ADR 0094: a Random round may be any of the forty-two pairs, so a player can put any currency first. A reversed pair
+// is priced as the inverse of the standard one, and its spread reads in a few pips as the standard pair's does; a pair
+// of one currency, or one the game has no rates for, is refused.
+it("lets Random start from any currency first, at the inverse price, its spread in a few pips", async () => {
+  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2", CHOOSE_MS: "0" });
+  const { visitor, page, act, look, attempt } = app();
+  const me = await visitor();
+  const tab = await page(me, "random");
+  try {
+    type Lobby = Seen & { pair: string; pairs: string[]; bid: number; ask: number; pip: number; prices: number[] };
+    const lobby = (await look(me, "random")) as Lobby;
+    expect(lobby.pairs).toHaveLength(42);
+    for (const base of ["EUR", "GBP", "AUD", "USD", "CHF", "CNY", "JPY"]) expect(lobby.pairs.filter((p) => p.startsWith(`${base}/`)), base).toHaveLength(6);
+    await act(me, { kind: "choose", what: "USD/JPY", mode: "random" });
+    const standard = (await look(me, "random")) as Lobby;
+    expect((await act(me, { kind: "choose", what: "JPY/USD", mode: "random" })).status).toBe(200);
+    const reversed = (await look(me, "random")) as Lobby;
+    expect(reversed.pair).toBe("JPY/USD");
+    // the lobby's price is the open, the inverse of the standard pair's
+    expect(reversed.prices.at(-1)! * standard.prices.at(-1)!).toBeCloseTo(1, 6);
+    for (const x of [standard, reversed]) {
+      const pips = (x.ask - x.bid) / x.pip;
+      expect(pips, `${x.pair}'s spread in pips`).toBeGreaterThan(0.5);
+      expect(pips, `${x.pair}'s spread in pips`).toBeLessThan(10);
+    }
+    for (const bad of ["USD/USD", "AUD/NZD", "JPY"]) expect((await attempt({ kind: "choose", what: bad, mode: "random" }, me)).status, bad).toBe(409);
+  } finally {
+    tab.close();
+  }
+}, 30_000);

@@ -13,7 +13,16 @@ import { dayOf, normal, span, TICKS_PER_DAY } from "./bridge.ts";
 // sterling, the Australian dollar, the US dollar, the franc, the yuan and the yen last. Twenty-one, so Random's two
 // menus make any pair; any of them is worked out from the euro's rates.
 export const PAIRS = ["EUR/GBP", "EUR/AUD", "EUR/USD", "EUR/CHF", "EUR/CNY", "EUR/JPY", "GBP/AUD", "GBP/USD", "GBP/CHF", "GBP/CNY", "GBP/JPY", "AUD/USD", "AUD/CHF", "AUD/CNY", "AUD/JPY", "USD/CHF", "USD/CNY", "USD/JPY", "CHF/CNY", "CHF/JPY", "CNY/JPY"] as const;
+// Every ordered pair of the seven currencies (ADR 0094): the twenty-one above and each the other way round, AUD/EUR as
+// well as EUR/AUD, so a player picks any currency first. A reversed pair is a real market, priced as its quote's rate
+// over its base's, the inverse of the standard pair's; the twenty-one stay where the market's own order matters, in a
+// round drawn at random and in the real data a rewind replays.
+const CURRENCY_ORDER = ["EUR", "GBP", "AUD", "USD", "CHF", "CNY", "JPY"] as const;
+export const ALL_PAIRS: readonly string[] = CURRENCY_ORDER.flatMap((base) => CURRENCY_ORDER.filter((quote) => quote !== base).map((quote) => `${base}/${quote}`));
 export type Pair = (typeof PAIRS)[number];
+// Any of the forty-two, as a player may choose one.
+export type AnyPair = string;
+export const isPair = (value: unknown): value is AnyPair => typeof value === "string" && ALL_PAIRS.includes(value);
 // A Random's plan, headlines and news count in units, thirty of them a round: a candle each.
 export const UNITS = 30;
 // The clock (ADR 0075, 0085): a day is 96 fifteen-minute ticks, a chart candle 8 of them (two hours), a plot's round five days
@@ -35,7 +44,7 @@ type Day = { date: string; rate: number };
 // `history` is the market in the two days before the open, as ticks ending at
 // the open price, so `prices[0]` follows it; it is part of the chart and of
 // nothing else: no order, score or clock reads it.
-export type Round = { pair: Pair; days: string[]; prices: number[]; history: number[]; event: Episode | null; source: Source; situation?: string; headlines?: Headline[]; news?: News[]; unit: number };
+export type Round = { pair: AnyPair; days: string[]; prices: number[]; history: number[]; event: Episode | null; source: Source; situation?: string; headlines?: Headline[]; news?: News[]; unit: number };
 // Where a round's prices come from: a made-up market from today's rate (Random), a plot's real minutes, or a plot's
 // real daily closes with the ticks between them bridged (the two yuan plots). The feed says which as the round opens.
 export type Source = "simulation" | "minutes" | "bridged";
@@ -110,14 +119,14 @@ export class History {
   }
 
   // Units of the quote currency per one of the base, from euro rates.
-  rate(row: Row, pair: Pair): number {
+  rate(row: Row, pair: AnyPair): number {
     const [base, quote] = pair.split("/");
     return row.per[quote] / row.per[base];
   }
 
   // Each pair's series is built once and kept: a few thousand days each.
-  private cache = new Map<Pair, Day[]>();
-  series(pair: Pair): Day[] {
+  private cache = new Map<AnyPair, Day[]>();
+  series(pair: AnyPair): Day[] {
     let days = this.cache.get(pair);
     if (!days) {
       days = this.rows.map((r) => ({ date: r.date, rate: this.rate(r, pair) })).filter((d) => Number.isFinite(d.rate));
@@ -126,7 +135,7 @@ export class History {
     return days;
   }
 
-  latest(pair: Pair): Day {
+  latest(pair: AnyPair): Day {
     return this.series(pair).at(-1)!;
   }
 }
@@ -349,7 +358,7 @@ export function drawNews(rnd: () => number, crash: number): News[] {
 // base or bad news for its quote, a fall the reverse; a V's first fall is told as such a surprise, and its turn as the
 // surprise walked back, when it comes; a rumour that moves nothing is a result in line with what was expected. Two
 // stories in a round are never the same release.
-export function calendar(news: News[], pair: Pair, rnd: () => number): News[] {
+export function calendar(news: News[], pair: AnyPair, rnd: () => number): News[] {
   const [base, quote] = pair.split("/");
   const used = new Set<string>();
   return news.map((n) => {
@@ -383,7 +392,7 @@ export function newsDrift(news: News[], day: number): number {
 // candle where it was a day of nine ticks. Each candle is bridged by `span` from the close before it to its own, so the
 // ticks between are real-looking half hours. The history before the open is the pair's real last days, two of them,
 // bridged the same way, ending on today's rate.
-export function simulation(history: History, pair: Pair, rate: number, rnd: () => number, pick?: string, quiet = false): Round {
+export function simulation(history: History, pair: AnyPair, rate: number, rnd: () => number, pick?: string, quiet = false): Round {
   const recent = history.series(pair).slice(-251);
   const moves = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
   // A floor of 0.4% a unit, so a pegged pair still moves enough to play.

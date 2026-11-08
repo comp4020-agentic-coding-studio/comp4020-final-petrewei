@@ -20,11 +20,12 @@ import { Desk, type Fill, LEVERAGES, LIMIT, quote, RULES, START, STEP } from "./
 import { ABOUT } from "../public/about.js";
 import { PEOPLE } from "../public/avatars.js";
 import { quoted, aud } from "../public/format.js";
+import { pipOf } from "../public/ticket.js";
 import { LANGS as LANG_LIST, T, clueDates, news } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
 import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
-import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, PAIRS, random, replayRound, simulation, storyOf, type Pair, type Round } from "./market.ts";
+import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, ALL_PAIRS, PAIRS, isPair, random, replayRound, simulation, storyOf, type AnyPair, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 import { Live } from "./live.ts";
 
@@ -391,7 +392,7 @@ export function createApp(options: AppOptions = {}) {
       })().finally(() => { refreshing = null; });
       return refreshing;
     }
-    function todayRate(pair: Pair): { rate: number; date: string; source: string } {
+    function todayRate(pair: AnyPair): { rate: number; date: string; source: string } {
       const [base, quote] = pair.split("/");
       if (today && today.rates[base] && today.rates[quote]) return { rate: today.rates[quote] / today.rates[base], date: today.date, source: "Frankfurter (ECB and central banks)" };
       const day = history.latest(pair);
@@ -568,8 +569,8 @@ export function createApp(options: AppOptions = {}) {
         if (clock.now() - (this.chose.get(who) ?? 0) < CHOOSE_MS) return "Slow down. Choose again in a moment.";
         this.chose.set(who, clock.now());
         if (this.mode === "random") {
-          if (!PAIRS.some((p) => p === what)) return "No such currency pair.";
-          this.pick = what as string;
+          if (!isPair(what)) return "No such currency pair.";
+          this.pick = what;
         } else {
           // A plot's number names its exact rewind; its title and date stay hidden until the bell.
           const plot = typeof what === "number" ? EVENTS[what - 1] : undefined;
@@ -587,7 +588,9 @@ export function createApp(options: AppOptions = {}) {
       // Draws the next round and parks it, its price still, in the lobby.
       ready(pick = this.pick): void {
         if (this.mode === "random") {
-          const pair = PAIRS.find((p) => p === pick) ?? PAIRS[Math.floor(rnd() * PAIRS.length)];
+          // the lobby's choice, any of the forty-two; with none, a round drawn at random is one of the twenty-one, as a
+          // broker lists them
+          const pair = isPair(pick) ? pick : PAIRS[Math.floor(rnd() * PAIRS.length)];
           const now = todayRate(pair);
           this.round = simulation(history, pair, now.rate, rnd);
           const story = T.en.situations[this.round.situation!];
@@ -766,11 +769,6 @@ export function createApp(options: AppOptions = {}) {
         this.feed.unshift({ text, kind, key, args });
         this.feed.splice(14);
         this.feedVersion++;
-      }
-
-      // The pip's size, for the spread; prices themselves are shown to five significant digits.
-      digits(): number {
-        return this.round.pair.endsWith("JPY") ? 3 : 5;
       }
 
       // Turn the desk's events into the room's feed. A stop-out is everyone's
@@ -1052,12 +1050,13 @@ export function createApp(options: AppOptions = {}) {
           round: this.count,
           pair: round.pair,
           // Every pair a Random round may start from, for its lobby's choice; Rewind has none.
-          pairs: !whole ? undefined : this.mode === "random" ? PAIRS : null,
+          pairs: !whole ? undefined : this.mode === "random" ? ALL_PAIRS : null,
           // Rewind's plots, by number and no more: which plot is on show, of how many. What a
           // plot is, and when, stays secret until the bell. Random has none.
           rewindPlots: !whole ? undefined : this.mode === "rewind" ? REWIND_PLOTS : null,
           rewindPlot: this.mode === "rewind" ? EVENTS.findIndex((e) => e.id === round.event?.id) + 1 : null,
-          digits: this.digits(),
+          // the size of a pip, which the page reads the spread in (ADR 0094)
+          pip: pipOf(round.pair),
           simulated: round.source === "simulation",
           tick,
           total: round.prices.length - 1,
@@ -1175,7 +1174,7 @@ export function createApp(options: AppOptions = {}) {
         phase: t.moving() ? "moving" as const : "waiting" as const,
         round: t.runs,
         pair: "USD/JPY",
-        digits: 3,
+        pip: pipOf("USD/JPY"),
         simulated: true,
         from: 0,
         prices: t.prices,
