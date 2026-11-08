@@ -130,7 +130,26 @@ export function createApp(options: AppOptions = {}) {
       const h = hash(who);
       const c = chosen[h.toString("hex").slice(0, 16)];
       if (typeof c === "string") return null;
-      return c ?? h[1] % GIVEN.length;
+      if (c !== undefined) return c;
+      // a newcomer is dealt a free name: from their cookie's place in the list, the next one nobody has chosen, so the
+      // name their box opens with is theirs to keep; two bytes spread the starting places evenly over every name
+      const held = heldDraws();
+      const start = h.readUInt16BE(1) % GIVEN.length;
+      for (let i = 0; i < GIVEN.length; i++) {
+        const d = (start + i) % GIVEN.length;
+        if (!held.has(d)) return d;
+      }
+      return start;
+    }
+    // The drawn names somebody has chosen or carries in the hall of fame, which nobody else may be dealt or offered.
+    // Built once and kept until a name or a career changes, since every name on every broadcast asks for it.
+    let held: Set<Draw> | null = null;
+    function heldDraws(): Set<Draw> {
+      if (held) return held;
+      held = new Set<Draw>();
+      for (const c of Object.values(chosen)) if (typeof c === "number") held.add(c);
+      for (const c of Object.values(career)) if (typeof c.draw === "number") held.add(c.draw);
+      return held;
     }
     function nameOf(who: string): string {
       const b = bot(who);
@@ -198,6 +217,7 @@ export function createApp(options: AppOptions = {}) {
       if (taken(id, who)) return { error: "Someone already has that name.", status: 409 };
       if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
       chosen[k] = draw ?? name;
+      held = null;
       try {
         nameStore.write(chosen);
       } catch (error) {
@@ -230,11 +250,12 @@ export function createApp(options: AppOptions = {}) {
       return { face: input };
     }
 
-    // A drawn name nobody else holds, to try on; nothing changes until it is chosen.
+    // A drawn name nobody else holds, to try on; nothing changes until it is chosen. It is drawn from the names still
+    // free, so it is never one somebody has, however few are left; with none free it offers the visitor's own again.
     function suggestion(who: string): { name: string; draw: Draw } {
       const now = identityOf(who);
-      let draw: Draw = randomInt(GIVEN.length);
-      for (let i = 0; i < 50 && (identity("", draw) === now || taken(identity("", draw), who)); i++) draw = randomInt(GIVEN.length);
+      const free = GIVEN.map((_, g) => g).filter((g) => identity("", g) !== now && !taken(identity("", g), who));
+      const draw: Draw = free.length ? free[randomInt(free.length)] : (drawOf(who) ?? 0);
       return { name: drawn("en", draw), draw };
     }
 
@@ -355,6 +376,7 @@ export function createApp(options: AppOptions = {}) {
     }
     repeat(() => { if (saving) writeCareer(); }, 5_000).unref();
     function saveCareer(): void {
+      held = null;
       if (saving) return;
       saving = true;
       defer(() => saving && writeCareer());

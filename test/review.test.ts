@@ -11,23 +11,27 @@ afterEach(() => s?.stop());
 // its external rates or clock, without adding test switches to the application.
 const preload = (code: string) => ({ NODE_OPTIONS: `--import=data:text/javascript,${encodeURIComponent(code).replaceAll("'", "%27")}` });
 
-it("lets a name's owner save it when a newcomer is dealt the same name, without letting the newcomer claim it", async () => {
+// A newcomer whose cookie points at a held name is dealt the next free one instead, never the owner's; the owner can
+// still save their name in any language, and the newcomer still cannot claim it.
+it("deals a newcomer a free name, never one held, and lets the owner keep theirs", async () => {
   s = await server(8190);
   const c = client(s.base);
   const owner = await c.visitor();
   const mine = (await c.state(owner)).you;
   const rename = (cookie: string, name: string) => fetch(`${s.base}/api/name`, { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ name }) });
   expect((await rename(owner, mine.name)).status).toBe(200);
-  // Pick another visitor who is dealt that draw, then check the public API
-  // really shows the collision before attempting the owner's profile save.
+  // Pick another visitor whose cookie points at that held draw: they are dealt a different, free name.
   let id: string;
   do {
     id = randomUUID();
-  } while (createHash("sha256").update(id).digest()[1] % GIVEN.length !== mine.draw);
+  } while (createHash("sha256").update(id).digest().readUInt16BE(1) % GIVEN.length !== mine.draw);
   const newcomer = `v=${id}`;
   const tab = await c.page(newcomer);
   try {
-    expect((await c.state(newcomer)).you).toMatchObject({ name: mine.name, named: false });
+    const dealt = (await c.state(newcomer)).you;
+    expect(dealt.named).toBe(false);
+    expect(dealt.draw, "never dealt the owner's held name").not.toBe(mine.draw);
+    expect(dealt.name).not.toBe(mine.name);
     for (const lang of ["en", "ja", "zh"] as const) {
       const res = await rename(owner, drawn(lang, mine.draw!));
       expect(res.status, lang).toBe(200);
