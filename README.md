@@ -1,6 +1,8 @@
 # Losscut! Kurumi's FX Fantasy
 
-A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it. Rewind replays a real crisis with its dates hidden until the bell, Random draws a market from today's rate, shaped by a hidden situation, and Live trades real prices now until your account goes bankrupt. Pick a name and press Start; a second browser profile shows each trade within a second. It plays in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/), in shared rooms; this page is also in [日本語](https://comp4020-final-petrewei.fly.dev/ja/readme/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/readme/).
+A shared currency market where everyone on a tab trades one price with play money while the room watches you lose it. Rewind replays a real crisis, dates hidden until the bell; Random draws a market from today's rate and a hidden situation; Live trades real prices until you go bankrupt. Pick a name, press Start; a second browser profile sees each trade within a second. It plays in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/), in shared rooms; this page is also in [日本語](https://comp4020-final-petrewei.fly.dev/ja/readme/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/readme/).
+
+**AI agent (optional):** any MCP client trades Live at `https://comp4020-final-petrewei.fly.dev/mcp` over HTTP, no key: `claude mcp add --transport http losscut https://comp4020-final-petrewei.fly.dev/mcp`.
 
 ## Who it is for
 
@@ -10,11 +12,11 @@ A room playing together: a crit group or the showcase. Like Shirky's situated so
 
 Good means a room laughing at a wipe-out, then understanding why. Leverage is the joke and the lesson: offshore brokers sell 1000×, ESMA caps it at 30×, and most retail accounts lose.
 
-- **One price, one room:** the server owns every price and fill; the room sees your side and net worth.
+- **One price, one room:** the server owns every price and fill; the room sees your side.
 - **Losing is public:** a stop-out (強制ロスカット) hits the feed; emergency credit charges a loan shark's rate.
 - **The past is a trap:** Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
 - **Risk reads in money:** the ticket says what a 1% move costs at your margin and leverage, and the bell replays your biggest trade at 1×, 30× and 1000×.
-- **Company, then rivals:** seven of the comic's characters trade beside you; you can duel a person.
+- **Company, then rivals:** seven comic characters trade beside you; duel a person.
 - **Beginners start safe:** ten lessons end in a wipe-out.
 
 ## Enforced and judged
@@ -22,9 +24,9 @@ Good means a room laughing at a wipe-out, then understanding why. Leverage is th
 Checked in CI before each deploy by `spec/` and `test/`, with the reasons in the [decision records](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/README.md):
 
 - one person's trade reaches another's page within a second
-- a round waits for a Start, and simultaneous orders all land, each on the sender's own account
-- the server refuses orders its broker doesn't offer
-- nobody is shown another person's cookie, and a chosen name is plain text and unique
+- a round waits for a Start, and simultaneous orders land on each sender's own account
+- the server refuses orders its broker lacks
+- nobody sees another's cookie; a chosen name is plain text and unique
 - margin calls, stop-outs, credit and bankruptcy follow `src/fx.ts`
 - Rewind passes every real close, and a clue never names its date
 - a Live account survives a restart, and a damaged save recovers from its backup
