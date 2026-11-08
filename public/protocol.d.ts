@@ -54,5 +54,5 @@ export type StateFor<M extends Mode> = M extends "rewind" | "random" ? RoundStat
 export type TradeAction = { kind: "buy" | "sell"; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" | "borrow" | "repay" } | { kind: "stop" | "take"; pct?: number | null };
 export type Action =
   | ({ mode: "rewind" | "random" } & (TradeAction | { kind: "start"; ironman?: boolean } | { kind: "pause" | "resume" | "finish" | "fast" | "normal" | "cancel" | "hold" | "dismiss" } | { kind: "choose"; what: number | string } | { kind: "guess"; year: number } | { kind: "pray"; way: 1 | -1 } | { kind: "challenge" | "accept"; code: string } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))
-  | ({ mode: "live"; pair?: string } & (TradeAction | { kind: "pair"; pair: string } | { kind: "alert" | "unalert"; at: number }))
+  | ({ mode: "live"; pair?: string } & (TradeAction | { kind: "pair"; pair: string } | { kind: "alert" | "unalert"; at: number } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))
   | ({ mode: "tutorial" } & (TradeAction | { kind: "play" | "pause" | "stop" | "skip" | "back" | "again" | "restart" | "next" }));

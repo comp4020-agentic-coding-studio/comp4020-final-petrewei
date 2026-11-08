@@ -51,6 +51,33 @@ describe("the Live book", () => {
     expect(cancelAlert(a, "AUD/USD", 0.72)).toMatch(/no such alert/);
   });
 
+  // Live's pending orders, one per pair as Live has one position per pair: a level the player typed, only a trigger,
+  // filled at the live price on the poll that reaches it, a gap filling at the gapped price as a broker's would.
+  it("fills a pending order at the live price once it reaches the level, one per pair", async () => {
+    const { setPending, cancelPending, triggerPending } = await import("../src/book.ts");
+    const a = fresh(0, 0);
+    // AUD/USD is 0.70: a buy below the price waits as a limit
+    expect(setPending(a, "AUD/USD", usd(), { side: 1, at: 0.69, leverage: 10, share: 0.25 })).toBeNull();
+    expect(a.pending!["AUD/USD"].type).toBe("buy-limit");
+    expect(triggerPending(a, usd(), 0), "not reached").toEqual([]);
+    // the price gaps through the level to 0.685: it fills at that price, not the typed 0.69
+    const fills = triggerPending(a, usd({ AUD: 0.685 }), 0);
+    expect(fills.map((f) => f.kind)).toEqual(["open"]);
+    expect(a.positions["AUD/USD"].entry).toBeCloseTo(0.685, 2);
+    expect(a.pending?.["AUD/USD"], "a filled order is gone").toBeUndefined();
+    // one per pair: a second on the same pair replaces the first
+    expect(setPending(a, "EUR/USD", usd(), { side: -1, at: 1.13, leverage: 3, share: 0.25 })).toBeNull();
+    expect(setPending(a, "EUR/USD", usd(), { side: -1, at: 1.14, leverage: 3, share: 0.25 })).toBeNull();
+    expect(a.pending!["EUR/USD"].at).toBe(1.14);
+    expect(cancelPending(a, "EUR/USD")).toBeNull();
+    expect(cancelPending(a, "EUR/USD")).toMatch(/no pending order/i);
+    // the rounds' refusals
+    expect(setPending(a, "AUD/USD", usd(), { side: 1, at: 0, leverage: 10, share: 0.25 })).toMatch(/Type the price/);
+    expect(setPending(a, "AUD/USD", usd(), { side: 1, at: 2, leverage: 10, share: 0.25 })).toMatch(/within 50%/);
+    expect(setPending(a, "AUD/USD", usd(), { side: 1, at: 0.7, leverage: 10, share: 0.25 })).toMatch(/price now/);
+    expect(setPending(a, "AUD/USD", usd(), { side: 1, at: 0.69, leverage: 7, share: 0.25 })).toMatch(/leverage/);
+  });
+
   // ADR 0095: Live's daily line. Each Sydney day an account starts from its net worth then; at the next midnight there,
   // the day it closes is kept as yesterday, its change and the trades closed in it. Nothing moves within a day.
   it("keeps each Sydney day's change and trades, and starts the next from net worth then", async () => {

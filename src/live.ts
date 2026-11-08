@@ -9,7 +9,7 @@ import type { LiveState } from "../public/protocol.js";
 // the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
 // order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
 import { join } from "node:path";
-import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, ringAlerts, setAlert, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
+import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, cancelPending, ringAlerts, setAlert, setPending, triggerPending, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
 import { LiveBots } from "./live-bots.ts";
@@ -231,6 +231,16 @@ export class Live {
     }
     // and the rules on the price now
     const usd = this.quotes.latest()!;
+    // pending orders the live price has reached fill at that price, each on a pair that is trading now, so a stale
+    // weekend price never fires one
+    for (const [key, acc] of this.accounts) {
+      if (!acc.pending || !Object.keys(acc.pending).length) continue;
+      const out = triggerPending(acc, usd, now, (pair) => this.quotes.live([pair]));
+      if (!out.length) continue;
+      this.dirty = true;
+      this.report(key, out.filter((f): f is BookFill => f.kind !== "pending-refused"));
+      for (const r of out.filter((f) => f.kind === "pending-refused")) this.say(`A pending order on ${r.pair} could not be placed: ${"reason" in r ? r.reason : ""}`, "info", "pending-refused", { pair: r.pair });
+    }
     // alerts the price has reached are told to their owner alone, and kept until they see them (ADR 0095)
     for (const acc of this.accounts.values()) {
       const rang = ringAlerts(acc, usd);
@@ -348,6 +358,28 @@ export class Live {
       if (!out) {
         this.dirty = true;
         this.log(who, "live-alert", { pair, at });
+      }
+      return out;
+    }
+    // a pending order on a pair, at a level the player typed (ADR 0078, 0079): one per pair, filled at the live price
+    if (kind === "pend" || kind === "unpend") {
+      const pair = isPair(input.pair) ? input.pair : a.pair;
+      if (kind === "unpend") {
+        const out = cancelPending(a, pair);
+        if (!out) {
+          this.dirty = true;
+          this.log(who, "live-unpend", { pair });
+        }
+        return out;
+      }
+      const usd = this.quotes.latest();
+      if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
+      if (!this.accounts.has(k)) return "Trade first: a pending order is kept with your account.";
+      const side = input.side === -1 ? -1 : 1;
+      const out = setPending(a, pair, usd, { side, at: Number(input.at), leverage: Number(input.leverage), share: Number(input.share), sl: input.sl == null ? null : Number(input.sl), tp: input.tp == null ? null : Number(input.tp) });
+      if (!out) {
+        this.dirty = true;
+        this.log(who, "live-pend", { pair, side, at: Number(input.at), lev: Number(input.leverage) });
       }
       return out;
     }
@@ -491,7 +523,8 @@ export class Live {
         used: a ? used(a) : 0,
         pos: pos && { side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, called: !!a?.called, call: pos.call, cut: pos.cut, pnl: pos.pnl },
         positions,
-        pending: null,
+        // the pending order on the chart's pair, if any; each pair keeps its own
+        pending: a?.pending?.[pair] ?? null,
         feats: [],
         trades: (a?.trades ?? []).slice(-20).reverse(),
       },

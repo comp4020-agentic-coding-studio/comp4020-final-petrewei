@@ -19,7 +19,11 @@ export type BookTrade = { pair: string; side: Side; leverage: number; entry: num
 // An alert (ADR 0095): tell the player when a pair's price reaches `at`, from `above` or below it. A few at most, kept
 // with the account; `told` holds the ones that rang, for the player's own feed until they are seen.
 export type Alert = { pair: string; at: number; above: boolean };
-export type BookAccount = { alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
+// A pending order on one pair (ADR 0078, 0079), as the rounds have, one per pair as Live has one position per pair:
+// buy or sell when the live price reaches `at`. The level is only a trigger; it fills at the live price on the poll
+// that reaches it, so a gap fills at the gapped price, as a broker's would.
+export type LivePending = { type: "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop"; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null };
+export type BookAccount = { pending?: Record<string, LivePending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
 export type BookFill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout"; pair: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 export const fresh = (now: number, slot: number, pair = "AUD/USD"): BookAccount => ({ balance: START, debt: 0, interest: 0, positions: {}, called: false, cuts: 0, trades: [], opened: now, peak: START, slot, pair });
@@ -172,6 +176,48 @@ export function repay(a: BookAccount): string | null {
 }
 
 export const bankrupt = (a: BookAccount, usd: Usd): boolean => !Object.keys(a.positions).length && worth(a, usd) < BUST;
+
+// How far from the price a pending level may be, as in the rounds: within half of it either way.
+const PEND_RANGE = 0.5;
+// Set a pending order on a pair, replacing any other on it, at the level typed; which side of the price it sits on says
+// whether it is a limit or a stop, as in the rounds.
+export function setPending(a: BookAccount, pair: string, usd: Usd, r: { side: Side; at: number; leverage: number; share: number; sl?: number | null; tp?: number | null }): string | null {
+  const mid = cross(usd, pair);
+  if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
+  if (!(r.share > 0 && r.share <= 1)) return "Margin must be between 0 and 1.";
+  if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
+  if (r.at === mid) return "That is the price now. Buy or Sell instead.";
+  if (Math.abs(r.at / mid - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
+  const refused = exitRefusal("stop", r.sl) ?? exitRefusal("take", r.tp);
+  if (refused) return refused;
+  // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
+  const limit = (r.side === 1) === r.at < mid;
+  const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as LivePending["type"];
+  a.pending = { ...a.pending, [pair]: { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null } };
+  return null;
+}
+export function cancelPending(a: BookAccount, pair: string): string | null {
+  if (!a.pending?.[pair]) return "There is no pending order to cancel.";
+  const { [pair]: _gone, ...rest } = a.pending;
+  a.pending = rest;
+  return null;
+}
+// The pending orders the live price has reached fill now, each at that pair's live price, as a click would; one that
+// can no longer be placed (the account too low, say) is dropped and said, never left waiting for ever.
+export function triggerPending(a: BookAccount, usd: Usd, now: number, trading: (pair: string) => boolean = () => true): (BookFill | { kind: "pending-refused"; pair: string; reason: string })[] {
+  const out: (BookFill | { kind: "pending-refused"; pair: string; reason: string })[] = [];
+  for (const [pair, p] of Object.entries(a.pending ?? {})) {
+    if (!trading(pair)) continue;
+    const mid = cross(usd, pair);
+    const reached = p.type === "buy-limit" || p.type === "sell-stop" ? mid <= p.at : mid >= p.at;
+    if (!reached) continue;
+    cancelPending(a, pair);
+    const done = order(a, pair, usd, p.side, p.leverage, p.share, { sl: p.sl, tp: p.tp }, now);
+    if (typeof done === "string") out.push({ kind: "pending-refused", pair, reason: done });
+    else out.push(...done);
+  }
+  return out;
+}
 
 export const MAX_ALERTS = 5;
 // Set an alert on a pair at a level, which must be on one side of the price now; replaces one already at that level.

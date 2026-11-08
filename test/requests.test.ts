@@ -11,6 +11,9 @@ it("constructs mode-specific requests and rejects missing required choices befor
   expect(makeAction("rewind", "accept", { code: "a1b2c3" })).toEqual({ mode: "rewind", kind: "accept", code: "a1b2c3" });
   expect(makeAction("live", "alert", { at: 1.1, pair: "EUR/USD" })).toEqual({ mode: "live", kind: "alert", at: 1.1, pair: "EUR/USD" });
   expect(makeAction("live", "unalert", { at: 1.1, pair: "AUD/JPY" })).toEqual({ mode: "live", kind: "unalert", at: 1.1, pair: "AUD/JPY" });
+  // Live's pending order, one per pair, carries the chart's pair
+  expect(makeAction("live", "pend", { side: -1, at: 1.1, leverage: 10, share: 0.25, sl: null, tp: null, pair: "EUR/USD" })).toEqual({ mode: "live", kind: "pend", side: -1, at: 1.1, leverage: 10, share: 0.25, sl: null, tp: null, pair: "EUR/USD" });
+  expect(makeAction("live", "unpend", { pair: "EUR/USD" })).toEqual({ mode: "live", kind: "unpend", pair: "EUR/USD" });
   expect(() => makeAction("live", "start")).toThrow("Invalid action for mode");
   expect(() => makeAction("random", "buy")).toThrow("Invalid action number");
 });

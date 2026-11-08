@@ -1085,8 +1085,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .duel { margin: 0; padding: 0.4rem 0.9rem; font-size: 0.82rem; color: var(--ink); background: var(--raise); }
 .duel[hidden], .duel-result[hidden] { display: none; }
 .duel-result { margin: 0.3rem 0; font-weight: 700; }
-/* Live's price alerts (ADR 0095): a typed level and a button, then the alerts set, each with a cancel. */
-.alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.4rem 0.9rem; font-size: 0.82rem; }
+/* Live's price alerts (ADR 0095), under the pending order in the order card: a typed level and a button, then the
+   alerts set, each with a cancel; flush with the card's other rows. */
+.alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.4rem 0 0; font-size: 0.82rem; }
 .alerts[hidden] { display: none; }
 .alerts input { width: 7rem; font: 600 0.82rem var(--mono); }
 .alerts ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font: 600 0.8rem var(--mono); }
@@ -1104,9 +1105,9 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .what-if li.down span { color: var(--down); }
 .what-if li.yours { font-weight: 800; }
 .what-if li em { font: italic 400 0.75rem var(--sans, inherit); color: var(--muted); }
-/* Live (ADR 0087): a market with no round, so no lobby, praying, pending order or round controls; the board in the
-   room's place, the account's other pairs under the position, and the real calendar with links to its sources. */
-body.live .prayers, body.live #pend, body.live #round-ctl, body.live #guess { display: none; }
+/* Live (ADR 0087): a market with no round, so no lobby, praying or round controls; the board in the room's place,
+   the account's other pairs under the position, and the real calendar. A pending order works per pair, as a click. */
+body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
 .board { list-style: none; margin: 0; padding: 0.3rem 0.9rem; display: grid; gap: 0.25rem; }
 .board li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; min-width: 0; }
 .board li strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

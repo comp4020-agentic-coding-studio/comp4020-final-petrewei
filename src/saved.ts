@@ -23,6 +23,7 @@ const tradeValid = (v: unknown): boolean => record(v) && isPair(v.pair) && (v.si
 const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["balance", "debt", "interest", "cuts", "opened", "peak", "slot"])
   && optional(v.day, string) && optional(v.dayWorth, finite)
   && optional(v.alerts, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && finite(x.at) && typeof x.above === "boolean"))
+  && optional(v.pending, (ps) => record(ps) && Object.entries(ps).every(([pair, p]) => isPair(pair) && record(p) && ["buy-limit", "buy-stop", "sell-limit", "sell-stop"].includes(p.type as string) && (p.side === 1 || p.side === -1) && finite(p.at) && finite(p.leverage) && finite(p.share)))
   && optional(v.rang, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && numericFields(x, ["at", "when"])))
   && optional(v.yesterday, (y) => y === null || (record(y) && string(y.day) && numericFields(y, ["change", "trades"])))
   && typeof v.called === "boolean" && isPair(v.pair)
