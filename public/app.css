@@ -1072,6 +1072,14 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
   }
 }
 
+/* Live's price alerts (ADR 0095): a typed level and a button, then the alerts set, each with a cancel. */
+.alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; padding: 0.4rem 0.9rem; font-size: 0.82rem; }
+.alerts[hidden] { display: none; }
+.alerts input { width: 7rem; font: 600 0.82rem var(--mono); }
+.alerts ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; font: 600 0.8rem var(--mono); }
+/* Your Live run over the board (ADR 0095): one line, the day and the day's change. */
+.run { margin: 0; padding: 0.4rem 0.9rem 0; font: 600 0.8rem var(--mono); color: var(--soft); }
+.run[hidden] { display: none; }
 /* The bell's "what if" (ADR 0095): three rows, each a leverage and what the trade would have made at it. */
 .what-if { margin: 0.4rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); }
 .what-if[hidden] { display: none; }

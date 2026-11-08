@@ -21,6 +21,10 @@ const positionValid = (v: unknown): boolean => record(v) && (v.side === 1 || v.s
 const tradeValid = (v: unknown): boolean => record(v) && isPair(v.pair) && (v.side === 1 || v.side === -1)
   && ["close", "stop", "take", "stopout"].includes(String(v.how)) && numericFields(v, ["leverage", "entry", "exit", "pnl", "pct", "at"]);
 const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["balance", "debt", "interest", "cuts", "opened", "peak", "slot"])
+  && optional(v.day, string) && optional(v.dayWorth, finite)
+  && optional(v.alerts, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && finite(x.at) && typeof x.above === "boolean"))
+  && optional(v.rang, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && numericFields(x, ["at", "when"])))
+  && optional(v.yesterday, (y) => y === null || (record(y) && string(y.day) && numericFields(y, ["change", "trades"])))
   && typeof v.called === "boolean" && isPair(v.pair)
   && record(v.positions) && Object.entries(v.positions).every(([pair, pos]) => isPair(pair) && positionValid(pos))
   && Array.isArray(v.trades) && v.trades.every(tradeValid);

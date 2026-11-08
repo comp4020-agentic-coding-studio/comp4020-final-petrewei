@@ -306,6 +306,12 @@
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
       <!-- Live (ADR 0087): every pair open in the account, each with its own close. -->
       <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
+      <!-- Live's price alerts (ADR 0095): tell me when the chart's pair reaches a price; each set one, with a cancel. -->
+      <form class="alerts" id="alerts" hidden>
+        <label><span data-t="alertAt">Tell me at</span> <input id="alert-at" type="number" inputmode="decimal" step="any" min="0" data-tip="alertAt" data-t-aria="alertAt"></label>
+        <button type="submit" class="ghost" id="alert-set" data-t="alertSet" data-tip="alertSet">Set alert</button>
+        <ul id="alert-list"></ul>
+      </form>
       <details class="history" id="history" hidden>
         <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
         <table>
@@ -341,7 +347,9 @@
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
       <ol id="traders"></ol>
-      <!-- Live's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt. -->
+      <!-- Live's board (ADR 0087): the accounts that lasted longest, running or gone bankrupt; above it, your own run's
+           day and its change today and yesterday (ADR 0095). -->
+      <p class="run" id="run" hidden></p>
       <ol class="board" id="board" hidden></ol>
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">

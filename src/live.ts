@@ -9,7 +9,7 @@ import type { LiveState } from "../public/protocol.js";
 // the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
 // order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
 import { join } from "node:path";
-import { type BookAccount, type BookFill, borrow, bankrupt, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, used, worth } from "./book.ts";
+import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, ringAlerts, setAlert, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
 import { pipOf } from "../public/ticket.js";
@@ -215,6 +215,21 @@ export class Live {
     }
     // and the rules on the price now
     const usd = this.quotes.latest()!;
+    // alerts the price has reached are told to their owner alone, and kept until they see them (ADR 0095)
+    for (const acc of this.accounts.values()) {
+      const rang = ringAlerts(acc, usd);
+      if (rang.length) {
+        acc.rang = [...(acc.rang ?? []), ...rang.map((x) => ({ pair: x.pair, at: x.at, when: now }))].slice(-10);
+        this.dirty = true;
+      }
+      // a rung alert stays in its owner's feed for a day
+      if (acc.rang?.some((x) => now - x.when > 86_400_000)) {
+        acc.rang = acc.rang.filter((x) => now - x.when <= 86_400_000);
+        this.dirty = true;
+      }
+    }
+    // a new Sydney day for each account, its last day kept as yesterday (ADR 0095)
+    for (const acc of this.accounts.values()) if (rollDay(acc, usd, now)) this.dirty = true;
     for (const [k, a] of this.accounts) {
       if (this.quotes.live(Object.keys(a.positions))) this.report(k, enforce(a, usd, now));
     }
@@ -275,6 +290,22 @@ export class Live {
     const k = this.w.key(who);
     const a = this.preview(k, now);
     if (!a) return "Your account is closed until midnight in Sydney.";
+    // an alert, on a pair at a level the player typed (ADR 0095): it only tells, so it needs no live price to cancel
+    if (kind === "alert" || kind === "unalert") {
+      const pair = isPair(input.pair) ? input.pair : a.pair;
+      const at = Number(input.at);
+      if (kind === "unalert") {
+        const out = cancelAlert(a, pair, at);
+        if (!out) this.dirty = true;
+        return out;
+      }
+      const usd = this.quotes.latest();
+      if (!usd) return "The market is closed: prices are not live. Orders wait for the next price.";
+      if (!this.accounts.has(k)) return "Trade first: an alert is kept with your account.";
+      const out = setAlert(a, pair, usd, at);
+      if (!out) this.dirty = true;
+      return out;
+    }
     if (kind === "pair") {
       if (!isPair(input.pair)) return "No such pair.";
       a.pair = input.pair;
@@ -402,6 +433,12 @@ export class Live {
         bankrupt: !a,
         cuts: a?.cuts ?? 0,
         opened: a?.opened ?? null,
+        // Live's daily line (ADR 0095): today's change from the day's start, yesterday's, and the days the account has run
+        today: a && usd && a.dayWorth !== undefined ? Math.round(worth(a, usd)) - a.dayWorth : null,
+        yesterday: a?.yesterday ?? null,
+        // your alerts, and the ones that rang today, which only you see
+        alerts: a?.alerts ?? [],
+        days: a ? Math.floor((now - a.opened) / 86_400_000) + 1 : 0,
         peak: a?.peak ?? null,
         used: a ? used(a) : 0,
         pos: pos && { side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, called: !!a?.called, call: pos.call, cut: pos.cut, pnl: pos.pnl },
@@ -411,7 +448,8 @@ export class Live {
         trades: (a?.trades ?? []).slice(-20).reverse(),
       },
       traders: [],
-      feed: this.feed,
+      // the shared feed, with your own rung alerts first: a line each, for you alone
+      feed: [...(a?.rang ?? []).slice().reverse().map((x) => ({ text: `${x.pair} reached ${x.at}.`, kind: "info", key: "alert-rang", args: { pair: x.pair, at: x.at } })), ...this.feed],
       pops: [],
       marks: [],
       result: null,

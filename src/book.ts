@@ -14,7 +14,12 @@ const BUST = 100;
 
 export type BookPosition = { side: Side; units: number; entry: number; margin: number; leverage: number; stop: number | null; take: number | null; fees: number; opened: number };
 export type BookTrade = { pair: string; side: Side; leverage: number; entry: number; exit: number; how: "close" | "stop" | "take" | "stopout"; pnl: number; pct: number; at: number };
-export type BookAccount = { balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
+// `day` is the Sydney date the account's day began and `dayWorth` its net worth then; `yesterday` the day before's
+// change and trade count, for Live's daily line (ADR 0095). All optional, so an account saved before them loads.
+// An alert (ADR 0095): tell the player when a pair's price reaches `at`, from `above` or below it. A few at most, kept
+// with the account; `told` holds the ones that rang, for the player's own feed until they are seen.
+export type Alert = { pair: string; at: number; above: boolean };
+export type BookAccount = { alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
 export type BookFill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout"; pair: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 export const fresh = (now: number, slot: number, pair = "AUD/USD"): BookAccount => ({ balance: START, debt: 0, interest: 0, positions: {}, called: false, cuts: 0, trades: [], opened: now, peak: START, slot, pair });
@@ -167,6 +172,49 @@ export function repay(a: BookAccount): string | null {
 }
 
 export const bankrupt = (a: BookAccount, usd: Usd): boolean => !Object.keys(a.positions).length && worth(a, usd) < BUST;
+
+export const MAX_ALERTS = 5;
+// Set an alert on a pair at a level, which must be on one side of the price now; replaces one already at that level.
+export function setAlert(a: BookAccount, pair: string, usd: Usd, at: number): string | null {
+  const mid = cross(usd, pair);
+  if (!Number.isFinite(at) || at <= 0) return "Type the price to be told about.";
+  if (Math.abs(at / mid - 1) > 0.5) return "An alert must be within 50% of the price.";
+  if (at === mid) return "That is the price now.";
+  const alerts = (a.alerts ?? []).filter((x) => !(x.pair === pair && x.at === at));
+  if (alerts.length >= MAX_ALERTS) return "You have five alerts already. Cancel one first.";
+  a.alerts = [...alerts, { pair, at, above: at > mid }];
+  return null;
+}
+export function cancelAlert(a: BookAccount, pair: string, at: number): string | null {
+  const before = (a.alerts ?? []).length;
+  a.alerts = (a.alerts ?? []).filter((x) => !(x.pair === pair && x.at === at));
+  return a.alerts.length === before ? "There is no such alert." : null;
+}
+// The alerts the price has reached, taken off the account and returned, oldest set first.
+export function ringAlerts(a: BookAccount, usd: Usd): Alert[] {
+  if (!a.alerts?.length) return [];
+  const rang = a.alerts.filter((x) => { const mid = cross(usd, x.pair); return x.above ? mid >= x.at : mid <= x.at; });
+  if (rang.length) a.alerts = a.alerts.filter((x) => !rang.includes(x));
+  return rang;
+}
+
+// The date in Sydney at `now`, as YYYY-MM-DD: the name of a Live day, which daylight saving cannot shift.
+export const sydneyDay = (now: number): string => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
+
+// A new Sydney day for an account (ADR 0095): the day that ends is kept as yesterday, its change in net worth and how
+// many trades closed in it, and the new day starts from net worth now. Nothing changes within a day.
+export function rollDay(a: BookAccount, usd: Usd, now: number): boolean {
+  const today = sydneyDay(now);
+  if (a.day === today) return false;
+  const nowWorth = Math.round(worth(a, usd));
+  if (a.day !== undefined && a.dayWorth !== undefined) {
+    const since = a.trades.filter((t) => sydneyDay(t.at) === a.day).length;
+    a.yesterday = { day: a.day, change: nowWorth - a.dayWorth, trades: since };
+  }
+  a.day = today;
+  a.dayWorth = nowWorth;
+  return true;
+}
 
 // The next midnight in Sydney after `now`, when a bankrupt player's new account opens.
 export function nextSydneyMidnight(now: number): number {

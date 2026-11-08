@@ -15,6 +15,44 @@ import { spark } from "./yahoo-fake.ts";
 const usd = (over: Partial<Usd> = {}): Usd => ({ EUR: 1.12, GBP: 1.35, AUD: 0.7, USD: 1, CHF: 1 / 0.82, CNY: 1 / 6.67, JPY: 1 / 158, ...over });
 
 describe("the Live book", () => {
+  // ADR 0095: a price alert rings once when the price reaches its level, from whichever side it was set, and is gone.
+  it("rings an alert once when the price reaches it, and refuses one it cannot keep", async () => {
+    const { setAlert, ringAlerts, cancelAlert } = await import("../src/book.ts");
+    const a = fresh(0, 0);
+    expect(setAlert(a, "AUD/USD", usd(), 0.71)).toBeNull();
+    expect(setAlert(a, "AUD/USD", usd(), 0.69)).toBeNull();
+    expect(ringAlerts(a, usd()), "nothing reached yet").toEqual([]);
+    expect(ringAlerts(a, usd({ AUD: 0.711 })).map((x) => x.at), "the one above rings when the price rises to it").toEqual([0.71]);
+    expect(a.alerts!.map((x) => x.at)).toEqual([0.69]);
+    expect(ringAlerts(a, usd({ AUD: 0.711 })), "a rung alert does not ring again").toEqual([]);
+    expect(setAlert(a, "AUD/USD", usd(), 0)).toMatch(/Type the price/);
+    expect(setAlert(a, "AUD/USD", usd(), 2)).toMatch(/within 50%/);
+    for (const at of [0.72, 0.73, 0.74, 0.75]) setAlert(a, "AUD/USD", usd(), at);
+    expect(setAlert(a, "AUD/USD", usd(), 0.76)).toMatch(/five alerts/);
+    expect(cancelAlert(a, "AUD/USD", 0.72)).toBeNull();
+    expect(cancelAlert(a, "AUD/USD", 0.72)).toMatch(/no such alert/);
+  });
+
+  // ADR 0095: Live's daily line. Each Sydney day an account starts from its net worth then; at the next midnight there,
+  // the day it closes is kept as yesterday, its change and the trades closed in it. Nothing moves within a day.
+  it("keeps each Sydney day's change and trades, and starts the next from net worth then", async () => {
+    const { rollDay, sydneyDay } = await import("../src/book.ts");
+    // 23:00 on 8 November in Sydney (UTC+11) is 12:00 UTC; midnight there is 13:00 UTC
+    const evening = Date.UTC(2026, 10, 8, 12);
+    const morning = Date.UTC(2026, 10, 8, 14);
+    expect(sydneyDay(evening)).toBe("2026-11-08");
+    expect(sydneyDay(morning)).toBe("2026-11-09");
+    const a = fresh(evening, 0);
+    expect(rollDay(a, usd(), evening)).toBe(true);
+    expect(a).toMatchObject({ day: "2026-11-08", dayWorth: START });
+    expect(rollDay(a, usd(), evening + 30 * 60_000), "the same day changes nothing").toBe(false);
+    a.balance += 250;
+    a.trades.push({ pair: "AUD/USD", side: 1, leverage: 10, entry: 0.7, exit: 0.71, how: "close", pnl: 250, pct: 0.1, at: evening + 60_000 });
+    expect(rollDay(a, usd(), morning)).toBe(true);
+    expect(a.yesterday).toEqual({ day: "2026-11-08", change: 250, trades: 1 });
+    expect(a).toMatchObject({ day: "2026-11-09", dayWorth: START + 250 });
+  });
+
   // ADR 0094: a pair either way round is a market of its own. Buying AUD/EUR and selling EUR/AUD are the same bet on
   // the Australian dollar against the euro: when the euro falls, each makes about the same in Australian dollars.
   it("trades a pair either way round, buying one the mirror of selling the other", () => {

@@ -913,11 +913,44 @@ function realCalendar(s) {
     }),
   );
 }
+// Live's price alerts (ADR 0095): a level on the chart's pair, typed and set; the server tells you alone when the price
+// reaches it. Each alert listed with a cancel, the chart's pair or another.
+function alerts(s) {
+  const on = s.mode === "live" && !s.you.out;
+  $("alerts").hidden = !on;
+  if (!on) return;
+  if (document.activeElement !== $("alert-at") && !$("alert-at").value) $("alert-at").placeholder = s.prices.length ? quoted(s.prices.at(-1)) : "";
+  $("alert-list").replaceChildren(...(s.you.alerts ?? []).map((x) => {
+    const li = document.createElement("li");
+    const cancel = Object.assign(document.createElement("button"), { type: "button", className: "mini", textContent: t("pendCancel") });
+    cancel.onclick = () => act("unalert", { pair: x.pair, at: x.at });
+    li.append(`${x.pair} ${x.above ? "≥" : "≤"} ${quoted(x.at)} `, cancel);
+    return li;
+  }));
+}
+$("alerts").onsubmit = (e) => {
+  e.preventDefault();
+  const at = Number($("alert-at").value);
+  if (!(at > 0)) return;
+  act("alert", { at });
+  $("alert-at").value = "";
+};
+
 // Live's board in the room's place (ADR 0087): who lasted longest, running or bankrupt.
 function board(s) {
   const on = shows(s).board;
   $("board").hidden = !on;
   $("traders").hidden = on;
+  // your run, while your account is open: the day it is on, today's change so far, and yesterday's with its trades
+  const y = s.you;
+  $("run").hidden = !on || y.out || !y.days;
+  if (on && !y.out && y.days) {
+    const signed = (n) => `${n >= 0 ? "+" : ""}${cash(n)}`;
+    const parts = [t("runDay", { n: y.days })];
+    if (y.today !== null && y.today !== undefined) parts.push(t("runToday", { change: signed(y.today) }));
+    if (y.yesterday) parts.push(t("runYesterday", { change: signed(y.yesterday.change), n: y.yesterday.trades }));
+    $("run").textContent = parts.join(" · ");
+  }
   if (!on) return;
   $("board").replaceChildren(...(s.board ?? []).map((r) => {
     const li = document.createElement("li");
@@ -1272,6 +1305,7 @@ function render(s) {
   }
   feats(s);
   book(s);
+  alerts(s);
   // This round's closed trades, newest first, each with its verdict (ADR 0081); hidden until there is one. The list is
   // rebuilt only when it changes, so an open row's place under the reader's cursor is kept.
   const trades = y.trades ?? [];

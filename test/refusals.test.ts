@@ -4,7 +4,7 @@
 // refusals and checks that every one comes back with a translation in every language.
 import { expect, it } from "vitest";
 import { Desk } from "../src/fx.ts";
-import { borrow, close, exit, fresh, order, repay } from "../src/book.ts";
+import { borrow, cancelAlert, close, exit, fresh, order, repay, setAlert } from "../src/book.ts";
 import { T } from "../public/i18n.js";
 
 const usd = { EUR: 1.12, GBP: 1.35, AUD: 0.7, USD: 1, CHF: 1 / 0.82, CNY: 1 / 6.67, JPY: 1 / 158 };
@@ -57,6 +57,13 @@ function refusals(): string[] {
   keep(exit(a, "AUD/USD", usd, "take", 3));
   while (borrow(a) === null);
   keep(borrow(a));
+  // Live's price alerts (ADR 0095)
+  keep(setAlert(a, "AUD/USD", usd, 0));
+  keep(setAlert(a, "AUD/USD", usd, 5));
+  keep(setAlert(a, "AUD/USD", usd, usd.AUD / usd.USD));
+  keep(cancelAlert(a, "AUD/USD", 0.5));
+  for (const at of [0.71, 0.72, 0.73, 0.74, 0.75]) setAlert(a, "AUD/USD", usd, at);
+  keep(setAlert(a, "AUD/USD", usd, 0.76));
   return [...new Set(said)];
 }
 
