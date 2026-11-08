@@ -1682,6 +1682,8 @@ export function createApp(options: AppOptions = {}) {
             log(who, "refused", { mode: market.mode, action: kind, why: error });
             return json(res, 409, { error });
           }
+          // a duel is between two people, so its line names the other by short code (ADR 0095)
+          if (kind === "challenge" || kind === "accept") log(who, kind, { mode: market.mode, them: input.code });
           market.broadcast(true);
           return json(res, 200, { ok: true });
         }

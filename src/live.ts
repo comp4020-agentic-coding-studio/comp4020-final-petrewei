@@ -302,14 +302,20 @@ export class Live {
       const at = Number(input.at);
       if (kind === "unalert") {
         const out = cancelAlert(a, pair, at);
-        if (!out) this.dirty = true;
+        if (!out) {
+          this.dirty = true;
+          this.log(who, "live-unalert", { pair, at });
+        }
         return out;
       }
       const usd = this.quotes.latest();
       if (!usd) return "The market is closed: prices are not live. Orders wait for the next price.";
       if (!this.accounts.has(k)) return "Trade first: an alert is kept with your account.";
       const out = setAlert(a, pair, usd, at);
-      if (!out) this.dirty = true;
+      if (!out) {
+        this.dirty = true;
+        this.log(who, "live-alert", { pair, at });
+      }
       return out;
     }
     if (kind === "pair") {

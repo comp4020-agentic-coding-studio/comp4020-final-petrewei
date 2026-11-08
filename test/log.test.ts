@@ -311,3 +311,45 @@ it("moves a hall saved in yen to Australian dollars once, keeping its scores", a
   await s.restart();
   expect((await hall()).find((c) => c.name === "Hikari")).toMatchObject({ profit: 2_000, best: 900 });
 }, 20_000);
+
+// A duel's challenge and accept, and a Live alert set and cancelled, each leave a line by short code, so the crit's
+// narrator can tell from the log alone who challenged whom and who waited on a price (CLAUDE.md, Week 10).
+it("logs a duel's challenge and accept, and a Live alert set and cancelled", async () => {
+  const { createServer } = await import("node:http");
+  const { spark } = await import("./yahoo-fake.ts");
+  const feed = createServer((_req, res) => {
+    const t = Math.floor(Date.now() / 1000);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(spark(t, [t - 1800, t - 900])));
+  }).listen(8099);
+  try {
+    s = await server(8097, { STATS_KEY: KEY, LIVE_FEED: "http://localhost:8099", LIVE_NEWS: "off", LIVE_POLL_MS: "200" });
+    const { visitor, page, act } = app();
+    const a = await visitor();
+    const b = await visitor();
+    const tabs = [await page(a, "random"), await page(b, "random")];
+    try {
+      const code = async (who: string) => ((await (await fetch(`${s.base}/api/state?mode=random`, { headers: { cookie: who } })).json()) as { you: { code: string } }).you.code;
+      const [codeA, codeB] = [await code(a), await code(b)];
+      expect((await act(a, { kind: "challenge", code: codeB, mode: "random" })).status).toBe(200);
+      expect((await act(b, { kind: "accept", code: codeA, mode: "random" })).status).toBe(200);
+    } finally {
+      for (const t of tabs) t.close();
+    }
+    const live = await page(a, "live");
+    try {
+      const state = async () => (await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: a } })).json()) as { live: boolean; prices: number[] };
+      for (let i = 0; i < 50 && !(await state()).live; i++) await new Promise((r) => setTimeout(r, 100));
+      expect((await act(a, { kind: "buy", mode: "live", leverage: 1, share: 0.25 })).status).toBe(200);
+      const at = Number(((await state()).prices.at(-1)! * 1.01).toPrecision(5));
+      expect((await act(a, { kind: "alert", mode: "live", at })).status).toBe(200);
+      expect((await act(a, { kind: "unalert", mode: "live", at })).status).toBe(200);
+    } finally {
+      live.close();
+    }
+    const evs = (await log()).recent.map((l) => l.ev);
+    for (const ev of ["challenge", "accept", "live-alert", "live-unalert"]) expect(evs, ev).toContain(ev);
+  } finally {
+    feed.close();
+  }
+}, 30_000);
