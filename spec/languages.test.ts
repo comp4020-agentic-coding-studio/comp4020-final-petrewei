@@ -50,7 +50,10 @@ it("serves a player's About page in each language, and keeps the course README",
     expect(doc!.querySelectorAll("h2").length, path).toBeGreaterThanOrEqual(4);
     expect(doc!.body.textContent, path).toContain("1800 858 858");
   }
-  expect((await get("/readme/")).res.status).toBe(200);
+  // the course README is a public page too, so it says what every public page says: an unofficial fan parody
+  const readme = await get("/readme/");
+  expect(readme.res.status).toBe(200);
+  expect(readme.doc!.querySelector("footer")?.textContent ?? "", "/readme/ footer").toContain("unofficial fan parody");
 });
 
 // The About page carries the market's header tools and its footer, and none of what only the
