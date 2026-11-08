@@ -371,3 +371,24 @@ test("challenges someone to a duel from the room, and sets and cancels a price a
   await expect(page.locator("#error")).toHaveText("");
   expect(errors).toEqual([]);
 });
+
+// A slider's note is read whole at any width: on a phone it takes its own line under the label rather than an
+// ellipsis, at the leverage's extremes and the whole margin, which only a browser can measure.
+test("shows the leverage's and margin's notes whole, at either end of the slider", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  for (const mode of ["rewind", "live"]) {
+    await page.locator(`[data-mode="${mode}"]`).click();
+    await page.locator("#margin").focus();
+    await page.keyboard.press("End");
+    for (const key of ["End", "Home"]) {
+      await page.locator("#leverage").focus();
+      await page.keyboard.press(key);
+      for (const id of ["fee-note", "margin-note"]) {
+        const note = page.locator(`#${id}`);
+        await expect(note).not.toHaveText("");
+        expect(await note.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), `${mode} ${key} ${id}: ${await note.textContent()}`).toBe(true);
+      }
+    }
+  }
+});

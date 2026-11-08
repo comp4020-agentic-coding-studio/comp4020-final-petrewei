@@ -107,7 +107,9 @@ export function fillSpan(kind, value, min, max) {
 // leverage squared each tick, and a minute is `ticksPerMinute` ticks.
 export function feePerMinute(fee, leverage, ticksPerMinute) {
   const p = fee * leverage * leverage * ticksPerMinute * 100;
-  return `${p < 0.01 ? p.toPrecision(1) : p.toFixed(p < 1 ? 2 : 1)}%`;
+  // below a thousandth of a percent the cost is nothing a player can feel, and its digits only crowd the note
+  if (p < 0.001) return "<0.001%";
+  return `${p < 0.01 ? p.toFixed(3) : p.toFixed(p < 1 ? 2 : 1)}%`;
 }
 
 // A slider's heat, 0 calm to 1 alarm (ADR 0059): green up to the legal cap, amber
