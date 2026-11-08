@@ -28,6 +28,7 @@ The modes were renamed twice. Records written before 7 November use the names in
 - [0092](0092-round-messages-send-what-changed.md) Round messages send what changed
 - [0094](0094-every-pair-either-way-round.md) Every pair, either way round
 - [0095](0095-gameplay-for-the-player-and-the-room.md) Gameplay for the player and the room
+- [0096](0096-an-ai-agent-plays-live-through-mcp.md) An AI agent plays Live through MCP
 
 ## 2 Replaced or Superseded
 

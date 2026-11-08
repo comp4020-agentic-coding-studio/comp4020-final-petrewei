@@ -117,6 +117,7 @@ What the game must never do, from my own decisions and its ADRs.
 - **Put the language in the address, never the market:** see ADR 0016. People reading any language share the same rooms.
 - **Satirise the habits and the system, never the people they hurt:** never use Kurumi's mother or her death, in any language.
 - **Use no official art or music, and copy no passage from the comic:** its characters may appear by name (ADR 0015); every public page says it is an unaffiliated fan parody.
+- **An AI agent trades only through Live's own action:** every MCP tool in `src/mcp.ts` calls `liveMarket.act`, the action a page sends, never its own logic, so an agent can bend no rule a person cannot; agents play Live only, by ADR 0096.
 - **Credit every price source wherever its prices appear:** HistData, the ECB, Frankfurter and Yahoo Finance, as the footer does, and say which prices are generated: Random's, and the moves between the ECB's daily closes. Rewind replays real prices; only Live trades today's.
 
 ## 15 Workflow Rules
