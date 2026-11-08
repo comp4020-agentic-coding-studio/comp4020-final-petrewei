@@ -162,7 +162,16 @@ it("removes one Live account by its short code, for the operator alone", async (
     const board = async () => ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: keep } })).json()) as { board: { code?: string; key?: string; name: string }[]; live: boolean });
     try {
       for (let i = 0; i < 50 && !(await board()).live; i++) await new Promise((r) => setTimeout(r, 100));
-      for (const who of [junk, keep]) expect((await act(who, { kind: "buy", mode: "live", leverage: 1, share: 0.25 })).status).toBe(200);
+      // a buy just after a fifteen-minute slot turns can meet Live settling the slot for the first account's position,
+      // a brief wait by design; this check is about removal, so it buys once Live accepts, failing if it never does
+      for (const who of [junk, keep]) {
+        let status = 0;
+        for (let i = 0; i < 30 && status !== 200; i++) {
+          status = (await act(who, { kind: "buy", mode: "live", leverage: 1, share: 0.25 })).status;
+          if (status !== 200) await new Promise((r) => setTimeout(r, 200));
+        }
+        expect(status).toBe(200);
+      }
     } finally {
       tab.close();
     }
