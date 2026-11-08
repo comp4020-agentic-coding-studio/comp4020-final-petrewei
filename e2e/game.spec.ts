@@ -330,3 +330,44 @@ test("opens a tab from its name in the address", async ({ page }, info) => {
     await expect(page.locator(`[data-mode="${mode}"]`), `#${hash}`).toHaveAttribute("aria-selected", "true");
   }
 });
+
+// ADR 0095: a duel and an alert go through the page's own buttons to the server, which only a browser shows; the
+// server's rules for both are checked in the unit tests.
+test("challenges someone to a duel from the room, and sets and cancels a price alert in Live", async ({ page, browser }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  test.skip(info.project.name !== `${lang}-desktop`, "one viewport per language carries the clicks");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await join(page, lang);
+  const other = await browser.newContext({ viewport: page.viewportSize()! });
+  try {
+    const rival = await other.newPage();
+    rival.on("pageerror", (error) => errors.push(error.message));
+    const rivalName = await join(rival, lang);
+    for (const p of [page, rival]) await p.locator('[data-mode="random"]').click();
+    await page.locator("#traders li.challengeable").filter({ hasText: rivalName }).click();
+    await expect(rival.locator("#duel")).toBeVisible();
+    await expect(rival.locator("#duel-accept")).toBeVisible();
+    await rival.locator("#duel-accept").click();
+    await expect(page.locator("#duel")).toBeVisible();
+    await expect(page.locator("#duel-accept")).toBeHidden();
+    await expect(page.locator("#traders li").filter({ hasText: rivalName }).locator(".badge", { hasText: "⚔" })).toBeVisible();
+    await expect(page.locator("#error")).toHaveText("");
+  } finally {
+    await other.close();
+  }
+  await page.locator('[data-mode="live"]').click();
+  await expect(page.locator("#alerts")).toBeVisible();
+  // an alert is kept with a Live account, which a first trade opens
+  await page.locator("#buy").click();
+  await expect(page.locator("#error")).toHaveText("");
+  const near = (Number(await page.locator("#alert-at").getAttribute("placeholder")) * 1.01).toPrecision(5);
+  await page.locator("#alert-at").fill(near);
+  await page.locator("#alert-set").click();
+  await expect(page.locator("#alert-list li")).toHaveCount(1);
+  await expect(page.locator("#alert-list li")).toContainText(near.slice(0, 4));
+  await page.locator("#alert-list li button").click();
+  await expect(page.locator("#alert-list li")).toHaveCount(0);
+  await expect(page.locator("#error")).toHaveText("");
+  expect(errors).toEqual([]);
+});

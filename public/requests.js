@@ -15,6 +15,7 @@ export function makeAction(mode, kind, fields = {}) {
   if (mode === "live") {
     if (kind === "pair" && typeof fields.pair === "string") return { mode, kind, pair: fields.pair };
     if (chosen) return { mode, ...chosen, ...(typeof fields.pair === "string" ? { pair: fields.pair } : {}) };
+    if (kind === "alert" || kind === "unalert") return { mode, kind, at: number(fields.at), ...(typeof fields.pair === "string" ? { pair: fields.pair } : {}) };
   } else if (mode === "tutorial") {
     if (kind === "stop" && typeof fields.pct === "number") return { mode, kind, pct: number(fields.pct) };
     if (kind === "play" || kind === "pause" || kind === "stop" || kind === "skip" || kind === "back" || kind === "again" || kind === "restart" || kind === "next") return { mode, kind };
@@ -24,6 +25,7 @@ export function makeAction(mode, kind, fields = {}) {
     if (kind === "start") return { mode, kind, ironman: fields.ironman === true };
     if (kind === "pause" || kind === "resume" || kind === "finish" || kind === "fast" || kind === "normal" || kind === "cancel" || kind === "hold" || kind === "dismiss" || kind === "unpend") return { mode, kind };
     if (kind === "choose" && (typeof fields.what === "number" || typeof fields.what === "string")) return { mode, kind, what: fields.what };
+    if ((kind === "challenge" || kind === "accept") && typeof fields.code === "string") return { mode, kind, code: fields.code };
     if (kind === "guess") return { mode, kind, year: number(fields.year) };
     if (kind === "pray") return { mode, kind, way: fields.way === -1 ? -1 : 1 };
     if (kind === "pend") return { mode, kind, side: fields.side === -1 ? -1 : 1, at: number(fields.at), leverage: number(fields.leverage), share: number(fields.share), sl: distance(fields.sl), tp: distance(fields.tp) };
