@@ -70,7 +70,9 @@ export function gauge(worth) {
 export const distPos = levPos;
 export const distAt = levAt;
 // What a move of `pct` percent makes or loses on a margin at a leverage.
-export const moveYen = (margin, leverage, pct) => Math.round((margin * leverage * pct) / 100);
+// What a move of `pct` percent makes or loses on an order of `margin` at `leverage`, in whole dollars: the money the
+// leverage puts in play, which is what the ticket shows a player before they buy (ADR 0095).
+export const movePerPct = (margin, leverage, pct = 1) => Math.round((margin * leverage * pct) / 100);
 
 // One track for both exits (ADR 0033): the stop loss on the left half,
 // its distance growing leftwards from 1% beside the middle to 50% at the

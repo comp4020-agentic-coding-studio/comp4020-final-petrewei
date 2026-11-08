@@ -12,7 +12,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { SHARES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, moveYen, pct, shareBar, shareMargin, verdict } from "/ticket.js";
+import { SHARES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted, sydneyTime, tone } from "/format.js";
@@ -218,9 +218,36 @@ function mark() {
   // The lit step moves on the moment a slider reaches the value it was asked for.
   if (state?.lesson) spotlight(state.lesson, state.phase === "moving");
 }
+// Live remembers the leverage and margin last set on each pair (ADR 0095), in this browser, so moving between pairs
+// keeps each one's; a round's pair is fixed for the round, so it needs none. Storage may be refused: then nothing is kept.
+const PAIR_CHOICES = "pairChoices";
+function rememberChoice() {
+  if (state?.mode !== "live") return;
+  try {
+    const kept = JSON.parse(localStorage.getItem(PAIR_CHOICES) ?? "{}");
+    kept[state.pair] = { leverage: choice.leverage, share: choice.share };
+    localStorage.setItem(PAIR_CHOICES, JSON.stringify(kept));
+  } catch {
+    // a private window keeps no choices
+  }
+}
+// The choice kept for a pair, if any, set on the sliders; true when there was one.
+function recallChoice(pair) {
+  try {
+    const kept = JSON.parse(localStorage.getItem(PAIR_CHOICES) ?? "{}")[pair];
+    if (!kept || !ladder.includes(kept.leverage) || !SHARES.includes(kept.share)) return false;
+    choice.leverage = kept.leverage;
+    choice.share = kept.share;
+    mark();
+    return true;
+  } catch {
+    return false;
+  }
+}
 $("leverage").oninput = () => {
   choice.leverage = ladder[Number($("leverage").value)];
   mark();
+  rememberChoice();
   if (state) (ticket(state), pending(state));
 };
 // Let go, and the thumb settles on the rung it chose.
@@ -228,6 +255,7 @@ $("leverage").onchange = mark;
 $("margin").oninput = () => {
   choice.share = SHARES[Number($("margin").value)];
   mark();
+  rememberChoice();
   if (state) (ticket(state), pending(state));
 };
 // The pixel props (ADR 0025), drawn once: they never change.
@@ -823,9 +851,8 @@ function ticket(s) {
   $("margin-order").style.left = `${bar.used * 100}%`;
   $("margin-order").style.width = `${bar.order * 100}%`;
   $("margin-box").classList.toggle("cut", bar.cut && !s.you.out);
-  const controls = margin * choice.leverage;
-  // beside the margin, what this order puts in and the position it controls, in dollars (ADR 0079)
-  $("margin-note").textContent = t("marginNote", { margin: cash(margin), controls: cash(controls) });
+  // beside the margin, what this order puts in and what each 1% the price moves makes or loses (ADRs 0079, 0095)
+  $("margin-note").textContent = t("marginNote", { margin: cash(margin), move: cash(movePerPct(margin, choice.leverage)) });
   // The preview's row is gone (ADR 0085): what a move against you costs joins the leverage's note, and with a position
   // open the opposite button says it closes it, where it would otherwise say what it earns on.
   const pos = s.you.pos;
@@ -1069,8 +1096,14 @@ function emptyLine(s, open) {
   return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
 }
 
+// The pair Live's chart showed last, so a change of pair brings back the choice kept for the new one.
+let livePair = null;
 function render(s) {
   state = s;
+  if (s.mode === "live" && seated && s.pair !== livePair) {
+    livePair = s.pair;
+    if (recallChoice(s.pair)) ticket(s);
+  } else if (s.mode !== "live") livePair = null;
   const tutorial = s.mode === "tutorial";
   // Whether orders are taken now: a round's trading, or a tutorial whose
   // price is standing still for the player's move.

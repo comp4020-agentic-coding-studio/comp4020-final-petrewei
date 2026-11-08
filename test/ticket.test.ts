@@ -148,11 +148,12 @@ describe("the stop and take profit distances", () => {
   });
 
   it("say what a move of that distance makes or loses", async () => {
-    const { moveYen } = await import("../public/ticket.js");
-    // ¥500,000 at 10×: a 1% move is ¥50,000
-    expect(moveYen(500_000, 10, 1)).toBe(50_000);
-    expect(moveYen(1_000_000, 25, 4)).toBe(1_000_000);
-    expect(moveYen(0, 25, 4)).toBe(0);
+    const { movePerPct } = await import("../public/ticket.js");
+    // A$5,000 at 10×: a 1% move is A$500, and a percent is the default the ticket shows
+    expect(movePerPct(5_000, 10, 1)).toBe(500);
+    expect(movePerPct(10_000, 30)).toBe(3_000);
+    expect(movePerPct(1_000_000, 25, 4)).toBe(1_000_000);
+    expect(movePerPct(0, 25, 4)).toBe(0);
   });
 });
 
