@@ -4,7 +4,7 @@ A shared currency market where everyone on a tab trades one price with play mone
 
 [日本語](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/ja.md) · [中文](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/zh.md)
 
-The [wiki](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/wiki) is the full guide to playing, in three languages.
+The [wiki](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/wiki) is the full guide, in three languages.
 
 **AI agent (optional):** any MCP client trades Live at `https://comp4020-final-petrewei.fly.dev/mcp` over HTTP, no key: `claude mcp add --transport http losscut https://comp4020-final-petrewei.fly.dev/mcp`.
 
@@ -19,9 +19,11 @@ Good means a room laughing at a wipe-out, then understanding why. Leverage is th
 - **One price, one room:** the server owns every price and fill; the room sees your side.
 - **Losing is public:** a stop-out (強制ロスカット) hits the feed; emergency credit charges a loan shark's rate.
 - **The past is a trap:** Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
-- **Risk reads in money:** the ticket says what a 1% move costs at your margin and leverage, and the bell replays your biggest trade at 1×, 30× and 1000×.
+- **Risk reads in money:** the ticket shows what a 1% move costs; the bell replays your biggest trade at 1×, 30× and 1000×.
 - **Company, then rivals:** seven comic characters trade beside you; duel a person.
-- **Beginners start safe:** ten lessons end in a wipe-out.
+- **Beginners start safe:** ten lessons end in wipe-out.
+
+![Architecture: pages and AI agents reach one Node process sharing the broker's rules](public/architecture.svg)
 
 ## Enforced and judged
 

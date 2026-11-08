@@ -1475,6 +1475,8 @@ export function createApp(options: AppOptions = {}) {
       ...Object.fromEntries(LANGS.flatMap((l) => [[`${prefix(l)}/`, [marketIn(l), HTML]], [`${prefix(l)}/about`, [aboutIn(l), HTML]]])),
       "/app.css": [read("public/app.css"), "text/css; charset=utf-8"],
       "/favicon.svg": [read("public/favicon.svg"), "image/svg+xml"],
+      // the README's architecture diagram at its path in the repo, so /readme/ and GitHub show the same image
+      "/public/architecture.svg": [read("public/architecture.svg"), "image/svg+xml"],
       "/readme": [readme, HTML],
     };
 

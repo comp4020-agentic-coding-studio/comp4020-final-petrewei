@@ -850,6 +850,8 @@ body.readme main { display: block; max-width: 44rem; margin: 0 auto; padding: 1.
 /* The players' About page reads wider than the course README. */
 body.about main { max-width: 60rem; }
 body.readme a { color: var(--pink); }
+/* an image in the README, such as the architecture diagram, fits the column at any width and never widens the page */
+body.readme img { display: block; max-width: 100%; height: auto; margin: 1rem 0; border-radius: 6px; }
 body.readme h1, body.readme h2 { color: var(--ink); }
 /* The About page: the logo in its language, a lead, then sections. */
 body.readme .logo { margin: 0 0 0.6rem; font-size: 1.6rem; }
