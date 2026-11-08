@@ -28,3 +28,17 @@ it("validates malformed provider rows before merging and preserves the last good
   expect(quotes.series("AUD/USD").prices).toEqual(prices);
   expect(quotes.diagnostics().failures).toBe(1);
 });
+it("names when the FX week next opens: Sunday 17:00 in New York, after the weekend or a holiday", async () => {
+  const { nextOpen } = await import("../src/history-policy.ts");
+  const at = (iso: string): string => new Date(nextOpen(Date.parse(iso))!).toISOString();
+  // Saturday 7 November 2026, noon UTC: the week opens Sunday 8 November at 17:00 New York, 22:00 UTC (EST)
+  expect(at("2026-11-07T12:00:00Z")).toBe("2026-11-08T22:00:00.000Z");
+  // Friday 6 November 2026 at 17:30 New York, just after the close: the same Sunday open
+  expect(at("2026-11-06T22:30:00Z")).toBe("2026-11-08T22:00:00.000Z");
+  // in summer New York is on EDT, so the open is 21:00 UTC: Saturday 4 July 2026 opens Sunday 5 July
+  expect(at("2026-07-04T12:00:00Z")).toBe("2026-07-05T21:00:00.000Z");
+  // Christmas Day 2026 is a Friday, closed from 17:00 on the 24th; the market stays shut to the Sunday open
+  expect(at("2026-12-25T12:00:00Z")).toBe("2026-12-27T22:00:00.000Z");
+  // during trading hours there is no next open to wait for
+  expect(nextOpen(Date.parse("2026-11-10T12:00:00Z"))).toBeNull();
+});

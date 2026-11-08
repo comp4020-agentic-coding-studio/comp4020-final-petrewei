@@ -1138,7 +1138,7 @@ function emptyLine(s, open) {
   const y = s.you;
   if (s.mode === "live") {
     if (y.out) return t("liveClosed", { at: s.reopens ? sydneyTime(s.reopens, lang) : "—" });
-    if (!s.live) return t(s.historyGap ? "liveGap" : "liveShut");
+    if (!s.live) return s.historyGap ? t("liveGap") : s.opens ? t("liveOpens", { at: sydneyTime(s.opens, lang) }) : t("liveShut");
     return t(y.positions.length ? "liveOther" : "noPos");
   }
   return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");

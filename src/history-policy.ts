@@ -20,6 +20,16 @@ function tradingSlot(slot: number): boolean {
 }
 
 
+// When the FX week next opens, by the same calendar, as a time in ms; null while it trades. The page names it when Live
+// is shut for the weekend or a holiday, so a closed market says when it comes back.
+export function nextOpen(now: number): number | null {
+  const first = Math.floor(now / SLOT_MS);
+  if (tradingSlot(first)) return null;
+  // at most a week and a holiday of slots ahead
+  for (let slot = first + 1; slot <= first + 4 * 96 * 2; slot++) if (tradingSlot(slot)) return slot * SLOT_MS;
+  return null;
+}
+
 export function slotQuality(slot: number, required: readonly Currency[], observed: ReadonlySet<Currency> | undefined, traded: boolean, now: number): Quality {
   if (required.every((cur) => cur === "USD" || observed?.has(cur))) return "observed";
   if (!traded && !tradingSlot(slot)) return "closed";

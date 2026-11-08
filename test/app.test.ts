@@ -341,6 +341,25 @@ it("restores a cached page with live controllers and a fresh stream", async () =
   } finally { dom.window.close(); }
 });
 
+// Live shut for the weekend says when the FX week opens, in Sydney time; shut by a mid-week outage, with no opening
+// sent, it says only that it is shut, so the page never promises a time that is not coming.
+it("tells a Live player when the weekend's shut market opens", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const shut = { mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: false, historyGap: false, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you };
+    const opens = Date.parse("2026-11-08T22:00:00Z");
+    await emit({ ...shut, opens });
+    const line = w.document.getElementById("position")!.textContent!;
+    expect(line).toContain(i18n.T.en.ui.liveOpens.replace("{at}", format.sydneyTime(opens, "en")));
+    await emit({ ...shut, opens: null });
+    expect(w.document.getElementById("position")!.textContent!).toContain(i18n.T.en.ui.liveShut);
+  } finally {
+    dom.window.close();
+  }
+});
+
 // A Live player with nothing open on the chart's pair is told why, and what they owe, as in every other tab: the line
 // had been rewritten for Live after the debt was added to it, so a Live borrower never saw the debt.
 it("tells a Live player with nothing open what they owe", async () => {

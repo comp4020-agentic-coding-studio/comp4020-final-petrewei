@@ -15,6 +15,7 @@ import { tradeAction } from "./actions.ts";
 import { LiveBots } from "./live-bots.ts";
 import { pipOf } from "../public/ticket.js";
 import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
+import { nextOpen } from "./history-policy.ts";
 import { News } from "./news.ts";
 import { ALL_PAIRS, isPair } from "./market.ts";
 import { systemClock, type Clock, type Timer } from "./clock.ts";
@@ -398,6 +399,8 @@ export class Live {
       phase: live ? "trade" as const : this.quotes.slots.length ? "shut" as const : "waiting" as const,
       live,
       historyGap: this.gap,
+      // when the FX week next opens, sent only while the calendar has it shut, never for a mid-week outage
+      opens: live ? null : nextOpen(now),
       // Live's chart: the indicators, and its days named by their date (ADR 0087)
       chart: { studies: true, days: "date" as const, slotMs: SLOT_MS },
       clock: { key: !this.quotes.slots.length ? "clockWait" as const : this.gap ? "clockGap" as const : live ? "clockLive" as const : "clockShut" as const, at: this.quotes.at || null },
