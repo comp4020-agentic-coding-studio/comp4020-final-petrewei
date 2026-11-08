@@ -70,7 +70,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "tabLive": "Real prices, all 21 pairs. Trade until you go bankrupt.",
+      "tabLive": "Real prices, all 42 pairs. Trade until you go bankrupt.",
       "alertAt": "A price on the chart's pair to be told about.",
       "alertSet": "Tell me when the price gets there.",
       "duelAccept": "Duel over this round: the higher score wins.",
@@ -620,7 +620,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "tabLive": "全21ペアの本物の価格。破産するまで続く。",
+      "tabLive": "全42ペアの本物の価格。破産するまで続く。",
       "alertAt": "チャートのペアで知らせてほしい価格。",
       "alertSet": "価格がそこに届いたら知らせる。",
       "duelAccept": "このラウンドで決闘。スコアが高いほうの勝ち。",
@@ -1168,7 +1168,7 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
-      "tabLive": "全部21个货币对的真实价格，玩到破产为止。",
+      "tabLive": "全部42个货币对的真实价格，玩到破产为止。",
       "alertAt": "图上货币对的提醒价。",
       "alertSet": "价格到了就提醒我。",
       "duelAccept": "本局对决：得分高者胜。",
