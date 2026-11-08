@@ -3,7 +3,8 @@
 import { quoted, aud } from "/format.js";
 
 const $ = (id) => document.getElementById(id);
-const time = new Intl.DateTimeFormat("en-AU", { timeStyle: "medium" });
+// the operator's browser zone, on a 24-hour clock like every other time in the game
+const time = new Intl.DateTimeFormat("en-AU", { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 
 // One log line in words, so the page can be read aloud without the JSON.
 function say(l) {

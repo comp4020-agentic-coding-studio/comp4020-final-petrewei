@@ -15,7 +15,7 @@ import { place, windowed } from "/view.js";
 import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { quoted, sydneyTime, tone } from "/format.js";
+import { localTime, quoted, setZone, tone, zoneName } from "/format.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -507,9 +507,9 @@ $("start").onclick = () => act("start", { ironman });
 // files, and a calm screen, the page's own reduced-motion rules on demand. Music and the theme keep their own buttons.
 const prefs = (() => {
   try {
-    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
+    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, zone: "", ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
   } catch {
-    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30 };
+    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, zone: "" };
   }
 })();
 const savePrefs = () => {
@@ -525,6 +525,8 @@ const showPrefs = () => {
   $("set-confirm").setAttribute("aria-checked", String(prefs.confirm));
   $("set-margin").value = String(prefs.margin);
   $("set-leverage").value = String(prefs.leverage);
+  $("set-zone").value = prefs.zone;
+  setZone(prefs.zone);
   document.documentElement.classList.toggle("calm", prefs.calm);
 };
 showPrefs();
@@ -545,6 +547,13 @@ $("set-leverage").onchange = () => {
   prefs.leverage = Number($("set-leverage").value);
   savePrefs();
   if (ladder.includes(prefs.leverage)) (choice.leverage = prefs.leverage, mark(), state && ticket(state));
+};
+// The time zone every time is shown in: the browser's own, or one chosen here, applied at once to the whole page.
+$("set-zone").onchange = () => {
+  prefs.zone = $("set-zone").value;
+  savePrefs();
+  setZone(prefs.zone);
+  if (state) render(state);
 };
 $("settings-btn").onclick = () => $("settings").showModal();
 $("settings-close").onclick = () => $("settings").close();
@@ -911,7 +920,7 @@ function realCalendar(s) {
   const on = shows(s).realCalendar;
   const rows = on ? s.calendar ?? [] : [];
   $("real-calendar").hidden = !rows.length;
-  const when = (at) => sydneyTime(at, lang);
+  const when = (at) => localTime(at, lang);
   $("real-calendar").replaceChildren(
     ...rows.map((c) => {
       const li = document.createElement("li");
@@ -1146,8 +1155,8 @@ function whatIf(w) {
 function emptyLine(s, open) {
   const y = s.you;
   if (s.mode === "live") {
-    if (y.out) return t("liveClosed", { at: s.reopens ? sydneyTime(s.reopens, lang) : "—" });
-    if (!s.live) return s.historyGap ? t("liveGap") : s.opens ? t("liveOpens", { at: sydneyTime(s.opens, lang) }) : t("liveShut");
+    if (y.out) return t("liveClosed", { at: s.reopens ? localTime(s.reopens, lang) : "—" });
+    if (!s.live) return s.historyGap ? t("liveGap") : s.opens ? t("liveOpens", { at: localTime(s.opens, lang), zone: zoneName(s.opens, lang) }) : t("liveShut");
     return t(y.positions.length ? "liveOther" : "noPos");
   }
   return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
@@ -1231,7 +1240,7 @@ function render(s) {
   // the game's hour of the trading day, never the replay's own time of day (ADR 0079); Live's is Sydney's time of its
   // last price (ADR 0087).
   const clock = s.clock.key;
-  const clockValues = { at: s.clock.at ? sydneyTime(s.clock.at, lang) : "—", d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
+  const clockValues = { at: s.clock.at ? localTime(s.clock.at, lang) : "—", zone: zoneName(s.clock.at || Date.now(), lang), d: Math.max(1, Math.ceil(s.tick / s.dayTicks)), of: Math.max(1, Math.round(s.total / s.dayTicks)), h: Math.floor((((s.tick - 1 + s.dayTicks) % s.dayTicks) * 24) / s.dayTicks), s: s.countdown };
   $("clock").textContent = t(`${clock}Short`, clockValues);
   const clockLabel = t(clock, clockValues);
   $("clock").setAttribute("aria-label", clockLabel);

@@ -378,6 +378,31 @@ it("starts a new order where Settings says, and asks before closing when told to
   }
 });
 
+// The time zone in Settings moves every time the page shows, on a 24-hour clock, and is kept for the next visit.
+it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const at = Date.parse("2026-11-09T13:05:00Z");
+    const live = { mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, headline: null };
+    const zone = w.document.getElementById("set-zone") as HTMLSelectElement;
+    zone.value = "Asia/Tokyo";
+    zone.dispatchEvent(new w.Event("change"));
+    await emit(live);
+    const label = w.document.getElementById("clock")!.getAttribute("aria-label")!;
+    expect(label).toContain("22:05");
+    expect(label).not.toMatch(/am|pm/i);
+    expect(JSON.parse(w.localStorage.getItem("prefs")!).zone).toBe("Asia/Tokyo");
+    zone.value = "Europe/London";
+    zone.dispatchEvent(new w.Event("change"));
+    await emit(live);
+    expect(w.document.getElementById("clock")!.getAttribute("aria-label")).toContain("13:05");
+  } finally {
+    dom.window.close();
+  }
+});
+
 // Live's news is all in the feed: one piece pinned at the top, the most important of recent news (a central bank's
 // decision above a market story), and the rest in the timeline with players' trades, newest first; each real headline
 // links to its source, and the pinned one is not listed twice.
@@ -430,7 +455,7 @@ it("tells a Live player when the weekend's shut market opens", async () => {
     const opens = Date.parse("2026-11-08T22:00:00Z");
     await emit({ ...shut, opens });
     const line = w.document.getElementById("position")!.textContent!;
-    expect(line).toContain(i18n.T.en.ui.liveOpens.replace("{at}", format.sydneyTime(opens, "en")));
+    expect(line).toContain(i18n.T.en.ui.liveOpens.replace("{at}", format.localTime(opens, "en")).replace("{zone}", format.zoneName(opens, "en")));
     await emit({ ...shut, opens: null });
     expect(w.document.getElementById("position")!.textContent!).toContain(i18n.T.en.ui.liveShut);
   } finally {

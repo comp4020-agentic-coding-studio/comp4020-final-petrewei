@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { quoted } from "../public/format.js";
 
 // Every price the player reads has five significant digits, so a yen pair and a euro pair are
@@ -18,4 +18,23 @@ it("writes every price to five significant digits, whatever the pair", () => {
     expect(quoted(price), String(price)).toBe(shown);
     expect(quoted(price).replace(/^0\.0*|\./g, "").length, String(price)).toBe(5);
   }
+});
+
+// Times show in the viewer's time zone, the browser's own unless chosen in Settings, on a 24-hour clock so a time
+// never runs to "am" or "pm" and a narrow clock never overflows.
+describe("times", () => {
+  it("writes a moment on a 24-hour clock in the chosen zone, and names the zone", async () => {
+    const { localTime, setZone, zoneName } = await import("../public/format.js");
+    const at = Date.parse("2026-11-09T13:05:00Z");
+    setZone("Asia/Tokyo");
+    expect(localTime(at, "en")).toMatch(/22:05/);
+    expect(localTime(at, "en")).not.toMatch(/am|pm/i);
+    expect(zoneName(at, "en")).toMatch(/GMT\+9|JST/);
+    setZone("Europe/London");
+    expect(localTime(at, "en")).toMatch(/13:05/);
+    // a zone the browser does not know falls back to its own, never throws
+    setZone("Not/AZone");
+    expect(() => localTime(at, "en")).not.toThrow();
+    setZone("");
+  });
 });
