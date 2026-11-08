@@ -13,7 +13,7 @@ export declare function exitPos(e: { kind: "sl" | "tp"; dist: number }, ladder: 
 export declare function exitAt(pos: number, ladder: number[]): { kind: "sl" | "tp"; dist: number };
 export declare function fillSpan(kind: "sl" | "tp", value: number, min: number, max: number): { from: number; to: number };
 export declare function movePerPct(margin: number, leverage: number, pct?: number): number;
-export declare function feePerMinute(fee: number, leverage: number, ticksPerMinute: number): string;
+export declare function feePerDay(fee: number, leverage: number, dayTicks: number): string;
 export declare function levHeat(leverage: number, cap: number, top: number): number;
 export declare const hue: (heat: number) => string;
 export declare function verdict(how: "close" | "stop" | "take" | "stopout" | "zerocut", pct: number): "wiped" | "cut" | "big" | "small" | "flat" | "win" | "huge";

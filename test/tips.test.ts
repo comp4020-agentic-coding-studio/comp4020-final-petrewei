@@ -500,16 +500,18 @@ describe("the ticket, the account and the credit pop-up", () => {
     for (const [a, b] of [[1, 30], [30, 100], [100, 200], [200, 500], [500, 1000]]) expect(h(a) - h(b), `${a} to ${b}`).toBeGreaterThanOrEqual(8);
   });
 
-  it("shows the holding cost a minute at a time, from the desk's own rate", async () => {
+  it("shows the holding cost a market day at a time, from the desk's own rate", async () => {
     const { feeRate, RULES } = await import("../src/fx.ts");
-    const { feePerMinute } = await import("../public/ticket.js");
-    // the desk charges per tick, and the page is told how many ticks make a minute
-    for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePerMinute(RULES.fee, lev, 120).replace("<", "")), `${lev}×`).toBeCloseTo(feeRate(lev) * 120 * 100, 1);
+    const { feePerDay } = await import("../public/ticket.js");
+    // the desk charges per tick, and a market day is `dayTicks` ticks, 96 in every mode: a day reads plainer than a
+    // minute, and 1000× at nearly 10% a day makes its cost plain
+    for (const lev of [1, 30, 100, 500, 1000]) expect(Number.parseFloat(feePerDay(RULES.fee, lev, 96).replace("<", "")), `${lev}×`).toBeCloseTo(feeRate(lev) * 96 * 100, 1);
+    expect(feePerDay(RULES.fee, 1000, 96)).toBe("9.6%");
     // a cost too small to feel reads as a bound, never in exponent form
-    expect(feePerMinute(RULES.fee, 1, 0.01)).toBe("<0.001%");
-    expect(feePerMinute(RULES.fee, 1, 0.01)).not.toMatch(/e/);
+    expect(feePerDay(RULES.fee, 1, 96)).toBe("<0.001%");
+    expect(feePerDay(RULES.fee, 1, 96)).not.toMatch(/e/);
     for (const lang of LANGS) {
-      // the leverage's note says both the cost a minute and how far against you takes it all (ADR 0085)
+      // the leverage's note says both the cost a day and how far against you takes it all (ADR 0085)
       expect(T[lang].ui.levNote, lang).toContain("{pct}");
       expect(T[lang].ui.levNote, lang).toContain("{away}");
       expect(T[lang].tips.fee, lang).toEqual(expect.stringMatching(/\S/));

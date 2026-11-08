@@ -12,7 +12,7 @@ import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
 import { place, windowed } from "/view.js";
-import { SHARES, exitAt, exitPos, feePerMinute, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
+import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { quoted, sydneyTime, tone } from "/format.js";
@@ -163,7 +163,8 @@ function fameChart(s) {
 // Leverage runs on a log scale and snaps to the desk's ladder, its ends
 // and the two legal caps marked; margin runs evenly. What a leverage means
 // is said beside it, in the parody's voice.
-const choice = { leverage: 30, share: 1 };
+// a new order starts at the legal cap and a quarter of the account, a stake a beginner can lose and play on
+const choice = { leverage: 30, share: 0.25 };
 let seated = false;
 // The desk's rules, set by the first state: the ladder, the legal cap, the fee and the
 // amount the emergency credit offers, so the page keeps no copy of them.
@@ -834,7 +835,7 @@ for (const k of ["sl", "tp"]) {
 function leverageNote() {
   const wipe = 100 / choice.leverage;
   const away = `${wipe < 1 ? wipe.toFixed(2) : wipe.toFixed(0)}%`;
-  $("fee-note").textContent = t("levNote", { away, pct: feePerMinute(broker.fee, choice.leverage, broker.ticksPerMinute) });
+  $("fee-note").textContent = t("levNote", { away, pct: feePerDay(broker.fee, choice.leverage, state?.dayTicks ?? 96) });
 }
 // The ticket: the prices a sell and a buy fill at, and what the chosen
 // order would put up, worked out from the account the server sent.

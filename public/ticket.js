@@ -104,9 +104,9 @@ export function fillSpan(kind, value, min, max) {
 
 // The financing fee a leverage costs a minute, as a share of the margin, in the
 // words a page shows (ADR 0058): the desk charges margin times `fee` times the
-// leverage squared each tick, and a minute is `ticksPerMinute` ticks.
-export function feePerMinute(fee, leverage, ticksPerMinute) {
-  const p = fee * leverage * leverage * ticksPerMinute * 100;
+// leverage squared each tick, and a market day is `dayTicks` ticks.
+export function feePerDay(fee, leverage, dayTicks) {
+  const p = fee * leverage * leverage * dayTicks * 100;
   // below a thousandth of a percent the cost is nothing a player can feel, and its digits only crowd the note
   if (p < 0.001) return "<0.001%";
   return `${p < 0.01 ? p.toFixed(3) : p.toFixed(p < 1 ? 2 : 1)}%`;
