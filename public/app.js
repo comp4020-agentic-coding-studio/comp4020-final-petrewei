@@ -1405,7 +1405,14 @@ function render(s) {
       if (!tr.you && !tr.bot && shows(s).lobby && s.phase !== "break" && !duelWith) {
         li.classList.add("challengeable");
         li.dataset.tipText += ` · ${t("duelOffer")}`;
-        li.onclick = () => act("challenge", { code: tr.id });
+        // a control a keyboard reaches too, as every control must be: focus, then Enter or Space
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        li.onclick = li.onkeydown = (e) => {
+          if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          act("challenge", { code: tr.id });
+        };
       }
       return li;
     }),

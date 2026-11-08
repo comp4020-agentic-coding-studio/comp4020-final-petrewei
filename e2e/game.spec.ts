@@ -345,7 +345,11 @@ test("challenges someone to a duel from the room, and sets and cancels a price a
     rival.on("pageerror", (error) => errors.push(error.message));
     const rivalName = await join(rival, lang);
     for (const p of [page, rival]) await p.locator('[data-mode="random"]').click();
-    await page.locator("#traders li.challengeable").filter({ hasText: rivalName }).click();
+    // the row is a control a keyboard reaches: focused and sent with Enter, as the rubric's top band tests
+    const rivalRow = page.locator("#traders li.challengeable").filter({ hasText: rivalName });
+    await rivalRow.focus();
+    await expect(rivalRow).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(rival.locator("#duel")).toBeVisible();
     await expect(rival.locator("#duel-accept")).toBeVisible();
     await rival.locator("#duel-accept").click();
