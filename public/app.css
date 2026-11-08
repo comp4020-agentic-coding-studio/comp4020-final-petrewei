@@ -785,7 +785,8 @@ body.bell-up .ticket { display: none; }
 @keyframes fade { 100% { opacity: 0; } }
 /* The debug console, for the operator only (ADR 0019): a tag in the
    corner and a panel above everything, in a terminal's monospace. */
-.dbg-tag { position: fixed; z-index: 20; left: 0.5rem; bottom: 0.5rem; padding: 0.15rem 0.5rem; font: 700 0.7rem var(--mono); background: var(--call); border-color: var(--call); color: var(--on-fill); }
+/* The debug console's row in Settings: the operator's own, marked in the call colour. */
+.dbg-setting b { color: var(--call); }
 .dbg { position: fixed; z-index: 21; left: 0.5rem; bottom: 2.2rem; width: min(24rem, calc(100% - 1rem)); max-height: calc(100vh - 3rem); overflow-y: auto; padding: 0.7rem 0.8rem; border: 2px solid var(--call); border-radius: 10px; background: var(--panel); color: var(--ink); font: 0.8rem var(--mono); box-shadow: 0 6px 24px rgb(0 0 0 / 0.4); }
 .dbg[hidden] { display: none; }
 .dbg header { display: flex; align-items: center; gap: 0.5rem; }

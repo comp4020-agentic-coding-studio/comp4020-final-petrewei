@@ -1,11 +1,11 @@
 // The hidden debug console (ADR 0019), served only to the operator in
-// debug mode. The backtick key (`) or the DEBUG tag opens it. Every
+// debug mode. A row in Settings, or the backtick key (`), opens it; nobody
+// else is sent this script, so nobody else sees the row. Every
 // button asks the server, which checks the debug cookie and does the
 // work where the rules live; this page only shows the answers. It is in
 // English only: it is for the operator, not for players.
 const tab = () => document.querySelector("[role=tab][aria-selected=true]")?.dataset.mode ?? "rewind";
 
-const tag = Object.assign(document.createElement("button"), { className: "dbg-tag", type: "button", textContent: "DEBUG", title: "Debug console (`)" });
 const box = Object.assign(document.createElement("aside"), { className: "dbg", hidden: true });
 box.setAttribute("aria-label", "Debug console");
 box.innerHTML = `
@@ -29,7 +29,18 @@ box.innerHTML = `
   <section><h3>Status</h3><pre data-status></pre>
     <div class="dbg-row"><button type="button" data-do="status">Refresh</button><a href="?debug=off">Turn debug off</a></div></section>
   <p class="dbg-out" role="status" data-out></p>`;
-document.body.append(tag, box);
+document.body.append(box);
+// A row at the end of Settings opens the console, in the operator's English like the console itself.
+const row = document.createElement("li");
+row.className = "dbg-setting";
+row.innerHTML = `<b>Debug console</b><small>Operator tools. \` also opens it.</small>`;
+const open = Object.assign(document.createElement("button"), { type: "button", className: "ghost", textContent: "Open" });
+open.onclick = () => {
+  document.getElementById("settings")?.close();
+  toggle(true);
+};
+row.append(open);
+document.querySelector("#settings .set-list")?.append(row);
 
 const $ = (sel) => box.querySelector(sel);
 async function run(kind, extra = {}) {
@@ -45,7 +56,6 @@ function toggle(open = box.hidden) {
   $("[data-mode]").textContent = `(${tab()} tab)`;
   if (open) run("status");
 }
-tag.onclick = () => toggle();
 $("[data-close]").onclick = () => toggle(false);
 for (const b of box.querySelectorAll("[data-do]")) {
   b.onclick = () => {
