@@ -378,23 +378,42 @@ it("starts a new order where Settings says, and asks before closing when told to
   }
 });
 
-// Live's market headlines list each story after the pinned one as a link to the outlet, with its source, and only on
-// Live: the headline is the outlet's own words, opened in a new tab.
-it("lists Live's market headlines as links to their outlets", async () => {
+// Live's news is all in the feed: one piece pinned at the top, the most important of recent news (a central bank's
+// decision above a market story), and the rest in the timeline with players' trades, newest first; each real headline
+// links to its source, and the pinned one is not listed twice.
+it("pins the most important news and keeps the rest in the timeline with trades", async () => {
   const { dom, w, base, emit } = await app();
   try {
     (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
     const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
-    const marketNews = [{ source: "CNBC", title: "Fed signals rates stay higher for longer", at: Date.parse("2026-11-08T20:00:00Z"), link: "https://www.cnbc.com/x" }];
-    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, marketNews });
-    expect(w.document.getElementById("market-news")!.hidden).toBe(false);
-    const a = w.document.querySelector("#market-news-list a") as HTMLAnchorElement;
-    expect(a.textContent).toBe("Fed signals rates stay higher for longer");
-    expect(a.href).toBe("https://www.cnbc.com/x");
-    expect(a.rel).toContain("noopener");
-    expect(w.document.getElementById("market-news-list")!.textContent).toContain("CNBC");
-    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, marketNews: [] });
-    expect(w.document.getElementById("market-news")!.hidden, "nothing to show, nothing shown").toBe(true);
+    const at = Date.now() - 600_000;
+    const feed = [
+      { text: "Kurumi bought AUD/JPY", kind: "buy", key: "m-bought", args: { who: "abc123", name: "Kurumi", draw: -1, pair: "AUD/JPY", lev: 30, pnl: 0 } },
+      { text: "CNBC: Stocks edge higher", kind: "news", key: "market", args: { source: "CNBC", title: "Stocks edge higher", link: "https://www.cnbc.com/s", at, score: 1 } },
+      { text: "Reserve Bank of Australia: Monetary policy decision", kind: "news", key: "bank", args: { cur: "AUD", source: "Reserve Bank of Australia", title: "Monetary policy decision", link: "https://www.rba.gov.au/m", at, score: 20 } },
+    ];
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, feed, headline: null });
+    const items = [...w.document.querySelectorAll("#feed > li")];
+    expect(items[0].classList.contains("pinned"), "one item pinned at the top").toBe(true);
+    expect(items[0].textContent).toContain("Monetary policy decision");
+    expect(w.document.querySelectorAll("#feed > li.pinned").length).toBe(1);
+    // the bank decision is pinned once, not listed again; the market story and the trade stay in the timeline
+    expect(items.filter((li) => li.textContent!.includes("Monetary policy decision")).length).toBe(1);
+    expect(items.some((li) => li.textContent!.includes("Stocks edge higher"))).toBe(true);
+    expect(items.some((li) => li.textContent!.includes("AUD/JPY"))).toBe(true);
+    // a real headline links to its source, in a new tab
+    const link = w.document.querySelector('#feed a[href="https://www.cnbc.com/s"]') as HTMLAnchorElement;
+    expect(link.target).toBe("_blank");
+    expect(link.rel).toContain("noopener");
+    // with no news from the last six hours, a quiet weekend still pins its most important story
+    const old = Date.now() - 30 * 3_600_000;
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, headline: null, feed: [
+      { text: "CNBC: Stocks edge higher", kind: "news", key: "market", args: { source: "CNBC", title: "Stocks edge higher", link: "https://www.cnbc.com/s", at: old, score: 1 } },
+      { text: "CNBC: Fed signals higher rates", kind: "news", key: "market", args: { source: "CNBC", title: "Fed signals higher rates", link: "https://www.cnbc.com/f", at: old, score: 8 } },
+    ] });
+    expect(w.document.querySelector("#feed > li.pinned")?.textContent, "the weekend's most important").toContain("Fed signals higher rates");
+    // the chart carries no headline of its own in Live
+    expect((w.document.getElementById("mode") as HTMLElement).hidden).toBe(true);
   } finally {
     dom.window.close();
   }

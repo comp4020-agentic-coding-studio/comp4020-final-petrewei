@@ -30,7 +30,7 @@ export type CommonState = {
   feed: { text: string; kind: string; key?: string; args?: Record<string, string | number> }[];
   bid: number; ask: number; pip: number; minRounds: number;
   speed?: number; rules?: boolean; ironman?: boolean; paused?: number | null; headline?: Headline;
-  calendar?: CalendarEntry[] | Release[]; bankNews?: BankNews[]; marketNews?: { source: string; title: string; at: number; link: string }[]; historyGap?: boolean; opens?: number | null;
+  calendar?: CalendarEntry[] | Release[]; bankNews?: BankNews[]; historyGap?: boolean; opens?: number | null;
   result: Result | null;
   // which clock to show, by its key in the page's words; Live adds the time of its last price (ADR 0087)
   clock: { key: ClockKey; at?: number | null };

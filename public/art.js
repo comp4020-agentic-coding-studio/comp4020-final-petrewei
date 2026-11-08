@@ -9,7 +9,7 @@ import { pixels } from "./avatars.js";
 export const ICONS = {
   news: {
     "pending-refused": "⚠️", "alert-rang": "🔔", challenged: "⚔️", accepted: "⚔️", "duel-won": "🏆", "duel-drawn": "🤝",
-    bank: "🏛️", "m-bought": "📈", "m-sold": "📉", "m-closed": "💵", "m-stopped": "🛡️", "m-took": "🎯", "m-stopout": "💀", "m-call": "📞", "m-bankrupt": "🪦",
+    bank: "🏛️", market: "📰", "m-bought": "📈", "m-sold": "📉", "m-closed": "💵", "m-stopped": "🛡️", "m-took": "🎯", "m-stopout": "💀", "m-call": "📞", "m-bankrupt": "🪦",
     headline: "📰", clue: "📰", started: "🚦", cancelled: "🛑", ironman: "🦾", paused: "☕", resumed: "▶️", unpaused: "⏰", finished: "🏁",
     "random-round": "📡", "rewind-round": "📼", "rewind-bridged-round": "📼",
     bought: "📈", sold: "📉", added: "➕", closed: "💵", stopped: "🛡️", took: "🎯",

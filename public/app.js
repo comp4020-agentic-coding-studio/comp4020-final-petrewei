@@ -904,26 +904,13 @@ function book(s) {
     return tr;
   }));
 }
-// Live's market headlines: the stories after the one pinned over the chart, each the outlet's own words, linked, with
-// its source and how long ago; they turn over as the server's feed refreshes.
-function marketNews(s) {
-  const items = s.mode === "live" ? s.marketNews ?? [] : [];
-  $("market-news").hidden = !items.length;
-  $("market-news-list").replaceChildren(...items.map((n) => {
-    const li = document.createElement("li");
-    const a = Object.assign(document.createElement("a"), { href: n.link, target: "_blank", rel: "noopener noreferrer", textContent: n.title });
-    li.append(a, Object.assign(document.createElement("small"), { textContent: ` ${n.source} · ${sydneyTime(n.at, lang)}` }));
-    return li;
-  }));
-}
 // Live's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
-// the forecast and, once out, the actual figure, as the calendar's source gives them; then the central banks' latest
-// words, each a link to the bank's own page. The titles are the sources' own, in English.
+// the forecast and, once out, the actual figure, as the calendar's source gives them. The central banks' words and the
+// market's headlines are in the feed, the most important pinned.
 function realCalendar(s) {
   const on = shows(s).realCalendar;
   const rows = on ? s.calendar ?? [] : [];
-  const banks = on ? s.bankNews ?? [] : [];
-  $("real-calendar").hidden = !rows.length && !banks.length;
+  $("real-calendar").hidden = !rows.length;
   const when = (at) => sydneyTime(at, lang);
   $("real-calendar").replaceChildren(
     ...rows.map((c) => {
@@ -931,14 +918,6 @@ function realCalendar(s) {
       li.className = c.actual ? "told" : c.at < Date.now() ? "told" : "upcoming";
       const figures = [c.actual && t("calActual", { v: c.actual }), c.forecast && t("calForecast", { v: c.forecast }), c.previous && t("calPrevious", { v: c.previous })].filter(Boolean).join(" · ");
       li.append(Object.assign(document.createElement("span"), { className: "when", textContent: when(c.at) }), Object.assign(document.createElement("span"), { className: "what", textContent: `${c.cur} · ${c.title}${figures ? ` · ${figures}` : ""}` }));
-      return li;
-    }),
-    ...banks.slice(0, 4).map((b) => {
-      const li = document.createElement("li");
-      li.className = "bank";
-      const a = Object.assign(document.createElement("a"), { href: b.link, target: "_blank", rel: "noopener noreferrer", textContent: `${b.cur} · ${b.source}: ${b.title}` });
-      li.append(Object.assign(document.createElement("span"), { className: "when", textContent: when(b.at) }), Object.assign(document.createElement("span"), { className: "what" }));
-      li.lastChild.append(a);
       return li;
     }),
   );
@@ -1470,12 +1449,14 @@ function render(s) {
     const li = document.createElement("li");
     li.className = `k-${f.kind}`;
     // Each line wears its kind's icon, so a glance tells a win from a cut.
-    li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), news(lang, f, nameOf));
+    const said = news(lang, f, nameOf);
+    // a real headline links to the outlet or bank that said it, in a new tab, so a player can read on
+    const text = f.args?.link ? Object.assign(document.createElement("a"), { href: f.args.link, target: "_blank", rel: "noopener noreferrer", textContent: said }) : said;
+    li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
   const cal = shows(s).calendar ? s.calendar ?? [] : [];
-  marketNews(s);
   realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {
@@ -1488,9 +1469,14 @@ function render(s) {
     li.append(when, what);
     return li;
   }));
-  // The latest market news, what moves the price, is pinned at the top (ADR 0078); then what traders said, then the
-  // rest of the feed, newest first. The news is not listed twice.
-  const latest = s.feed.find((f) => f.kind === "news");
+  // One piece of news is pinned at the top (ADR 0078): the most important of the last six hours, by the server's score
+  // (a central bank's decision above a market story), or else the newest; then what traders said, then the rest of the
+  // feed, newest first, news and trades together. The pinned news is not listed twice.
+  // the last six hours' news if there is any, else all of it, so a quiet weekend still has one story pinned
+  const allNews = s.feed.filter((f) => f.kind === "news");
+  const fresh = allNews.filter((f) => f.args?.at === undefined || Date.now() - Number(f.args.at) < 6 * 3_600_000);
+  const pool = fresh.length ? fresh : allNews;
+  const latest = pool.reduce((best, f) => (Number(f.args?.score ?? 0) > Number(best?.args?.score ?? 0) ? f : best), pool[0]);
   const pinned = latest ? [Object.assign(line(latest), { className: "k-news pinned" })] : [];
   $("feed").replaceChildren(...pinned, ...talk, ...s.feed.filter((f) => f !== latest).map(line));
   // The hall of fame changes only on busts and at the bell.

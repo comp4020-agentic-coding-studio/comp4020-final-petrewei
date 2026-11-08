@@ -46,9 +46,10 @@ export class Live {
   // a bankrupt player's key, and when their next account opens
   waits = new Map<string, number>();
   feed: FeedLine[] = [];
+  // the market stories already told in the timeline, so a refresh never tells one twice
+  private toldStories = new Set<string>();
   // the house traders, each on a pair of its own, told in the feed and never on the board (ADR 0095)
   private bots = new LiveBots();
-  headline: { cur: string; title: string; source: string; link: string; at: number } | null = null;
   // the last slot the accounts were charged for
   slot = 0;
   private refreshing = false;
@@ -187,16 +188,18 @@ export class Live {
       const fresh = await this.news.banks().catch(() => []);
       if (this.disposed) return;
       // the first look sets what has already been said; only what is new after it, or from the last day, is told
+      // a central bank's decision moves a currency most, so it ranks above any market story
       for (const i of fresh.filter((i) => !first || now - i.at < 86_400_000)) {
-        this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title });
-        this.headline = { cur: i.cur, title: i.title, source: i.source, link: i.link, at: i.at };
+        this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title, link: i.link, at: i.at, score: 20 });
       }
-      // the market's own headlines, from a big outlet with backups: the most relevant pins the top, unless a central
-      // bank has spoken more recently, since a bank's decision moves a currency most
+      // the market's own headlines, from a big outlet with backups, each told in the timeline once, oldest first, so the
+      // newest sits at the top; the page pins the most important of the recent news
       const stories = await this.news.markets(now).catch(() => this.news.stories);
       if (this.disposed) return;
-      const top = stories[0];
-      if (top && (!this.headline || top.at > this.headline.at)) this.headline = { cur: "", title: top.title, source: top.source, link: top.link, at: top.at };
+      for (const x of stories.filter((x) => !this.toldStories.has(x.id)).sort((a, b) => a.at - b.at)) {
+        this.toldStories.add(x.id);
+        this.say(`${x.source}: ${x.title}`, "news", "market", { source: x.source, title: x.title, link: x.link, at: x.at, score: x.score });
+      }
     }
     if (now - this.lastCal > CAL_MS) {
       this.lastCal = now;
@@ -453,11 +456,10 @@ export class Live {
       ironman: false,
       paused: null,
       round: 0,
-      headline: this.headline,
+      // Live's news is all in the feed, the most important pinned there, so the chart carries no headline of its own
+      headline: null,
+      // the week's releases still to come: a schedule, not news already told
       calendar: this.news.calendar.filter((c) => c.at > now - 86_400_000).slice(0, 12),
-      bankNews: this.news.items.slice(0, 8).map((i) => ({ cur: i.cur, source: i.source, title: i.title, at: i.at, link: i.link })),
-      // the market's other headlines after the pinned one, most relevant first; each is the outlet's own, linked
-      marketNews: this.news.stories.filter((x) => x.link !== this.headline?.link).slice(0, 5).map((x) => ({ source: x.source, title: x.title, at: x.at, link: x.link })),
       reopens: a ? null : this.waits.get(k) ?? null,
       you: {
         name: this.w.name(who),
