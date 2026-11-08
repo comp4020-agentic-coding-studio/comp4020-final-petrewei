@@ -2,6 +2,8 @@
 
 Status: accepted, 4 November 2026. The first part of a shorter, finer Replay; the window, the clock and the chart follow. [ADR 0074](0074-six-more-stories.md) adds stories and corrects what this one says about the plots' count and the widest day. Changes the real-data rule of [ADR 0070](0070-replay-pairs-and-a-centred-countdown.md).
 
+Note: Replay is now Rewind, and Simulation is now Random ([ADR 0088](0088-flashback-sandbox-and-live.md) to [0091](0091-one-name-per-thing-in-the-code.md)); this record keeps the names in use when it was written.
+
 ## 1 Context
 
 Peter found thirty days, and thirty more before them, too long for a market that breaks in a day, and wanted finer ticks so a player feels the market. Replay played the ECB's daily closes with a generated walk between them, so anything finer than a day was invented. He asked for real data first, then an assumption of permission for an educational project, then simulation as real as possible.

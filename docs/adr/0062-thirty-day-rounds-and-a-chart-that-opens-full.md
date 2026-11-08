@@ -1,6 +1,6 @@
 # ADR 0062: Thirty-Day Rounds and a Chart That Opens Full
 
-Status: accepted, 29 October 2026; the first of five stages. Changes the rounds of [ADR 0009](0009-a-parody-fx-trading-floor.md) and [ADR 0027](0027-scenario-replaces-live.md), and the chart's header of [ADR 0042](0042-headed-and-foldable-chart-and-position.md).
+Status: accepted, 29 October 2026; the first of five stages. Changes the rounds of [ADR 0009](0009-a-parody-fx-trading-floor.md) and [ADR 0027](0027-scenario-replaces-live.md), and the chart's header of [ADR 0042](0042-headed-and-foldable-chart-and-position.md). Its thirty-day rounds were replaced by the five-day clock of [ADR 0075](0075-a-shorter-finer-clock.md).
 
 ## 1 Context
 

@@ -1,6 +1,6 @@
 # ADR 0011: Daily Rates Bridged into Ticks
 
-Status: accepted, 15 October 2026.
+Status: accepted, 15 October 2026. Superseded for seventeen of nineteen stories by the real minutes of [ADR 0073](0073-real-minutes-for-replay.md); the bridge remains for the two yuan plots.
 
 ## 1 Context
 

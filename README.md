@@ -1,52 +1,50 @@
 # Losscut! Kurumi's FX Fantasy
 
-Three shared currency markets, chosen by tab, traded by everyone at once with play money. On Rewind and Random a round is about four minutes of five trading days, started by anyone on its tab; Live trades real prices now, with no rounds, until your account goes bankrupt. It is in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) or [中文](https://comp4020-final-petrewei.fly.dev/zh/). On Rewind the dates are hidden: you might be long francs on 15 January 2015 and not know until the bell.
-
-Good, defined.
+A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it. Rewind replays a real crisis with its dates hidden until the bell, Random draws a market from today's rate, shaped by a hidden situation, and Live trades real prices now until your account goes bankrupt. Pick a name and press Start; a second browser profile beside it shows each trade within a second. It reads in [English](https://comp4020-final-petrewei.fly.dev/), [日本語](https://comp4020-final-petrewei.fly.dev/ja/) and [中文](https://comp4020-final-petrewei.fly.dev/zh/), in shared rooms.
 
 ## Who it is for
 
-A crit group, or the showcase. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her mother lost in 2008: funny and grim, like this game.
+A room playing together: a crit group, or the showcase. Like Shirky's situated software, it is made for one group, where a wipe-out lands in front of friends. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008, a story as funny and grim as this game.
 
 ## What good means here
 
-- **Everyone on a tab trades one price, in one room.** The server owns the price and fills; everyone sees your side, leverage and net worth.
-- **Rewind is the dealer** ([ADR 0012](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0012-history-and-live-as-tabs.md)). It replays five real days of minute prices from HistData, with the ECB's daily rates for the two yuan plots; each round is one of nineteen stories where the market broke, like Lehman, named at the bell. Random draws a market at random from today's rate, shaped by a hidden situation.
-- **Leverage is the joke, and the lesson.** From 1× to offshore 1000×. A margin call comes at 50% margin level; a stop-out (強制ロスカット) at 20% ends your round, unless you draw emergency credit. Fees grow with leverage. A gap can wipe you out.
-- **Losing is public.** Stop-outs hit the feed. Emergency credit charges a loan shark's interest, and ending a round owing more than you have is bankruptcy ([ADR 0080](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0080-emergency-credit-replaces-dads-savings.md)).
-- **There's always someone to trade against.** Seven comic traders play.
-- **Beginners get a tutorial** ([ADR 0013](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0013-a-private-tutorial.md)): ten lessons, ending in a 1000× wipe-out.
-- **There's a short game and a long game.** Rounds rank by a score docking stop-outs and bankruptcy ([ADR 0029](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0029-a-fairer-score.md)); the hall ranks averages.
+Good means a room that laughs at a wipe-out and leaves understanding why. Leverage is the joke and the lesson: offshore brokers sell 1000×, ESMA caps it at 30×, and most retail accounts lose.
+
+- **One price, one room:** the server owns every price and fill; the room sees your side and net worth.
+- **Losing is public:** a stop-out (強制ロスカット) hits the feed, and emergency credit charges a loan shark's rate.
+- **The past is a trap:** Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
+- **Risk reads in money:** the ticket says what a 1% move costs at your margin and leverage, and the bell replays your biggest trade at 1×, 30× and 1000×.
+- **Company, then rivals:** seven of the comic's characters trade beside you; you can duel a person.
+- **Beginners start safe:** ten lessons end in a 1000× wipe-out.
 
 ## Enforced and judged
 
-Checked in `spec/` and `test/`:
+Checked in CI before each deploy by `spec/` and `test/`, with the reasons in the [decision records](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/README.md):
 
-- an order reaches every page on its tab within a second
-- a round waits for a Start; only its starter may end it, and anyone may pause it unless ironman ([ADR 0022](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0022-a-rounds-controls.md), [0024](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0024-pause-ironman-and-a-trading-ticket.md))
-- the server refuses orders its broker does not offer, and acts only on the sender's account
-- nobody is shown another person's cookie or stop, or their tutorial
-- a chosen name is plain text, and nobody else's ([ADR 0017](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0017-chosen-trader-names.md))
-- margin calls, stop-outs, zero-cuts, slipping stops and credit follow `src/fx.ts`
-- replays pass every real close; indicators match formulas
-- simultaneous actions all land ([ADR 0014](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0014-simultaneous-actions.md))
-- who did what is logged by short code, surviving hard kills
-- every string has English, Japanese and Chinese, each with its own address and About page ([ADR 0016](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0016-the-address-names-the-language.md))
+- one person's trade reaches another's page within a second
+- a round waits for a Start, and simultaneous orders all land, each on the sender's own account
+- the server refuses orders its broker doesn't offer
+- nobody is shown another person's cookie, and a chosen name is plain text and unique
+- margin calls, stop-outs, credit and bankruptcy follow `src/fx.ts`
+- Rewind passes every real close, and a clue never names its date
+- a Live account survives a restart, and a damaged save recovers from its backup
+- every string has English, Japanese and Chinese, each at its own address
+- every action a page offers reaches the server
 
-Judged by people, at the crit and showcase:
+Judged by people:
 
-- whether a room laughs and learns when the bell rings
+- whether a room laughs and learns at the bell
 - whether leverage looks as dangerous as it is
 - whether the Japanese and Chinese read as native
 
 ## What I looked at
 
-- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan), its [anime site](https://fxkurumi-info.com/) and Japanese and Chinese wikis, for names, terms, colours ([ADR 0015](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0015-three-languages-and-the-comics-characters.md), [0018](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0018-anime-names-and-seven-characters.md)); the pixel faces are hand-drawn ([0021](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0021-pixel-faces.md)).
-- Real minute prices from [HistData](https://www.histdata.com/), and the ECB's [euro reference rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) (source: ECB; crosses derived) and [Frankfurter](https://frankfurter.dev/) for today's rate.
-- ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money; major pairs capped at 30:1.
+- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan) and its [anime site](https://fxkurumi-info.com/), for names and terms; the pixel faces are hand-drawn.
+- ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74–89% of retail accounts lose money, and major pairs are capped at 30:1.
 - After the franc unpegged, FXCM's clients owed it [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
+- Prices from [HistData](https://www.histdata.com/), the [ECB](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html), [Frankfurter](https://frankfurter.dev/) and Yahoo Finance.
 - Clay Shirky, ["Situated Software"](https://gwern.net/doc/technology/2004-03-30-shirky-situatedsoftware.html) (2004): software for one group.
 
 ## Left out
 
-Real money, broker links, deposit offers, the series' music or art ([ADR 0020](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/0020-optional-background-music.md)). The comic's family tragedy is the premise, not a joke. If gambling or debt is hurting you, the [Gambling Help](https://www.gamblinghelponline.org.au/) line in Australia is 1800 858 858.
+Real money, broker links, deposit offers, and the series' music and art. The comic's family tragedy is the premise, never a joke. If gambling or debt is hurting you, Australia's [Gambling Help](https://www.gamblinghelponline.org.au/) line is 1800 858 858.

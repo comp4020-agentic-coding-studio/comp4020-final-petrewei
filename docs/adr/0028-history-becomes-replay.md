@@ -1,6 +1,6 @@
 # ADR 0028: History Becomes Replay
 
-Status: accepted, 26 October 2026. Renames the History tab of [ADR 0012](0012-history-and-live-as-tabs.md), as [ADR 0027](0027-scenario-replaces-live.md) renamed Live.
+Status: accepted, 26 October 2026. Renames the History tab of [ADR 0012](0012-history-and-live-as-tabs.md), as [ADR 0027](0027-scenario-replaces-live.md) renamed Live. The Replay name was replaced by Flashback in [ADR 0088](0088-flashback-sandbox-and-live.md), then by Rewind in [ADR 0089](0089-rewind-replaces-flashback.md).
 
 ## 1 Context
 

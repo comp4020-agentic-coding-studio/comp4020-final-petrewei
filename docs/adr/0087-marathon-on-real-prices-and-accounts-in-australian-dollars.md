@@ -2,6 +2,8 @@
 
 Status: accepted, 5 November 2026. Adds a third market beside Replay and Simulation ([ADR 0012](0012-history-and-live-as-tabs.md), [ADR 0027](0027-scenario-replaces-live.md)), and changes the account's currency of [ADR 0078](0078-pending-orders-an-account-order-panel-and-a-page-that-spans.md) and the credit's amounts of [ADR 0085](0085-a-finer-clock-a-golden-credit-card-and-a-real-calendar.md). Peter asked for each change below and made the four choices marked as his.
 
+Note: Marathon is now Live, Replay is now Rewind, and Simulation is now Random ([ADR 0088](0088-flashback-sandbox-and-live.md) to [0091](0091-one-name-per-thing-in-the-code.md)); this record keeps the names in use when it was written.
+
 ## 1 Decision
 
 **Every account is in Australian dollars.** An ANU project's home currency. Peter chose A$10,000 to start, about what ¥1,000,000 was. Credit is A$1,000 a step up to A$10,000, at the same daily rates, on tiers at A$3,000 and A$6,000. A hall saved in yen is divided by a hundred once, a marker recording that it has been.
