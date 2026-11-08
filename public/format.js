@@ -22,5 +22,12 @@ export const setZone = (z) => (zone = z || "");
 // A moment as a page shows it: the weekday and time in the viewer's zone, on a 24-hour clock in the page's language,
 // so a time never runs to "am" or "pm" and a narrow clock never overflows.
 export const localTime = (ms, lang) => new Date(ms).toLocaleString(locale(lang), { timeZone: zoneNow(), weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+// A feed line's time: the hour and minute on a 24-hour clock in the viewer's zone, with the weekday too when it was
+// an earlier day, so a timeline reads "14:05" today and "Sat 09:12" for older news.
+export const feedTime = (ms, lang, now = Date.now()) => {
+  const day = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: zoneNow() });
+  const opts = { timeZone: zoneNow(), hour: "2-digit", minute: "2-digit", hourCycle: "h23", ...(day(ms) === day(now) ? {} : { weekday: "short" }) };
+  return new Date(ms).toLocaleString(locale(lang), opts);
+};
 // The zone's short name at a moment, as "AEDT" or "GMT+9", for a line that says which zone a time is in.
 export const zoneName = (ms, lang) => new Intl.DateTimeFormat(locale(lang), { timeZone: zoneNow(), timeZoneName: "short" }).formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName")?.value ?? "";

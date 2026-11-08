@@ -37,4 +37,13 @@ describe("times", () => {
     expect(() => localTime(at, "en")).not.toThrow();
     setZone("");
   });
+
+  it("writes a feed line's time as the hour today, with the weekday for an earlier day", async () => {
+    const { feedTime, setZone } = await import("../public/format.js");
+    setZone("UTC");
+    const now = Date.parse("2026-11-09T15:00:00Z");
+    expect(feedTime(Date.parse("2026-11-09T14:05:00Z"), "en", now)).toBe("14:05");
+    expect(feedTime(Date.parse("2026-11-07T09:12:00Z"), "en", now)).toMatch(/Sat.*09:12/);
+    setZone("");
+  });
 });

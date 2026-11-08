@@ -25,7 +25,7 @@ import { liveValid, migrateLive } from "./saved.ts";
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
 type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
 export type Who = { nameAt: (k: string) => { name: string; draw: number | null }; named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
-export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number> };
+export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number>; when?: number };
 
 const POLL_MS = Number(process.env.LIVE_POLL_MS ?? 5_000);
 const NEWS_MS = 10 * 60_000;
@@ -118,7 +118,8 @@ export class Live {
   }
 
   say(text: string, kind: string, key: string, args: Record<string, string | number> = {}): void {
-    this.feed = [...this.feed, { text, kind, key, args }].slice(-60);
+    // each line is stamped when it is said, so the feed shows the time of a trade and a story alike
+    this.feed = [...this.feed, { text, kind, key, args, when: this.clock.now() }].slice(-60);
   }
 
   // Polls run only while someone has the tab open; the first look fetches the days before.

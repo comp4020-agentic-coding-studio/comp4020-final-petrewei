@@ -15,7 +15,7 @@ import { place, windowed } from "/view.js";
 import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { localTime, quoted, setZone, tone, zoneName } from "/format.js";
+import { feedTime, localTime, quoted, setZone, tone, zoneName } from "/format.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -1511,7 +1511,11 @@ function render(s) {
     const said = news(lang, f, nameOf);
     // a real headline links to the outlet or bank that said it, in a new tab, so a player can read on
     const text = f.args?.link ? Object.assign(document.createElement("a"), { href: f.args.link, target: "_blank", rel: "noopener noreferrer", textContent: said }) : said;
-    li.append(Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
+    // when it happened, in the viewer's zone, before the line
+    // a headline's own time is when it was published; anything else, when it was said
+    const at = Number(f.args?.at ?? f.when ?? 0);
+    const when = at ? [Object.assign(document.createElement("time"), { className: "when", dateTime: new Date(at).toISOString(), textContent: feedTime(at, lang) })] : [];
+    li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.

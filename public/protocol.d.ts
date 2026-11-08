@@ -27,7 +27,7 @@ export type CommonState = {
   desk: { cap: number; fee: number; step: number; limit: number; tiers: (number | null)[][]; ticksPerMinute: number; distances: readonly number[] };
   leverages: readonly number[]; you: Player; traders: Trader[];
   career: Career[];
-  feed: { text: string; kind: string; key?: string; args?: Record<string, string | number> }[];
+  feed: { text: string; kind: string; key?: string; args?: Record<string, string | number>; when?: number }[];
   bid: number; ask: number; pip: number; minRounds: number;
   speed?: number; rules?: boolean; ironman?: boolean; paused?: number | null; headline?: Headline;
   calendar?: CalendarEntry[] | Release[]; bankNews?: BankNews[]; historyGap?: boolean; opens?: number | null;

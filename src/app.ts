@@ -532,7 +532,7 @@ export function createApp(options: AppOptions = {}) {
     type Mode = (typeof MODES)[number];
     // `feedSeen` is the version of its round's feed a page was last sent, so a delta resends the feed only when it moved.
     type Listener = { res: ServerResponse; who: string; mode: Mode | "tutorial" | "live"; feedSeen?: number };
-    type News = { text: string; kind: string; key: string; args: Record<string, string | number> };
+    type News = { text: string; kind: string; key: string; args: Record<string, string | number>; when?: number };
     type Facts = { pair: string; simulated: boolean; from: string; to: string; event: { date: string; title: string; note: string } | null; source?: string; situation?: string };
     type Debrief = ReturnType<typeof scoreBreakdown> & { whatIf: ReturnType<Market["whatIf"]>; beforeFees: number; financing: number; interest: number; balance: number; debt: number; net: number; cuts: number; bonus: number; score: number };
     const listeners = new Set<Listener>();
@@ -852,7 +852,8 @@ export function createApp(options: AppOptions = {}) {
       }
 
       say(text: string, kind: string, key = "", args: Record<string, string | number> = {}): void {
-        this.feed.unshift({ text, kind, key, args });
+        // each line is stamped when it is said, so the feed shows when it happened
+        this.feed.unshift({ text, kind, key, args, when: clock.now() });
         this.feed.splice(14);
         this.feedVersion++;
       }
