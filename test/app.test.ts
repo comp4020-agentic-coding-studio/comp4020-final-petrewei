@@ -341,6 +341,28 @@ it("restores a cached page with live controllers and a fresh stream", async () =
   } finally { dom.window.close(); }
 });
 
+// Live's market headlines list each story after the pinned one as a link to the outlet, with its source, and only on
+// Live: the headline is the outlet's own words, opened in a new tab.
+it("lists Live's market headlines as links to their outlets", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const marketNews = [{ source: "CNBC", title: "Fed signals rates stay higher for longer", at: Date.parse("2026-11-08T20:00:00Z"), link: "https://www.cnbc.com/x" }];
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, marketNews });
+    expect(w.document.getElementById("market-news")!.hidden).toBe(false);
+    const a = w.document.querySelector("#market-news-list a") as HTMLAnchorElement;
+    expect(a.textContent).toBe("Fed signals rates stay higher for longer");
+    expect(a.href).toBe("https://www.cnbc.com/x");
+    expect(a.rel).toContain("noopener");
+    expect(w.document.getElementById("market-news-list")!.textContent).toContain("CNBC");
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, marketNews: [] });
+    expect(w.document.getElementById("market-news")!.hidden, "nothing to show, nothing shown").toBe(true);
+  } finally {
+    dom.window.close();
+  }
+});
+
 // Live shut for the weekend says when the FX week opens, in Sydney time; shut by a mid-week outage, with no opening
 // sent, it says only that it is shut, so the page never promises a time that is not coming.
 it("tells a Live player when the weekend's shut market opens", async () => {

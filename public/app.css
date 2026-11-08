@@ -1117,6 +1117,16 @@ body.live .prayers, body.live #pend, body.live #round-ctl, body.live #guess { di
 .book td { padding: 0.3rem 0.9rem; font: 0.82rem var(--mono); white-space: nowrap; }
 .book .linkish { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; }
 .calendar.real li.bank a { color: inherit; }
+/* Live's market headlines over the feed: a heading, then each headline linked, its source and time small after it. */
+.market-news { padding: 0.4rem 0.9rem 0.2rem; }
+.market-news[hidden] { display: none; }
+.market-news-head { margin: 0 0 0.2rem; font-size: 0.78rem; font-weight: 700; color: var(--soft); }
+.market-news-head small { font-weight: 400; color: var(--muted); }
+.market-news ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.market-news li { font-size: 0.82rem; line-height: 1.3; }
+.market-news li a { color: var(--ink); text-decoration: none; }
+.market-news li a:hover { text-decoration: underline; }
+.market-news li small { color: var(--muted); }
 .calendar.real li.bank .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* four tabs on a phone: icons and short labels share the row */
 @media (max-width: 520px) {

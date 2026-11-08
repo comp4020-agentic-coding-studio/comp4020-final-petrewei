@@ -191,6 +191,12 @@ export class Live {
         this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title });
         this.headline = { cur: i.cur, title: i.title, source: i.source, link: i.link, at: i.at };
       }
+      // the market's own headlines, from a big outlet with backups: the most relevant pins the top, unless a central
+      // bank has spoken more recently, since a bank's decision moves a currency most
+      const stories = await this.news.markets(now).catch(() => this.news.stories);
+      if (this.disposed) return;
+      const top = stories[0];
+      if (top && (!this.headline || top.at > this.headline.at)) this.headline = { cur: "", title: top.title, source: top.source, link: top.link, at: top.at };
     }
     if (now - this.lastCal > CAL_MS) {
       this.lastCal = now;
@@ -427,6 +433,8 @@ export class Live {
       headline: this.headline,
       calendar: this.news.calendar.filter((c) => c.at > now - 86_400_000).slice(0, 12),
       bankNews: this.news.items.slice(0, 8).map((i) => ({ cur: i.cur, source: i.source, title: i.title, at: i.at, link: i.link })),
+      // the market's other headlines after the pinned one, most relevant first; each is the outlet's own, linked
+      marketNews: this.news.stories.filter((x) => x.link !== this.headline?.link).slice(0, 5).map((x) => ({ source: x.source, title: x.title, at: x.at, link: x.link })),
       reopens: a ? null : this.waits.get(k) ?? null,
       you: {
         name: this.w.name(who),

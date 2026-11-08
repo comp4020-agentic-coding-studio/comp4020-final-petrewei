@@ -27,7 +27,7 @@ const get: Get = async (url) => {
   return res.text();
 };
 
-const unescape = (s: string): string => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/<[^>]+>/g, "").trim();
+const unescape = (s: string): string => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/<[^>]+>/g, "").trim();
 const field = (item: string, ...names: string[]): string => {
   for (const n of names) {
     const m = item.match(new RegExp(`<${n}[^>]*>([\\s\\S]*?)</${n}>`));
@@ -52,9 +52,45 @@ export function parseCalendar(json: string): Release[] {
   return rows.filter((r) => r.impact === "High" && OURS.has(r.country)).map((r) => ({ cur: r.country as Currency, title: r.title, at: Date.parse(r.date), forecast: r.forecast ?? "", previous: r.previous ?? "", actual: r.actual ?? "" })).filter((r) => r.at).sort((a, b) => a.at - b.at);
 }
 
+// Live's market headlines: a big outlet's market feed first, then backups in order when it fails. Each headline is the
+// outlet's own words, credited and linked to its site, never rewritten; the page says so.
+export type Story = { id: string; source: string; title: string; at: number; link: string; score: number };
+export const MARKET_FEEDS: { source: string; url: string; site: RegExp }[] = [
+  { source: "CNBC", url: "https://www.cnbc.com/id/10000664/device/rss/rss.html", site: /^https?:\/\/(www\.)?cnbc\.com\// },
+  { source: "BBC News", url: "https://feeds.bbci.co.uk/news/business/rss.xml", site: /^https?:\/\/(www\.)?bbc\.(co\.uk|com)\// },
+  { source: "ABC News", url: "https://www.abc.net.au/news/feed/51892/rss.xml", site: /^https?:\/\/(www\.)?abc\.net\.au\// },
+  { source: "FXStreet", url: "https://www.fxstreet.com/rss/news", site: /^https?:\/\/(www\.)?fxstreet\.com\// },
+];
+// How much a headline is about money, currencies first: words that move the seven currencies weigh most, then rates
+// and prices, then markets in general. Nothing scores zero and is dropped.
+const WEIGHTS: [RegExp, number][] = [
+  [/\b(forex|currenc(y|ies)|exchange rate|dollar|euro|yen|pound|sterling|franc|yuan|renminbi|aussie)\b/i, 5],
+  [/\b(fed|federal reserve|ecb|bank of england|boj|bank of japan|rba|reserve bank|snb|central bank|pboc)\b/i, 5],
+  [/\b(interest rates?|rate (cut|hike|rise)|inflation|cpi|jobs report|payrolls|unemployment|gdp|recession|tariffs?)\b/i, 3],
+  [/\b(bonds?|yields?|treasur(y|ies)|gold|oil|crude|commodit(y|ies))\b/i, 2],
+  [/\b(stocks?|shares|markets?|wall street|s&p|nasdaq|dow|asx|nikkei|ftse|equities|investors?)\b/i, 1],
+];
+export const relevance = (title: string): number => WEIGHTS.reduce((n, [re, w]) => n + (re.test(title) ? w : 0), 0);
+// Stories stay for three days: markets publish little at weekends, so a day would leave the list empty on a Sunday.
+const KEEP = 3 * 86_400_000;
+
+// A feed's market stories from the last three days, the most relevant and newest first, each linked to the outlet's own site.
+export function parseMarketFeed(xml: string, feed: (typeof MARKET_FEEDS)[number], now: number): Story[] {
+  return [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].map(([it]) => {
+    const title = field(it, "title").replace(/\s+/g, " ");
+    const link = field(it, "link");
+    const at = Date.parse(field(it, "pubDate", "dc:date")) || 0;
+    return { id: `${feed.source}:${link || title}`, source: feed.source, title, at, link, score: relevance(title) };
+  }).filter((i) => i.title && i.at && i.score > 0 && now - i.at < KEEP && i.at <= now + 3_600_000 && feed.site.test(i.link))
+    // a feed may list one story twice; keep it once
+    .filter((i, n, all) => all.findIndex((j) => j.title === i.title) === n)
+    .sort((a, b) => b.score - a.score || b.at - a.at);
+}
+
 export class News {
   items: Item[] = [];
   calendar: Release[] = [];
+  stories: Story[] = [];
   private fetchText: Get;
   constructor(fetchText: Get = get) {
     this.fetchText = fetchText;
@@ -66,6 +102,23 @@ export class News {
     const fresh = got.filter((i) => !seen.has(i.id));
     this.items = [...this.items, ...fresh].sort((a, b) => b.at - a.at).slice(0, 40);
     return fresh.sort((a, b) => a.at - b.at);
+  }
+  // The market headlines: the first feed that answers, in order, so a failing outlet falls to the next; with none
+  // answering, the last good headlines stay until they age out.
+  async markets(now: number): Promise<Story[]> {
+    for (const feed of MARKET_FEEDS) {
+      try {
+        const got = parseMarketFeed(await this.fetchText(feed.url), feed, now);
+        if (got.length) {
+          this.stories = got.slice(0, 12);
+          return this.stories;
+        }
+      } catch {
+        // this outlet failed; try the next
+      }
+    }
+    this.stories = this.stories.filter((i) => now - i.at < KEEP);
+    return this.stories;
   }
   async week(): Promise<void> {
     try {

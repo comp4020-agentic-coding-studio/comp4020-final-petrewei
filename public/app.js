@@ -887,6 +887,18 @@ function book(s) {
     return tr;
   }));
 }
+// Live's market headlines: the stories after the one pinned over the chart, each the outlet's own words, linked, with
+// its source and how long ago; they turn over as the server's feed refreshes.
+function marketNews(s) {
+  const items = s.mode === "live" ? s.marketNews ?? [] : [];
+  $("market-news").hidden = !items.length;
+  $("market-news-list").replaceChildren(...items.map((n) => {
+    const li = document.createElement("li");
+    const a = Object.assign(document.createElement("a"), { href: n.link, target: "_blank", rel: "noopener noreferrer", textContent: n.title });
+    li.append(a, Object.assign(document.createElement("small"), { textContent: ` ${n.source} · ${sydneyTime(n.at, lang)}` }));
+    return li;
+  }));
+}
 // Live's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
 // the forecast and, once out, the actual figure, as the calendar's source gives them; then the central banks' latest
 // words, each a link to the bank's own page. The titles are the sources' own, in English.
@@ -1445,6 +1457,7 @@ function render(s) {
   };
   // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
   const cal = shows(s).calendar ? s.calendar ?? [] : [];
+  marketNews(s);
   realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {
