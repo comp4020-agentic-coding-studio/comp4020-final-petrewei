@@ -34,6 +34,7 @@ import { Feed } from "./feed.ts";
 import type { News } from "./news.ts";
 import { jsonStorage, type Storage } from "./storage.ts";
 import { namesValid, migrateNames, facesValid, careerValid } from "./saved.ts";
+import { Mcp } from "./mcp.ts";
 
 export type AppOptions = {
   dataDir?: string;
@@ -1240,11 +1241,42 @@ export function createApp(options: AppOptions = {}) {
     };
     const liveMarket = new Live(DATA_DIR, { named, key, short, name: nameOf, draw: drawOf, face: faceOf, faceAt, nameAt }, {
       clock, storage, quotes: options.quotes ?? new Feed(undefined, clock.now, env.LIVE_FEED), news: options.news, pollMs: Number(env.LIVE_POLL_MS ?? 5000),
-      watching: () => peopleOn("live"),
+      // an agent playing through MCP has no page open, but Live must keep its prices moving for it
+      watching: () => peopleOn("live") + mcp.active(),
       onChange: () => sendLive(),
       log: (who, ev, fields) => log(who, ev, fields),
     });
     disposeMarket = () => liveMarket.dispose();
+    // AI agents play Live through MCP at /mcp: each session one new player, named "Agent" and a short code by the same
+    // rules as a person's name, trading through Live's own actions (src/mcp.ts)
+    const mcp: Mcp = new Mcp({
+      join: (who) => {
+        const named = rename(who, `Agent ${short(who)}`);
+        return "error" in named ? `Agent ${short(who)}` : named.name;
+      },
+      // an agent's look or action wakes Live's price polling, which a page starts on opening the tab
+      view: (who) => (liveMarket.wake(), liveMarket.view(who, headCounts()) as unknown as Record<string, unknown>),
+      act: (who, input) => {
+        liveMarket.wake();
+        const refused = liveMarket.act(who, input);
+        log(who, refused ? "refused" : "agent", { mode: "live", action: input.kind, ...(refused ? { why: refused } : {}) });
+        if (!refused) sendLive();
+        return refused;
+      },
+      isPair,
+      now: () => clock.now(),
+    });
+    // an MCP request: JSON-RPC, perhaps a batch, larger than a page's action, so it has its own reader and limit
+    async function mcpBody(req: IncomingMessage): Promise<unknown> {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of req as AsyncIterable<Buffer>) {
+        size += chunk.length;
+        if (size > 64 * 1024) throw new Error("too large");
+        chunks.push(chunk);
+      }
+      return JSON.parse(Buffer.concat(chunks).toString("utf8") || "null");
+    }
     function sendLive(except?: Listener): void {
       const here = headCounts();
       for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(`data: ${JSON.stringify(liveMarket.view(l.who, here))}\n\n`);
@@ -1602,6 +1634,14 @@ export function createApp(options: AppOptions = {}) {
       // A debugger's page loads the console too; nobody else's does.
       if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [PAGES[url.pathname][0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
       if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
+      if (path === "/mcp") {
+        const message = req.method === "POST" ? await mcpBody(req).catch(() => undefined) : null;
+        if (req.method === "POST" && message === undefined) return json(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error." } });
+        const session = req.headers["mcp-session-id"];
+        const out = mcp.handle(req.method ?? "GET", typeof session === "string" ? session : undefined, message);
+        res.writeHead(out.status, out.headers);
+        return void res.end(out.body === null ? undefined : JSON.stringify(out.body));
+      }
       if (path === "/api/debug") {
         if (!debug || req.method !== "POST") return json(res, 404, { error: "Not found." });
         const input = await body(req).catch(() => null);
