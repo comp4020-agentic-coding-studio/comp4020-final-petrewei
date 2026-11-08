@@ -561,11 +561,28 @@ $("settings-close").onclick = () => $("settings").close();
 // for a margin call. Made with the page's own audio, so nothing is fetched, and only once a player has turned it on.
 let audio = null;
 const TONES = { fill: [[880, 0.05]], win: [[660, 0.08], [990, 0.12]], cut: [[110, 0.35]], call: [[220, 0.12], [220, 0.12]] };
+// A wipe-out falls, from a low note to a lower one over half a second, rather than one flat thud: enough to feel the
+// floor give way, short and quiet, never a siren.
+const FALLS = { cut: [196, 55, 0.55] };
 function sound(kind) {
   if (!prefs.sound) return;
   try {
     audio ??= new AudioContext();
     let at = audio.currentTime;
+    if (FALLS[kind]) {
+      const [from, to, len] = FALLS[kind];
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(from, at);
+      osc.frequency.exponentialRampToValueAtTime(to, at + len);
+      gain.gain.setValueAtTime(0.14, at);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + len);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + len);
+      return;
+    }
     for (const [freq, len] of TONES[kind]) {
       const osc = audio.createOscillator();
       const gain = audio.createGain();
@@ -589,6 +606,34 @@ function sound(kind) {
 // left it on hears it from their first click anywhere on the page.
 const bgm = $("bgm");
 bgm.volume = 0.35;
+// In a margin call the music sinks behind a low-pass filter, muffled as if underwater, and opens again on recovery:
+// fear you hear, not see. The track is routed through the page's audio the first time it plays (a browser allows that
+// only after a click); if that fails the music plays as it always did, unfiltered. Calm screen leaves it alone.
+let lowpass = null;
+function routeMusic() {
+  if (lowpass) return;
+  try {
+    audio ??= new AudioContext();
+    lowpass = audio.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 20000;
+    audio.createMediaElementSource(bgm).connect(lowpass).connect(audio.destination);
+  } catch {
+    lowpass = null;
+  }
+}
+let afraid = false;
+function fear(on) {
+  on = on && !prefs.calm;
+  if (on === afraid || !lowpass || !audio) return;
+  afraid = on;
+  const f = lowpass.frequency;
+  f.cancelScheduledValues(audio.currentTime);
+  f.setValueAtTime(f.value, audio.currentTime);
+  f.exponentialRampToValueAtTime(on ? 600 : 20000, audio.currentTime + 1.5);
+  // the page marks the music as afraid, so a check (and a curious player's dev tools) can see the filter engage
+  bgm.dataset.fear = String(on);
+}
 const musicLabel = () => {
   const on = !bgm.paused;
   for (const id of ["music", "n-music"]) {
@@ -619,7 +664,11 @@ const toggleMusic = async () => {
   musicLabel();
 };
 $("music").onclick = $("n-music").onclick = toggleMusic;
-bgm.addEventListener("play", musicLabel);
+bgm.addEventListener("play", () => {
+  routeMusic();
+  audio?.resume?.();
+  musicLabel();
+});
 bgm.addEventListener("pause", musicLabel);
 try {
   if (localStorage.getItem("music") === "on") {
@@ -649,6 +698,7 @@ function warn(s, open) {
   $("warn").hidden = !show;
   $("warn").className = `warn ${calling ? "calling" : "near"}`;
   $("level-box").classList.toggle("alarm", !!(open && calling));
+  fear(!!(open && calling));
   if (show) {
     // How far the price can move, against you, to the next line.
     const to = calling ? pos.cut : pos.call;
