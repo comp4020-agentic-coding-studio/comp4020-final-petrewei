@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, ringAlerts, setAlert, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
+import { LiveBots } from "./live-bots.ts";
 import { pipOf } from "../public/ticket.js";
 import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
 import { News } from "./news.ts";
@@ -44,6 +45,8 @@ export class Live {
   // a bankrupt player's key, and when their next account opens
   waits = new Map<string, number>();
   feed: FeedLine[] = [];
+  // the house traders, each on a pair of its own, told in the feed and never on the board (ADR 0095)
+  private bots = new LiveBots();
   headline: { cur: string; title: string; source: string; link: string; at: number } | null = null;
   // the last slot the accounts were charged for
   slot = 0;
@@ -151,6 +154,9 @@ export class Live {
         this.gap = this.missingHistory(now);
       }
       if (!this.gap) this.advance(at ?? this.clock.now());
+      // the house traders trade real prices while they are live (ADR 0095)
+      const usd = this.quotes.latest();
+      if (usd && !this.gap && this.quotes.live()) this.bots.step(usd, (text, kind, key, args) => this.say(text, kind, key, args));
     } catch {
       if (this.disposed) return;
       // A newly fetched quote remains unavailable if historical recovery failed.
