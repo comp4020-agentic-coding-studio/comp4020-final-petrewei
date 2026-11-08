@@ -491,8 +491,8 @@ export class Live {
       round: 0,
       // Live's news is all in the feed, the most important pinned there, so the chart carries no headline of its own
       headline: null,
-      // the week's releases still to come: a schedule, not news already told
-      calendar: this.news.calendar.filter((c) => c.at > now - 86_400_000).slice(0, 12),
+      // no schedule of releases over the feed: the feed is news and trades alone
+      calendar: [],
       reopens: a ? null : this.waits.get(k) ?? null,
       you: {
         name: this.w.name(who),
