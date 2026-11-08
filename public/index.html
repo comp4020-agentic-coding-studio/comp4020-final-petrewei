@@ -253,6 +253,12 @@
           <p class="pend-what" id="pend-what"></p>
         </div>
       </details>
+      <!-- Live's price alerts (ADR 0095): in the order card beside the pending order, both levels on the chart's pair; each set one, with a cancel. -->
+      <form class="alerts" id="alerts" hidden>
+        <label><span data-t="alertAt">Tell me at</span> <input id="alert-at" type="number" inputmode="decimal" step="any" min="0" data-tip="alertAt" data-t-aria="alertAt"></label>
+        <button type="submit" class="ghost" id="alert-set" data-t="alertSet" data-tip="alertSet">Set alert</button>
+        <ul id="alert-list"></ul>
+      </form>
       <p id="error" class="error" role="status"></p>
       </div>
     </section>
@@ -307,12 +313,6 @@
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
       <!-- Live (ADR 0087): every pair open in the account, each with its own close. -->
       <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
-      <!-- Live's price alerts (ADR 0095): tell me when the chart's pair reaches a price; each set one, with a cancel. -->
-      <form class="alerts" id="alerts" hidden>
-        <label><span data-t="alertAt">Tell me at</span> <input id="alert-at" type="number" inputmode="decimal" step="any" min="0" data-tip="alertAt" data-t-aria="alertAt"></label>
-        <button type="submit" class="ghost" id="alert-set" data-t="alertSet" data-tip="alertSet">Set alert</button>
-        <ul id="alert-list"></ul>
-      </form>
       <details class="history" id="history" hidden>
         <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
         <table>
