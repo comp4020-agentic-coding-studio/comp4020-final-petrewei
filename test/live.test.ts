@@ -439,7 +439,7 @@ afterEach(async () => {
 it("runs a Live account on the server across pairs and a restart, and shuts with a stale price", async () => {
   let stale = false;
   feed = createServer((_req, res) => {
-    const t = Math.floor(Date.now() / 1000) - (stale ? 3600 : 0);
+    const t = Math.floor(Date.now() / 1000) - (stale ? 3 * 3600 : 0);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(spark(t, [t - 1800, t - 900], (_s, p, at) => (at === t - 900 ? p : p * 1.001))));
   }).listen(8195);
@@ -478,7 +478,7 @@ it("runs a Live account on the server across pairs and a restart, and shuts with
     const back = await look();
     tab1.close();
     expect(back.you.positions.map((p) => p.pair)).toEqual(expect.arrayContaining(["AUD/JPY", "EUR/USD"]));
-    // an hour without a price is a shut market: orders wait
+    // a price stale past the outage limit, three hours, is a shut market at any hour of the week: orders wait
     stale = true;
     const tab2 = await c.page(me, "live");
     for (let i = 0; i < 50 && (await look()).live; i++) await new Promise((r) => setTimeout(r, 100));
