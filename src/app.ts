@@ -164,7 +164,23 @@ export function createApp(options: AppOptions = {}) {
     // person drew instead is kept under that key.
     const faceStore = storage.open<Record<string, string>>(FACES_FILE, { initial: () => ({}), validate: facesValid });
     const faces = faceStore.read();
-    const faceAt = (k: string): string => faces[k] ?? `p${Number.parseInt(k.slice(4, 6), 16) % PEOPLE.length}`;
+    // A face nobody chose is worked out from the career key. The set grew from twelve: a key already on record keeps
+    // the face the first twelve gave it, and a newcomer is dealt from every face; a newcomer's face is stored the moment
+    // they come on record (`keepFace`), so it never jumps from one rule to the other.
+    const FIRST_FACES = 12;
+    const onRecord = (k: string): boolean => k in chosen || k in career;
+    const faceAt = (k: string): string =>
+      faces[k] ?? `p${onRecord(k) ? Number.parseInt(k.slice(4, 6), 16) % FIRST_FACES : Number.parseInt(k.slice(4, 8), 16) % PEOPLE.length}`;
+    // Store a newcomer's dealt face before they come on record, so the face they were shown stays theirs.
+    function keepFace(k: string): void {
+      if (k in faces || onRecord(k)) return;
+      faces[k] = faceAt(k);
+      try {
+        faceStore.write(faces);
+      } catch (error) {
+        console.error("could not save the faces:", error);
+      }
+    }
     const faceOf = (who: string): string => (bot(who) ? who : faceAt(key(who)));
     // Six hex characters tell people apart in the log at a glance; a career
     // is filed under sixteen, so two people's careers never merge.
@@ -216,6 +232,7 @@ export function createApp(options: AppOptions = {}) {
       if (k in chosen && id === identityOf(who) && (draw !== null || name === before)) return { name: before, draw };
       if (taken(id, who)) return { error: "Someone already has that name.", status: 409 };
       if (!(k in chosen) && Object.keys(chosen).length >= NAMES_MAX) return { error: "Too many names are taken. Try again later.", status: 409 };
+      keepFace(k);
       chosen[k] = draw ?? name;
       held = null;
       try {
@@ -468,6 +485,7 @@ export function createApp(options: AppOptions = {}) {
     }
     function record(who: string): Career | null {
       if (bot(who)) return null;
+      keepFace(key(who));
       career[key(who)] ??= { name: nameOf(who), draw: drawOf(who), rounds: 0, profit: 0, wins: 0, busts: 0, best: 0, points: 0 };
       saveCareer();
       queueMicrotask(rank);
