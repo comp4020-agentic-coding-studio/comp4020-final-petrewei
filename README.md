@@ -2,7 +2,7 @@
 
 A shared currency market where everyone on a tab trades one price with play money while the room watches you lose it. Rewind replays a real crisis, dates hidden until the bell; Random draws a market from today's rate and a hidden situation; Live trades real prices until you go bankrupt. Pick a name, press Start; a second browser profile sees each trade within a second.
 
-[日本語](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/ja.md) · [中文](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/zh.md)
+[日本語](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/ja.md) · [中文](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/zh.md) · [Wiki](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/wiki)
 
 **AI agent (optional):** any MCP client trades Live at `https://comp4020-final-petrewei.fly.dev/mcp` over HTTP, no key: `claude mcp add --transport http losscut https://comp4020-final-petrewei.fly.dev/mcp`.
 
