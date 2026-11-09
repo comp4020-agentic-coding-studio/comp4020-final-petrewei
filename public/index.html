@@ -111,7 +111,7 @@
         </section>
 
         <div class="studies" id="studies" role="group" data-t-aria="indicators">
-          <select id="range" data-t-aria="chartRange" data-tip="chartRange"><option value="all" data-t="rangeAll">All</option><option value="1d" data-t="rangeDay">1D</option><option value="6h" data-t="rangeHours">6H</option></select>
+          <select id="range" data-t-aria="chartRange" data-tip="chartRange"><option value="all" data-t="rangeWeek">1W</option><option value="1d" data-t="rangeDay">1D</option><option value="6h" data-t="rangeHours">6H</option></select>
           <button type="button" data-study="ma" aria-pressed="true" style="--c: var(--ma-fast)" data-tip="ma">MA</button>
           <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-tip="bb">BB</button>
           <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-tip="rsi">RSI</button>
@@ -345,6 +345,7 @@
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
+      <p class="join-open"><button type="button" class="ghost mini" id="join-btn" data-tip="joinOpen"><span aria-hidden="true">📱</span> <span data-t="joinTitle">Join on a phone</span></button></p>
       <!-- Duels (ADR 0095): a challenge made to you, with Accept, or the duel you are in this round. -->
       <p class="duel" id="duel" hidden><span id="duel-text"></span> <button type="button" class="mini" id="duel-accept" data-t="duelAccept" data-tip="duelAccept">Accept</button></p>
       <ol id="traders"></ol>
@@ -440,6 +441,14 @@
     <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
     <ul class="feat-list" id="feat-list"></ul>
     <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
+  </dialog>
+  <!-- This tab's address as a QR code, for a room to join from their phones (docs/product.md, candidate 1). -->
+  <dialog id="join-box" class="card join-box" aria-labelledby="join-title">
+    <h2 id="join-title" data-t="joinTitle">Join on a phone</h2>
+    <p data-t="joinNote">Scan to open this tab on a phone. Everyone who scans trades the same price.</p>
+    <div id="join-qr" class="join-qr"></div>
+    <p class="join-url"><code id="join-url"></code></p>
+    <div class="row"><button type="button" class="ghost" id="join-close" data-t="featsDone">Done</button></div>
   </dialog>
   <dialog id="history-box" class="card history-box history" aria-labelledby="history-title">
     <h2 id="history-title"><span data-t="historyTitle">Closed Trades</span></h2>

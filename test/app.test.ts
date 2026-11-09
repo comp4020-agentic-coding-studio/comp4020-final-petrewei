@@ -12,6 +12,7 @@ import * as ticket from "../public/ticket.js";
 import * as art from "../public/art.js";
 import * as clauses from "../public/clauses.js";
 import * as format from "../public/format.js";
+import qrcode from "../public/qrcode.js";
 import { autoMove, currentStep } from "../public/plan.js";
 
 async function app(lang: "en" | "ja" | "zh" = "en") {
@@ -42,7 +43,7 @@ async function app(lang: "en" | "ja" | "zh" = "en") {
     return setInterval(callback, ms);
   });
   Object.assign(w, i18n, names, avatars, indicators, view, ticket, art, clauses, format, {
-    autoMove, planStep: currentStep, EventSource: Stream,
+    autoMove, planStep: currentStep, EventSource: Stream, qrcode,
     fetch,
     CSS: { escape: (s: string) => s },
     matchMedia: () => ({ matches: false, addEventListener() {} }),
@@ -413,6 +414,41 @@ it("offers every time zone the browser knows in Settings, grouped by region", as
     expect(offered).toContain("");
     expect(zone.querySelectorAll("optgroup").length).toBeGreaterThan(5);
     expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toMatch(/Tokyo.*GMT\+9/);
+  } finally {
+    dom.window.close();
+  }
+});
+
+// The chart's widest range says what it spans, never a vague "All": Live's six days of slots read as a week.
+it("names the chart's widest range by its span: a week on Live", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const prices = Array.from({ length: 96 * 6 + 1 }, (_, i) => 0.65 + i / 1e5);
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], you, headline: null, prices, history: [], steps: 8, dayTicks: 96, tick: 2_000_000, total: prices.length - 1 });
+    await new Promise((r) => w.requestAnimationFrame(() => r(null)));
+    const first = (w.document.getElementById("range") as HTMLSelectElement).options[0];
+    expect(first.textContent).toBe("1W");
+    expect(first.textContent).not.toMatch(/all/i);
+  } finally {
+    dom.window.close();
+  }
+});
+
+// A room joins from a phone by a QR code of this tab's own address (docs/product.md, candidate 1): the button opens
+// it, the code is drawn, and the address is written out under it for anyone who cannot scan.
+it("shows a QR code of this tab's address, to join from a phone", async () => {
+  const { dom, w, emit } = await app();
+  try {
+    await emit();
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    // jsdom has no modal dialogs; a browser's opens the dialog as this does
+    w.HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+    w.document.getElementById("join-btn")!.click();
+    expect((w.document.getElementById("join-box") as HTMLDialogElement).open).toBe(true);
+    expect(w.document.querySelector("#join-qr svg, #join-qr img"), "the code is drawn").not.toBeNull();
+    expect(w.document.getElementById("join-url")!.textContent).toBe(w.location.href.split("#")[0]);
   } finally {
     dom.window.close();
   }

@@ -1473,7 +1473,7 @@ export function createApp(options: AppOptions = {}) {
     const readme = `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About Losscut!</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">${FONTS}<link rel="stylesheet" href="/app.css">${THEME}</head><body class="readme"><main>${renderMarkdown(read("README.md"))}<p><a href="/">Back to the market</a></p></main><footer>${escape(T.en.ui.footer)}</footer></body></html>`;
     // The page's scripts, each served from public/ under its own name; one list, so a new module is one word here.
     const JS = "text/javascript; charset=utf-8";
-    const SCRIPTS = ["requests", "dom", "transport", "account", "chart", "tutorial-ui", "about-controls", "app", "format", "i18n", "names", "indicators", "avatars", "ticket", "art", "tips", "clauses", "plan", "view", "i18n-long"];
+    const SCRIPTS = ["requests", "dom", "transport", "account", "chart", "tutorial-ui", "about-controls", "app", "format", "i18n", "names", "indicators", "avatars", "ticket", "art", "tips", "clauses", "plan", "view", "i18n-long", "qrcode"];
     const PAGES: Record<string, [string, string]> = {
       ...Object.fromEntries(SCRIPTS.map((n) => [`/${n}.js`, [read(`public/${n}.js`), JS]])),
       ...Object.fromEntries(LANGS.flatMap((l) => [[`${prefix(l)}/`, [marketIn(l), HTML]], [`${prefix(l)}/about`, [aboutIn(l), HTML]]])),

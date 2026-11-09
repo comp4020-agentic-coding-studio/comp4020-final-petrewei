@@ -16,6 +16,7 @@ import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHea
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { feedTime, localTime, quoted, setZone, tone, zoneGroups, zoneName } from "/format.js";
+import qrcode from "/qrcode.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -445,6 +446,22 @@ $("feats-mine").onclick = () => state && showFeats(null, state.you.feats ?? []);
 $("feats-close").onclick = () => $("feats").close();
 // the closed trades open in a window from the position panel's button (ADR 0081)
 $("history-btn").onclick = () => $("history-box").showModal();
+// This tab's address as a QR code, drawn when opened, so a room joins from their phones; the address carries no secret.
+$("join-btn").onclick = () => {
+  const url = location.href.split("#")[0];
+  $("join-url").textContent = url;
+  try {
+    const code = qrcode(0, "M");
+    code.addData(url);
+    code.make();
+    $("join-qr").innerHTML = code.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  } catch {
+    // a code that cannot be drawn leaves the address, written out under it
+    $("join-qr").replaceChildren();
+  }
+  $("join-box").showModal();
+};
+$("join-close").onclick = () => $("join-box").close();
 $("history-close").onclick = () => $("history-box").close();
 
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.

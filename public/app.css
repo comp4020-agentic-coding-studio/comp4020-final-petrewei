@@ -1135,3 +1135,9 @@ body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
 @media (max-width: 520px) {
   .tabs button .ico { display: none; }
 }
+/* the phone join code: square, dark on white whatever the theme, so every camera reads it */
+.join-open { margin: 0.2rem 0 0.4rem; }
+.join-box { text-align: center; }
+.join-qr { width: min(240px, 70vw); margin: 0.6rem auto; padding: 8px; background: #fff; border-radius: 8px; }
+.join-qr svg { display: block; width: 100%; height: auto; }
+.join-url code { font-size: 0.75rem; overflow-wrap: anywhere; }

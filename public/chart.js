@@ -112,6 +112,13 @@ export function createChart({ getState, getLanguage, t }) {
   function draw(full) {
     // a plain chart (the tutorial's) has no range to choose, and always shows the whole of its round
     const s = full.chart.studies ? zoomed(windowed(full), range) : windowed(full);
+    // The widest choice says what it spans: Live's six days of slots are its trading week, a round's window its days
+    // of history, so the label is never a vague "All".
+    if (rangeBox instanceof HTMLSelectElement && rangeBox.options[0]) {
+      const whole = windowed(full);
+      const span = Math.round(whole.total / full.dayTicks);
+      rangeBox.options[0].textContent = span >= 5 ? t("rangeWeek") : t("rangeAll").replace("{d}", String(span));
+    }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (!s.prices.length) {

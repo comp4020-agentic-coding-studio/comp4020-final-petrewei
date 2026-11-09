@@ -76,16 +76,16 @@ Reach is people out of an expected 100 in the showcase and marking week. Impact 
 | # | Candidate | Area | R | I | C | E | Score | Agent's view | Decision |
 | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | :--- | :--- |
 | 1 | QR code on the page that joins this tab from a phone | UI | 50 | 2 | 80% | 1 | 80 | Build: a showcase crowd joins in seconds | — |
-| 2 | The wipe-out price on the ticket before ordering | UI | 80 | 2 | 80% | 2 | 64 | Build: risk read in price, beside the money | — |
+| 2 | The wipe-out price on the ticket before ordering | UI | 80 | 2 | 80% | 2 | 64 | Build: risk read in price, beside the money | Already built: the leverage note says how far a move wipes the margin |
 | 3 | The ESMA "74–89% lose" figure beside your result at the bell | Education | 70 | 1 | 80% | 1 | 56 | Build: the lesson, where it lands | Built, at the bell |
-| 4 | On a stop-out pop-up, a "show me" that marks the candle that did it | Education | 70 | 2 | 80% | 2 | 56 | Build after freeze | — |
+| 4 | On a stop-out pop-up, a "show me" that marks the candle that did it | Education | 70 | 2 | 80% | 2 | 56 | Build after freeze | Mostly built: your stop-out is marked on the chart with your face and ✕ |
 | 5 | A short GIF of two profiles trading at the top of the README | Education | 60 | 1 | 80% | 1 | 48 | Build: markers see real time before trying | — |
-| 6 | Wipe-out animation: the chart shakes, Kurumi's face | Art | 70 | 1 | 80% | 2 | 28 | Build: the laugh, for the room | — |
+| 6 | Wipe-out animation: the chart shakes, Kurumi's face | Art | 70 | 1 | 80% | 2 | 28 | Build: the laugh, for the room | Already built: the 強制ロスカット stamp shakes the screen |
 | 7 | Shorter Rewind (two days) as a showcase option | Mechanics | 50 | 2 | 80% | 3 | 27 | Consider: changes the clock ADR | — |
 | 8 | A deposit bonus or broker referral, "for realism" | Mechanics | 100 | 1 | 50% | 2 | 25 | Reject: breaks the play-money rule outright | Rejected |
 | 9 | Live's bankruptcy wait shortened on showcase day | Mechanics | 30 | 1 | 80% | 1 | 24 | Reject: Sydney midnight is the lesson's cost | — |
 | 10 | Reactions (😱 💸) on another player's stop-out in the feed | Actions | 60 | 2 | 50% | 3 | 20 | Consider: the room's voice, needs moderation | — |
-| 11 | A sound of its own for a stop-out | Art | 50 | 0.5 | 80% | 1 | 20 | Build: cheap, felt across the room | — |
+| 11 | A sound of its own for a stop-out | Art | 50 | 0.5 | 80% | 1 | 20 | Build: cheap, felt across the room | Already built: a falling tone, when sound is on |
 | 12 | New players capped at 30× until the tutorial is done | Mechanics | 50 | 1 | 80% | 2 | 20 | Reject: 1000× is the joke; the tutorial is optional | Rejected |
 | 13 | A risk line on the ticket: how often a day's usual move wipes this position | Education | 60 | 2 | 50% | 3 | 20 | Consider: true numbers need care | — |
 | 14 | A 30-second "one trade" try before choosing a name | Education | 80 | 2 | 50% | 4 | 20 | Consider: the first five minutes | — |
@@ -117,3 +117,5 @@ Reach is people out of an expected 100 in the showcase and marking week. Impact 
 | 40 | A crypto pair in Live | Elements | 20 | 0.5 | 50% | 6 | 0.8 | Reject: off the FX idea | Rejected |
 
 The deposit bonus and the paid prayers score in the middle but break the game's first rule, play money only. They show RICE's blind spot: it scores reach and effort, not whether a feature betrays the idea.
+
+Checking the top of the list against the code showed four of the top eleven already in the game: the agent drafted them from the README and ADRs, which do not mention every detail of the page. A RICE list drafted from documents needs checking against the running app before anything is built.
