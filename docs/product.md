@@ -71,49 +71,49 @@ Mei, Haruto and Jordan are illustrative. Peter's mother's line paraphrases her p
 
 ## 3 Forty Candidates by RICE
 
-Reach is people out of an expected 100 in the showcase and marking week. Impact is 3, 2, 1, 0.5 or 0.25, Confidence 100%, 80% or 50%, and Effort is hours of directing the agent, testing included. Score = R × I × C ÷ E, sorted highest first. RICE favours small, safe changes, so the agent's view also weighs each candidate against the README's idea: a room laughing at a wipe-out, then understanding why. Peter fills in the Decision column; a dash is undecided.
+Reach is people out of an expected 100 in the showcase and marking week. Impact is 3, 2, 1, 0.5 or 0.25, Confidence 100%, 80% or 50%, and Effort is hours of directing the agent, testing included. Score = R × I × C ÷ E, sorted highest first. RICE favours small, safe changes, so the agent's view also weighs each candidate against the README's idea: a room laughing at a wipe-out, then understanding why. The Decision column is Peter's; a dash is not yet decided.
 
 | # | Candidate | Area | R | I | C | E | Score | Agent's view | Decision |
 | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | :--- | :--- |
 | 1 | QR code on the page that joins this tab from a phone | UI | 50 | 2 | 80% | 1 | 80 | Build: a showcase crowd joins in seconds | — |
 | 2 | The wipe-out price on the ticket before ordering | UI | 80 | 2 | 80% | 2 | 64 | Build: risk read in price, beside the money | — |
-| 3 | The ESMA "74–89% lose" figure beside your result at the bell | Education | 70 | 1 | 80% | 1 | 56 | Build: the lesson, where it lands | — |
+| 3 | The ESMA "74–89% lose" figure beside your result at the bell | Education | 70 | 1 | 80% | 1 | 56 | Build: the lesson, where it lands | Built, at the bell |
 | 4 | On a stop-out pop-up, a "show me" that marks the candle that did it | Education | 70 | 2 | 80% | 2 | 56 | Build after freeze | — |
 | 5 | A short GIF of two profiles trading at the top of the README | Education | 60 | 1 | 80% | 1 | 48 | Build: markers see real time before trying | — |
 | 6 | Wipe-out animation: the chart shakes, Kurumi's face | Art | 70 | 1 | 80% | 2 | 28 | Build: the laugh, for the room | — |
 | 7 | Shorter Rewind (two days) as a showcase option | Mechanics | 50 | 2 | 80% | 3 | 27 | Consider: changes the clock ADR | — |
-| 8 | A deposit bonus or broker referral, "for realism" | Mechanics | 100 | 1 | 50% | 2 | 25 | Reject: breaks the play-money rule outright | — |
+| 8 | A deposit bonus or broker referral, "for realism" | Mechanics | 100 | 1 | 50% | 2 | 25 | Reject: breaks the play-money rule outright | Rejected |
 | 9 | Live's bankruptcy wait shortened on showcase day | Mechanics | 30 | 1 | 80% | 1 | 24 | Reject: Sydney midnight is the lesson's cost | — |
 | 10 | Reactions (😱 💸) on another player's stop-out in the feed | Actions | 60 | 2 | 50% | 3 | 20 | Consider: the room's voice, needs moderation | — |
 | 11 | A sound of its own for a stop-out | Art | 50 | 0.5 | 80% | 1 | 20 | Build: cheap, felt across the room | — |
-| 12 | New players capped at 30× until the tutorial is done | Mechanics | 50 | 1 | 80% | 2 | 20 | Reject: 1000× is the joke; the tutorial is optional | — |
+| 12 | New players capped at 30× until the tutorial is done | Mechanics | 50 | 1 | 80% | 2 | 20 | Reject: 1000× is the joke; the tutorial is optional | Rejected |
 | 13 | A risk line on the ticket: how often a day's usual move wipes this position | Education | 60 | 2 | 50% | 3 | 20 | Consider: true numbers need care | — |
 | 14 | A 30-second "one trade" try before choosing a name | Education | 80 | 2 | 50% | 4 | 20 | Consider: the first five minutes | — |
 | 15 | Phone: the feed folded under the chart by default | UI | 50 | 1 | 80% | 2 | 20 | Build after freeze | — |
 | 16 | Projector view: chart, board and feed only, large | UI | 30 | 2 | 80% | 3 | 16 | Consider for the showcase screen | — |
 | 17 | Rematch after a duel | Actions | 20 | 1 | 80% | 1 | 16 | Build after freeze | — |
-| 18 | An example agent prompt beside the MCP line | Education | 10 | 1 | 80% | 0.5 | 16 | Build: one line in the README | — |
+| 18 | An example agent prompt beside the MCP line | Education | 10 | 1 | 80% | 0.5 | 16 | Build: one line in the README | Built, in the README |
 | 19 | Skip to any tutorial lesson | Education | 30 | 0.5 | 80% | 1 | 12 | Build after freeze | — |
 | 20 | The price tag pulses on a big move | Art | 60 | 0.25 | 80% | 1 | 12 | Optional | — |
 | 21 | A weekly Live season: longest survival this week | Mechanics | 40 | 1 | 80% | 3 | 11 | Consider: the board already ranks survival | — |
 | 22 | Live falls back to a labelled replay when Yahoo fails | Elements | 40 | 2 | 50% | 4 | 10 | Consider: the showcase's biggest risk | — |
-| 23 | Paid prayers or loot boxes for luck | Mechanics | 60 | 1 | 50% | 3 | 10 | Reject: rewards spending | — |
+| 23 | Paid prayers or loot boxes for luck | Mechanics | 60 | 1 | 50% | 3 | 10 | Reject: rewards spending | Rejected |
 | 24 | Partial close | Actions | 30 | 1 | 80% | 3 | 8 | Defer: real feature, small lesson | — |
 | 25 | A result card to share after the bell | UI | 40 | 1 | 50% | 3 | 7 | Defer | — |
 | 26 | Achievements, such as "Survived Lehman" | Mechanics | 50 | 1 | 50% | 4 | 6 | Defer: rewards surviving, not learning | — |
-| 27 | Rewind plots by difficulty | Elements | 30 | 0.5 | 80% | 2 | 6 | Reject: hints at the plot | — |
+| 27 | Rewind plots by difficulty | Elements | 30 | 0.5 | 80% | 2 | 6 | Reject: hints at the plot | Rejected |
 | 28 | Bot faces react to their own profit and loss | Art | 40 | 0.5 | 80% | 3 | 5 | Optional | — |
 | 29 | Trailing stop | Actions | 20 | 1 | 80% | 3 | 5 | Defer | — |
 | 30 | Keyboard shortcuts: B, S, C | UI | 10 | 0.5 | 80% | 1 | 4 | Defer: Tab already reaches every control | — |
-| 31 | A flip button that reverses a position | Actions | 20 | 0.5 | 80% | 2 | 4 | Reject: rewards the revenge trade | — |
+| 31 | A flip button that reverses a position | Actions | 20 | 0.5 | 80% | 2 | 4 | Reject: rewards the revenge trade | Rejected |
 | 32 | Agents and people on separate boards | Mechanics | 10 | 0.5 | 80% | 1 | 4 | Reject: the badge already marks agents | — |
-| 33 | Follow a bot's trades | Actions | 30 | 1 | 50% | 4 | 4 | Reject: copy-trading is what brokers sell | — |
+| 33 | Follow a bot's trades | Actions | 30 | 1 | 50% | 4 | 4 | Reject: copy-trading is what brokers sell | Rejected |
 | 34 | Teams sharing one account | Mechanics | 30 | 2 | 50% | 8 | 4 | Defer: large, untested with people | — |
 | 35 | Teacher mode: a presenter runs a Rewind with notes | Education | 20 | 2 | 50% | 6 | 3 | Defer: after the course | — |
 | 36 | A personal record across rounds | UI | 30 | 1 | 50% | 5 | 3 | Defer | — |
 | 37 | Two more Rewind plots | Elements | 40 | 0.5 | 80% | 6 | 3 | Defer | — |
 | 38 | A real economic calendar in Live | Elements | 30 | 1 | 50% | 6 | 2 | Reject: removed on purpose; news is in the feed | — |
 | 39 | Screen-reader announcements of fills | UI | 5 | 1 | 80% | 2 | 2 | Consider: accessibility, rubric-adjacent | — |
-| 40 | A crypto pair in Live | Elements | 20 | 0.5 | 50% | 6 | 0.8 | Reject: off the FX idea | — |
+| 40 | A crypto pair in Live | Elements | 20 | 0.5 | 50% | 6 | 0.8 | Reject: off the FX idea | Rejected |
 
 The deposit bonus and the paid prayers score in the middle but break the game's first rule, play money only. They show RICE's blind spot: it scores reach and effort, not whether a feature betrays the idea.

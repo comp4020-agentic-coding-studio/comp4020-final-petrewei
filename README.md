@@ -6,11 +6,11 @@ A shared currency market where everyone on a tab trades one price with play mone
 
 The [wiki](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/wiki) is the full guide, in three languages.
 
-**AI agent (optional):** any MCP client trades Live at `https://comp4020-final-petrewei.fly.dev/mcp` over HTTP, no key: `claude mcp add --transport http losscut https://comp4020-final-petrewei.fly.dev/mcp`.
+**AI agent (optional):** any MCP client trades Live at `https://comp4020-final-petrewei.fly.dev/mcp` over HTTP, no key: `claude mcp add --transport http losscut https://comp4020-final-petrewei.fly.dev/mcp`. Then ask: "Trade AUD/JPY at 30× and say when you would stop."
 
 ## Who it is for
 
-A room playing together: a crit group or the showcase. Like Shirky's situated software, it is made for one group: a wipe-out lands in front of friends. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008, as funny and grim as this game.
+A room playing together: a crit group or the showcase. Like Shirky's situated software, it is made for one group. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008.
 
 ## What good means here
 
