@@ -66,7 +66,7 @@ describe("the translations", () => {
   it("has every refusal the server can send", async () => {
     // the desk's, the markets' and the tutorial's refusals, by their English
     const { readFileSync } = await import("node:fs");
-    const src = ["src/fx.ts", "src/server.ts", "src/tutorial.ts"].map((f) => readFileSync(f, "utf8")).join("\n");
+    const src = ["src/fx.ts", "src/server.ts", "src/tutorial.ts", "src/live.ts", "src/book.ts"].map((f) => readFileSync(f, "utf8")).join("\n");
     const sent = [...src.matchAll(/(?:return|only\([^,]+,|\?\s*null\s*:)\s*"([A-Z][^"]+[.!?])"/g)].map((m) => m[1]);
     // a name's refusals carry their status alongside
     sent.push(...[...src.matchAll(/error: "([A-Z][^"]+[.!?])", status:/g)].map((m) => m[1]));
