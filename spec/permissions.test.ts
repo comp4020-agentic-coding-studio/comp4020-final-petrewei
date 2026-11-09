@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { act, attempt, baseUrl, live, open, page, sleep, state, type Trader, visitor } from "./helpers.ts";
+import { act, attempt, baseUrl, live, open, page, state, type Trader, visitor } from "./helpers.ts";
 
 // ADR 0010: the server decides who may see and change what. A person acts
 // only through their own cookie, on their own account; the page is told
@@ -144,15 +144,17 @@ it.skipIf(live)("lists only people present or trading", async () => {
   const glance = await page(idle);
   await glance.next(() => true, 2000);
   glance.close();
-  await sleep(200);
+  const gone = (await state(idle)).you.code;
   const p = await page(await visitor());
   try {
     // By short code, not name: names are drawn from a few hundred, so a
-    // trader already in the room can share the idle visitor's.
-    const seen = (await p.next(() => true, 2000)) as { traders: Trader[]; you: { code: string } };
+    // trader already in the room can share the idle visitor's. The server
+    // sees a closed page a moment later, so wait for the room to drop it
+    // rather than sleep a fixed time.
+    const seen = (await p.next((x) => !(x as { traders?: Trader[] }).traders?.some((t) => t.id === gone), 5000)) as { traders: Trader[]; you: { code: string } };
     const codes = seen.traders.map((t) => t.id);
     expect(codes).toContain(seen.you.code);
-    expect(codes).not.toContain((await state(idle)).you.code);
+    expect(codes).not.toContain(gone);
   } finally {
     p.close();
   }

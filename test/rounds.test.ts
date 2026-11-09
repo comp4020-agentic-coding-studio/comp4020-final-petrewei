@@ -120,11 +120,14 @@ it("lets the starter run the round at 2× for everyone, and nobody else", async 
     await act(me, { kind: "start", mode: "rewind" });
     await until(me, (x) => x.phase === "trade");
     expect((await act(other, { kind: "fast", mode: "rewind" })).status).toBe(409);
-    // ticks in a second at 1×, then at 2×
+    // ticks a second at 1×, then at 2×, over the same count of ticks: a busy machine slows both alike, so the ratio
+    // holds where ticks counted in a fixed second would not
     const rate = async () => {
       const a = ((await look(me)) as unknown as { tick: number }).tick;
-      await new Promise((r) => setTimeout(r, 1000));
-      return ((await look(me)) as unknown as { tick: number }).tick - a;
+      const t0 = Date.now();
+      await until(me, (x) => (x as unknown as { tick: number }).tick >= a + 20);
+      const b = ((await look(me)) as unknown as { tick: number }).tick;
+      return ((b - a) * 1000) / (Date.now() - t0);
     };
     const slow = await rate();
     expect((await act(me, { kind: "fast", mode: "rewind" })).status).toBe(200);
