@@ -8,3 +8,6 @@ export declare const setZone: (zone: string) => string;
 export declare const localTime: (ms: number, lang: string) => string;
 export declare const feedTime: (ms: number, lang: string, now?: number) => string;
 export declare const zoneName: (ms: number, lang: string) => string;
+export declare const COMMON_ZONES: string[];
+export declare function zoneGroups(now?: number): Map<string, { value: string; label: string }[]>;
+export declare const zoneNow: () => string;

@@ -15,7 +15,7 @@ import { place, windowed } from "/view.js";
 import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { feedTime, localTime, quoted, setZone, tone, zoneName } from "/format.js";
+import { feedTime, localTime, quoted, setZone, tone, zoneGroups, zoneName } from "/format.js";
 import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -522,6 +522,19 @@ const savePrefs = () => {
     // a private window: the choice lasts this visit
   }
 };
+// Settings offers every zone the browser knows: the browser's own time, the common few, then each region's.
+(() => {
+  const select = $("set-zone");
+  const browser = select.querySelector('option[value=""]');
+  const groups = [...zoneGroups()].map(([region, zones]) => {
+    const options = zones.map((z) => Object.assign(document.createElement("option"), { value: z.value, textContent: z.label }));
+    if (!region) return options;
+    const g = Object.assign(document.createElement("optgroup"), { label: region });
+    g.append(...options);
+    return [g];
+  });
+  select.replaceChildren(...(browser ? [browser] : []), ...groups.flat());
+})();
 const showPrefs = () => {
   $("set-sound").setAttribute("aria-checked", String(prefs.sound));
   $("set-calm").setAttribute("aria-checked", String(prefs.calm));

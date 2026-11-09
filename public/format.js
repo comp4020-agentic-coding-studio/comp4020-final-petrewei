@@ -10,7 +10,7 @@ export const locale = (lang) => (lang === "en" ? "en-AU" : lang);
 // does not know falls back to its own, so a time never fails to show.
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 let zone = "";
-const zoneNow = () => {
+export const zoneNow = () => {
   try {
     new Intl.DateTimeFormat("en", { timeZone: zone || browserZone() });
     return zone || browserZone();
@@ -31,3 +31,22 @@ export const feedTime = (ms, lang, now = Date.now()) => {
 };
 // The zone's short name at a moment, as "AEDT" or "GMT+9", for a line that says which zone a time is in.
 export const zoneName = (ms, lang) => new Intl.DateTimeFormat(locale(lang), { timeZone: zoneNow(), timeZoneName: "short" }).formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName")?.value ?? "";
+// Every zone the browser knows (the IANA list it ships, so none is kept by hand), as Settings offers them: the common
+// few first, then the rest by region, each with its offset now, as "Tokyo (GMT+9)". A browser without the list keeps
+// the common few.
+export const COMMON_ZONES = ["Australia/Sydney", "Asia/Tokyo", "Asia/Shanghai", "Asia/Singapore", "Europe/London", "Europe/Zurich", "America/New_York", "UTC"];
+export function zoneGroups(now = Date.now()) {
+  /** @type {string[]} */
+  let all = [];
+  try { all = Intl.supportedValuesOf("timeZone"); } catch { /* an older browser */ }
+  const offset = (z) => { try { return new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "shortOffset" }).formatToParts(new Date(now)).find((p) => p.type === "timeZoneName")?.value ?? ""; } catch { return ""; } };
+  const label = (z) => `${z.split("/").slice(1).join(" / ").replaceAll("_", " ") || z} (${offset(z)})`;
+  /** @type {Map<string, { value: string, label: string }[]>} */
+  const groups = new Map([["", COMMON_ZONES.map((z) => ({ value: z, label: label(z) }))]]);
+  for (const z of all) {
+    if (!z.includes("/") || COMMON_ZONES.includes(z)) continue;
+    const region = z.split("/")[0];
+    groups.set(region, [...(groups.get(region) ?? []), { value: z, label: label(z) }]);
+  }
+  return groups;
+}

@@ -403,6 +403,21 @@ it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", asyn
   }
 });
 
+// Every zone the browser knows is offered, by region, the common few first, so a player anywhere finds their own.
+it("offers every time zone the browser knows in Settings, grouped by region", async () => {
+  const { dom, w } = await app();
+  try {
+    const zone = w.document.getElementById("set-zone") as HTMLSelectElement;
+    const offered = new Set([...zone.options].map((o) => o.value));
+    for (const z of Intl.supportedValuesOf("timeZone")) expect(offered, z).toContain(z);
+    expect(offered).toContain("");
+    expect(zone.querySelectorAll("optgroup").length).toBeGreaterThan(5);
+    expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toMatch(/Tokyo.*GMT\+9/);
+  } finally {
+    dom.window.close();
+  }
+});
+
 // An AI agent on Live's board wears the room's bot badge, so people know who they trade beside (ADR 0096); a person
 // does not, whatever name they chose.
 it("marks an AI agent on Live's board with the bot badge, and nobody else", async () => {
