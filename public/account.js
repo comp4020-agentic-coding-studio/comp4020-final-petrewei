@@ -5,28 +5,26 @@ import { tone } from "./format.js";
 export function createAccountPanel({ root, cash }) {
   /** @param {string} id */
   const $ = (id) => element(id, root);
-  /** @param {number} n */
   /** @param {import("./protocol.js").State} s @param {boolean} open */
   function render(s, open) {
     const y = s.you;
     // The account's totals, whichever pair is on the chart: the server sends the margin in use, across every pair in
     // Live and the one position's in a round.
-    const totals = { worth: y.equity - y.debt, pnl: y.pnl, used: y.used ?? 0, level: y.level, debt: y.debt };
+    const worth = y.equity - y.debt;
+    const usedMargin = y.used ?? 0;
     // Each amount with its change as a percentage, which is what a trader
     // reads: net worth against the starting money, open P&L against the
     // margin put up for it.
-    const worth = totals.worth;
     $("equity").textContent = cash(worth);
     $("equity-pct").textContent = pct(worth / s.start - 1);
     $("equity-pct").className = `rate ${tone(worth - s.start)}`;
-    $("pnl").textContent = cash(totals.pnl);
+    $("pnl").textContent = cash(y.pnl);
     // Toggled, not assigned: the tutorial may have a ring on this figure (ADR 0052).
-    $("pnl").classList.toggle("up", totals.pnl > 0);
-    $("pnl").classList.toggle("down", totals.pnl < 0);
-    const usedMargin = totals.used;
-    $("pnl-pct").textContent = usedMargin ? pct(totals.pnl / usedMargin) : "";
-    $("pnl-pct").className = `rate ${tone(totals.pnl)}`;
-    $("level").textContent = totals.level === null ? "—" : `${totals.level}%`;
+    $("pnl").classList.toggle("up", y.pnl > 0);
+    $("pnl").classList.toggle("down", y.pnl < 0);
+    $("pnl-pct").textContent = usedMargin ? pct(y.pnl / usedMargin) : "";
+    $("pnl-pct").className = `rate ${tone(y.pnl)}`;
+    $("level").textContent = y.level === null ? "—" : `${y.level}%`;
     $("level-note").textContent = y.pos ? `${y.pos.leverage}×` : "";
     // The meter: net worth against the start, losses left, profit right,
     // on a log scale; with a position open, where its margin call and
@@ -47,7 +45,7 @@ export function createAccountPanel({ root, cash }) {
       $(id).hidden = !show;
       // Level is equity over margin, so at a level the equity is that share of it.
       if (!show) continue;
-      const at = gauge((share * usedMargin - totals.debt) / s.start);
+      const at = gauge((share * usedMargin - y.debt) / s.start);
       places[id] = at;
       $(id).style.left = `${at * 100}%`;
       // near an end, the words hang inward from the mark so the bar's edge never cuts them

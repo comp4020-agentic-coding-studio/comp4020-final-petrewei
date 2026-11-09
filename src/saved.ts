@@ -20,12 +20,17 @@ const positionValid = (v: unknown): boolean => record(v) && (v.side === 1 || v.s
   && numericFields(v, ["units", "entry", "margin", "leverage", "fees", "opened"]) && nullableNumber(v.stop) && nullableNumber(v.take);
 const tradeValid = (v: unknown): boolean => record(v) && isPair(v.pair) && (v.side === 1 || v.side === -1)
   && ["close", "stop", "take", "stopout"].includes(String(v.how)) && numericFields(v, ["leverage", "entry", "exit", "pnl", "pct", "at"]);
+const alertValid = (v: unknown): boolean => record(v) && isPair(v.pair) && finite(v.at) && typeof v.above === "boolean";
+const pendingValid = (v: unknown): boolean => record(v) && ["buy-limit", "buy-stop", "sell-limit", "sell-stop"].includes(v.type as string)
+  && (v.side === 1 || v.side === -1) && finite(v.at) && finite(v.leverage) && finite(v.share);
+const rangValid = (v: unknown): boolean => record(v) && isPair(v.pair) && numericFields(v, ["at", "when"]);
+const yesterdayValid = (v: unknown): boolean => v === null || (record(v) && string(v.day) && numericFields(v, ["change", "trades"]));
 const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["balance", "debt", "interest", "cuts", "opened", "peak", "slot"])
   && optional(v.day, string) && optional(v.dayWorth, finite)
-  && optional(v.alerts, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && finite(x.at) && typeof x.above === "boolean"))
-  && optional(v.pending, (ps) => record(ps) && Object.entries(ps).every(([pair, p]) => isPair(pair) && record(p) && ["buy-limit", "buy-stop", "sell-limit", "sell-stop"].includes(p.type as string) && (p.side === 1 || p.side === -1) && finite(p.at) && finite(p.leverage) && finite(p.share)))
-  && optional(v.rang, (xs) => Array.isArray(xs) && xs.every((x) => record(x) && isPair(x.pair) && numericFields(x, ["at", "when"])))
-  && optional(v.yesterday, (y) => y === null || (record(y) && string(y.day) && numericFields(y, ["change", "trades"])))
+  && optional(v.alerts, (xs) => Array.isArray(xs) && xs.every(alertValid))
+  && optional(v.pending, (ps) => record(ps) && Object.entries(ps).every(([pair, p]) => isPair(pair) && pendingValid(p)))
+  && optional(v.rang, (xs) => Array.isArray(xs) && xs.every(rangValid))
+  && optional(v.yesterday, yesterdayValid)
   && typeof v.called === "boolean" && isPair(v.pair)
   && record(v.positions) && Object.entries(v.positions).every(([pair, pos]) => isPair(pair) && positionValid(pos))
   && Array.isArray(v.trades) && v.trades.every(tradeValid);

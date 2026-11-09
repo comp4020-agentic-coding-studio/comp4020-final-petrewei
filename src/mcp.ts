@@ -142,13 +142,24 @@ export class Mcp {
     if (now - s.acted < ACT_MS) return text("One action a second: wait a moment and try again.", true);
     s.acted = now;
     const exits = { sl: num(a.stop_loss), tp: num(a.take_profit) };
-    const input: Record<string, unknown> =
-      params.name === "buy" || params.name === "sell" ? { kind: params.name, pair: p, leverage: a.leverage, share: a.margin, ...exits }
-      : params.name === "close" ? { kind: "close", pair: p }
-      : params.name === "pending" ? { kind: "pend", pair: p, side: a.side === "sell" ? -1 : 1, at: a.at, leverage: a.leverage, share: a.margin, ...exits }
-      : params.name === "cancel_pending" ? { kind: "unpend", pair: p }
-      : { kind: "" };
-    if (!input.kind) return text(`Unknown tool ${String(params.name)}.`, true);
+    let input: Record<string, unknown>;
+    switch (params.name) {
+      case "buy":
+      case "sell":
+        input = { kind: params.name, pair: p, leverage: a.leverage, share: a.margin, ...exits };
+        break;
+      case "close":
+        input = { kind: "close", pair: p };
+        break;
+      case "pending":
+        input = { kind: "pend", pair: p, side: a.side === "sell" ? -1 : 1, at: a.at, leverage: a.leverage, share: a.margin, ...exits };
+        break;
+      case "cancel_pending":
+        input = { kind: "unpend", pair: p };
+        break;
+      default:
+        return text(`Unknown tool ${String(params.name)}.`, true);
+    }
     const refused = this.d.act(s.who, { mode: "live", ...input });
     if (refused) return text(refused, true);
     return text(`Done.\n\n${summary(this.d.view(s.who))}`);

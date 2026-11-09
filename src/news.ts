@@ -36,12 +36,19 @@ const field = (item: string, ...names: string[]): string => {
   return "";
 };
 
-// A feed's items, newest first, kept to those that move its currency.
-export function parseFeed(xml: string, bank: (typeof BANKS)[number]): Item[] {
+// Both kinds of RSS feed use the same fields; their source policies stay separate.
+function rssItems(xml: string): { title: string; link: string; at: number }[] {
   return [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].map(([it]) => {
     const title = field(it, "title").replace(/\s+/g, " ");
     const link = field(it, "link");
     const at = Date.parse(field(it, "pubDate", "dc:date")) || 0;
+    return { title, link, at };
+  });
+}
+
+// A feed's items, newest first, kept to those that move its currency.
+export function parseFeed(xml: string, bank: (typeof BANKS)[number]): Item[] {
+  return rssItems(xml).map(({ title, link, at }) => {
     return { id: `${bank.cur}:${link || title}`, cur: bank.cur, source: bank.source, title, at, link };
   }).filter((i) => i.title && i.at && bank.keep.test(i.title) && /^https?:\/\/www\.(rba\.gov\.au|federalreserve\.gov|ecb\.europa\.eu|bankofengland\.co\.uk|boj\.or\.jp|snb\.ch)\//.test(i.link));
 }
@@ -76,10 +83,7 @@ const KEEP = 3 * 86_400_000;
 
 // A feed's market stories from the last three days, the most relevant and newest first, each linked to the outlet's own site.
 export function parseMarketFeed(xml: string, feed: (typeof MARKET_FEEDS)[number], now: number): Story[] {
-  return [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].map(([it]) => {
-    const title = field(it, "title").replace(/\s+/g, " ");
-    const link = field(it, "link");
-    const at = Date.parse(field(it, "pubDate", "dc:date")) || 0;
+  return rssItems(xml).map(({ title, link, at }) => {
     return { id: `${feed.source}:${link || title}`, source: feed.source, title, at, link, score: relevance(title) };
   }).filter((i) => i.title && i.at && i.score > 0 && now - i.at < KEEP && i.at <= now + 3_600_000 && feed.site.test(i.link))
     // a feed may list one story twice; keep it once

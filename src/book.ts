@@ -3,7 +3,7 @@
 // counts in dollars at the rate now. The broker's rules act on the whole account: a margin call at 50% of the margin in
 // use and a stop-out at 20%, which closes everything. The fee and the credit's interest are charged each fifteen
 // minutes of real time, the game's tick, so a night's position pays a night's fee.
-import { CALL, awayFrom, borrowStep, dailyRate, exitRefusal, feeRate, fill, half, LEVERAGES, repayStep, START, STOP_OUT, type Side } from "./fx.ts";
+import { CALL, awayFrom, borrowStep, dailyRate, exitRefusal, feeRate, fill, LEVERAGES, pendingOrder, repayStep, START, STOP_OUT, type Pending, type PendRequest, type Side } from "./fx.ts";
 import { convert, type Currency, type Usd, cross } from "./feed.ts";
 import { shareMargin } from "../public/ticket.js";
 
@@ -22,7 +22,7 @@ export type Alert = { pair: string; at: number; above: boolean };
 // A pending order on one pair (ADR 0078, 0079), as the rounds have, one per pair as Live has one position per pair:
 // buy or sell when the live price reaches `at`. The level is only a trigger; it fills at the live price on the poll
 // that reaches it, so a gap fills at the gapped price, as a broker's would.
-export type LivePending = { type: "buy-limit" | "buy-stop" | "sell-limit" | "sell-stop"; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null };
+export type LivePending = Pending;
 export type BookAccount = { pending?: Record<string, LivePending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
 export type BookFill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout"; pair: string; price: number; pnl: number; leverage?: number; side?: Side };
 
@@ -177,23 +177,13 @@ export function repay(a: BookAccount): string | null {
 
 export const bankrupt = (a: BookAccount, usd: Usd): boolean => !Object.keys(a.positions).length && worth(a, usd) < BUST;
 
-// How far from the price a pending level may be, as in the rounds: within half of it either way.
-const PEND_RANGE = 0.5;
 // Set a pending order on a pair, replacing any other on it, at the level typed; which side of the price it sits on says
 // whether it is a limit or a stop, as in the rounds.
-export function setPending(a: BookAccount, pair: string, usd: Usd, r: { side: Side; at: number; leverage: number; share: number; sl?: number | null; tp?: number | null }): string | null {
+export function setPending(a: BookAccount, pair: string, usd: Usd, r: PendRequest): string | null {
   const mid = cross(usd, pair);
-  if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
-  if (!(r.share > 0 && r.share <= 1)) return "Margin must be between 0 and 1.";
-  if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
-  if (r.at === mid) return "That is the price now. Buy or Sell instead.";
-  if (Math.abs(r.at / mid - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
-  const refused = exitRefusal("stop", r.sl) ?? exitRefusal("take", r.tp);
-  if (refused) return refused;
-  // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
-  const limit = (r.side === 1) === r.at < mid;
-  const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as LivePending["type"];
-  a.pending = { ...a.pending, [pair]: { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null } };
+  const pending = pendingOrder(mid, r);
+  if (typeof pending === "string") return pending;
+  a.pending = { ...a.pending, [pair]: pending };
   return null;
 }
 export function cancelPending(a: BookAccount, pair: string): string | null {

@@ -294,7 +294,6 @@ export class Live {
     const keys = new Set([...all].filter((k) => (who.code ? k.slice(0, 6) === who.code : nameOf(k) === who.name)));
     if (!keys.size) return false;
     if (!who.code && keys.size > 1) return "ambiguous";
-    if (!keys.size) return false;
     for (const k of keys) {
       this.accounts.delete(k);
       this.waits.delete(k);

@@ -98,6 +98,22 @@ export type Pending = { type: PendingType; side: Side; at: number; leverage: num
 export type PendRequest = { side: Side; at: number; leverage: number; share: number; sl?: number | null; tp?: number | null };
 // How far from the price a pending level may be: within half of it either way, the exits' widest distance.
 const PEND_RANGE = 0.5;
+
+// Both desks accept the same pending order; each owns where it is kept and how it fills.
+export function pendingOrder(price: number, r: PendRequest): Pending | string {
+  if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
+  if (!(r.share > 0 && r.share <= 1)) return "Margin must be between 0 and 1.";
+  if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
+  if (r.at === price) return "That is the price now. Buy or Sell instead.";
+  if (Math.abs(r.at / price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
+  const refused = exitRefusal("stop", r.sl) ?? exitRefusal("take", r.tp);
+  if (refused) return refused;
+  // A buy below the price, or a sell above it, is a limit; the other way, a stop.
+  const below = r.at < price;
+  const limit = (r.side === 1) === below;
+  const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
+  return { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null };
+}
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
 // `opened` and `closed` are the desk's marks, its ticks, a trade was open between, and `margin` what it put up, so the
 // bell can tell what the same trade would have done at another leverage (ADR 0095).
@@ -231,18 +247,9 @@ export class Desk {
   pend(who: string, r: PendRequest): string | null {
     const account = this.account(who);
     if (account.out) return "You are out of the market until next round.";
-    if (!LEVERAGES.includes(r.leverage)) return "No such leverage.";
-    if (!(r.share > 0 && r.share <= 1)) return "Margin must be between 0 and 1.";
-    if (!Number.isFinite(r.at) || r.at <= 0) return "Type the price to wait for.";
-    if (r.at === this.price) return "That is the price now. Buy or Sell instead.";
-    if (Math.abs(r.at / this.price - 1) > PEND_RANGE) return "A pending order must be within 50% of the price.";
-    const refused = exitRefusal("stop", r.sl) ?? exitRefusal("take", r.tp);
-    if (refused) return refused;
-    // a buy waiting for a lower price, or a sell for a higher one, is a limit; the other way, a stop
-    const below = r.at < this.price;
-    const limit = (r.side === 1) === below;
-    const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
-    account.pending = { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null };
+    const pending = pendingOrder(this.price, r);
+    if (typeof pending === "string") return pending;
+    account.pending = pending;
     return null;
   }
 
