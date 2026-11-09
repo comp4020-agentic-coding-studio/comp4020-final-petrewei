@@ -23,7 +23,7 @@ import { jsonStorage, renameStore, type Store, type Storage } from "./storage.ts
 import { liveValid, migrateLive } from "./saved.ts";
 
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
-type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]> };
+type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]>; agents?: string[] };
 export type Who = { nameAt: (k: string) => { name: string; draw: number | null }; named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
 export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number>; when?: number };
 
@@ -48,6 +48,8 @@ export class Live {
   feed: FeedLine[] = [];
   // the market stories already told in the timeline, so a refresh never tells one twice
   private toldStories = new Set<string>();
+  // the career keys of AI agents playing through MCP, so the board marks their rows (ADR 0096); never sent itself
+  agents = new Set<string>();
   // the house traders, each on a pair of its own, told in the feed and never on the board (ADR 0095)
   private bots = new LiveBots();
   // the last slot the accounts were charged for
@@ -93,6 +95,8 @@ export class Live {
         this.names.set(k, n);
         this.draws.set(k, d);
       }
+      // which players are AI agents, kept so an agent's row keeps its badge through a restart (ADR 0096)
+      for (const k of s.agents ?? []) this.agents.add(k);
     }
     this.saving = this.clock.every(() => this.save(), 5_000).unref();
   }
@@ -109,7 +113,7 @@ export class Live {
   save(force = false): void {
     if (!this.dirty && !force) return;
     try {
-      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])) };
+      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])), agents: [...this.agents].filter((k) => this.accounts.has(k) || this.runs.some((r) => r.key === k)) };
       this.store.write(data);
       this.dirty = false;
     } catch (e) {
@@ -536,7 +540,7 @@ export class Live {
       pops: [],
       marks: [],
       result: null,
-      board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, days: days(r.ended - r.opened), you: rk === k })),
+      board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, days: days(r.ended - r.opened), you: rk === k, agent: this.agents.has(rk) })),
       career: [],
       leverages: LEVERAGES,
       desk: { ...RULES, ticksPerMinute: 60_000 / SLOT_MS },

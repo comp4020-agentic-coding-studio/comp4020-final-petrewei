@@ -1251,6 +1251,7 @@ export function createApp(options: AppOptions = {}) {
     // rules as a person's name, trading through Live's own actions (src/mcp.ts)
     const mcp: Mcp = new Mcp({
       join: (who) => {
+        liveMarket.agents.add(key(who));
         const named = rename(who, `Agent ${short(who)}`);
         return "error" in named ? `Agent ${short(who)}` : named.name;
       },

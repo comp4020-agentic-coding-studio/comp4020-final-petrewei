@@ -42,7 +42,7 @@ export type CommonState = {
 };
 export type RoundState = CommonState & { duel?: { with: string } | { from: string } | null; mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
 export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
-  board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean }[];
+  board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean; agent?: boolean }[];
 };
 export type TutorialState = CommonState & { mode: "tutorial"; phase: "moving" | "waiting"; transport: "stopped" | "paused" | "playing"; lesson: Lesson };
 export type State = RoundState | LiveState | TutorialState;

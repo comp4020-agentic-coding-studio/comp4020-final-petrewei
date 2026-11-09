@@ -326,6 +326,23 @@ it("removes a Live account by the name the board shows, though Live never saved 
   expect(m.remove({ name: "Lv2459" })).toBe(false);
 });
 
+// An AI agent's row keeps its badge through a restart: Live saves which players are agents, beside their accounts.
+it("keeps an AI agent marked on the board through a restart", async () => {
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const make = () => new Live(dir, people, { quotes: new Feed(async () => spark(Date.now() / 1000, [Date.now() / 1000 - 900]), () => Date.now()), news, watching: () => 0, onChange: () => {}, log: () => {} });
+  const dir = mkdtempSync(join(tmpdir(), "losscut-agent-"));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  const first = make();
+  first.accounts.set("agent-key", fresh(0, 0));
+  first.agents.add("agent-key");
+  first.save(true);
+  first.dispose();
+  const again = make();
+  expect(again.agents.has("agent-key")).toBe(true);
+  again.dispose();
+});
+
 it("waits for an internal history gap and charges every recovered trading slot exactly once", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;

@@ -1023,7 +1023,10 @@ function board(s) {
   $("board").replaceChildren(...(s.board ?? []).map((r) => {
     const li = document.createElement("li");
     li.className = `${r.you ? "you" : ""} ${r.how}`;
-    li.append(avatar(r.face, 18), strong(nameIn(r.name, r.draw)), Object.assign(document.createElement("span"), { className: "aside", textContent: `${r.days} · ${t(r.how === "running" ? "boardRunning" : "boardBust")} · ${cash(r.worth)}` }));
+    const who = strong(nameIn(r.name, r.draw));
+    // an AI agent playing through MCP wears the room's bot badge, so people know who they trade beside (ADR 0096)
+    if (r.agent) who.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: ROWS.bot.badge, ariaLabel: t("agentTag") }));
+    li.append(avatar(r.face, 18), who, Object.assign(document.createElement("span"), { className: "aside", textContent: `${r.days} · ${t(r.how === "running" ? "boardRunning" : "boardBust")} · ${cash(r.worth)}` }));
     li.dataset.tipText = t("boardPeak", { peak: cash(r.peak) });
     return li;
   }));

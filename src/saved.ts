@@ -33,5 +33,6 @@ const runValid = (v: unknown): boolean => record(v) && ["key", "name", "face"].e
   && nullableNumber(v.draw) && numericFields(v, ["opened", "ended", "peak", "worth"]) && (v.how === "bankrupt" || v.how === "running");
 export const liveValid = (v: unknown): boolean => record(v) && valuesMatch(v.accounts, accountValid)
   && Array.isArray(v.runs) && v.runs.every(runValid) && valuesMatch(v.waits, finite) && finite(v.slot)
-  && optional(v.names, (names) => valuesMatch(names, (entry) => Array.isArray(entry) && entry.length === 2 && string(entry[0]) && nullableNumber(entry[1])));
+  && optional(v.names, (names) => valuesMatch(names, (entry) => Array.isArray(entry) && entry.length === 2 && string(entry[0]) && nullableNumber(entry[1])))
+  && optional(v.agents, (keys) => Array.isArray(keys) && keys.every(string));
 export const migrateLive = (v: unknown): unknown => record(v) ? { ...v, runs: v.runs ?? [], waits: v.waits ?? {}, slot: v.slot ?? 0 } : v;

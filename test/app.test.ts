@@ -403,6 +403,23 @@ it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", asyn
   }
 });
 
+// An AI agent on Live's board wears the room's bot badge, so people know who they trade beside (ADR 0096); a person
+// does not, whatever name they chose.
+it("marks an AI agent on Live's board with the bot badge, and nobody else", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const row = (name: string, agent: boolean) => ({ name, draw: null, face: "p0", opened: 0, ended: 1, peak: 10_000, how: "running", worth: 10_000, days: "1d", you: false, agent });
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], you, headline: null, board: [row("Agent 79f0fd", true), row("Agent Smith", false)] });
+    const rows = [...w.document.querySelectorAll("#board li")];
+    expect(rows[0].querySelector(".badge")?.textContent, "the agent").toBe("🤖");
+    expect(rows[1].querySelector(".badge"), "a person who chose an agent's name").toBeNull();
+  } finally {
+    dom.window.close();
+  }
+});
+
 // Live's news is all in the feed: one piece pinned at the top, the most important of recent news (a central bank's
 // decision above a market story), and the rest in the timeline with players' trades, newest first; each real headline
 // links to its source, and the pinned one is not listed twice.
