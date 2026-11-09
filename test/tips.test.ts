@@ -536,3 +536,11 @@ describe("the ticket, the account and the credit pop-up", () => {
     }
   });
 });
+
+// At the bell, beside the biggest trade replayed at other leverage, the real odds: ESMA's finding that most retail
+// accounts lose, so the room's laugh meets the number it stands for (docs/product.md, candidate 3).
+it("puts ESMA's real odds under the bell's leverage replay, in every language", () => {
+  const note = page.querySelector("#what-if [data-t=whatIfOdds]");
+  expect(note, "the odds sit in the leverage replay").not.toBeNull();
+  for (const lang of LANGS) expect(T[lang].ui.whatIfOdds, lang).toMatch(/74\s?[–〜-]\s?89\s?%/);
+});

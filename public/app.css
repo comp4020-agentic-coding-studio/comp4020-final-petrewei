@@ -1104,6 +1104,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .run[hidden] { display: none; }
 /* The bell's "what if" (ADR 0095): three rows, each a leverage and what the trade would have made at it. */
 .what-if { margin: 0.4rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); }
+.what-if .odds { margin: 0.4rem 0 0; font-size: 0.75rem; color: var(--muted); }
 .what-if[hidden] { display: none; }
 .what-if h3 { margin: 0 0 0.3rem; font-size: 0.8rem; color: var(--soft); }
 .what-if ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
