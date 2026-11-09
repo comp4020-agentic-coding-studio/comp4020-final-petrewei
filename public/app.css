@@ -582,7 +582,11 @@ th:first-child, td:first-child { text-align: left; }
 .pend-row td { color: var(--muted); }
 /* This round's closed trades (ADR 0081), folded under the position; a verdict wraps where a number would not. */
 /* The closed trades' button in the position panel, and the window it opens (ADR 0081). */
-.history-open { margin: 0; padding: 0.4rem 0.9rem; border-top: 1px solid var(--line); }
+/* the closed trades' button sits on the position heading's row, at its right before the fold arrow, so it takes no row
+   of its own; it is the panel's own control, not inside the heading, which is itself a button */
+.positions { position: relative; }
+.history-open { position: absolute; top: 0.32rem; right: 2.2rem; margin: 0; }
+.history-open button { padding: 0.15rem 0.55rem; font-size: 0.75rem; }
 .history-open[hidden] { display: none; }
 /* wide enough for every column; .card.history-box outranks .card, which comes later and would cap it at 34rem */
 .card.history-box { width: min(56rem, calc(100vw - 2rem)); max-width: min(56rem, calc(100vw - 2rem)); }
