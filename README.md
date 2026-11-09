@@ -18,7 +18,7 @@ Any MCP client can trade Live over HTTP, no key: `claude mcp add --transport htt
 
 ## Who it is for
 
-A room playing together, such as a crit group or the showcase. Like Shirky's situated software, it is made for one group.
+A room playing together: a crit group or the showcase. Like Shirky's situated software, it is made for one group.
 
 It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008.
 
@@ -28,10 +28,10 @@ Good means a room laughing at a wipe-out, then understanding why. Leverage is th
 
 - One price, one room: the server owns every price and fill, and the room sees which way you trade.
 - Losing is public: a stop-out (強制ロスカット) appears in the feed, and emergency credit charges a loan shark's rate.
-- Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
+- The past is a trap: Rewind plays five real days around one of nineteen breaks, from Lehman to the franc's unpegging, named only at the bell.
 - Risk is shown in money: the ticket says what a 1% move costs, and the bell replays your biggest trade at 1×, 30× and 1000×.
-- Seven comic characters trade beside you, and you can challenge a person to a duel.
-- Beginners start with ten lessons that end in a wipe-out.
+- Company, then rivals: seven comic characters trade beside you, and you can duel a person.
+- Beginners start safe: ten lessons that end in a wipe-out.
 
 ## Enforced and judged
 
@@ -57,7 +57,7 @@ Judged by people:
 
 ## What I looked at
 
-- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan) and its [anime site](https://fxkurumi-info.com/), for names and terms.
+- [*FX Fighter Kurumi-chan*](https://en.wikipedia.org/wiki/FX_Fighter_Kurumi-chan) and its [anime site](https://fxkurumi-info.com/),.
 - ESMA's [2018 restriction on retail CFDs](https://www.esma.europa.eu/press-news/esma-news/esma-agrees-prohibit-binary-options-and-restrict-cfds-protect-retail-investors): 74 to 89% of retail accounts lose money; major pairs are capped at 30:1.
 - After the franc unpegged, FXCM's clients owed it [$225 million](https://money.cnn.com/2015/01/16/investing/swiss-currency-fxcm/index.html).
 - Prices from [HistData](https://www.histdata.com/), the [ECB](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html), [Frankfurter](https://frankfurter.dev/) and Yahoo Finance.

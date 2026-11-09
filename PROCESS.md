@@ -29,7 +29,7 @@ I chose all seven gameplay ideas the agent proposed, including duels between two
 I treated it as a gap in the harness and fixed it there:
 
 - a browser check clicks through a duel and fails without the fix ([`e26b32c`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/e26b32c))
-- a unit check lists every action the page sends
+- a unit check lists every action the page sends ([`f5ad2dd`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/f5ad2dd))
 - `CLAUDE.md` says to trace a request across every boundary it crosses
 
 ## 4 Reviewing Other Agents' Work
@@ -38,7 +38,7 @@ I used subagents for parallel reads, and Codex as a reviewer from a different mo
 
 - One Codex refactor wrapped the saved files in a format the deployed version could not read, which would have crashed a rollback on start. I kept the old format and took the rest ([`37a0790`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/37a0790)).
 - On freeze day a second Codex pass merged the two desks' pending-order code into one function. Because it touched money rules, I wanted proof of equivalence first: 534 tests passed, and a script fed 10,000 random orders to the old and new desks and got the same refusals and accounts ([`374d66c`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/374d66c)).
-- A test review proposed fifteen removals. I removed the two that another named test still covered and kept the rest.
+- A test review proposed fifteen removals. I removed the two that another named test still covered and kept the rest ([`68f7cbe`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/commit/68f7cbe)).
 
 ## 5 Prices, House Traders and AI Agents
 
