@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { closes } from "../public/indicators.js";
-import { place, windowed } from "../public/view.js";
+import { place, windowed, zoomed } from "../public/view.js";
 
 // ADR 0062: the chart shows thirty whole days and today's ticks so far, with the
 // newest tick at the right edge, so the new price arrives there and the older days
@@ -79,5 +79,48 @@ describe("the chart's window", () => {
     expect(v).toBe(tutorial);
     expect(place(v, 0)).toBe(0);
     expect(place(v, 20)).toBeCloseTo(0.5, 9);
+  });
+});
+
+// A range zooms the chart in on its last day or six hours with finer candles, so a small move can be seen.
+describe("the chart's range", () => {
+  // Live: no history before, six days of 15-minute slots, the clock counting slots since 1970
+  const slots = 96 * 6 + 1;
+  const live = (extra: number) => ({ prices: Array.from({ length: slots + extra }, (_, i) => 1 + i / 1e4), steps: 8, total: slots + extra - 1, tick: 2_000_003 + extra });
+
+  it("shows only the range's last ticks, the newest at the right edge, with the same number of candles", () => {
+    for (const [range, ticks, candle] of [["1d", 96, 4], ["6h", 24, 1]] as const) {
+      const s = live(0);
+      const v = zoomed(s, range);
+      expect(v.steps).toBe(candle);
+      expect(v.total).toBe(ticks);
+      expect(v.prices.at(-1)).toBe(s.prices.at(-1));
+      expect(place(v, v.prices.length - 1)).toBeCloseTo(1, 9);
+      expect(place(v, v.prices.length - 1 - ticks)).toBeCloseTo(0, 9);
+      // whole candles and the one forming: never more than one range and a candle
+      expect(v.prices.length).toBeLessThanOrEqual(ticks + candle);
+    }
+  });
+
+  it("keeps a candle the same ticks as the price moves on, on the clock's own boundaries", () => {
+    for (const extra of [0, 1, 2, 3, 4, 5]) {
+      const v = zoomed(live(extra), "1d");
+      const zero = v.tick - (v.prices.length - 1);
+      expect(zero % 4, `extra ${extra}`).toBe(0);
+      expect(v.skip! * 4 + v.prices.length).toBe(v.all!.length);
+    }
+  });
+
+  it("leaves the whole window as it was, and a range longer than the market", () => {
+    const s = live(0);
+    expect(zoomed(s, "all")).toBe(s);
+    const short = { ...s, prices: s.prices.slice(0, 20), total: 19 };
+    expect(zoomed(short, "1d")).toBe(short);
+  });
+
+  it("works on a round's window too, history and all", () => {
+    const v = zoomed({ ...at(40), tick: 40 }, "6h");
+    expect(v.prices.at(-1)).toBe(1040);
+    expect(v.total).toBe(24);
   });
 });

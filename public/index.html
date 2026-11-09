@@ -111,6 +111,7 @@
         </section>
 
         <div class="studies" id="studies" role="group" data-t-aria="indicators">
+          <select id="range" data-t-aria="chartRange" data-tip="chartRange"><option value="all" data-t="rangeAll">All</option><option value="1d" data-t="rangeDay">1D</option><option value="6h" data-t="rangeHours">6H</option></select>
           <button type="button" data-study="ma" aria-pressed="true" style="--c: var(--ma-fast)" data-tip="ma">MA</button>
           <button type="button" data-study="bb" aria-pressed="false" style="--c: var(--band)" data-tip="bb">BB</button>
           <button type="button" data-study="rsi" aria-pressed="true" style="--c: var(--rsi)" data-tip="rsi">RSI</button>
@@ -315,7 +316,7 @@
       <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
       <!-- This round's closed trades open in a window from a button, so the position panel stays as short as the card
            beside it (ADR 0081). -->
-      <p class="history-open" id="history" hidden><button type="button" class="ghost" id="history-btn"><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></button></p>
+      <p class="history-open" id="history" hidden><button type="button" class="ghost" id="history-btn" data-tip="historyOpen"><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></button></p>
     </section>
     <!-- Emergency credit (ADR 0080, 0085): a golden card of its own beside the position. What is owed, its daily rate and
          the same over a year, and a step either way; the server sets every amount. -->

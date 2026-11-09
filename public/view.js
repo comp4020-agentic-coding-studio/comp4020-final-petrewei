@@ -25,3 +25,24 @@ export function place(state, i) {
   const last = state.prices.length - 1;
   return state.all ? (i - last) / state.total + 1 : i / state.total;
 }
+
+// The chart's range (a viewer's choice, kept in this browser): the whole window, or only its last day or six hours,
+// drawn with finer candles so a small move is big enough to see. `ticks` is the span shown and `candle` the ticks in
+// one candle; the whole window keeps the market's own. Every range holds about the same number of candles, so a
+// phone's chart is no more crowded zoomed in than out.
+export const RANGES = { all: null, "1d": { ticks: 96, candle: 4 }, "6h": { ticks: 24, candle: 1 } };
+
+// The window cut to a range. Candles start on the range's own boundaries of the market's clock (the tick count), so
+// a candle is the same ticks from one redraw to the next, and the indicators are worked out on everything there is
+// with the same candles before they are cut to the ones shown. A range as long as the window, or longer, is the window.
+export function zoomed(state, range) {
+  const r = RANGES[range];
+  const src = state.all ?? state.prices;
+  if (!r || r.ticks >= src.length - 1 || r.ticks >= state.total) return state;
+  const zero = state.tick - (src.length - 1);
+  const off = (((r.candle - (zero % r.candle)) % r.candle) + r.candle) % r.candle;
+  const all = src.slice(off);
+  const whole = Math.floor((all.length - 1) / r.candle);
+  const first = Math.max(0, whole - r.ticks / r.candle) * r.candle;
+  return { ...state, prices: all.slice(first), steps: r.candle, total: r.ticks, all, skip: first / r.candle };
+}

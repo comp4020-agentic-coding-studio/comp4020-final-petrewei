@@ -1,8 +1,8 @@
 import { element } from "./dom.js";
 import { PERIODS, bollinger, closes, rsi, sma, spanOf, stack } from "./indicators.js";
-import { place, windowed } from "./view.js";
+import { RANGES, place, windowed, zoomed } from "./view.js";
 import { svg } from "./avatars.js";
-import { locale, quoted, tone } from "./format.js";
+import { locale, quoted, tone, zoneNow } from "./format.js";
 import { pct } from "./ticket.js";
 /** @param {{ getState: () => import("./protocol.js").State | null, getLanguage: () => "en" | "ja" | "zh", t: (key: string) => string }} options */
 export function createChart({ getState, getLanguage, t }) {
@@ -42,6 +42,21 @@ export function createChart({ getState, getLanguage, t }) {
       } catch {
         // a private window: the choice lasts this visit
       }
+      const state = getState(); if (state) draw(state);
+    };
+  }
+
+  // How much of the chart to show, remembered in this browser like the indicators: the whole window, or its last day
+  // or six hours in finer candles, so a small move can be seen.
+  let range = "all";
+  try { range = localStorage.getItem("range") ?? "all"; } catch { /* a private window */ }
+  if (!(range in RANGES)) range = "all";
+  const rangeBox = $("range");
+  if (rangeBox instanceof HTMLSelectElement) {
+    rangeBox.value = range;
+    rangeBox.onchange = () => {
+      range = rangeBox.value in RANGES ? rangeBox.value : "all";
+      try { localStorage.setItem("range", range); } catch { /* the choice lasts this visit */ }
       const state = getState(); if (state) draw(state);
     };
   }
@@ -95,7 +110,8 @@ export function createChart({ getState, getLanguage, t }) {
 
   /** @param {import("./protocol.js").State} full */
   function draw(full) {
-    const s = windowed(full);
+    // a plain chart (the tutorial's) has no range to choose, and always shows the whole of its round
+    const s = full.chart.studies ? zoomed(windowed(full), range) : windowed(full);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     if (!s.prices.length) {
@@ -144,10 +160,13 @@ export function createChart({ getState, getLanguage, t }) {
     const bottom = lo - pad;
     // The newest tick sits at the right edge and older ones count back from it; with no
     // history (the tutorial) the round runs from the left as it always did.
+    // GAP pixels stay clear between the newest candle and the price scale, so the forming candle is never under the price tag.
+    const GAP = 14;
     /** @param {number} i */
-    const x = (i) => place(s, i) * (w - 70);
-    // The price scale leaves HEAD pixels at the top for the quote that floats there.
-    const HEAD = 66;
+    const x = (i) => place(s, i) * (w - 70 - GAP);
+    // The price scale leaves HEAD pixels at the top for the quote that floats there; on a phone the switches sit
+    // under the quote, so it leaves room for them too.
+    const HEAD = canvas.clientWidth < 600 ? 92 : 66;
     /** @param {number} p */
     const y = (p) => h - ((p - bottom) / (top - bottom)) * (h - HEAD);
     // Day lines, and the price grid on the right.
@@ -173,6 +192,26 @@ export function createChart({ getState, getLanguage, t }) {
       // Live's days are real: the weekday in Sydney that the slot's day begins (ADR 0087)
       const dayName = s.chart.days === "date" && s.chart.slotMs ? new Date(at * s.chart.slotMs).toLocaleDateString(locale(getLanguage()), { timeZone: "UTC", weekday: "short", day: "numeric" }) : `D${at / dayStep + 1}`;
       if (s.chart.days !== "none" && at >= 0 && xd < w - 110) ctx.fillText(dayName, xd + 4, h - 6);
+    }
+    // Zoomed in on Live, the hours between the day lines: four marks across the range, each with its time, so a
+    // short range still says when.
+    const zoom = s.chart.slotMs && s.steps !== full.steps ? RANGES[range] : null;
+    if (zoom && s.chart.slotMs) {
+      const every = zoom.ticks / 4;
+      ctx.save();
+      ctx.setLineDash([2, 4]);
+      for (let i = 0; i < prices.length; i++) {
+        const at = first + i;
+        if (at % every !== 0 || at % dayStep === 0) continue;
+        const xd = x(i);
+        ctx.beginPath();
+        ctx.moveTo(xd, HEAD);
+        ctx.lineTo(xd, h);
+        ctx.stroke();
+        const hour = new Date(at * s.chart.slotMs).toLocaleTimeString(locale(getLanguage()), { timeZone: zoneNow(), hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+        if (xd < w - 110) ctx.fillText(hour, xd + 4, h - 6);
+      }
+      ctx.restore();
     }
     // A day's indicator sits at its candle's centre; today's at the price.
     /** @param {number} d */
@@ -361,5 +400,5 @@ export function createChart({ getState, getLanguage, t }) {
   if (typeof ResizeObserver === "function") {
     const observer = new ResizeObserver(redraw); observer.observe($("chart")); cleanup.push(() => observer.disconnect());
   } else listen(window, "resize", redraw);
-  return { draw, dispose() { disposed = true; cancelAnimationFrame(frame); for (const cancel of cleanup) cancel(); for (const button of document.querySelectorAll("#studies button")) if (button instanceof HTMLButtonElement) button.onclick = null; for (const img of faces.values()) img.onload = null; faces.clear(); } };
+  return { draw, dispose() { disposed = true; cancelAnimationFrame(frame); for (const cancel of cleanup) cancel(); for (const button of document.querySelectorAll("#studies button")) if (button instanceof HTMLButtonElement) button.onclick = null; if (rangeBox instanceof HTMLSelectElement) rangeBox.onchange = null; for (const img of faces.values()) img.onload = null; faces.clear(); } };
 }

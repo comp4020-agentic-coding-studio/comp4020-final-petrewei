@@ -284,6 +284,7 @@ canvas { display: block; width: 100%; aspect-ratio: 900 / 380; background: var(-
 .studies { position: absolute; z-index: 1; right: 78px; top: 0.4rem; display: flex; gap: 0.25rem; }
 .studies button { padding: 0.1rem 0.45rem; font: 0.7rem var(--mono); border-radius: 5px; background: var(--chart); color: var(--muted); border-color: var(--chart-grid); }
 .studies button[aria-pressed="true"] { color: var(--c); border-color: var(--c); }
+.studies select { padding: 0.1rem 0.2rem; font: 0.7rem var(--mono); border-radius: 5px; background: var(--chart); color: var(--muted); border: 1px solid var(--chart-grid); }
 body.tutorial .studies { display: none; }
 
 /* The broker's warning across the top of the chart: amber on the way to

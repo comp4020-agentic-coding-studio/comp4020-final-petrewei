@@ -70,6 +70,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "chartRange": "Zoom in: finer candles make a small move easy to see.",
+      "historyOpen": "Every trade you closed, with its result.",
       "tabLive": "Real prices, all 42 pairs. Trade until you go bankrupt.",
       "alertAt": "A price on the chart's pair to be told about.",
       "alertSet": "Tell me when the price gets there.",
@@ -387,6 +389,10 @@ export const T = {
       how: { close: "Closed", stop: "Stop", take: "Profit", stopout: "Stop-out", zerocut: "Wiped" },
       // a dry line on each closed trade, by its result on its margin (ADR 0081): the habit is the joke, never the trader
       verdicts: { wiped: "The market thanks you for your donation.", cut: "The broker closed it so you didn't have to.", big: "That loss had a plan. It just wasn't yours.", small: "A small loss, cut early. Rarer than a big win.", flat: "Spread paid, nothing gained. The broker had a good day.", win: "A win. Now comes the hard part: not doubling down.", huge: "A big win. The next one will want it back." },
+chartRange: "Chart range",
+      rangeAll: "All",
+      rangeDay: "1D",
+      rangeHours: "6H",
       indicators: "Indicators",
       close: "Close",
       long: "Long",
@@ -631,6 +637,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "chartRange": "拡大すると足が細かくなり、小さな値動きも見える。",
+      "historyOpen": "決済した取引とその結果の一覧。",
       "tabLive": "全42ペアの本物の価格。破産するまで続く。",
       "alertAt": "チャートのペアで知らせてほしい価格。",
       "alertSet": "価格がそこに届いたら知らせる。",
@@ -947,6 +955,10 @@ export const T = {
       thVerdict: "ひとこと",
       how: { close: "手動", stop: "損切", take: "利確", stopout: "ロスカット", zerocut: "退場" },
       verdicts: { wiped: "相場はあなたの寄付に感謝しています。", cut: "自分で切れないので、業者が切ってくれました。", big: "この損には筋書きがありました。書いたのはあなたではないけれど。", small: "小さく、早く切った損。大勝ちより珍しい。", flat: "スプレッドを払って、何も得ず。業者にとってはいい日でした。", win: "勝ちました。難しいのはここから。調子に乗らないこと。", huge: "大勝ち。次の取引がそれを取り返しに来ます。" },
+chartRange: "表示期間",
+      rangeAll: "全期間",
+      rangeDay: "1日",
+      rangeHours: "6時間",
       indicators: "インジケーター",
       close: "決済",
       long: "買い",
@@ -1190,6 +1202,8 @@ export const T = {
     // Tips on hover and focus (ADR 0025): practical first, with the
     // parody's voice where it helps.
     tips: {
+      "chartRange": "放大后蜡烛更细，小波动一目了然。",
+      "historyOpen": "已平仓的每笔交易及其结果。",
       "tabLive": "全部42个货币对的真实价格，玩到破产为止。",
       "alertAt": "图上货币对的提醒价。",
       "alertSet": "价格到了就提醒我。",
@@ -1507,6 +1521,10 @@ export const T = {
       thVerdict: "点评",
       how: { close: "手动", stop: "止损", take: "止盈", stopout: "强平", zerocut: "清零" },
       verdicts: { wiped: "市场感谢您的慷慨捐赠。", cut: "你自己下不了手，平台替你平了。", big: "这笔亏损有剧本，只是剧本不是你写的。", small: "小亏，早早止损。比大赚还少见。", flat: "付了点差，什么也没赚到。平台今天心情不错。", win: "赚了。难的在后面：别加仓。", huge: "大赚。下一笔会想把它要回去。" },
+chartRange: "显示范围",
+      rangeAll: "全部",
+      rangeDay: "1天",
+      rangeHours: "6小时",
       indicators: "技术指标",
       close: "平仓",
       long: "做多",
