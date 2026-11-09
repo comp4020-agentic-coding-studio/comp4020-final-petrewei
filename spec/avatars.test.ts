@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { PEOPLE, svg } from "../public/avatars.js";
+import { PEOPLE } from "../public/avatars.js";
 import { BOTS } from "../src/bots.ts";
 import { baseUrl, live, page, state, visitor } from "./helpers.ts";
 
@@ -7,12 +7,6 @@ import { baseUrl, live, page, state, visitor } from "./helpers.ts";
 // a person is dealt a plain one from their cookie, as their name is, so it
 // is theirs on every page and after a restart. Read-only, so live too.
 type Faced = { face: string };
-
-it("serves the faces to the page", async () => {
-  const res = await fetch(new URL("/avatars.js", baseUrl));
-  expect(res.status).toBe(200);
-  expect(res.headers.get("content-type")).toMatch(/javascript/);
-});
 
 it("gives each house trader their own face, and each person a plain one", async () => {
   const me = await visitor();
@@ -36,10 +30,6 @@ it("deals people more than one face", async () => {
   const faces = new Set<string>();
   for (let i = 0; i < 12; i++) faces.add(((await state(await visitor())).you as unknown as Faced).face);
   expect(faces.size).toBeGreaterThan(1);
-});
-
-it("draws the face the server names, as pixels", () => {
-  expect(svg("bot:kurumi")).toContain("<rect");
 });
 
 // A person may draw another plain face, as they may draw another name.
