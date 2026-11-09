@@ -287,11 +287,13 @@ it("keeps ticket exits independent of the open position's exits and preserves a 
   }
 });
 
-it.each(["en", "ja", "zh"] as const)("names upcoming calendar releases in %s", async (lang) => {
-  const { dom, w, emit } = await app(lang);
+// The feed is news and actions only: upcoming releases and their forecasts are not listed over it.
+it("lists no upcoming releases over the feed", async () => {
+  const { dom, w, emit } = await app();
   try {
     await emit({ calendar: [{ cur: "USD", kind: "cpi", d: 1, h: 4, outcome: null }] });
-    expect(w.document.querySelector("#calendar .what")!.textContent).toBe(`USD · ${i18n.releaseName(lang, "cpi")}`);
+    expect((w.document.getElementById("calendar") as HTMLElement).hidden).toBe(true);
+    expect(w.document.querySelectorAll("#calendar li")).toHaveLength(0);
   } finally {
     dom.window.close();
   }

@@ -1554,8 +1554,9 @@ function render(s) {
     li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
-  // The economic calendar over the feed (ADR 0085): each release, its time, and how it came out once it has.
-  const cal = shows(s).calendar ? s.calendar ?? [] : [];
+  // The feed is news and actions only: the list of upcoming releases with their forecasts is no longer shown (Peter's
+  // call after play-testing). A release still moves the market and its outcome still reaches the feed as news.
+  const cal = [];
   realCalendar(s);
   $("calendar").hidden = !cal.length;
   $("calendar").replaceChildren(...cal.map((c) => {
