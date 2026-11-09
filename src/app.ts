@@ -1556,6 +1556,8 @@ export function createApp(options: AppOptions = {}) {
     // arrives and can seek. One fixed file: nothing else in the folder, and
     // no path a request names, is ever read.
     const BGM = readFileSync(join(ROOT, "public/audio/bgm.m4a"));
+    // the README's screenshot, at its path in the repo, so /readme/ and GitHub show the same image
+    const SHOT = readFileSync(join(ROOT, "public/screenshot.png"));
     function sendAudio(req: IncomingMessage, res: ServerResponse): void {
       const total = BGM.length;
       const head = { "content-type": "audio/mp4", "accept-ranges": "bytes", "cache-control": "public, max-age=86400" };
@@ -1654,6 +1656,7 @@ export function createApp(options: AppOptions = {}) {
         return json(res, out.error ? 409 : 200, out);
       }
       if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);
+      if (req.method === "GET" && url.pathname === "/public/screenshot.png") return void (res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" }), res.end(SHOT));
       if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname], req);
       if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path], req);
       if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {
