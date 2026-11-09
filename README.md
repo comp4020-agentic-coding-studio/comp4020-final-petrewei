@@ -23,9 +23,9 @@ Good means a room laughing at a wipe-out, then understanding why. Leverage is th
 - **Company, then rivals:** seven comic characters trade beside you; duel a person.
 - **Beginners start safe:** ten lessons end in wipe-out.
 
-![Architecture: pages and AI agents reach one Node process sharing the broker's rules](public/architecture.svg)
-
 ## Enforced and judged
+
+![Architecture: pages and AI agents reach one Node process sharing the broker's rules](public/architecture.svg)
 
 Checked in CI before each deploy by `spec/` and `test/`, with the reasons in the [decision records](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/adr/README.md):
 
