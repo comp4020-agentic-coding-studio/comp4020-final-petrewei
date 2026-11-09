@@ -443,6 +443,9 @@ function feats(s) {
 }
 $("feats-mine").onclick = () => state && showFeats(null, state.you.feats ?? []);
 $("feats-close").onclick = () => $("feats").close();
+// the closed trades open in a window from the position panel's button (ADR 0081)
+$("history-btn").onclick = () => $("history-box").showModal();
+$("history-close").onclick = () => $("history-box").close();
 
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];

@@ -580,8 +580,13 @@ th:first-child, td:first-child { text-align: left; }
 .pct-big { font-size: 1rem; font-weight: 700; }
 .pend-row td { color: var(--muted); }
 /* This round's closed trades (ADR 0081), folded under the position; a verdict wraps where a number would not. */
-.history { border-top: 1px solid var(--line); }
-.history[hidden] { display: none; }
+/* The closed trades' button in the position panel, and the window it opens (ADR 0081). */
+.history-open { margin: 0; padding: 0.4rem 0.9rem; border-top: 1px solid var(--line); }
+.history-open[hidden] { display: none; }
+/* wide enough for every column; .card.history-box outranks .card, which comes later and would cap it at 34rem */
+.card.history-box { width: min(56rem, calc(100vw - 2rem)); max-width: min(56rem, calc(100vw - 2rem)); }
+.history-scroll { max-height: min(60vh, 32rem); overflow: auto; }
+.history-box table { width: 100%; }
 /* Achievements (ADR 0082, 0085): a dialog for anyone's, opened from the hall: a medal count on each row, and your own
    from the hall's heading. */
 .feats { width: min(40rem, calc(100vw - 2rem)); }

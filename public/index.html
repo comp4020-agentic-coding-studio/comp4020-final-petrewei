@@ -313,13 +313,9 @@
       <!-- This round's closed trades, newest first, each with a line on how it went (ADR 0081). Only your own. -->
       <!-- Live (ADR 0087): every pair open in the account, each with its own close. -->
       <table class="book" id="book" hidden><tbody id="book-rows"></tbody></table>
-      <details class="history" id="history" hidden>
-        <summary><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></summary>
-        <table>
-          <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thExit">Exit</th><th data-t="thHow">How</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th data-t="thVerdict">Verdict</th></tr></thead>
-          <tbody id="history-rows"></tbody>
-        </table>
-      </details>
+      <!-- This round's closed trades open in a window from a button, so the position panel stays as short as the card
+           beside it (ADR 0081). -->
+      <p class="history-open" id="history" hidden><button type="button" class="ghost" id="history-btn"><span data-t="historyTitle">Closed Trades</span> <span class="aside" id="history-count"></span></button></p>
     </section>
     <!-- Emergency credit (ADR 0080, 0085): a golden card of its own beside the position. What is owed, its daily rate and
          the same over a year, and a step either way; the server sets every amount. -->
@@ -442,6 +438,16 @@
     <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
     <ul class="feat-list" id="feat-list"></ul>
     <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
+  </dialog>
+  <dialog id="history-box" class="card history-box history" aria-labelledby="history-title">
+    <h2 id="history-title"><span data-t="historyTitle">Closed Trades</span></h2>
+    <div class="history-scroll">
+      <table>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thExit">Exit</th><th data-t="thHow">How</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th data-t="thVerdict">Verdict</th></tr></thead>
+        <tbody id="history-rows"></tbody>
+      </table>
+    </div>
+    <div class="row"><button type="button" class="ghost" id="history-close" data-t="featsDone">Done</button></div>
   </dialog>
   <dialog id="credit-offer" class="credit-offer" aria-labelledby="credit-offer-title">
     <h2 id="credit-offer-title" data-t="creditOfferTitle">Emergency Credit</h2>
