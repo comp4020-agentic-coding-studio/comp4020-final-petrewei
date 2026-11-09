@@ -161,9 +161,13 @@ export class Live {
         this.gap = this.missingHistory(now);
       }
       if (!this.gap) this.advance(at ?? this.clock.now());
-      // the house traders trade real prices while they are live (ADR 0095)
+      // the house traders trade real prices as real Live players while Live is open (ADR 0095, 0097): each through
+      // Live's own action, on its own account, bankrupt and back at Sydney midnight like anyone
       const usd = this.quotes.latest();
-      if (usd && !this.gap && this.quotes.live()) this.bots.step(usd, (text, kind, key, args) => this.say(text, kind, key, args));
+      if (usd && !this.gap && this.quotes.live()) {
+        const t = at ?? this.clock.now();
+        this.bots.step(usd, { account: (bot) => this.preview(bot, t), act: (bot, input) => this.act(bot, input, t) });
+      }
     } catch {
       if (this.disposed) return;
       // A newly fetched quote remains unavailable if historical recovery failed.

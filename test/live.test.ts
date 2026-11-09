@@ -17,20 +17,29 @@ const usd = (over: Partial<Usd> = {}): Usd => ({ EUR: 1.12, GBP: 1.35, AUD: 0.7,
 describe("the Live book", () => {
   // ADR 0095: the house traders in Live, each on a real pair of its own, trading at the price it is given and told in
   // the feed by pair, never touching a player's account.
-  it("lets the house traders trade Live's prices, each on its pair, told in the feed", async () => {
-    const { LiveBots } = await import("../src/live-bots.ts");
+  // ADR 0097: the house traders are real Live players. Each trades its favourite pair through Live's own action, on its
+  // own account, and one waiting out a bankruptcy does nothing until its account opens again.
+  it("lets the house traders trade Live through its own action, each on its pair and its own account", async () => {
+    const { LiveBots, PAIRS } = await import("../src/live-bots.ts");
     let seed = 1;
     const bots = new LiveBots(() => ((seed = (seed * 16807) % 2147483647) / 2147483647));
-    const said: { key: string; args: Record<string, string | number> }[] = [];
+    const accounts = new Map<string, ReturnType<typeof fresh>>();
+    const sent: { bot: string; input: Record<string, unknown> }[] = [];
+    const waiting = "bot:nana";
+    const live = {
+      account: (bot: string) => (bot === waiting ? null : (accounts.get(bot) ?? accounts.set(bot, fresh(0, 0)).get(bot)!)),
+      act: (bot: string, input: Record<string, unknown>) => (sent.push({ bot, input }), null),
+    };
     // a market that falls then rises, so the dip-buyers and trend-chasers both have something to do
-    for (let i = 0; i < 200; i++) bots.step(usd({ AUD: 0.7 * (1 + 0.004 * Math.sin(i / 9)), JPY: 1 / (158 * (1 + 0.003 * Math.cos(i / 7))) }), (_t, _k, key, args) => said.push({ key, args }));
-    const opened = said.filter((x) => x.key === "m-bought" || x.key === "m-sold");
-    expect(opened.length, "the bots trade").toBeGreaterThan(3);
-    for (const x of opened) {
-      expect(String(x.args.who)).toMatch(/^bot:/);
-      expect(String(x.args.pair)).toMatch(/^[A-Z]{3}\/[A-Z]{3}$/);
+    for (let i = 0; i < 200; i++) bots.step(usd({ AUD: 0.7 * (1 + 0.004 * Math.sin(i / 9)), JPY: 1 / (158 * (1 + 0.003 * Math.cos(i / 7))) }), live);
+    const orders = sent.filter((x) => x.input.kind === "buy" || x.input.kind === "sell");
+    expect(orders.length, "the bots trade").toBeGreaterThan(3);
+    for (const x of sent) {
+      expect(x.input.mode, "through Live's own action").toBe("live");
+      expect(x.input.pair, `${x.bot} on its own pair`).toBe(PAIRS[x.bot]);
     }
-    expect(new Set(opened.map((x) => x.args.who)).size, "more than one of them").toBeGreaterThan(1);
+    expect(new Set(orders.map((x) => x.bot)).size, "more than one of them").toBeGreaterThan(1);
+    expect(sent.some((x) => x.bot === waiting), "a bot waiting out a bankruptcy does nothing").toBe(false);
   });
 
   // ADR 0095: a price alert rings once when the price reaches its level, from whichever side it was set, and is gone.

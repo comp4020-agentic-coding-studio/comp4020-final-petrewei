@@ -171,7 +171,8 @@ export function createApp(options: AppOptions = {}) {
     const FIRST_FACES = 12;
     const onRecord = (k: string): boolean => k in chosen || k in career;
     const faceAt = (k: string): string =>
-      faces[k] ?? `p${onRecord(k) ? Number.parseInt(k.slice(4, 6), 16) % FIRST_FACES : Number.parseInt(k.slice(4, 8), 16) % PEOPLE.length}`;
+      // a house trader's face is its own, as in the rounds
+      bot(k) ? k : faces[k] ?? `p${onRecord(k) ? Number.parseInt(k.slice(4, 6), 16) % FIRST_FACES : Number.parseInt(k.slice(4, 8), 16) % PEOPLE.length}`;
     // Store a newcomer's dealt face before they come on record, so the face they were shown stays theirs.
     function keepFace(k: string): void {
       if (k in faces || onRecord(k)) return;
@@ -1234,6 +1235,8 @@ export function createApp(options: AppOptions = {}) {
     // A person's name and draw from their career key alone, for Live's board after a restart: what they chose, or the
     // draw their cookie's hash gives, whose second byte is the key's third and fourth hex characters.
     const nameAt = (k: string): { name: string; draw: Draw | null } => {
+      // a house trader goes by its own name, as in the rounds
+      if (bot(k)) return { name: nameOf(k), draw: null };
       const c = chosen[k];
       if (typeof c === "string") return { name: c, draw: null };
       const draw = c ?? Number.parseInt(k.slice(2, 4), 16) % GIVEN.length;
