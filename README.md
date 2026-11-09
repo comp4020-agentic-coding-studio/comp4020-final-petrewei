@@ -2,7 +2,13 @@
 
 ![A Random round: chart, order ticket and credit card](public/screenshot.png)
 
-A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it. Rewind replays a real crisis with the dates hidden until the bell. Random draws a market from today's rate and a hidden situation. Live trades real prices until you go bankrupt. Pick a name and press Start; a second browser profile sees each trade within a second.
+A shared currency market where everyone on a tab trades one price with play money, and the room watches you lose it.
+
+- Rewind replays a real crisis, with the dates hidden until the bell.
+- Random draws a market from today's rate and a hidden situation.
+- Live trades real prices until you go bankrupt.
+
+Pick a name and press Start. A second browser profile sees each trade within a second.
 
 [日本語](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/ja.md) · [中文](https://github.com/comp4020-agentic-coding-studio/comp4020-final-petrewei/blob/main/docs/readme/zh.md)
 
@@ -12,7 +18,9 @@ Any MCP client can trade Live over HTTP, no key: `claude mcp add --transport htt
 
 ## Who it is for
 
-A room playing together, such as a crit group or the showcase. Like Shirky's situated software, it is made for one group. It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008.
+A room playing together, such as a crit group or the showcase. Like Shirky's situated software, it is made for one group.
+
+It parodies *FX Fighter Kurumi-chan* (Demunyan and Daisuki Tansan; anime by Passione, 2026), in which a student trades leveraged forex to win back what her family lost in 2008.
 
 ## What good means here
 
@@ -57,4 +65,6 @@ Judged by people:
 
 ## Left out
 
-Real money, broker links, deposit offers, and the series' music and art. The comic's family tragedy is the premise, never a joke. If gambling or debt is hurting you, Australia's [Gambling Help](https://www.gamblinghelponline.org.au/) line is 1800 858 858.
+Real money, broker links, deposit offers, and the series' music and art. The comic's family tragedy is the premise, never a joke.
+
+If gambling or debt is hurting you, Australia's [Gambling Help](https://www.gamblinghelponline.org.au/) line is 1800 858 858.
