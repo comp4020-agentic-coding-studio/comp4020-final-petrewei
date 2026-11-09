@@ -159,7 +159,11 @@ it("removes one Live account by its short code, for the operator alone", async (
     const junk = await visitor();
     const keep = await visitor();
     const tab = await page(junk, "live");
-    const board = async () => ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: keep } })).json()) as { board: { code?: string; key?: string; name: string }[]; live: boolean });
+    // the people on the board: the house traders play Live too (ADR 0097) and join it once they trade
+    const board = async () => {
+      const b = (await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: keep } })).json()) as { board: { code?: string; key?: string; name: string; face?: string }[]; live: boolean };
+      return { ...b, board: b.board.filter((r) => !String(r.face ?? "").startsWith("bot:")) };
+    };
     try {
       for (let i = 0; i < 50 && !(await board()).live; i++) await new Promise((r) => setTimeout(r, 100));
       // a buy just after a fifteen-minute slot turns can meet Live settling the slot for the first account's position,
