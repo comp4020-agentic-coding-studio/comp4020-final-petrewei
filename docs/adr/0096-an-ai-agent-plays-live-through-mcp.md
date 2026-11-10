@@ -24,3 +24,9 @@ Peter first asked for every mode, then chose **Live only**. The protocol is answ
 ## 4 Consequences
 
 A marker reaches it from one line of `/readme/`; it was checked with Claude Code as a real client and against the deployed app, and `spec/` holds the handshake. Reconnecting starts a new player, and an agent cannot play rounds; both are the cost of the narrower scope. Replies are in English, the server's own language, since an agent is the reader and there is no page to translate.
+
+## 5 A Later Change: Sign-ups Are Limited in an Hour
+
+Added 10 November 2026, after a review. Each session is a new player whose name is kept in the names file for good, and an ended session frees its place among the twenty, so a script that opened and closed sessions in a loop could fill the file's ten thousand names and leave none for a person. The server reads no client address, so the limit cannot be per client.
+
+At most thirty sessions may open in an hour, across all agents; the thirty-first is refused until an hour has passed. At that rate a script would need two weeks of continuous opening to fill the file. The cost is that one script can use the hour's thirty and keep real agents out until it passes; a person is never kept out, and a marker needs one session.

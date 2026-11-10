@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { MAX_SESSIONS, Mcp, TOOLS } from "../src/mcp.ts";
+import { MAX_SESSIONS, Mcp, SIGNUPS_PER_HOUR, TOOLS } from "../src/mcp.ts";
 
 // An AI agent plays Live through MCP: a session is one new player, every tool goes through the page's own action, and
 // the limits hold. Fake dependencies stand for Live, so the protocol is checked alone.
@@ -110,4 +110,22 @@ it("requires an explicit pending order side", () => {
   const reply = rpc(sid, "tools/call", { name: "pending", arguments: { pair: "AUD/USD", at: 0.65, leverage: 10, margin: 0.25 } });
   expect(reply.body).toMatchObject({ result: { isError: true } });
   expect(acted).toEqual([]);
+});
+
+// Each session is a player whose name is kept for good, so a script that opens and closes sessions in a loop would fill
+// the names file and leave no name for a real player. The twenty at once do not stop that, as an ended session frees
+// its place. Sign-ups are limited in an hour across all agents, since the server knows no client address to limit by.
+it("limits how many sessions may open in an hour, even when each one ends at once", () => {
+  const { mcp, rpc, tick } = setup();
+  const open = () => rpc(undefined, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  for (let i = 0; i < SIGNUPS_PER_HOUR; i++) {
+    const r = open();
+    expect(r.body, `sign-up ${i + 1} of ${SIGNUPS_PER_HOUR}`).toMatchObject({ result: expect.anything() });
+    // the agent leaves at once: its place is free, which is why the twenty at once cannot be the limit
+    mcp.handle("DELETE", r.headers["mcp-session-id"], null);
+  }
+  expect(mcp.active(), "no session is left open").toBe(0);
+  expect(open().body, "one past the limit is refused").toMatchObject({ error: { code: -32000, message: expect.stringMatching(/hour/i) } });
+  tick(61 * 60_000);
+  expect(open().body, "an hour on, sign-ups are open again").toMatchObject({ result: expect.anything() });
 });

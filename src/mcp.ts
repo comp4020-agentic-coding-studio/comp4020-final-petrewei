@@ -17,6 +17,8 @@ export type McpDeps = {
 const PROTOCOL = "2025-06-18";
 // Limits, so an agent cannot flood the board: sessions at once, idle expiry, and the time between actions.
 export const MAX_SESSIONS = 20;
+// how many sessions may open in an hour, across all agents
+export const SIGNUPS_PER_HOUR = 30;
 const IDLE_MS = 30 * 60_000;
 const ACT_MS = 1_000;
 
@@ -55,6 +57,9 @@ export class Mcp {
     return this.sessions.size;
   }
 
+  // when each session in the last hour opened, to limit sign-ups
+  private signups: number[] = [];
+
   private expire(): void {
     const now = this.d.now();
     for (const [id, s] of this.sessions) if (now - s.last > IDLE_MS) this.sessions.delete(id);
@@ -86,6 +91,14 @@ export class Mcp {
           out.push(error(id, -32000, "Too many agents are playing. Try again later."));
           continue;
         }
+        // each session is a player whose name is kept for good, so sign-ups are limited in an hour, across all agents
+        const hourAgo = this.d.now() - 3_600_000;
+        this.signups = this.signups.filter((t) => t > hourAgo);
+        if (this.signups.length >= SIGNUPS_PER_HOUR) {
+          out.push(error(id, -32000, "Too many agents have joined this hour. Try again later."));
+          continue;
+        }
+        this.signups.push(this.d.now());
         newId = randomUUID();
         const who = randomUUID();
         const display = this.d.join(who);
