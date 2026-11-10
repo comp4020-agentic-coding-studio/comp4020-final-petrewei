@@ -374,7 +374,8 @@ it("waits for an internal history gap and charges every recovered trading slot e
   expect(m.slot).toBe(start / SLOT_MS);
   expect(m.view("trader", {}).historyGap).toBe(true);
   expect(m.accounts.get("trader")!.debt).toBe(STEP);
-  expect(m.act("new", { kind: "buy", leverage: 10 }, now)).toMatch(/missing price history/);
+  // the exposed account is held; a bystander with nothing open is not (see the scoped-gap test below)
+  expect(m.act("trader", { kind: "buy", leverage: 10 }, now)).toMatch(/missing price history/);
   now += 60_000;
   await m.refresh(now);
   expect(m.accounts.get("trader")!.debt).toBe(STEP);
@@ -413,6 +414,31 @@ it("does not wait on missing history for a house trader's account alone", async 
   m.accounts.get("trader")!.debt = 0;
   await m.refresh(now);
   expect(m.view("trader", {}).historyGap, "the house trader's credit alone does not pause Live").toBe(false);
+});
+
+// A missing bar holds settlement, so no stop-out is skipped, but it does not stop Live: a person with nothing open
+// trades on, and only the people exposed to the hole are held, on what the hole touches.
+it("holds only the exposed from trading while history is missing, and keeps the others trading", async () => {
+  const start = Date.parse("2026-11-04T10:00:00Z");
+  let now = start;
+  const quotes = new Feed(async () => {
+    const times = now === start ? [start - SLOT_MS] : [start + SLOT_MS];
+    return spark(now / 1000, times.map((time) => time / 1000));
+  }, () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-scoped-gap-"));
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  expect(m.act("exposed", { kind: "borrow" }, now)).toBeNull();
+  now += 3 * SLOT_MS;
+  await m.refresh(now);
+  expect(m.view("exposed", {}).historyGap, "the one with credit is held").toBe(true);
+  expect(m.act("exposed", { kind: "buy", leverage: 10 }, now), "and cannot open a trade over the hole").toMatch(/missing price history/);
+  expect(m.view("newcomer", {}).historyGap, "a newcomer with nothing open is not held").toBe(false);
+  expect(m.view("newcomer", {}).live, "and Live is open for them").toBe(true);
+  expect(m.act("newcomer", { kind: "buy", leverage: 10 }, now), "and trades").toBeNull();
 });
 
 it("does not advance one slot when an exposed currency has not supplied that slot yet", async () => {
@@ -476,7 +502,8 @@ it("waits for missing history, then settles a missed bankruptcy before a new tra
   now = monday;
   await m.refresh(now);
   expect(m.slot).toBe(friday / SLOT_MS);
-  expect(m.act("new", { kind: "buy", leverage: 100 }, now)).toMatch(/missing price history/);
+  // the account that was exposed when the market crashed is held until the history is settled
+  expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toMatch(/missing price history/);
   recover = true;
   now += 61 * 60_000;
   await m.refresh(now);

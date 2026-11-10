@@ -340,8 +340,14 @@ export class Live {
     return fresh(now, this.slot, this.selections.get(k));
   }
 
-  private tradable(a: BookAccount | null, pair: string): boolean {
-    return !this.gap && this.quotes.live([pair, ...Object.keys(a?.positions ?? {})]);
+  // Whether a missing bar holds this account. Settlement waits for the bar for everyone it must settle, but Live does
+  // not stop: only an account with a position or credit is held, and a house trader's never is (ADR 0097).
+  private held(k: string, a: BookAccount | null): boolean {
+    return this.gap && !k.startsWith("bot:") && !!a && (a.debt > 0 || used(a) > 0);
+  }
+
+  private tradable(k: string, a: BookAccount | null, pair: string): boolean {
+    return !this.held(k, a) && this.quotes.live([pair, ...Object.keys(a?.positions ?? {})]);
   }
 
   act(who: string, input: Record<string, unknown>, now = this.clock.now()): string | null {
@@ -383,7 +389,7 @@ export class Live {
         return out;
       }
       const usd = this.quotes.latest();
-      if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
+      if (!usd || !this.tradable(k, a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
       if (!this.accounts.has(k)) return "Trade first: a pending order is kept with your account.";
       const side = input.side === -1 ? -1 : 1;
       const out = setPending(a, pair, usd, { side, at: Number(input.at), leverage: Number(input.leverage), share: Number(input.share), sl: input.sl == null ? null : Number(input.sl), tp: input.tp == null ? null : Number(input.tp) });
@@ -406,8 +412,8 @@ export class Live {
     }
     const pair = isPair(input.pair) ? input.pair : a.pair;
     const usd = this.quotes.latest();
-    if (this.gap) return "Live is waiting for missing price history.";
-    if (!usd || !this.tradable(a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
+    if (this.held(k, a)) return "Live is waiting for missing price history.";
+    if (!usd || !this.tradable(k, a, pair)) return "The market is closed: prices are not live. Orders wait for the next price.";
     // the same decoder as the round markets', so an old page's fields are read the same way; Live has no prayer and
     // no pending order, which it refuses as unknown
     const action = tradeAction(input);
@@ -463,21 +469,22 @@ export class Live {
     const pair = a?.pair ?? "AUD/USD";
     const { prices, last } = this.quotes.series(pair);
     const mid = prices.at(-1) ?? 1;
-    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
+    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(k, a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
     const pos = positions.find((p) => p.pair === pair) ?? null;
     const eq = a ? (usd ? equity(a, usd) : a.balance) : 0;
-    const live = this.tradable(a, pair);
+    const live = this.tradable(k, a, pair);
     const state = {
       mode: "live" as const,
       simulated: false,
       phase: live ? "trade" as const : this.quotes.slots.length ? "shut" as const : "waiting" as const,
       live,
-      historyGap: this.gap,
+      // true only for an account the missing bar holds; Live is not paused for the others
+      historyGap: this.held(k, a),
       // when the FX week next opens, sent only while the calendar has it shut, never for a mid-week outage
       opens: live ? null : nextOpen(now),
       // Live's chart: the indicators, and its days named by their date (ADR 0087)
       chart: { studies: true, days: "date" as const, slotMs: SLOT_MS },
-      clock: { key: !this.quotes.slots.length ? "clockWait" as const : this.gap ? "clockGap" as const : live ? "clockLive" as const : "clockShut" as const, at: this.quotes.at || null },
+      clock: { key: !this.quotes.slots.length ? "clockWait" as const : this.held(k, a) ? "clockGap" as const : live ? "clockLive" as const : "clockShut" as const, at: this.quotes.at || null },
       priceAt: this.quotes.at,
       pair,
       pairs: ALL_PAIRS,
