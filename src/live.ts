@@ -37,6 +37,10 @@ const BOARD = 10;
 // what there is rather than staying paused for everyone.
 const HISTORY_MS = 30 * 86_400_000;
 
+// How a feed line names a player: a house trader by its id, which the page knows and shows in its own language; a person by
+// the short code of their key. The six letters of a house trader's id would name nobody.
+const whoOf = (k: string): string => (k.startsWith("bot:") ? k : k.slice(0, 6));
+
 export class Live {
   quotes: Feed;
   news: News;
@@ -269,11 +273,11 @@ export class Live {
     this.dirty = true;
     const name = this.names.get(k)?.[0] ?? "A trader";
     for (const f of fills) {
-      const args = { who: k.slice(0, 6), name, draw: this.names.get(k)?.[1] ?? -1, pair: f.pair, pnl: Math.round(f.pnl) };
+      const args = { who: whoOf(k), name, draw: this.names.get(k)?.[1] ?? -1, pair: f.pair, pnl: Math.round(f.pnl) };
       if (f.kind === "stop") this.say(`${name}'s stop filled on ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-stopped", args);
       else if (f.kind === "take") this.say(`${name} took profit on ${f.pair}`, "win", "m-took", args);
       else if (f.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out on ${f.pair}`, "bust", "m-stopout", args);
-      else if (f.kind === "call") this.say(`Margin call for ${name}.`, "call", "m-call", { who: k.slice(0, 6), name, draw: this.names.get(k)?.[1] ?? -1 });
+      else if (f.kind === "call") this.say(`Margin call for ${name}.`, "call", "m-call", { who: whoOf(k), name, draw: this.names.get(k)?.[1] ?? -1 });
     }
   }
 
@@ -308,7 +312,7 @@ export class Live {
       this.runs = this.runs.slice(-500);
       this.accounts.delete(k);
       this.waits.set(k, until);
-      this.say(`${this.names.get(k)?.[0] ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: k.slice(0, 6), name: this.names.get(k)?.[0] ?? "", draw: this.names.get(k)?.[1] ?? -1, days: days(now - a.opened) });
+      this.say(`${this.names.get(k)?.[0] ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: whoOf(k), name: this.names.get(k)?.[0] ?? "", draw: this.names.get(k)?.[1] ?? -1, days: days(now - a.opened) });
       this.log(null, "live-bankrupt", { code: k.slice(0, 6), days: days(now - a.opened), peak: a.peak });
       this.dirty = true;
     }

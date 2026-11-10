@@ -414,6 +414,26 @@ describe("Live's feed", () => {
     expect(asked.length, "the banks' and the outlets' feeds are still read").toBeGreaterThan(0);
   });
 
+  // A house trader's lines name it by its own id, so a page can show it in its own language; a person's carry the short
+  // code as ever. A cut of the id to six letters named nobody the page knew, and the English name was shown instead.
+  it("names a house trader in its feed lines by its id, and a person by the short code", async () => {
+    const at = Date.parse("2026-11-10T10:00:00Z");
+    const quotes = new Feed(async () => spark(at / 1000, [at / 1000]), () => at);
+    const news = new News(async () => "[]");
+    news.banks = async () => [];
+    const dir = mkdtempSync(join(tmpdir(), "losscut-bot-name-"));
+    const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+    onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+    await m.refresh(at);
+    const who = (k: string): unknown => {
+      m.accounts.set(k, { ...fresh(at, 0), called: false });
+      (m as unknown as { report(k: string, f: unknown[]): void }).report(k, [{ kind: "call", pair: "", price: 0, pnl: 0 }]);
+      return (m.view("reader", {}).feed[0].args as Record<string, unknown>).who;
+    };
+    expect(who("bot:kurumi"), "a house trader goes by its id").toBe("bot:kurumi");
+    expect(who("abcdef0123456789"), "a person goes by the short code").toBe("abcdef");
+  });
+
   it("tells no story older than a day", async () => {
     const m = await market(Date.parse("2026-11-10T10:00:00Z"));
     const titles = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => (f.args as Record<string, unknown>).title);

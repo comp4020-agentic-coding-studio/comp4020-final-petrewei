@@ -57,7 +57,9 @@ const avatar = (face, size = 20) => Object.assign(document.createElement("span")
 let names = new Map();
 // What a room row is, and the badge and word that say so in place of text.
 const ROWS = { bot: { badge: "🤖", label: "bot" }, wiped: { badge: "💀", label: "wipedTag" }, person: {} };
-const nameOf = (code, line) => names.get(code) ?? (line?.name ? nameIn(line.name, line.draw >= 0 ? line.draw : null) : botName(code, code));
+// A house trader goes by its name in this language before any name a line carries, which is the server's English; a
+// person by the name the room shows, else the one the line carries.
+const nameOf = (code, line) => T[lang].bots[code]?.name ?? names.get(code) ?? (line?.name ? nameIn(line.name, line.draw >= 0 ? line.draw : null) : code);
 
 // Every fixed string on the page carries data-t (its text), data-t-title
 // (its tooltip) or data-t-label (a phone label). Switching language fills
@@ -1041,7 +1043,8 @@ function board(s) {
   $("board").replaceChildren(...(s.board ?? []).map((r) => {
     const li = document.createElement("li");
     li.className = `${r.you ? "you" : ""} ${r.how}`;
-    const who = strong(nameIn(r.name, r.draw));
+    // a house trader wears its id as its face, and is named by the table in the reader's language; a person by the name the row carries
+    const who = strong(T[lang].bots[r.face]?.name ?? nameIn(r.name, r.draw));
     // an AI agent playing through MCP wears the room's bot badge, so people know who they trade beside (ADR 0096)
     if (r.agent) who.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: ROWS.bot.badge, ariaLabel: t("agentTag") }));
     li.append(avatar(r.face, 18), who, Object.assign(document.createElement("span"), { className: "aside", textContent: `${r.days} · ${t(r.how === "running" ? "boardRunning" : "boardBust")} · ${cash(r.worth)}` }));

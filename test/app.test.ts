@@ -438,6 +438,54 @@ it("names the chart's widest range by its span: a week on Live", async () => {
   }
 });
 
+// A house trader's feed line in Live names it by its id, which the page shows in the reader's own language: Kurumi is
+// くるみ in Japanese and 久留美 in Chinese, not the English name the line carries as a fallback.
+it.each([["en", "Kurumi"], ["ja", "くるみ"], ["zh", "久留美"]] as const)("shows a house trader's Live feed line in its own name in %s", async (lang, name) => {
+  const { dom, w, base, emit } = await app(lang);
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const feed = [{ text: "Margin call for Kurumi.", kind: "call", key: "m-call", args: { who: "bot:kurumi", name: "Kurumi", draw: -1 }, when: Date.now() }];
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], traders: [], you, feed, headline: null });
+    const line = w.document.querySelector("#feed li")?.textContent ?? "";
+    expect(line, `${lang} feed line`).toContain(name);
+  } finally {
+    dom.window.close();
+  }
+});
+
+// Only a house trader's name is looked up in the table: a person's line keeps the name it carries, however it is spelt.
+it("leaves a person's Live feed line with the name it carries", async () => {
+  const { dom, w, base, emit } = await app("ja");
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const feed = [{ text: "Margin call for Kurumi.", kind: "call", key: "m-call", args: { who: "abcdef", name: "Kurumi", draw: -1 }, when: Date.now() }];
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], board: [], traders: [], you, feed, headline: null });
+    const line = w.document.querySelector("#feed li")?.textContent ?? "";
+    expect(line, "a person named Kurumi, not the house trader").toContain("Kurumi");
+    expect(line).not.toContain("くるみ");
+  } finally {
+    dom.window.close();
+  }
+});
+
+// Live's board shows a house trader by its name in the reader's language too, found by the face it wears, which is its id.
+it.each([["en", "Kurumi"], ["ja", "くるみ"], ["zh", "久留美"]] as const)("names a house trader on Live's board in its own name in %s", async (lang, name) => {
+  const { dom, w, base, emit } = await app(lang);
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, pos: null, positions: [], used: 0, pnl: 0, debt: 0, out: false, lending: false };
+    const row = (n: string, face: string) => ({ name: n, draw: null, face, opened: 0, ended: 1, peak: 10_000, how: "running", worth: 10_000, days: "1d", you: false, agent: false });
+    await emit({ mode: "live", chart: { studies: true, days: "date", slotMs: 900_000 }, clock: { key: "clockLive", at: Date.now() }, live: true, pair: "AUD/USD", pairs: ["AUD/USD"], calendar: [], traders: [], you, headline: null, board: [row("Kurumi", "bot:kurumi"), row("Kurumi", "p3")] });
+    const rows = [...w.document.querySelectorAll("#board li")].map((li) => li.textContent ?? "");
+    expect(rows[0], `${lang}: the house trader`).toContain(name);
+    expect(rows[1], `${lang}: a person with the same name keeps it`).toContain("Kurumi");
+  } finally {
+    dom.window.close();
+  }
+});
+
 // A room joins from a phone by a QR code of this tab's own address (docs/product.md, candidate 1): the button opens
 // it, the code is drawn, and the address is written out under it for anyone who cannot scan.
 it("shows a QR code of this tab's address, to join from a phone", async () => {
