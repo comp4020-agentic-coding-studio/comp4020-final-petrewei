@@ -383,6 +383,23 @@ describe("Live's feed", () => {
     expect(lines[0], "the story told last is on top").toBe("Euro yields linger at one-month lows");
   });
 
+  // A central bank's own words and the outlets' stories are two sources told in one pass; the list is by when each
+  // was published, so a bank's statement sits among the stories by its time and not below all of them.
+  it("orders a bank's statement among the stories by when it was published", async () => {
+    const at = Date.parse("2026-11-10T10:00:00Z");
+    const quotes = new Feed(async () => spark(at / 1000, [at / 1000]), () => at);
+    const news = new News(async () => "[]");
+    news.banks = async () => [{ id: "boj", cur: "JPY", source: "Bank of Japan", title: "Summary of Opinions", at: at - 11 * hour, link: "https://www.boj.or.jp/x" }];
+    news.markets = async () => stories(at);
+    const dir = mkdtempSync(join(tmpdir(), "losscut-feed-merge-"));
+    const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+    onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+    await m.refresh(at);
+    const told = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => Number((f.args as Record<string, unknown>).at));
+    expect(told.length, "the bank and the two stories under a day old").toBe(3);
+    expect(told, "newest first").toEqual([...told].sort((a, b) => b - a));
+  });
+
   it("tells no story older than a day", async () => {
     const m = await market(Date.parse("2026-11-10T10:00:00Z"));
     const titles = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => (f.args as Record<string, unknown>).title);

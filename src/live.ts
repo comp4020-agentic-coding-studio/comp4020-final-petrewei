@@ -199,20 +199,19 @@ export class Live {
       const first = !this.news.items.length;
       const fresh = await this.news.banks().catch(() => []);
       if (this.disposed) return;
-      // the first look sets what has already been said; only what is new after it, or from the last day, is told
-      // a central bank's decision moves a currency most, so it ranks above any market story
-      for (const i of fresh.filter((i) => !first || now - i.at < 86_400_000)) {
-        this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title, link: i.link, at: i.at, score: 20 });
-      }
-      // the market's own headlines, from a big outlet with backups, each told in the timeline once, oldest first, so the
-      // newest sits at the top; the page pins the most important of the recent news
+      // the market's own headlines, from a big outlet with backups, each told in the timeline once
       const stories = await this.news.markets(now).catch(() => this.news.stories);
       if (this.disposed) return;
-      // only the last day's: an older story is no longer news, and the outlet's feed lists days back
-      for (const x of stories.filter((x) => !this.toldStories.has(x.id) && now - x.at < NEWS_AGE_MS).sort((a, b) => a.at - b.at)) {
-        this.toldStories.add(x.id);
-        this.say(`${x.source}: ${x.title}`, "news", "market", { source: x.source, title: x.title, link: x.link, at: x.at, score: x.score });
-      }
+      // the first look sets what has already been said; only what is new after it, or from the last day, is told. A
+      // bank's own words and the outlets' stories are told in one pass, oldest first by when each was published, so the
+      // feed, which lists the last told first, reads newest to oldest whichever source a line came from. A central
+      // bank's decision moves a currency most, so it ranks above any market story by its score; the page pins the best.
+      const told: { at: number; say: () => void }[] = [
+        ...fresh.filter((i) => !first || now - i.at < NEWS_AGE_MS).map((i) => ({ at: i.at, say: () => this.say(`${i.source}: ${i.title}`, "news", "bank", { cur: i.cur, source: i.source, title: i.title, link: i.link, at: i.at, score: 20 }) })),
+        // only the last day's: an older story is no longer news, and the outlet's feed lists days back
+        ...stories.filter((x) => !this.toldStories.has(x.id) && now - x.at < NEWS_AGE_MS).map((x) => ({ at: x.at, say: () => { this.toldStories.add(x.id); this.say(`${x.source}: ${x.title}`, "news", "market", { source: x.source, title: x.title, link: x.link, at: x.at, score: x.score }); } })),
+      ];
+      for (const line of told.sort((a, b) => a.at - b.at)) line.say();
     }
     if (now - this.lastCal > CAL_MS) {
       this.lastCal = now;
