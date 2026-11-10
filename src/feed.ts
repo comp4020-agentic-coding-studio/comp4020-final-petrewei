@@ -2,7 +2,7 @@
 // seconds while anyone watches, from which all twenty-one pairs of the seven currencies are crossed, so every pair agrees
 // with every other. The offshore yuan, CNH, stands for the yuan: the onshore rate stops overnight. Prices are kept as
 // fifteen-minute closes, the game's own tick (ADR 0085), the newest slot's close being the price now.
-import { PAIRS, type Pair } from "./market.ts";
+import { PAIRS } from "./market.ts";
 import { CURRENCIES, SLOT_MS, SYMBOLS, parseQuotes, type Currency, type Fetcher, type Usd } from "./quotes.ts";
 import { SETTLED_MS, slotQuality, weekOpen, type Quality } from "./history-policy.ts";
 import { yahoo } from "./yahoo.ts";
@@ -45,17 +45,13 @@ export class Feed {
     const bySlot = new Map<number, Partial<Usd>>();
     const fetched = new Map<number, Set<Currency>>();
     const traded = new Set<number>();
-    const record = (slot: number, cur: Currency, price: number): void => {
+    const times: Partial<Record<Currency, number>> = {};
+    const quotes: Partial<Usd> = {};
+    for (const { slot, cur, price, historical, at } of observations) {
       bySlot.set(slot, { ...bySlot.get(slot), [cur]: price });
       const currencies = fetched.get(slot) ?? new Set<Currency>();
       currencies.add(cur);
       fetched.set(slot, currencies);
-    };
-    const times: Partial<Record<Currency, number>> = {};
-    const quotes: Partial<Usd> = {};
-    for (const observation of observations) {
-      const { slot, cur, price, historical, at } = observation;
-      record(slot, cur, price);
       if (historical) traded.add(slot);
       if (at !== undefined) { times[cur] = at; quotes[cur] = price; }
     }
@@ -150,7 +146,7 @@ export class Feed {
     return this.slots.at(-1)?.usd ?? null;
   }
   // A pair's closes, oldest first, and the slot number of the newest.
-  series(pair: Pair | string): { prices: number[]; last: number } {
+  series(pair: string): { prices: number[]; last: number } {
     return { prices: this.slots.map((x) => cross(x.usd, pair)), last: this.slots.at(-1)?.slot ?? 0 };
   }
 }

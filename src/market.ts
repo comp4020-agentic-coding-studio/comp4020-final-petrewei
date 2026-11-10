@@ -161,13 +161,17 @@ export function random(seed: number): () => number {
 export function replayRound(history: History, minutes: Minutes, rnd: () => number, pick?: string): Round {
   const event = EVENTS.find((e) => e.id === pick) ?? EVENTS[Math.floor(rnd() * EVENTS.length)];
   const real = minutes.of(event.id);
-  const ticks = real ?? simulated(history, event, rnd);
+  const series = history.series(event.pair);
+  const eventDay = series.findIndex((day) => day.date === event.date);
+  const ticks = real ?? simulated(series, eventDay, rnd);
+  // Trading days for the reveal, kept off the wire until the bell.
+  const firstPlayedDay = eventDay - (SWAN_DAY - 1);
   // the open is the first tick of the first day played; the history is the days before it and ends on it, so it
   // is a whole number of candles and a tick longer than the days it holds, as the page's window expects
   const open = PRE_ROLL_DAYS * DAY_TICKS;
   return {
     pair: event.pair,
-    days: dayNames(history, event),
+    days: series.slice(firstPlayedDay, firstPlayedDay + PLAY_DAYS).map((day) => day.date),
     prices: ticks.slice(open),
     history: ticks.slice(0, open + 1),
     event,
@@ -179,20 +183,14 @@ export function replayRound(history: History, minutes: Minutes, rnd: () => numbe
   };
 }
 
-// The ECB's trading days around a plot's date, for the reveal ("from X to Y"): the days of the round, two before the
-// first and so on, read off the real calendar and never shown before the bell.
-function dayNames(history: History, event: Episode): string[] {
-  const series = history.series(event.pair);
-  const at = series.findIndex((d) => d.date === event.date);
-  return series.slice(at - (SWAN_DAY - 1), at - (SWAN_DAY - 1) + PLAY_DAYS).map((d) => d.date);
+function dailyVolatility(logMoves: number[]): number {
+  return Math.sqrt(logMoves.reduce((sum, move) => sum + move * move, 0) / logMoves.length);
 }
 
 // A plot with no minutes, from the ECB's daily closes: the two days before the round and the five played, each day
 // bridged to its close. The day the ECB first shows the event opens with most of its move at once, as a fix or a
 // peg's break does, and the rest of the days are plain ones sized to the pair's own usual day.
-function simulated(history: History, event: Episode, rnd: () => number): number[] {
-  const series = history.series(event.pair);
-  const at = series.findIndex((d) => d.date === event.date);
+function simulated(series: Day[], at: number, rnd: () => number): number[] {
   // day d ends on the close d places on, so the day the market broke (the fifth of seven) ends on the day itself
   const first = at - (PRE_ROLL_DAYS + SWAN_DAY);
   // one close more than the days, so the last day is bridged to its own close and the day after supplies the one tick
@@ -201,7 +199,7 @@ function simulated(history: History, event: Episode, rnd: () => number): number[
   // the pair's usual day, from the forty days before the plot, with a floor so a pegged pair still moves enough to play
   const recent = series.slice(at - 41, at - 1);
   const logs = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
-  const vol = Math.max(0.0015, Math.sqrt(logs.reduce((a, m) => a + m * m, 0) / logs.length));
+  const vol = Math.max(0.0015, dailyVolatility(logs));
   const out: number[] = [];
   let from = closes[0];
   for (let d = 1; d < closes.length; d++) {
@@ -396,7 +394,7 @@ export function simulation(history: History, pair: AnyPair, rate: number, rnd: (
   const recent = history.series(pair).slice(-251);
   const moves = recent.slice(1).map((d, i) => Math.log(d.rate / recent[i].rate));
   // A floor of 0.4% a unit, so a pegged pair still moves enough to play.
-  const vol = Math.max(0.004, Math.sqrt(moves.reduce((s, m) => s + m * m, 0) / moves.length));
+  const vol = Math.max(0.004, dailyVolatility(moves));
   const script = SITUATIONS.find((x) => x.id === pick) ?? SITUATIONS[Math.floor(rnd() * SITUATIONS.length)];
   // The turn comes between unit 13 and unit 22, as before.
   const crash = 13 + Math.floor(rnd() * 10);

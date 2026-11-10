@@ -36,6 +36,21 @@ import { jsonStorage, type Storage } from "./storage.ts";
 import { namesValid, migrateNames, facesValid, careerValid } from "./saved.ts";
 import { Mcp } from "./mcp.ts";
 
+async function readJson(req: IncomingMessage, limit: number, empty: string): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    size += chunk.length;
+    if (size > limit) throw new Error("too large");
+    chunks.push(chunk);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8") || empty);
+}
+
+function sseData(view: unknown): string {
+  return `data: ${JSON.stringify(view)}\n\n`;
+}
+
 export type AppOptions = {
   dataDir?: string;
   storage?: Storage;
@@ -1222,7 +1237,7 @@ export function createApp(options: AppOptions = {}) {
           if (l === except) continue;
           const withFeed = l.feedSeen !== this.feedVersion;
           l.feedSeen = this.feedVersion;
-          l.res.write(`data: ${JSON.stringify(this.view(l.who, from, shared, withFeed))}\n\n`);
+          l.res.write(sseData(this.view(l.who, from, shared, withFeed)));
         }
       }
     }
@@ -1270,20 +1285,9 @@ export function createApp(options: AppOptions = {}) {
       isPair,
       now: () => clock.now(),
     });
-    // an MCP request: JSON-RPC, perhaps a batch, larger than a page's action, so it has its own reader and limit
-    async function mcpBody(req: IncomingMessage): Promise<unknown> {
-      const chunks: Buffer[] = [];
-      let size = 0;
-      for await (const chunk of req as AsyncIterable<Buffer>) {
-        size += chunk.length;
-        if (size > 64 * 1024) throw new Error("too large");
-        chunks.push(chunk);
-      }
-      return JSON.parse(Buffer.concat(chunks).toString("utf8") || "null");
-    }
     function sendLive(except?: Listener): void {
       const here = headCounts();
-      for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(`data: ${JSON.stringify(liveMarket.view(l.who, here))}\n\n`);
+      for (const l of listeners) if (l.mode === "live" && l !== except) l.res.write(sseData(liveMarket.view(l.who, here)));
     }
     // The tabs' old ids still lead to them (ADR 0091): replay and simulation, the ids before the tabs were renamed
     // Rewind and Random, history and situation before that, and marathon, Live's id before it was renamed.
@@ -1360,7 +1364,7 @@ export function createApp(options: AppOptions = {}) {
       const watching = [...listeners].filter((l) => l !== except && l.mode === "tutorial" && l.who === who);
       // Building a view marks it as used, so an internal tick must not keep an abandoned tutorial alive.
       if (!watching.length) return;
-      const text = `data: ${JSON.stringify(tutorialView(who))}\n\n`;
+      const text = sseData(tutorialView(who));
       for (const l of watching) l.res.write(text);
     }
 
@@ -1449,14 +1453,7 @@ export function createApp(options: AppOptions = {}) {
 
     // An order is a small JSON object; anything else, or over 1 KB, is refused.
     async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
-      const chunks: Buffer[] = [];
-      let size = 0;
-      for await (const chunk of req as AsyncIterable<Buffer>) {
-        size += chunk.length;
-        if (size > 1024) throw new Error("too large");
-        chunks.push(chunk);
-      }
-      const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      const value = await readJson(req, 1024, "{}");
       if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("not an object");
       return value as Record<string, unknown>;
     }
@@ -1639,7 +1636,7 @@ export function createApp(options: AppOptions = {}) {
       if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [PAGES[url.pathname][0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
       if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
       if (path === "/mcp") {
-        const message = req.method === "POST" ? await mcpBody(req).catch(() => undefined) : null;
+        const message = req.method === "POST" ? await readJson(req, 64 * 1024, "null").catch(() => undefined) : null;
         if (req.method === "POST" && message === undefined) return json(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error." } });
         const session = req.headers["mcp-session-id"];
         const out = mcp.handle(req.method ?? "GET", typeof session === "string" ? session : undefined, message);
@@ -1678,7 +1675,7 @@ export function createApp(options: AppOptions = {}) {
         listeners.add(listener);
         log(who, already ? "tab" : "join", { mode, ...(already ? {} : { here: here() }) });
         room.enter(who);
-        res.write(`data: ${JSON.stringify(room.view(who))}\n\n`);
+        res.write(sseData(room.view(who)));
         // The page's close runs later, outside this request; it keeps the ID
         // of the request that opened it, so its join and leave pair up.
         const opened = requests.getStore();
@@ -1769,13 +1766,14 @@ export function createApp(options: AppOptions = {}) {
           sendTutorial(who);
           return json(res, error ? 409 : 200, error ? { error } : { ok: true });
         }
+        // only a round market is left here: Live and the tutorial have returned above, so tab is "rewind" or "random"
+        const market = markets[tab];
         // A round's controls (ADR 0022): cancel the countdown, end the round,
         // leave it, and close or hold the bell. The market checks who may.
         const control = Object.hasOwn(CONTROLS, kind) ? CONTROLS[kind] : null;
         if (control) {
           // a year must be a whole number the data could hold
           if (kind === "guess" && !(Number.isInteger(input.year) && (input.year as number) >= FIRST_YEAR && (input.year as number) <= new Date().getFullYear())) return json(res, 400, { error: "Name a year from 1999 to now." });
-          const market = markets[modeOf(input.mode)];
           const error = control(market, who, input);
           if (error) {
             log(who, "refused", { mode: market.mode, action: kind, why: error });
@@ -1787,7 +1785,6 @@ export function createApp(options: AppOptions = {}) {
           return json(res, 200, { ok: true });
         }
         if (kind === "start") {
-          const market = markets[modeOf(input.mode)];
           // A rejected Start must not redraw the lobby. The request checks
           // membership again after the fetch in case the starter has left.
           if (market.listeners().some((l) => l.who === who)) await market.refreshLobby();
@@ -1797,7 +1794,6 @@ export function createApp(options: AppOptions = {}) {
           return json(res, 200, { ok: true });
         }
         if (!action) return json(res, 400, { error: "Unknown action." });
-        const market = markets[modeOf(input.mode)];
         const error = market.apply(who, action);
         if (error) {
           log(who, "refused", { mode: market.mode, action: kind, why: error });

@@ -10,7 +10,6 @@ export function createChart({ getState, getLanguage, t }) {
   const canvasNode = $("chart");
   if (!(canvasNode instanceof HTMLCanvasElement)) throw new Error("Expected chart canvas");
   const canvas = canvasNode;
-  /** @param {number} n */
   /** @param {import("./protocol.js").State} s */
   const perDay = (s) => s.dayTicks / s.steps;
   /** @type {(() => void)[]} */
@@ -111,11 +110,11 @@ export function createChart({ getState, getLanguage, t }) {
   /** @param {import("./protocol.js").State} full */
   function draw(full) {
     // a plain chart (the tutorial's) has no range to choose, and always shows the whole of its round
-    const s = full.chart.studies ? zoomed(windowed(full), range) : windowed(full);
+    const whole = windowed(full);
+    const s = full.chart.studies ? zoomed(whole, range) : whole;
     // The widest choice says what it spans: Live's six days of slots are its trading week, a round's window its days
     // of history, so the label is never a vague "All".
     if (rangeBox instanceof HTMLSelectElement && rangeBox.options[0]) {
-      const whole = windowed(full);
       const span = Math.round(whole.total / full.dayTicks);
       rangeBox.options[0].textContent = span >= 5 ? t("rangeWeek") : t("rangeAll").replace("{d}", String(span));
     }
@@ -299,21 +298,24 @@ export function createChart({ getState, getLanguage, t }) {
     // One candle a day, then the price line through today's ticks. Each is kept, its centre and its prices, for the
     // reading a pointer over the chart shows (ADR 0083).
     candlesShown = [];
+    const candleWidth = x(k) - x(0);
+    const bodyWidth = Math.max(3, candleWidth * 0.6);
     for (let d = 0; d * k < prices.length - 1; d++) {
       const day = prices.slice(d * k, d * k + k + 1);
       const open = day[0];
       const close = day.at(-1) ?? open;
       const colour = close >= open ? up : down;
       const cx = x(d * k + k / 2);
-      candlesShown.push({ cx, open, high: Math.max(...day), low: Math.min(...day), close, half: (x(k) - x(0)) / 2, top: h });
+      const high = Math.max(...day);
+      const low = Math.min(...day);
+      candlesShown.push({ cx, open, high, low, close, half: candleWidth / 2, top: h });
       ctx.strokeStyle = colour;
       ctx.beginPath();
-      ctx.moveTo(cx, y(Math.max(...day)));
-      ctx.lineTo(cx, y(Math.min(...day)));
+      ctx.moveTo(cx, y(high));
+      ctx.lineTo(cx, y(low));
       ctx.stroke();
       ctx.fillStyle = colour;
-      const bw = Math.max(3, (x(k) - x(0)) * 0.6);
-      ctx.fillRect(cx - bw / 2, y(Math.max(open, close)), bw, Math.max(2, Math.abs(y(open) - y(close))));
+      ctx.fillRect(cx - bodyWidth / 2, y(Math.max(open, close)), bodyWidth, Math.max(2, Math.abs(y(open) - y(close))));
     }
     // Moving averages over the candles, and their legend top-left.
     /** @type {[string, string][]} */

@@ -23,7 +23,9 @@ import { jsonStorage, renameStore, type Store, type Storage } from "./storage.ts
 import { liveValid, migrateLive } from "./saved.ts";
 
 export type Run = { key: string; name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number };
-type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, [string, number | null]>; agents?: string[] };
+type TraderName = [name: string, draw: number | null];
+
+type Saved = { accounts: Record<string, BookAccount>; runs: Run[]; waits: Record<string, number>; slot: number; names?: Record<string, TraderName>; agents?: string[] };
 export type Who = { nameAt: (k: string) => { name: string; draw: number | null }; named: (who: string) => boolean; key: (who: string) => string; short: (who: string) => string; name: (who: string) => string; draw: (who: string) => number | null; face: (who: string) => string; faceAt: (k: string) => string };
 export type FeedLine = { text: string; kind: string; key: string; args: Record<string, string | number>; when?: number };
 
@@ -40,8 +42,7 @@ export class Live {
   news: News;
   private store: Store<Saved>;
   accounts = new Map<string, BookAccount>();
-  private names = new Map<string, string>();
-  private draws = new Map<string, number | null>();
+  private names = new Map<string, TraderName>();
   runs: Run[] = [];
   // a bankrupt player's key, and when their next account opens
   waits = new Map<string, number>();
@@ -91,10 +92,7 @@ export class Live {
       this.waits = new Map(Object.entries(s.waits ?? {}));
       this.slot = s.slot ?? 0;
       // the names last seen, so the board names a player who has not looked in since a restart
-      for (const [k, [n, d]] of Object.entries(s.names ?? {})) {
-        this.names.set(k, n);
-        this.draws.set(k, d);
-      }
+      for (const [key, [name, draw]] of Object.entries(s.names ?? {})) this.names.set(key, [name, draw]);
       // which players are AI agents, kept so an agent's row keeps its badge through a restart (ADR 0096)
       for (const k of s.agents ?? []) this.agents.add(k);
     }
@@ -113,7 +111,8 @@ export class Live {
   save(force = false): void {
     if (!this.dirty && !force) return;
     try {
-      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names: Object.fromEntries([...this.names].map(([k, n]) => [k, [n, this.draws.get(k) ?? null]])), agents: [...this.agents].filter((k) => this.accounts.has(k) || this.runs.some((r) => r.key === k)) };
+      const names = Object.fromEntries<TraderName>([...this.names].map(([key, [name, draw]]) => [key, [name, draw]]));
+      const data: Saved = { accounts: Object.fromEntries(this.accounts), runs: this.runs, waits: Object.fromEntries(this.waits), slot: this.slot, names, agents: [...this.agents].filter((k) => this.accounts.has(k) || this.runs.some((r) => r.key === k)) };
       this.store.write(data);
       this.dirty = false;
     } catch (e) {
@@ -275,13 +274,13 @@ export class Live {
   private report(k: string, fills: BookFill[]): void {
     if (!fills.length) return;
     this.dirty = true;
-    const name = this.names.get(k) ?? "A trader";
+    const name = this.names.get(k)?.[0] ?? "A trader";
     for (const f of fills) {
-      const args = { who: k.slice(0, 6), name, draw: this.draws.get(k) ?? -1, pair: f.pair, pnl: Math.round(f.pnl) };
+      const args = { who: k.slice(0, 6), name, draw: this.names.get(k)?.[1] ?? -1, pair: f.pair, pnl: Math.round(f.pnl) };
       if (f.kind === "stop") this.say(`${name}'s stop filled on ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-stopped", args);
       else if (f.kind === "take") this.say(`${name} took profit on ${f.pair}`, "win", "m-took", args);
       else if (f.kind === "stopout") this.say(`強制ロスカット! ${name} was stopped out on ${f.pair}`, "bust", "m-stopout", args);
-      else if (f.kind === "call") this.say(`Margin call for ${name}.`, "call", "m-call", { who: k.slice(0, 6), name, draw: this.draws.get(k) ?? -1 });
+      else if (f.kind === "call") this.say(`Margin call for ${name}.`, "call", "m-call", { who: k.slice(0, 6), name, draw: this.names.get(k)?.[1] ?? -1 });
     }
   }
 
@@ -291,7 +290,7 @@ export class Live {
   remove(who: { code?: string; name?: string }): boolean | "ambiguous" {
     const all = new Set([...this.accounts.keys(), ...this.runs.map((r) => r.key), ...this.names.keys()]);
     // the name the board shows: Live's own, a past run's, or the app's name for a player Live never named
-    const nameOf = (k: string) => this.names.get(k) ?? this.runs.find((r) => r.key === k)?.name ?? this.w.nameAt(k).name;
+    const nameOf = (k: string) => this.names.get(k)?.[0] ?? this.runs.find((r) => r.key === k)?.name ?? this.w.nameAt(k).name;
     const keys = new Set([...all].filter((k) => (who.code ? k.slice(0, 6) === who.code : nameOf(k) === who.name)));
     if (!keys.size) return false;
     if (!who.code && keys.size > 1) return "ambiguous";
@@ -299,7 +298,6 @@ export class Live {
       this.accounts.delete(k);
       this.waits.delete(k);
       this.names.delete(k);
-      this.draws.delete(k);
     }
     this.runs = this.runs.filter((r) => !keys.has(r.key));
     this.dirty = true;
@@ -313,11 +311,11 @@ export class Live {
     for (const [k, a] of this.accounts) {
       if (!bankrupt(a, usd)) continue;
       const until = nextSydneyMidnight(now);
-      this.runs.push({ key: k, name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? null, face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "bankrupt", worth: Math.round(worth(a, usd)) });
+      this.runs.push({ key: k, name: this.names.get(k)?.[0] ?? "", draw: this.names.get(k)?.[1] ?? null, face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "bankrupt", worth: Math.round(worth(a, usd)) });
       this.runs = this.runs.slice(-500);
       this.accounts.delete(k);
       this.waits.set(k, until);
-      this.say(`${this.names.get(k) ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: k.slice(0, 6), name: this.names.get(k) ?? "", draw: this.draws.get(k) ?? -1, days: days(now - a.opened) });
+      this.say(`${this.names.get(k)?.[0] ?? "A trader"} went bankrupt after ${days(now - a.opened)}.`, "bust", "m-bankrupt", { who: k.slice(0, 6), name: this.names.get(k)?.[0] ?? "", draw: this.names.get(k)?.[1] ?? -1, days: days(now - a.opened) });
       this.log(null, "live-bankrupt", { code: k.slice(0, 6), days: days(now - a.opened), peak: a.peak });
       this.dirty = true;
     }
@@ -327,9 +325,10 @@ export class Live {
   private seen(who: string, k: string): void {
     const name = this.w.name(who);
     const draw = this.w.draw(who);
-    if (this.names.get(k) !== name || this.draws.get(k) !== draw) this.dirty = true;
-    this.names.set(k, name);
-    this.draws.set(k, draw);
+    const previous = this.names.get(k);
+    if (previous?.[0] === name && previous[1] === draw) return;
+    this.dirty = true;
+    this.names.set(k, [name, draw]);
   }
 
   // An unopened account is a preview. Only a successful financial action persists it.
@@ -453,7 +452,16 @@ export class Live {
 
   board(now = this.clock.now()): (Run & { you?: boolean })[] {
     const usd = this.quotes.latest();
-    const running: Run[] = usd ? [...this.accounts].filter(([, a]) => used(a) > 0 || a.trades.length > 0).map(([k, a]) => ({ key: k, ...(this.names.has(k) ? { name: this.names.get(k)!, draw: this.draws.get(k) ?? null } : this.w.nameAt(k)), face: this.w.faceAt(k), opened: a.opened, ended: now, peak: a.peak, how: "running" as const, worth: Math.round(worth(a, usd)) })) : [];
+    const running: Run[] = [];
+    if (usd) for (const [k, account] of this.accounts) {
+      if (!(used(account) > 0 || account.trades.length > 0)) continue;
+      const savedName = this.names.get(k);
+      const identity = savedName ? { name: savedName[0], draw: savedName[1] } : this.w.nameAt(k);
+      running.push({
+        key: k, ...identity, face: this.w.faceAt(k), opened: account.opened, ended: now,
+        peak: account.peak, how: "running", worth: Math.round(worth(account, usd)),
+      });
+    }
     // longest-lasting first: the live's measure is how long an account survives
     return [...running, ...this.runs].sort((a, b) => b.ended - b.opened - (a.ended - a.opened)).slice(0, BOARD);
   }

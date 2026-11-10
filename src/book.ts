@@ -3,7 +3,7 @@
 // counts in dollars at the rate now. The broker's rules act on the whole account: a margin call at 50% of the margin in
 // use and a stop-out at 20%, which closes everything. The fee and the credit's interest are charged each fifteen
 // minutes of real time, the game's tick, so a night's position pays a night's fee.
-import { CALL, awayFrom, borrowStep, dailyRate, exitRefusal, feeRate, fill, LEVERAGES, pendingOrder, repayStep, START, STOP_OUT, type Pending, type PendRequest, type Side } from "./fx.ts";
+import { CALL, awayFrom, borrowStep, dailyRate, exitRefusal, feeRate, fill, LEVERAGES, pendingOrder, pendingReached, repayStep, START, STOP_OUT, type Pending, type PendRequest, type Side } from "./fx.ts";
 import { convert, type Currency, type Usd, cross } from "./feed.ts";
 import { shareMargin } from "../public/ticket.js";
 
@@ -22,8 +22,7 @@ export type Alert = { pair: string; at: number; above: boolean };
 // A pending order on one pair (ADR 0078, 0079), as the rounds have, one per pair as Live has one position per pair:
 // buy or sell when the live price reaches `at`. The level is only a trigger; it fills at the live price on the poll
 // that reaches it, so a gap fills at the gapped price, as a broker's would.
-export type LivePending = Pending;
-export type BookAccount = { pending?: Record<string, LivePending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
+export type BookAccount = { pending?: Record<string, Pending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
 export type BookFill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout"; pair: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 export const fresh = (now: number, slot: number, pair = "AUD/USD"): BookAccount => ({ balance: START, debt: 0, interest: 0, positions: {}, called: false, cuts: 0, trades: [], opened: now, peak: START, slot, pair });
@@ -39,7 +38,10 @@ export function pnlOf(pos: BookPosition, pair: string, usd: Usd): number {
 export const openPnl = (a: BookAccount, usd: Usd): number => Object.entries(a.positions).reduce((n, [p, pos]) => n + pnlOf(pos, p, usd), 0);
 export const equity = (a: BookAccount, usd: Usd): number => a.balance + openPnl(a, usd);
 export const used = (a: BookAccount): number => Object.values(a.positions).reduce((n, p) => n + p.margin, 0);
-export const level = (a: BookAccount, usd: Usd): number => (used(a) ? equity(a, usd) / used(a) : Infinity);
+export function level(a: BookAccount, usd: Usd): number {
+  const margin = used(a);
+  return margin ? equity(a, usd) / margin : Infinity;
+}
 export const worth = (a: BookAccount, usd: Usd): number => equity(a, usd) - a.debt;
 
 // Where one pair's price would bring the whole account to a margin call and a stop-out, every other currency's dollar
@@ -199,8 +201,7 @@ export function triggerPending(a: BookAccount, usd: Usd, now: number, trading: (
   for (const [pair, p] of Object.entries(a.pending ?? {})) {
     if (!trading(pair)) continue;
     const mid = cross(usd, pair);
-    const reached = p.type === "buy-limit" || p.type === "sell-stop" ? mid <= p.at : mid >= p.at;
-    if (!reached) continue;
+    if (!pendingReached(p, mid)) continue;
     cancelPending(a, pair);
     const done = order(a, pair, usd, p.side, p.leverage, p.share, { sl: p.sl, tp: p.tp }, now);
     if (typeof done === "string") out.push({ kind: "pending-refused", pair, reason: done });

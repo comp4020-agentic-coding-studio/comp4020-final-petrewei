@@ -3,10 +3,10 @@
 // Sydney midnight like anyone. Each bot's strategy was written for a round's one-pair desk, so a small view of its
 // Live account on its pair answers what the strategy asks, and what it chooses is sent through Live's own action, the
 // one a page sends, so a bot bends no rule a person cannot.
-import { BOTS, type Action } from "./bots.ts";
+import { BOTS, type Action, type BotDesk } from "./bots.ts";
 import { type BookAccount, equity, level, pnlOf, used } from "./book.ts";
 import { cross, type Usd } from "./feed.ts";
-import { BROKE, type Desk } from "./fx.ts";
+import { BROKE } from "./fx.ts";
 
 // Each bot's pair, by its habit: Kurumi and Kizuna chase the yen carry trade, Mochiko and Inago the big majors, Yasuko
 // shorts the euro, Mebuki keeps to the franc, Nana to the Australian dollar at home.
@@ -25,29 +25,29 @@ export type LiveSide = {
 };
 
 // What a bot's strategy reads of a round's desk, answered from its Live account on its own pair.
-function deskOf(a: BookAccount, pair: string, usd: Usd): Desk {
+function deskOf(a: BookAccount, pair: string, usd: Usd): BotDesk {
   const pos = a.positions[pair];
-  const view = {
-    account: () => ({ balance: a.balance, debt: a.debt, out: false, pos: pos ? { side: pos.side, leverage: pos.leverage, margin: pos.margin, entry: pos.entry } : null }),
+  return {
+    // Live orders already carry their exits. Only the round strategy checks for a legacy stop.
+    account: () => ({ pos: pos ? { side: pos.side, leverage: pos.leverage, margin: pos.margin } : null }),
     pnl: () => (pos ? pnlOf(pos, pair, usd) : 0),
     free: () => equity(a, usd) - used(a),
-    level: () => (used(a) ? level(a, usd) : Infinity),
+    level: () => level(a, usd),
     broke: () => !pos && a.balance < BROKE,
   };
-  return view as unknown as Desk;
 }
 
 // A strategy's choice as the action a page would send for that pair; praying has no place in Live.
 function inputOf(action: Action, pair: string): Record<string, unknown> | null {
   switch (action.kind) {
     case "order": return { kind: action.side === 1 ? "buy" : "sell", pair, leverage: action.leverage, share: action.share ?? 1, sl: action.sl ?? null, tp: action.tp ?? null };
-    case "close": return { kind: "close", pair };
-    case "borrow": return { kind: "borrow", pair };
-    case "repay": return { kind: "repay", pair };
-    case "stop": return { kind: "stop", pair, pct: action.pct ?? null };
-    case "take": return { kind: "take", pair, pct: action.pct ?? null };
+    case "close":
+    case "borrow":
+    case "repay":
+    case "unpend": return { kind: action.kind, pair };
+    case "stop":
+    case "take": return { kind: action.kind, pair, pct: action.pct ?? null };
     case "pend": return { kind: "pend", pair, side: action.side, at: action.at, leverage: action.leverage, share: action.share, sl: action.sl ?? null, tp: action.tp ?? null };
-    case "unpend": return { kind: "unpend", pair };
     default: return null;
   }
 }

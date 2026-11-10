@@ -4,10 +4,17 @@
 // 0015 and 0018); never Kurumi's father or mother. The page shows their
 // names and mottos in its own language. A bot looks at
 // its own account and the recent prices and returns at most one action.
-import type { Desk, Side } from "./fx.ts";
+import type { Position, Side } from "./fx.ts";
 
 export type Action = { kind: "order"; side: Side; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" } | { kind: "repay" } | { kind: "pend"; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" };
-export type Bot = { id: string; name: string; motto: string; act: (desk: Desk, me: string, prices: number[], rnd: () => number) => Action | null };
+export type BotDesk = {
+  account(who: string): { pos: (Pick<Position, "side" | "leverage" | "margin"> & Partial<Pick<Position, "stop">>) | null };
+  pnl(who: string): number;
+  free(who: string): number;
+  level(who: string): number;
+  broke(who: string): boolean;
+};
+export type Bot = { id: string; name: string; motto: string; act: (desk: BotDesk, me: string, prices: number[], rnd: () => number) => Action | null };
 
 const trend = (prices: number[], n: number): number => (prices.length > n ? prices.at(-1)! / prices.at(-1 - n)! - 1 : 0);
 

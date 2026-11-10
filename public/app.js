@@ -7,17 +7,15 @@ import { createAccountPanel } from "/account.js";
 // what it sends and posts the buttons. Elements are updated in place, so a
 // click is never lost to a redraw.
 const $ = (id) => document.getElementById(id);
-import { LANGS, T, clueText, money, news, refusal, releaseName, releaseText } from "/i18n.js";
+import { LANGS, T, clueText, money, news, refusal, releaseText } from "/i18n.js";
 import { drawn } from "/names.js";
 import { PEOPLE, svg } from "/avatars.js";
-import { PERIODS, bollinger, closes, rsi, sma, spanIn, spanOf, stack } from "/indicators.js";
-import { place, windowed } from "/view.js";
-import { SHARES, exitAt, exitPos, feePerDay, fillSpan, gauge, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
+import { PERIODS, spanIn } from "/indicators.js";
+import { SHARES, exitAt, exitPos, feePerDay, fillSpan, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
 import { feedTime, localTime, quoted, setZone, tone, zoneGroups, zoneName } from "/format.js";
 import qrcode from "/qrcode.js";
-import { autoMove, currentStep as planStep } from "/plan.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
 // The page's language is its address: / English, /ja/ Japanese, /zh/
@@ -248,19 +246,23 @@ function recallChoice(pair) {
     return false;
   }
 }
-$("leverage").oninput = () => {
-  choice.leverage = ladder[Number($("leverage").value)];
+function updateOrderChoice() {
   mark();
   rememberChoice();
-  if (state) (ticket(state), pending(state));
+  if (state) {
+    ticket(state);
+    pending(state);
+  }
+}
+$("leverage").oninput = () => {
+  choice.leverage = ladder[Number($("leverage").value)];
+  updateOrderChoice();
 };
 // Let go, and the thumb settles on the rung it chose.
 $("leverage").onchange = mark;
 $("margin").oninput = () => {
   choice.share = SHARES[Number($("margin").value)];
-  mark();
-  rememberChoice();
-  if (state) (ticket(state), pending(state));
+  updateOrderChoice();
 };
 // The pixel props (ADR 0025), drawn once: they never change.
 $("bell-art").innerHTML = prop("bell", 26);
@@ -1210,13 +1212,13 @@ function headlineText(head) {
 
 // What each tab shows, in one place, so the parts of the page ask for a feature, not a tab: a lobby to start a round
 // from; the plot menu or the pair menus, and whether a pair can be changed during play; the year to guess; Live's
-// open pairs, board and real calendar; a round's own calendar; the margin warning; a head count of people on the tab
+// open pairs, board and real calendar; the margin warning; a head count of people on the tab
 // rather than in the room. Layout is the page's: the server's rules are what it sends.
 const SHOWS = {
-  rewind: { lobby: true, plotMenu: true, pairMenus: false, pairLive: false, guess: true, book: false, board: false, realCalendar: false, calendar: true, warn: true, tabCount: false },
-  random: { lobby: true, plotMenu: false, pairMenus: true, pairLive: false, guess: false, book: false, board: false, realCalendar: false, calendar: true, warn: true, tabCount: false },
-  live: { lobby: false, plotMenu: false, pairMenus: true, pairLive: true, guess: false, book: true, board: true, realCalendar: true, calendar: false, warn: true, tabCount: true },
-  tutorial: { lobby: false, plotMenu: false, pairMenus: false, pairLive: false, guess: false, book: false, board: false, realCalendar: false, calendar: false, warn: false, tabCount: false },
+  rewind: { lobby: true, plotMenu: true, pairMenus: false, pairLive: false, guess: true, book: false, board: false, realCalendar: false, warn: true, tabCount: false },
+  random: { lobby: true, plotMenu: false, pairMenus: true, pairLive: false, guess: false, book: false, board: false, realCalendar: false, warn: true, tabCount: false },
+  live: { lobby: false, plotMenu: false, pairMenus: true, pairLive: true, guess: false, book: true, board: true, realCalendar: true, warn: true, tabCount: true },
+  tutorial: { lobby: false, plotMenu: false, pairMenus: false, pairLive: false, guess: false, book: false, board: false, realCalendar: false, warn: false, tabCount: false },
 };
 const shows = (s) => SHOWS[s.mode] ?? SHOWS.rewind;
 
@@ -1246,6 +1248,67 @@ function emptyLine(s, open) {
     return t(y.positions.length ? "liveOther" : "noPos");
   }
   return t(y.broke && y.credit > 0 ? "broke" : y.out ? "wiped" : open ? "noPos" : "noPosClosed");
+}
+
+function renderRoom(s) {
+  const humans = shows(s).tabCount ? s.here.live : s.traders.filter((t) => !t.bot).length;
+  $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
+  const list = $("traders");
+  const duel = s.duel;
+  const duelWith = duel && "with" in duel ? duel.with : null;
+  const canChallenge = shows(s).lobby && s.phase !== "break" && !duelWith;
+  // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
+  const rank = (tr) => (tr.you ? 0 : tr.bot ? 2 : 1);
+  const order = [...s.traders].sort((a, b) => rank(a) - rank(b) || b.equity - a.equity);
+  list.replaceChildren(
+    ...order.map((tr) => {
+      const li = document.createElement("li");
+      li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
+      // A small badge says what a word would: a bot, gone, or wiped out;
+      // the tip says the rest, so the row keeps its room for the name.
+      const kind = tr.bot ? "bot" : tr.out ? "wiped" : "person";
+      const row = ROWS[kind];
+      if (row.badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: row.badge, ariaLabel: t(row.label) }));
+      const change = pct(tr.equity / s.start - 1);
+      li.dataset.tipText = tip(`${kind}Row`, { motto: T[lang].bots[tr.id]?.motto ?? tr.motto ?? "", code: tr.id, change });
+      const p = document.createElement("span");
+      if (tr.side) {
+        p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
+        p.textContent = `${tr.side === 1 ? "▲" : "▼"} ${tr.leverage}×`;
+      }
+      const e = document.createElement("span");
+      e.textContent = change;
+      e.className = `eq ${tr.equity > s.start ? "up" : tr.equity < s.start ? "down" : ""}`;
+      li.dataset.id = tr.id;
+      li.append(avatar(tr.face, 24), n, p, e);
+      // another person in a round's room can be challenged to a duel over the round (ADR 0095): click their row
+      if (duelWith === tr.id) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: "⚔", ariaLabel: t("duelBadge") }));
+      if (!tr.you && !tr.bot && canChallenge) {
+        li.classList.add("challengeable");
+        li.dataset.tipText += ` · ${t("duelOffer")}`;
+        // a control a keyboard reaches too, as every control must be: focus, then Enter or Space
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        li.onclick = li.onkeydown = (e) => {
+          if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          act("challenge", { code: tr.id });
+        };
+      }
+      return li;
+    }),
+  );
+  // a challenge made to you, with its Accept, or the duel you are in
+  $("duel").hidden = !duel;
+  if (duel) {
+    const other = "with" in duel ? duel.with : duel.from;
+    $("duel-text").textContent = t("with" in duel ? "duelOn" : "duelFrom", { who: nameOf(other) });
+    $("duel-accept").hidden = "with" in duel;
+    $("duel-accept").onclick = () => act("accept", { code: other });
+  }
 }
 
 // The pair Live's chart showed last, so a change of pair brings back the choice kept for the new one.
@@ -1474,63 +1537,7 @@ function render(s) {
   bankrupt = y.bankrupt;
 
   board(s);
-  const humans = shows(s).tabCount ? s.here.live : s.traders.filter((t) => !t.bot).length;
-  $("count").textContent = t(humans === 1 ? "human" : "humans", { n: humans });
-  const list = $("traders");
-  // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
-  const rank = (tr) => (tr.you ? 0 : tr.bot ? 2 : 1);
-  const order = [...s.traders].sort((a, b) => rank(a) - rank(b) || b.equity - a.equity);
-  list.replaceChildren(
-    ...order.map((tr) => {
-      const li = document.createElement("li");
-      li.className = `${tr.you ? "you" : ""} ${tr.out ? "out" : ""}`;
-      const n = document.createElement("span");
-      n.className = "n";
-      n.textContent = names.get(tr.id) + (tr.you ? ` ${t("youTag")}` : "");
-      // A small badge says what a word would: a bot, gone, or wiped out;
-      // the tip says the rest, so the row keeps its room for the name.
-      const kind = tr.bot ? "bot" : tr.out ? "wiped" : "person";
-      const row = ROWS[kind];
-      if (row.badge) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: row.badge, ariaLabel: t(row.label) }));
-      const change = pct(tr.equity / s.start - 1);
-      li.dataset.tipText = tip(`${kind}Row`, { motto: T[lang].bots[tr.id]?.motto ?? tr.motto ?? "", code: tr.id, change });
-      const p = document.createElement("span");
-      if (tr.side) {
-        p.className = `pos ${tr.side === 1 ? "long" : "short"}`;
-        p.textContent = `${tr.side === 1 ? "▲" : "▼"} ${tr.leverage}×`;
-      }
-      const e = document.createElement("span");
-      e.textContent = change;
-      e.className = `eq ${tr.equity > s.start ? "up" : tr.equity < s.start ? "down" : ""}`;
-      li.dataset.id = tr.id;
-      li.append(avatar(tr.face, 24), n, p, e);
-      // another person in a round's room can be challenged to a duel over the round (ADR 0095): click their row
-      const duelWith = s.duel && "with" in s.duel ? s.duel.with : null;
-      if (duelWith === tr.id) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: "⚔", ariaLabel: t("duelBadge") }));
-      if (!tr.you && !tr.bot && shows(s).lobby && s.phase !== "break" && !duelWith) {
-        li.classList.add("challengeable");
-        li.dataset.tipText += ` · ${t("duelOffer")}`;
-        // a control a keyboard reaches too, as every control must be: focus, then Enter or Space
-        li.tabIndex = 0;
-        li.setAttribute("role", "button");
-        li.onclick = li.onkeydown = (e) => {
-          if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
-          e.preventDefault();
-          act("challenge", { code: tr.id });
-        };
-      }
-      return li;
-    }),
-  );
-  // a challenge made to you, with its Accept, or the duel you are in
-  const duel = s.duel;
-  $("duel").hidden = !duel;
-  if (duel) {
-    const other = "with" in duel ? duel.with : duel.from;
-    $("duel-text").textContent = t("with" in duel ? "duelOn" : "duelFrom", { who: nameOf(other) });
-    $("duel-accept").hidden = "with" in duel;
-    $("duel-accept").onclick = () => act("accept", { code: other });
-  }
+  renderRoom(s);
   if (price !== undefined) effects(s, price);
   // What house traders off screen just said leads the feed, with their
   // face and name, for twenty seconds (ADR 0031).
@@ -1554,21 +1561,7 @@ function render(s) {
     li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
-  // The feed is news and actions only: the list of upcoming releases with their forecasts is no longer shown (Peter's
-  // call after play-testing). A release still moves the market and its outcome still reaches the feed as news.
-  const cal = [];
   realCalendar(s);
-  $("calendar").hidden = !cal.length;
-  $("calendar").replaceChildren(...cal.map((c) => {
-    const li = document.createElement("li");
-    li.className = c.outcome ? `told ${c.outcome}` : "upcoming";
-    const when = Object.assign(document.createElement("span"), { className: "when", textContent: t("calWhen", { d: c.d, h: c.h }) });
-    const what = Object.assign(document.createElement("span"), { className: "what", textContent: c.outcome ? releaseText(lang, "release", c) : `${c.cur} · ${releaseName(lang, c.kind)}` });
-    // told: an arrow for what it did to its own currency, which way the pair goes being the reader's to work out
-    if (c.outcome) what.prepend(Object.assign(document.createElement("span"), { className: "cal-mark", textContent: c.outcome === "strong" ? "▲" : c.outcome === "weak" ? "▼" : "■" }));
-    li.append(when, what);
-    return li;
-  }));
   // One piece of news is pinned at the top (ADR 0078): the most important of the last six hours, by the server's score
   // (a central bank's decision above a market story), or else the newest; then what traders said, then the rest of the
   // feed, newest first, news and trades together. The pinned news is not listed twice.

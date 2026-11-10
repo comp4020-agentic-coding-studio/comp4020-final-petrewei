@@ -114,6 +114,12 @@ export function pendingOrder(price: number, r: PendRequest): Pending | string {
   const type = `${r.side === 1 ? "buy" : "sell"}-${limit ? "limit" : "stop"}` as PendingType;
   return { type, side: r.side, at: r.at, leverage: r.leverage, share: r.share, sl: r.sl ?? null, tp: r.tp ?? null };
 }
+// Both desks trigger pending orders at the level or beyond it.
+export function pendingReached(pending: Pending, price: number): boolean {
+  const crossesBelow = pending.type === "buy-limit" || pending.type === "sell-stop";
+  return crossesBelow ? price <= pending.at : price >= pending.at;
+}
+
 // A closed trade, for the player's own history: how it ended, and its result in dollars and as a share of its margin.
 // `opened` and `closed` are the desk's marks, its ticks, a trade was open between, and `margin` what it put up, so the
 // bell can tell what the same trade would have done at another leverage (ADR 0095).
@@ -265,9 +271,7 @@ export class Desk {
   private trigger(who: string): Fill[] {
     const account = this.account(who);
     const p = account.pending;
-    if (!p) return [];
-    const reached = p.type === "buy-limit" || p.type === "sell-stop" ? this.price <= p.at : this.price >= p.at;
-    if (!reached) return [];
+    if (!p || !pendingReached(p, this.price)) return [];
     account.pending = null;
     const out = this.order(who, p.side, p.leverage, p.share, { sl: p.sl, tp: p.tp });
     // marked, so what follows can tell a pending order's fill from a click (ADR 0082)

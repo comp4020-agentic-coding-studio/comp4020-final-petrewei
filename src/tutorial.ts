@@ -302,7 +302,8 @@ export class Tutorial {
   // begin the next (the fast-forward button). Every lesson's own moves, as
   // `solve` gives them, are the ones the lesson accepts.
   skip(): string | null {
-    if (this.idle()) return this.idle();
+    const idle = this.idle();
+    if (idle) return idle;
     if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
     const at = this.index;
     for (let guard = 0; this.index === at && guard < 12; guard++) {
@@ -330,7 +331,8 @@ export class Tutorial {
   }
 
   act(m: Move): string | null {
-    if (this.idle()) return this.idle();
+    const idle = this.idle();
+    if (idle) return idle;
     if (this.finished()) return "The tutorial is finished. Choose a tab above, or start it again.";
     if (this.moving()) return "Wait for the price to finish moving.";
     const lesson = this.lesson();
@@ -374,8 +376,9 @@ export class Tutorial {
     this.index++;
     this.nexted = false;
     this.moves = 0;
-    if (!this.finished() && this.lesson().fresh) this.fresh();
-    if (!this.finished()) this.snapshot();
+    if (this.finished()) return;
+    if (this.lesson().fresh) this.fresh();
+    this.snapshot();
   }
 
   // A fresh A$10,000 at the current price.
@@ -384,10 +387,14 @@ export class Tutorial {
     this.desk.join(ME);
   }
 
+  private say(text: string, kind: string, key: string, args: Record<string, string | number>): void {
+    this.feed.unshift({ text, kind, key, args });
+    this.feed.splice(10);
+  }
+
   // Wiped out with the credit still owed: bankrupt, said once (ADR 0080).
   bankrupt(): void {
-    this.feed.unshift({ text: "Bankrupt: you owe more than you have.", kind: "bust", key: "you-bankrupt", args: { pnl: 0, lev: 0, price: quoted(this.desk.price) } });
-    this.feed.splice(10);
+    this.say("Bankrupt: you owe more than you have.", "bust", "you-bankrupt", { pnl: 0, lev: 0, price: quoted(this.desk.price) });
   }
 
   // What just happened, in plain words for a beginner.
@@ -396,16 +403,12 @@ export class Tutorial {
     const cash = (n: number): string => `${n < 0 ? "" : "+"}${aud(n)}`;
     for (const e of events) {
       const args = { pnl: Math.round(e.pnl), lev: e.leverage ?? 0, price: quoted(e.price) };
-      const say = (text: string, kind: string, key: string): void => {
-        this.feed.unshift({ text, kind, key, args });
-        this.feed.splice(10);
-      };
-      if (e.kind === "open") say(`You ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×.`, "trade", e.side === 1 ? "you-bought" : "you-sold");
-      else if (e.kind === "close") say(`You closed: ${cash(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed");
-      else if (e.kind === "stop") say(`Your stop filled at ${quoted(e.price)}: ${cash(e.pnl)}.`, "loss", "you-stopped");
-      else if (e.kind === "call") say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call");
-      else if (e.kind === "stopout") say(`強制ロスカット: stopped out at 20%, the broker closed you: ${cash(e.pnl)}. You are out unless you borrow.`, "bust", "you-stopout");
-      else if (e.kind === "zerocut") say(`Wiped out at ${quoted(e.price)}, far past your stop: ${cash(e.pnl)}.`, "bust", "you-zerocut");
+      if (e.kind === "open") this.say(`You ${e.side === 1 ? "bought" : "sold"} at ${e.leverage}×.`, "trade", e.side === 1 ? "you-bought" : "you-sold", args);
+      else if (e.kind === "close") this.say(`You closed: ${cash(e.pnl)}.`, e.pnl >= 0 ? "win" : "loss", "you-closed", args);
+      else if (e.kind === "stop") this.say(`Your stop filled at ${quoted(e.price)}: ${cash(e.pnl)}.`, "loss", "you-stopped", args);
+      else if (e.kind === "call") this.say("MARGIN CALL: your margin level fell below 50%.", "call", "you-call", args);
+      else if (e.kind === "stopout") this.say(`強制ロスカット: stopped out at 20%, the broker closed you: ${cash(e.pnl)}. You are out unless you borrow.`, "bust", "you-stopout", args);
+      else if (e.kind === "zerocut") this.say(`Wiped out at ${quoted(e.price)}, far past your stop: ${cash(e.pnl)}.`, "bust", "you-zerocut", args);
     }
   }
 }
