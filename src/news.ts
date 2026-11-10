@@ -63,6 +63,8 @@ export function parseCalendar(json: string): Release[] {
 // outlet's own words, credited and linked to its site, never rewritten; the page says so.
 export type Story = { id: string; source: string; title: string; at: number; link: string; score: number };
 export const MARKET_FEEDS: { source: string; url: string; site: RegExp }[] = [
+  // forex news leads: nearly every item is about currencies, and it publishes at weekends when the others do not
+  { source: "Investing.com", url: "https://www.investing.com/rss/news_1.rss", site: /^https?:\/\/(www\.)?investing\.com\// },
   { source: "CNBC", url: "https://www.cnbc.com/id/10000664/device/rss/rss.html", site: /^https?:\/\/(www\.)?cnbc\.com\// },
   { source: "BBC News", url: "https://feeds.bbci.co.uk/news/business/rss.xml", site: /^https?:\/\/(www\.)?bbc\.(co\.uk|com)\// },
   { source: "ABC News", url: "https://www.abc.net.au/news/feed/51892/rss.xml", site: /^https?:\/\/(www\.)?abc\.net\.au\// },
