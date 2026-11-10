@@ -19,3 +19,9 @@ Note: Marathon is now Live, Replay is now Rewind, and Simulation is now Random (
 ## 2 Consequences
 
 Yahoo's terms do not cover an app like this; the footer names the source, and Kraken's official API, without the yuan, is the fallback if it is withdrawn. The People's Bank of China has no feed the server can read, so the yuan has calendar releases only. Checks run on a fake price source and never reach the network. The browser check of Marathon against the deployed app is still to do.
+
+## 3 A Later Note: The Yen Conversion Is Left As It Is
+
+Added 10 November 2026, after a review. The one-time division of the careers' money by a hundred writes the careers and then its marker, so a crash between the two writes would divide them a second time on the next start. Writing the marker first only moves the window: a crash then leaves the careers in yen under a marker that says they are converted.
+
+Peter chose to leave it. The conversion ran on 5 November and the careers on the live app are in dollars, so its marker should be on the volume and the code should not run there again (not read from here, as production is not reachable); it could run again only from a data file saved in yen, which no one has. A fix would move saved-data migration, where a mistake could divide real careers a second time and the checks cannot see the live volume. If a yen file ever turns up, the conversion belongs in the store's own migration, which writes a file and its version together.
