@@ -189,8 +189,9 @@ test("two independent players see orders, recover from offline and receive their
     await expect(page.locator("#buy")).toBeDisabled();
     expect((await page.locator("#chart").boundingBox())!.y).toBe(chartTop);
     await page.context().setOffline(false);
-    await expect(notice).toHaveText(T[lang].ui.connectionRestored);
-    await expect(notice).toBeVisible();
+    // the page shows this notice for one second, so asking for its text and then its visibility in two steps can
+    // straddle its own timer on a busy machine; one retried check reads both at the same moment
+    await expect.poll(async () => ({ shown: await notice.isVisible(), text: await notice.textContent() }), { intervals: [25], timeout: 5000 }).toEqual({ shown: true, text: T[lang].ui.connectionRestored });
     await expect(page.locator("#close")).toBeEnabled();
     await expect(notice).toBeHidden({ timeout: 1500 });
     await expect(row).toContainText("▲ 1×");
