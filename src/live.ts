@@ -16,7 +16,7 @@ import { LiveBots } from "./live-bots.ts";
 import { pipOf } from "../public/ticket.js";
 import { CURRENCIES, Feed, SLOT_MS, cross, type Usd } from "./feed.ts";
 import { nextOpen } from "./history-policy.ts";
-import { News } from "./news.ts";
+import { NEWS_AGE_MS, News } from "./news.ts";
 import { ALL_PAIRS, isPair } from "./market.ts";
 import { systemClock, type Clock, type Timer } from "./clock.ts";
 import { jsonStorage, renameStore, type Store, type Storage } from "./storage.ts";
@@ -36,8 +36,6 @@ const BOARD = 10;
 // Yahoo keeps a month of fifteen-minute closes: history missing from further back never comes, so trading resumes on
 // what there is rather than staying paused for everyone.
 const HISTORY_MS = 30 * 86_400_000;
-// how old a market story may be and still be told; the feed lists newest first, so an older story only fills the tail
-const NEWS_AGE_MS = 24 * 3_600_000;
 
 export class Live {
   quotes: Feed;
@@ -550,7 +548,7 @@ export class Live {
       },
       traders: [],
       // the shared feed, with your own rung alerts first: a line each, for you alone
-      feed: [...(a?.rang ?? []).slice().reverse().map((x) => ({ text: `${x.pair} reached ${x.at}.`, kind: "info", key: "alert-rang", args: { pair: x.pair, at: x.at } })), ...this.feed],
+      feed: [...(a?.rang ?? []).slice().reverse().map((x) => ({ text: `${x.pair} reached ${x.at}.`, kind: "info", key: "alert-rang", args: { pair: x.pair, at: x.at }, when: x.when })), ...this.feed],
       pops: [],
       marks: [],
       result: null,

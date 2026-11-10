@@ -24,26 +24,37 @@ export function createTransport({ onState, onConnection, reconnect }) {
   function connection(status) { fresh = status === "connectionRestored"; onConnection(status); }
   /** @param {EventSource | null} stream */
   function current(stream) { return !disposed && stream === source && navigator.onLine !== false; }
-  /** @param {import("./protocol.js").State} state @param {EventSource} stream */
-  async function receive(state, stream) {
+  /** @param {import("./protocol.js").State} state @param {EventSource} stream @param {boolean} [fromRecovery] */
+  async function receive(state, stream, fromRecovery = false) {
     if (!current(stream) || state.mode !== mode) return;
     if (!Number.isInteger(state.from) || state.from < 0 || !Array.isArray(state.prices) || state.prices.some((price) => !Number.isFinite(price) || price <= 0)) throw new Error("Invalid price message");
     if (state.from !== 0 && !(fresh && state.round === round && state.from <= prices.length)) {
       // Only one snapshot can recover this generation. Ignore deltas while it is in flight.
       if (recovery) return recovery;
-      recovery = (async () => {
-        const res = await fetch(`/api/state?mode=${mode}`);
+      const pending = fetch(`/api/state?mode=${mode}`).then(async (res) => {
         if (!res.ok) throw new Error("state unavailable");
         const snapshot = await res.json();
+        if (recovery !== pending || !current(stream)) return;
         if (snapshot.from !== 0) throw new Error("Incomplete recovery snapshot");
-        await receive(snapshot, stream);
-      })();
-      try { await recovery; } finally { if (stream === source) recovery = null; }
+        await receive(snapshot, stream, true);
+      }).catch((error) => {
+        if (recovery === pending && current(stream)) throw error;
+      });
+      recovery = pending;
+      try { await pending; }
+      finally { if (recovery === pending) recovery = null; }
       return;
     }
     if (recovery && state.from !== 0) return;
-    if (state.from === 0) { prices = [...state.prices]; history = state.history ?? []; }
-    else { prices.length = state.from; prices.push(...state.prices); }
+    if (state.from === 0) {
+      // A complete stream update supersedes the HTTP recovery, even if its reply arrives later.
+      if (!fromRecovery) recovery = null;
+      prices = [...state.prices];
+      history = state.history ?? [];
+    } else {
+      prices.length = state.from;
+      prices.push(...state.prices);
+    }
     /** @type {Record<string, unknown>} */
     const sent = state;
     for (const k of KEPT) if (sent[k] !== undefined) kept[k] = sent[k];

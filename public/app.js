@@ -363,8 +363,9 @@ $("pend-at").oninput = () => {
 };
 // opening the section starts the level at the price now, to be typed over
 $("pend").ontoggle = () => {
-  if ($("pend").open && pend.at === null && state) {
-    $("pend-at").value = quoted(state.prices.at(-1));
+  const price = state?.prices.at(-1);
+  if ($("pend").open && pend.at === null && price !== undefined) {
+    $("pend-at").value = quoted(price);
     pend.at = Number($("pend-at").value);
     pending(state);
   }
@@ -1059,8 +1060,8 @@ function pending(s) {
   if (price !== undefined) $("pend-at").step = String(10 ** -(quoted(price).split(".")[1]?.length ?? 0));
   const share = `${Math.round(choice.share * 100)}%`;
   // what the typed level makes, against the price now: a limit or a stop, or nothing yet at the price itself
-  $("pend-what").textContent = pend.at === null || pend.at === price ? "" : t("pendWhat", { type: typeName(pendType(pend.side, pend.at, price)), lev: choice.leverage, share });
-  $("pend-place").disabled = deskClosed || pend.at === null;
+  $("pend-what").textContent = price === undefined || pend.at === null || pend.at === price ? "" : t("pendWhat", { type: typeName(pendType(pend.side, pend.at, price)), lev: choice.leverage, share });
+  $("pend-place").disabled = !fresh || deskClosed || price === undefined || pend.at === null;
 }
 const strong = (text) => Object.assign(document.createElement("strong"), { textContent: text });
 // Text with {slots} left in it, the slots filled as bold nodes, so a
@@ -1390,7 +1391,6 @@ function render(s) {
   }
   draw(s);
   ticket(s);
-  pending(s);
 
   const y = s.you;
   accountPanel.render(s, open);
@@ -1485,7 +1485,7 @@ function render(s) {
   const closed = !open || y.out || !!s.paused || (tutorial && s.transport !== "playing");
   for (const id of ["buy", "sell"]) $(id).disabled = closed;
   deskClosed = closed;
-  $("pend-place").disabled = closed || pend.at === null;
+  pending(s);
   $("pend-cancel").disabled = $("pend-row-cancel").disabled = closed;
   for (const id of ["pray-rise", "pray-fall"]) $(id).disabled = closed || s.phase === "countdown";
   for (const id of ["close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist"]) $(id).disabled = closed || !y.pos;
@@ -1538,7 +1538,7 @@ function render(s) {
     const text = f.args?.link ? Object.assign(document.createElement("a"), { href: f.args.link, target: "_blank", rel: "noopener noreferrer", textContent: said }) : said;
     // when it happened, in the viewer's zone, before the line
     // a headline's own time is when it was published; anything else, when it was said
-    const at = Number(f.args?.at ?? f.when ?? 0);
+    const at = Number((f.kind === "news" ? f.args?.at ?? f.when : f.when) ?? 0);
     const when = at ? [Object.assign(document.createElement("time"), { className: "when", dateTime: new Date(at).toISOString(), textContent: feedTime(at, lang) })] : [];
     li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;

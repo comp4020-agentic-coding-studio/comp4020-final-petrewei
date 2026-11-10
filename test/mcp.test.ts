@@ -9,7 +9,11 @@ function setup() {
   const mcp = new Mcp({
     join: (who) => `Agent ${who.slice(0, 6)}`,
     view: () => ({ pair: "AUD/USD", prices: [0.7, 0.701], live: true, you: { equity: 10_000, balance: 10_000, positions: [] } }),
-    act: (who, input) => (acted.push({ who, input }), input.leverage === 7 ? "No such leverage." : null),
+    act: (who, input) => {
+      acted.push({ who, input });
+      if (input.kind === "pair") return "Account closed.";
+      return input.leverage === 7 ? "No such leverage." : null;
+    },
     isPair: (p) => typeof p === "string" && /^[A-Z]{3}\/[A-Z]{3}$/.test(p),
     now: () => now,
   });
@@ -78,4 +82,32 @@ it("tells a shut weekend market's opening, lists common pairs, and gives a pair'
   expect(history.content[0].text).toMatch(/10 closes/);
   expect(history.content[0].text).toMatch(/high 0\.71990, low 0\.71900/);
   expect(call("history", { pair: "nope" }).isError).toBe(true);
+  // a pair is needed to read a history; leaving it out is refused, not read as the account's own pair
+  expect(call("history", {}).isError).toBe(true);
+});
+
+it("expires an idle session when its next request arrives", () => {
+  const { rpc, tick } = setup();
+  const sid = rpc(undefined, "initialize").headers["mcp-session-id"];
+  tick(31 * 60_000);
+  expect(rpc(sid, "tools/list").body).toMatchObject({ error: { code: -32001 } });
+});
+
+it("returns the refusal when Live cannot select the requested pair", () => {
+  const { rpc } = setup();
+  const sid = rpc(undefined, "initialize").headers["mcp-session-id"];
+  for (const name of ["market", "history"]) {
+    const reply = rpc(sid, "tools/call", { name, arguments: { pair: "EUR/USD" } });
+    expect(reply.body).toMatchObject({
+      result: { isError: true, content: [{ text: "Account closed." }] },
+    });
+  }
+});
+
+it("requires an explicit pending order side", () => {
+  const { rpc, acted } = setup();
+  const sid = rpc(undefined, "initialize").headers["mcp-session-id"];
+  const reply = rpc(sid, "tools/call", { name: "pending", arguments: { pair: "AUD/USD", at: 0.65, leverage: 10, margin: 0.25 } });
+  expect(reply.body).toMatchObject({ result: { isError: true } });
+  expect(acted).toEqual([]);
 });

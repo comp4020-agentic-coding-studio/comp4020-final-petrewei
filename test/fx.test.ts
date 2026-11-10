@@ -755,3 +755,19 @@ describe("a trade at another leverage", () => {
     expect(desk.account("a").trades[0]).toMatchObject({ opened: 1, closed: 3, margin: START / 2 });
   });
 });
+
+it("keeps trade timestamps and the interest clock when restoring a desk checkpoint", () => {
+  const desk = new Desk(100);
+  desk.dayTicks = 10;
+  desk.join("a");
+  desk.borrow("a");
+  for (let tick = 0; tick < 5; tick++) desk.mark(100);
+  desk.order("a", 1, 10, 0.25);
+  const restored = desk.clone();
+  restored.mark(101);
+  restored.close("a");
+  expect(desk.account("a").trades).toEqual([]);
+  desk.mark(101);
+  desk.close("a");
+  expect(restored.account("a")).toEqual(desk.account("a"));
+});

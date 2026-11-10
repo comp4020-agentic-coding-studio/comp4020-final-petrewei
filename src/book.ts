@@ -48,18 +48,19 @@ export const worth = (a: BookAccount, usd: Usd): number => equity(a, usd) - a.de
 // rate as it is now. The pair's price moves its quote currency's worth in dollars too, so the line is found by halving
 // the range, from the account's own equity, not by a formula that would hold that worth still.
 export function lines(a: BookAccount, pair: string, usd: Usd): { call: number; cut: number } | null {
-  const pos = a.positions[pair];
-  if (!pos) return null;
+  if (!a.positions[pair]) return null;
   const base = baseOf(pair);
   const quote = quoteOf(pair);
   // the pair's price times f: the base's dollar rate times f, or, for a pair priced in dollars of the base, the quote's over f
   const at = (f: number): Usd => (base !== "USD" ? { ...usd, [base]: usd[base] * f } : { ...usd, [quote]: usd[quote] / f });
   const mid = cross(usd, pair);
+  // Other positions sharing the currency can reverse the selected position's exposure.
+  const low = level(a, at(1e-3));
+  const high = level(a, at(1e3));
   const find = (target: number): number => {
-    // against the position: down for a long, up for a short; the level falls the further it goes
+    if (Math.min(low, high) > target) return NaN;
     let near = 0;
-    let far = Math.log(pos.side === 1 ? 1e-3 : 1e3);
-    if (level(a, at(Math.exp(far))) > target) return NaN;
+    let far = Math.log(low <= high ? 1e-3 : 1e3);
     for (let i = 0; i < 60; i++) {
       const m = (near + far) / 2;
       if (level(a, at(Math.exp(m))) > target) near = m;

@@ -67,3 +67,19 @@ it("moves a renamed store once, with its backup and version marker", async () =>
     expect(readFileSync(next, "utf8")).toBe('{"accounts":{"k":1}}');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+it("resumes a store rename interrupted after moving its sidecars", async () => {
+  const { renameStore } = await import("../src/storage.ts");
+  const dir = mkdtempSync(join(tmpdir(), "losscut-rename-resume-"));
+  const old = join(dir, "marathon.json"), next = join(dir, "live.json");
+  try {
+    writeFileSync(old, "200");
+    writeFileSync(`${next}.bak`, "100");
+    writeFileSync(`${next}.version`, "1\n");
+    renameStore(old, next);
+    const store = new JsonStore<number>(next, { initial: () => 0, validate: (v) => typeof v === "number" });
+    expect(store.read()).toBe(200);
+    expect(readFileSync(`${next}.bak`, "utf8")).toBe("100");
+    expect(() => readFileSync(old)).toThrow();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

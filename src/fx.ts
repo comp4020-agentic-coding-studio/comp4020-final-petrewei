@@ -164,6 +164,8 @@ export class Desk {
   // An independent copy, for the tutorial's way back to a lesson's start.
   clone(): Desk {
     const copy = new Desk(this.price);
+    copy.marks = this.marks;
+    copy.dayTicks = this.dayTicks;
     for (const [who, account] of this.accounts) copy.accounts.set(who, structuredClone(account));
     return copy;
   }

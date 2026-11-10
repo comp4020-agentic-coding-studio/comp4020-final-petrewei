@@ -628,3 +628,14 @@ it("runs a Live account on the server across pairs and a restart, and shuts with
     tab.close();
   }
 }, 30_000);
+
+it("locates the stop-out in the direction the whole account loses", () => {
+  const quotes = usd();
+  const account = fresh(0, 0);
+  expect(order(account, "AUD/USD", quotes, 1, 1, 0.1, {}, 0)).toEqual(expect.any(Array));
+  expect(order(account, "AUD/JPY", quotes, -1, 100, 0.5, {}, 0)).toEqual(expect.any(Array));
+  const cut = lines(account, "AUD/USD", quotes)?.cut;
+  expect(cut).toBeGreaterThan(quotes.AUD);
+  expect(cut).toBeLessThan(quotes.AUD + 0.02);
+  expect(level(account, { ...quotes, AUD: cut! })).toBeCloseTo(0.2, 8);
+});

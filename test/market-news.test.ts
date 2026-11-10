@@ -27,9 +27,11 @@ describe("market headlines", () => {
     expect(items[0]).toMatchObject({ source: feed.source, link: "https://www.cnbc.com/a" });
   });
 
-  it("keeps a weekend's stories, and drops one older than three days, so the list turns over", () => {
-    expect(parseMarketFeed(rss([["Dollar steadies after jobs report", "https://www.cnbc.com/sat", ago(30)]]), cnbc, now)).toHaveLength(1);
-    const items = parseMarketFeed(rss([["Dollar steadies after jobs report", "https://www.cnbc.com/old", ago(80)]]), cnbc, now);
+  // One limit, a day: Live tells nothing older, so the parser keeps nothing older either. A quiet weekend can leave the
+  // list short, which the page covers by pinning the newest story it has, and Live is shut then.
+  it("keeps a story under a day old, and drops one older, so the list turns over", () => {
+    expect(parseMarketFeed(rss([["Dollar steadies after jobs report", "https://www.cnbc.com/fri", ago(20)]]), cnbc, now)).toHaveLength(1);
+    const items = parseMarketFeed(rss([["Dollar steadies after jobs report", "https://www.cnbc.com/sat", ago(30)]]), cnbc, now);
     expect(items).toEqual([]);
   });
 
@@ -110,4 +112,12 @@ describe("market headlines", () => {
     up = false;
     expect((await news.markets(now)).map((i) => i.title)).toEqual(["Stocks rally as bond yields fall"]);
   });
+});
+
+it("tries a backup when the lead feed has only stories too old for Live", async () => {
+  const news = new News(async (url) => {
+    if (url === MARKET_FEEDS[0].url) return rss([["Dollar steadies", "https://www.investing.com/old", ago(25)]]);
+    return rss([["Euro rises", "https://www.cnbc.com/new", ago(1)]]);
+  });
+  expect(await news.markets(now)).toMatchObject([{ source: "CNBC", title: "Euro rises" }]);
 });

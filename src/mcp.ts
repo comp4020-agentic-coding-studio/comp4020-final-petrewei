@@ -68,6 +68,7 @@ export class Mcp {
     }
     // no server-to-client stream is offered: an agent asks, and is answered
     if (method !== "POST") return { status: 405, headers: { allow: "POST, DELETE" }, body: { error: "POST JSON-RPC to /mcp." } };
+    this.expire();
     const batch = Array.isArray(message) ? message : [message];
     const out: unknown[] = [];
     let session = sessionId ? this.sessions.get(sessionId) : undefined;
@@ -81,7 +82,6 @@ export class Mcp {
       // a notification (no id) is acknowledged with nothing
       if (id === undefined) continue;
       if (name === "initialize") {
-        this.expire();
         if (this.sessions.size >= MAX_SESSIONS) {
           out.push(error(id, -32000, "Too many agents are playing. Try again later."));
           continue;
@@ -123,14 +123,15 @@ export class Mcp {
     const a = (params.arguments ?? {}) as Record<string, unknown>;
     const text = (t: string, isError = false) => ({ content: [{ type: "text" as const, text: t }], ...(isError ? { isError: true } : {}) });
     const p = a.pair;
-    if (params.name !== "market" && !this.d.isPair(p)) return text("Give a pair as BASE/QUOTE, such as AUD/USD.", true);
+    if ((params.name !== "market" || p !== undefined) && !this.d.isPair(p)) return text("Give a pair as BASE/QUOTE, such as AUD/USD.", true);
+    if ((params.name === "market" || params.name === "history") && p !== undefined) {
+      const refused = this.d.act(s.who, { mode: "live", kind: "pair", pair: p });
+      if (refused) return text(refused, true);
+    }
     if (params.name === "market") {
-      if (p !== undefined && !this.d.isPair(p)) return text("Give a pair as BASE/QUOTE, such as AUD/USD.", true);
-      if (p !== undefined) this.d.act(s.who, { mode: "live", kind: "pair", pair: p });
       return text(`${summary(this.d.view(s.who))}${p === undefined ? `\n\nCommon pairs: ${COMMON.join(", ")}. Any of the 42 orderings of EUR, GBP, AUD, USD, CHF, CNY and JPY works.` : ""}`);
     }
     if (params.name === "history") {
-      this.d.act(s.who, { mode: "live", kind: "pair", pair: p });
       const v = this.d.view(s.who);
       const all = (v.prices ?? []) as number[];
       const n = Math.max(1, Math.min(576, Math.round(num(a.count) ?? 96)));
@@ -138,6 +139,7 @@ export class Mcp {
       if (!closes.length) return text(`No prices for ${String(p)} yet.`, true);
       return text(`${String(p)}, ${closes.length} closes every 15 minutes, oldest first (high ${Math.max(...closes).toPrecision(5)}, low ${Math.min(...closes).toPrecision(5)}):\n${closes.map((x) => x.toPrecision(5)).join(", ")}`);
     }
+    if (params.name === "pending" && a.side !== "buy" && a.side !== "sell") return text("Choose buy or sell for the pending order.", true);
     const now = this.d.now();
     if (now - s.acted < ACT_MS) return text("One action a second: wait a moment and try again.", true);
     s.acted = now;

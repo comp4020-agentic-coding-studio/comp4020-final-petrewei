@@ -548,3 +548,78 @@ it("tells a Live player with nothing open what they owe", async () => {
     dom.window.close();
   }
 });
+
+it("keeps a newer stream snapshot and its deltas when an older recovery reply arrives", async () => {
+  const { dom, w, base, emit, fetch } = await app();
+  try {
+    await emit();
+    let answer!: (response: { ok: boolean; json: () => Promise<{ ok: boolean }> }) => void;
+    fetch.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+    const pending = emit({ from: base.prices.length + 5, prices: [1.5] });
+    const round = base.round + 1;
+    await emit({ round, from: 0, prices: [1.25] });
+    await emit({ round, from: 1, prices: [1.3] });
+    answer({ ok: true, json: async () => ({ ok: true, ...base, from: 0, prices: [1.1] }) });
+    await pending;
+    expect(w.document.getElementById("price")!.textContent).toBe(format.quoted(1.3));
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("uses the time an alert rang and keeps its price in the alert text", async () => {
+  const { dom, w, emit } = await app();
+  try {
+    const when = Date.parse("2026-11-10T09:30:00Z");
+    await emit({ feed: [{ kind: "info", key: "alert-rang", args: { pair: "AUD/USD", at: 0.65 }, when }] });
+    const line = w.document.querySelector("#feed > li")!;
+    expect(line.querySelector("time")?.dateTime).toBe(new Date(when).toISOString());
+    expect(line.textContent).toContain("AUD/USD reached 0.65.");
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("leaves the pending ticket blank until Live has a price and blocks submission while offline", async () => {
+  const { dom, w, base, emit } = await app();
+  try {
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    const you = { ...base.you, named: true, positions: [], alerts: [] };
+    const live = { mode: "live", pair: "AUD/USD", pairs: ["AUD/USD"], you, board: [], chart: { studies: true, days: "date", slotMs: 900_000 } };
+    const pending = w.document.querySelector<HTMLDetailsElement>("#pend")!;
+    const level = w.document.querySelector<HTMLInputElement>("#pend-at")!;
+    const place = w.document.querySelector<HTMLButtonElement>("#pend-place")!;
+    await emit({ ...live, phase: "waiting", live: false, prices: [] });
+    pending.open = true;
+    pending.dispatchEvent(new w.Event("toggle"));
+    expect(level.value).toBe("");
+    expect(place.disabled).toBe(true);
+    await emit({ ...live, live: true, prices: [0.7] });
+    vi.spyOn(w.navigator, "onLine", "get").mockReturnValue(false);
+    w.dispatchEvent(new w.Event("offline"));
+    level.value = "0.65";
+    level.dispatchEvent(new w.Event("input"));
+    expect(place.disabled).toBe(true);
+  } finally {
+    dom.window.close();
+  }
+});
+
+it("ignores a superseded recovery failure even when several deltas were waiting on it", async () => {
+  const { dom, w, base, emit, fetch, streams } = await app();
+  try {
+    await emit();
+    streams.at(-1)!.onerror?.();
+    let fail!: (reason: Error) => void;
+    fetch.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const delta = { from: base.prices.length + 5, prices: [1.5] };
+    const waiting = [emit(delta), emit(delta)];
+    await emit({ from: 0, prices: [1.25] });
+    fail(new Error("Snapshot request failed"));
+    await Promise.all(waiting);
+    expect(w.document.getElementById("connection")?.textContent).toBe(i18n.T.en.ui.connectionRestored);
+    expect(w.document.querySelector<HTMLButtonElement>("#buy")!.disabled).toBe(false);
+  } finally {
+    dom.window.close();
+  }
+});

@@ -1,5 +1,4 @@
-// Live's real news (ADR 0087): the central banks of the seven currencies, from their own press feeds, and this
-// week's high-impact releases for them, from a public economic calendar. Each item is what the source said, its
+// Live's real news (ADRs 0087 and 0098): central bank press feeds and market headlines. Each item is what the source said, its
 // headline in English with its time and a link to the source, never rewritten; pages say it is the source's own words.
 import type { Currency } from "./feed.ts";
 
@@ -17,7 +16,7 @@ const BANKS: { cur: Currency; source: string; url: string; keep: RegExp }[] = [
 ];
 const UA = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Losscut/1.0" };
 type Get = (url: string) => Promise<string>;
-// LIVE_NEWS=off keeps the checks off the network; the bank feeds and the calendar are then empty
+// LIVE_NEWS=off keeps the checks off the network.
 const get: Get = async (url) => {
   if (process.env.LIVE_NEWS === "off") throw new Error("news off");
   const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(8_000), redirect: "follow" });
@@ -72,14 +71,15 @@ const WEIGHTS: [RegExp, number][] = [
   [/\b(stocks?|shares|markets?|wall street|s&p|nasdaq|dow|asx|nikkei|ftse|equities|investors?)\b/i, 1],
 ];
 export const relevance = (title: string): number => WEIGHTS.reduce((n, [re, w]) => n + (re.test(title) ? w : 0), 0);
-// Stories stay for three days: markets publish little at weekends, so a day would leave the list empty on a Sunday.
-const KEEP = 3 * 86_400_000;
+// How old a market story may be and still be kept or told: a day. A quiet weekend can leave the list short, which the
+// page covers by pinning the newest story it has; Live is shut then.
+export const NEWS_AGE_MS = 24 * 3_600_000;
 
-// A feed's market stories from the last three days, the most relevant and newest first, each linked to the outlet's own site.
+// A feed's market stories from the last day, the most relevant and newest first, each linked to the outlet's own site.
 export function parseMarketFeed(xml: string, feed: (typeof MARKET_FEEDS)[number], now: number): Story[] {
   return rssItems(xml).map(({ title, link, at }) => {
     return { id: `${feed.source}:${link || title}`, source: feed.source, title, at, link, score: relevance(title) };
-  }).filter((i) => i.title && i.at && i.score > 0 && now - i.at < KEEP && i.at <= now + 3_600_000 && feed.site.test(i.link))
+  }).filter((i) => i.title && i.at && i.score > 0 && now - i.at < NEWS_AGE_MS && i.at <= now + 3_600_000 && feed.site.test(i.link))
     // a feed may list one story twice; keep it once
     .filter((i, n, all) => all.findIndex((j) => j.title === i.title) === n)
     .sort((a, b) => b.score - a.score || b.at - a.at);
@@ -114,7 +114,7 @@ export class News {
         // this outlet failed; try the next
       }
     }
-    this.stories = this.stories.filter((i) => now - i.at < KEEP);
+    this.stories = this.stories.filter((i) => now - i.at < NEWS_AGE_MS);
     return this.stories;
   }
 }
