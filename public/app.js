@@ -998,24 +998,6 @@ function book(s) {
     return tr;
   }));
 }
-// Live's real calendar (ADR 0087): this week's high-impact releases for the seven currencies, at Sydney time, with
-// the forecast and, once out, the actual figure, as the calendar's source gives them. The central banks' words and the
-// market's headlines are in the feed, the most important pinned.
-function realCalendar(s) {
-  const on = shows(s).realCalendar;
-  const rows = on ? s.calendar ?? [] : [];
-  $("real-calendar").hidden = !rows.length;
-  const when = (at) => localTime(at, lang);
-  $("real-calendar").replaceChildren(
-    ...rows.map((c) => {
-      const li = document.createElement("li");
-      li.className = c.actual ? "told" : c.at < Date.now() ? "told" : "upcoming";
-      const figures = [c.actual && t("calActual", { v: c.actual }), c.forecast && t("calForecast", { v: c.forecast }), c.previous && t("calPrevious", { v: c.previous })].filter(Boolean).join(" · ");
-      li.append(Object.assign(document.createElement("span"), { className: "when", textContent: when(c.at) }), Object.assign(document.createElement("span"), { className: "what", textContent: `${c.cur} · ${c.title}${figures ? ` · ${figures}` : ""}` }));
-      return li;
-    }),
-  );
-}
 // Live's price alerts (ADR 0095): a level on the chart's pair, typed and set; the server tells you alone when the price
 // reaches it. Each alert listed with a cancel, the chart's pair or another.
 function alerts(s) {
@@ -1212,13 +1194,13 @@ function headlineText(head) {
 
 // What each tab shows, in one place, so the parts of the page ask for a feature, not a tab: a lobby to start a round
 // from; the plot menu or the pair menus, and whether a pair can be changed during play; the year to guess; Live's
-// open pairs, board and real calendar; the margin warning; a head count of people on the tab
+// open pairs and board; the margin warning; a head count of people on the tab
 // rather than in the room. Layout is the page's: the server's rules are what it sends.
 const SHOWS = {
-  rewind: { lobby: true, plotMenu: true, pairMenus: false, pairLive: false, guess: true, book: false, board: false, realCalendar: false, warn: true, tabCount: false },
-  random: { lobby: true, plotMenu: false, pairMenus: true, pairLive: false, guess: false, book: false, board: false, realCalendar: false, warn: true, tabCount: false },
-  live: { lobby: false, plotMenu: false, pairMenus: true, pairLive: true, guess: false, book: true, board: true, realCalendar: true, warn: true, tabCount: true },
-  tutorial: { lobby: false, plotMenu: false, pairMenus: false, pairLive: false, guess: false, book: false, board: false, realCalendar: false, warn: false, tabCount: false },
+  rewind: { lobby: true, plotMenu: true, pairMenus: false, pairLive: false, guess: true, book: false, board: false, warn: true, tabCount: false },
+  random: { lobby: true, plotMenu: false, pairMenus: true, pairLive: false, guess: false, book: false, board: false, warn: true, tabCount: false },
+  live: { lobby: false, plotMenu: false, pairMenus: true, pairLive: true, guess: false, book: true, board: true, warn: true, tabCount: true },
+  tutorial: { lobby: false, plotMenu: false, pairMenus: false, pairLive: false, guess: false, book: false, board: false, warn: false, tabCount: false },
 };
 const shows = (s) => SHOWS[s.mode] ?? SHOWS.rewind;
 
@@ -1561,7 +1543,6 @@ function render(s) {
     li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
-  realCalendar(s);
   // One piece of news is pinned at the top (ADR 0078): the most important of the last six hours, by the server's score
   // (a central bank's decision above a market story), or else the newest; then what traders said, then the rest of the
   // feed, newest first, news and trades together. The pinned news is not listed twice.

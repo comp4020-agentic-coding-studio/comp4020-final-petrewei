@@ -544,3 +544,10 @@ it("puts ESMA's real odds under the bell's leverage replay, in every language", 
   expect(note, "the odds sit in the leverage replay").not.toBeNull();
   for (const lang of LANGS) expect(T[lang].ui.whatIfOdds, lang).toMatch(/74\s?[–〜-]\s?89\s?%/);
 });
+
+// Live shows no release calendar (its feed is news and trades alone), so the page keeps no list for one and no words
+// for its figures: they would be a promise of a feature that is not there.
+it("keeps no list or words for a release calendar Live no longer shows", () => {
+  expect(page.querySelector("#real-calendar"), "no list for Live's calendar").toBeNull();
+  for (const lang of LANGS) for (const key of ["calActual", "calForecast", "calPrevious"]) expect(T[lang].ui, `${lang}.${key}`).not.toHaveProperty(key);
+});

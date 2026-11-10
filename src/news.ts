@@ -4,7 +4,6 @@
 import type { Currency } from "./feed.ts";
 
 export type Item = { id: string; cur: Currency; source: string; title: string; at: number; link: string };
-export type Release = { cur: Currency; title: string; at: number; forecast: string; previous: string; actual: string };
 
 // Each bank's feed, and which of its items move a currency: rate decisions and the statements around them, not
 // every speech or statistical table.
@@ -16,7 +15,6 @@ const BANKS: { cur: Currency; source: string; url: string; keep: RegExp }[] = [
   { cur: "JPY", source: "Bank of Japan", url: "https://www.boj.or.jp/en/rss/whatsnew.xml", keep: /monetary policy|policy rate|outlook for economic/i },
   { cur: "CHF", source: "Swiss National Bank", url: "https://www.snb.ch/public/en/rss/news", keep: /monetary policy|policy rate|assessment/i },
 ];
-const CALENDAR = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 const UA = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Losscut/1.0" };
 type Get = (url: string) => Promise<string>;
 // LIVE_NEWS=off keeps the checks off the network; the bank feeds and the calendar are then empty
@@ -51,12 +49,6 @@ export function parseFeed(xml: string, bank: (typeof BANKS)[number]): Item[] {
   return rssItems(xml).map(({ title, link, at }) => {
     return { id: `${bank.cur}:${link || title}`, cur: bank.cur, source: bank.source, title, at, link };
   }).filter((i) => i.title && i.at && bank.keep.test(i.title) && /^https?:\/\/www\.(rba\.gov\.au|federalreserve\.gov|ecb\.europa\.eu|bankofengland\.co\.uk|boj\.or\.jp|snb\.ch)\//.test(i.link));
-}
-
-const OURS = new Set(["EUR", "GBP", "AUD", "USD", "CHF", "CNY", "JPY"]);
-export function parseCalendar(json: string): Release[] {
-  const rows = JSON.parse(json) as { title: string; country: string; date: string; impact: string; forecast?: string; previous?: string; actual?: string }[];
-  return rows.filter((r) => r.impact === "High" && OURS.has(r.country)).map((r) => ({ cur: r.country as Currency, title: r.title, at: Date.parse(r.date), forecast: r.forecast ?? "", previous: r.previous ?? "", actual: r.actual ?? "" })).filter((r) => r.at).sort((a, b) => a.at - b.at);
 }
 
 // Live's market headlines: a big outlet's market feed first, then backups in order when it fails. Each headline is the
@@ -95,7 +87,6 @@ export function parseMarketFeed(xml: string, feed: (typeof MARKET_FEEDS)[number]
 
 export class News {
   items: Item[] = [];
-  calendar: Release[] = [];
   stories: Story[] = [];
   private fetchText: Get;
   constructor(fetchText: Get = get) {
@@ -125,12 +116,5 @@ export class News {
     }
     this.stories = this.stories.filter((i) => now - i.at < KEEP);
     return this.stories;
-  }
-  async week(): Promise<void> {
-    try {
-      this.calendar = parseCalendar(await this.fetchText(CALENDAR));
-    } catch {
-      // the calendar's source limits how often it is read; the last week's list stays
-    }
   }
 }

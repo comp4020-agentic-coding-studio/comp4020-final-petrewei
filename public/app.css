@@ -1126,10 +1126,8 @@ body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
 .book { width: 100%; }
 .book td { padding: 0.3rem 0.9rem; font: 0.82rem var(--mono); white-space: nowrap; }
 .book .linkish { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; }
-.calendar.real li.bank a { color: inherit; }
 /* A feed line's time, small and muted before its icon, in the viewer's zone. */
 #feed li .when { margin-right: 0.4rem; font: 0.72rem var(--mono); color: var(--muted); white-space: nowrap; }
-.calendar.real li.bank .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* four tabs on a phone: icons and short labels share the row */
 @media (max-width: 520px) {
   .tabs button .ico { display: none; }

@@ -8,7 +8,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { bankrupt, borrow, charge, close, enforce, equity, fresh, level, lines, nextSydneyMidnight, order, pnlOf, worth } from "../src/book.ts";
 import { START, STEP } from "../src/fx.ts";
 import { cross, Feed, SLOT_MS, type Usd } from "../src/feed.ts";
-import { News, parseCalendar, parseFeed } from "../src/news.ts";
+import { News, parseFeed } from "../src/news.ts";
 import { Live, type Who } from "../src/live.ts";
 import { spark } from "./yahoo-fake.ts";
 
@@ -400,6 +400,20 @@ describe("Live's feed", () => {
     expect(told, "newest first").toEqual([...told].sort((a, b) => b - a));
   });
 
+  // Live shows no release calendar, so it asks for none: the one source nothing read was an hourly download.
+  it("asks for no release calendar", async () => {
+    const at = Date.parse("2026-11-10T10:00:00Z");
+    const asked: string[] = [];
+    const quotes = new Feed(async () => spark(at / 1000, [at / 1000]), () => at);
+    const news = new News(async (url) => { asked.push(url); return "[]"; });
+    const dir = mkdtempSync(join(tmpdir(), "losscut-no-calendar-"));
+    const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+    onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+    await m.refresh(at);
+    expect(asked.filter((u) => /faireconomy|ff_calendar|calendar/i.test(u)), "no calendar is fetched").toEqual([]);
+    expect(asked.length, "the banks' and the outlets' feeds are still read").toBeGreaterThan(0);
+  });
+
   it("tells no story older than a day", async () => {
     const m = await market(Date.parse("2026-11-10T10:00:00Z"));
     const titles = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => (f.args as Record<string, unknown>).title);
@@ -536,12 +550,10 @@ it("trades again after a sleep longer than the source's month of history, rather
 });
 
 describe("the news", () => {
-  it("keeps a bank's rate decisions with a link to its own site, and the week's high-impact releases for our currencies", () => {
+  it("keeps a bank's rate decisions with a link to its own site", () => {
     const xml = `<rss><item><title>Statement by the Monetary Policy Board: Monetary Policy Decision</title><link>https://www.rba.gov.au/media-releases/2026/mr-26-30.html</link><pubDate>Tue, 03 Nov 2026 03:30:00 GMT</pubDate></item><item><title>Speech at a dinner</title><link>https://www.rba.gov.au/speeches/x.html</link><pubDate>Tue, 03 Nov 2026 03:30:00 GMT</pubDate></item><item><title>Monetary policy, from elsewhere</title><link>https://example.com/x</link><pubDate>Tue, 03 Nov 2026 03:30:00 GMT</pubDate></item></rss>`;
     const items = parseFeed(xml, { cur: "AUD", source: "Reserve Bank of Australia", url: "", keep: /monetary policy/i });
     expect(items.map((i) => i.title)).toEqual(["Statement by the Monetary Policy Board: Monetary Policy Decision"]);
-    const cal = parseCalendar(JSON.stringify([{ title: "Cash Rate", country: "AUD", date: "2026-11-03T14:30:00+11:00", impact: "High", forecast: "4.85%", previous: "4.60%" }, { title: "Housing", country: "AUD", date: "2026-11-03T11:30:00+11:00", impact: "Low" }, { title: "Jobs", country: "CAD", date: "2026-11-06T08:30:00-05:00", impact: "High" }]));
-    expect(cal).toEqual([{ cur: "AUD", title: "Cash Rate", at: Date.parse("2026-11-03T14:30:00+11:00"), forecast: "4.85%", previous: "4.60%", actual: "" }]);
   });
 });
 
