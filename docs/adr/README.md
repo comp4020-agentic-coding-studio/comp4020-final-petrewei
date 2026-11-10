@@ -30,6 +30,7 @@ The modes were renamed twice. Records written before 7 November use the names in
 - [0095](0095-gameplay-for-the-player-and-the-room.md) Gameplay for the player and the room
 - [0096](0096-an-ai-agent-plays-live-through-mcp.md) An AI agent plays Live through MCP
 - [0097](0097-the-house-traders-are-live-players.md) The house traders are Live players
+- [0098](0098-live-news-from-investing-com-and-no-release-calendar.md) Live's news from Investing.com, and no release calendar
 
 ## 2 Replaced or Superseded
 
