@@ -24,4 +24,3 @@ Live has company that can be watched, beaten and outlasted, and a bankruptcy on 
 Added 10 November 2026, after the showcase's first day of play. Yahoo leaves about one 15-minute bar in ten out for at least one of Live's six currencies, and Live waits for a recent missing bar before settling any account that holds a position or owes credit, so that no stop-out is skipped. With seven house traders holding positions most of the time, that wait paused Live for the people playing, who saw "Waiting for history".
 
 Peter chose that a house trader's account no longer counts as exposed when Live decides whether to wait. A person's still does, so their stop-outs are never skipped. A bot may skip one over a missing bar; it is a character and the cost falls on nobody. A check holds both halves.
-
