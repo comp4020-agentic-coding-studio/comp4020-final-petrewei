@@ -100,11 +100,34 @@ describe("the Live book", () => {
     expect(rollDay(a, usd(), evening)).toBe(true);
     expect(a).toMatchObject({ day: "2026-11-08", dayWorth: START });
     expect(rollDay(a, usd(), evening + 30 * 60_000), "the same day changes nothing").toBe(false);
-    a.balance += 250;
-    a.trades.push({ pair: "AUD/USD", side: 1, leverage: 10, entry: 0.7, exit: 0.71, how: "close", pnl: 250, pct: 0.1, at: evening + 60_000 });
-    expect(rollDay(a, usd(), morning)).toBe(true);
-    expect(a.yesterday).toEqual({ day: "2026-11-08", change: 250, trades: 1 });
-    expect(a).toMatchObject({ day: "2026-11-09", dayWorth: START + 250 });
+    // a trade is closed as the game closes one, which is what counts it; the account then holds A$250 more
+    expect(typeof order(a, "AUD/USD", usd(), 1, 10, 0.5, {}, evening + 30_000)).not.toBe("string");
+    const gain = { ...usd(), AUD: usd().AUD * 1.01 };
+    const closed = close(a, "AUD/USD", gain, evening + 60_000);
+    expect(typeof closed).not.toBe("string");
+    const change = Math.round(worth(a, gain)) - START;
+    expect(change, "the close made money").toBeGreaterThan(0);
+    expect(rollDay(a, gain, morning)).toBe(true);
+    expect(a.yesterday).toEqual({ day: "2026-11-08", change, trades: 1 });
+    expect(a).toMatchObject({ day: "2026-11-09", dayWorth: START + change });
+  });
+
+  // The history keeps the last fifty trades, so a day's count taken from it stops at fifty: a day with sixty closes read
+  // fifty. The count is kept as trades close, and the history is only what is shown.
+  it("counts every trade closed in a Sydney day, even past the fifty the history keeps", async () => {
+    const { rollDay } = await import("../src/book.ts");
+    const evening = Date.UTC(2026, 10, 8, 12);
+    const morning = Date.UTC(2026, 10, 8, 14);
+    const a = fresh(evening, 0);
+    rollDay(a, usd(), evening);
+    for (let i = 0; i < 60; i++) {
+      const bought = order(a, "AUD/USD", usd(), 1, 1, 0.01, {}, evening + i * 1000);
+      expect(typeof bought).not.toBe("string");
+      close(a, "AUD/USD", usd(), evening + i * 1000 + 500);
+    }
+    expect(a.trades.length, "the history keeps fifty").toBe(50);
+    rollDay(a, usd(), morning);
+    expect(a.yesterday?.trades, "the day had sixty closes").toBe(60);
   });
 
   // ADR 0094: a pair either way round is a market of its own. Buying AUD/EUR and selling EUR/AUD are the same bet on

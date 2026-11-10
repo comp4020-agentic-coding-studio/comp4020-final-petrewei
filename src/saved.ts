@@ -26,7 +26,7 @@ const pendingValid = (v: unknown): boolean => record(v) && ["buy-limit", "buy-st
 const rangValid = (v: unknown): boolean => record(v) && isPair(v.pair) && numericFields(v, ["at", "when"]);
 const yesterdayValid = (v: unknown): boolean => v === null || (record(v) && string(v.day) && numericFields(v, ["change", "trades"]));
 const accountValid = (v: unknown): boolean => record(v) && numericFields(v, ["balance", "debt", "interest", "cuts", "opened", "peak", "slot"])
-  && optional(v.day, string) && optional(v.dayWorth, finite)
+  && optional(v.day, string) && optional(v.dayWorth, finite) && optional(v.dayTrades, finite)
   && optional(v.alerts, (xs) => Array.isArray(xs) && xs.every(alertValid))
   && optional(v.pending, (ps) => record(ps) && Object.entries(ps).every(([pair, p]) => isPair(pair) && pendingValid(p)))
   && optional(v.rang, (xs) => Array.isArray(xs) && xs.every(rangValid))

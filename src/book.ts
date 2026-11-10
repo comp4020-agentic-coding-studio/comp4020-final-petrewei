@@ -22,7 +22,7 @@ export type Alert = { pair: string; at: number; above: boolean };
 // A pending order on one pair (ADR 0078, 0079), as the rounds have, one per pair as Live has one position per pair:
 // buy or sell when the live price reaches `at`. The level is only a trigger; it fills at the live price on the poll
 // that reaches it, so a gap fills at the gapped price, as a broker's would.
-export type BookAccount = { pending?: Record<string, Pending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
+export type BookAccount = { pending?: Record<string, Pending>; alerts?: Alert[]; rang?: { pair: string; at: number; when: number }[]; day?: string; dayWorth?: number; dayTrades?: number; yesterday?: { day: string; change: number; trades: number } | null; balance: number; debt: number; interest: number; positions: Record<string, BookPosition>; called: boolean; cuts: number; trades: BookTrade[]; opened: number; peak: number; slot: number; pair: string };
 export type BookFill = { kind: "open" | "add" | "close" | "stop" | "take" | "call" | "stopout"; pair: string; price: number; pnl: number; leverage?: number; side?: Side };
 
 export const fresh = (now: number, slot: number, pair = "AUD/USD"): BookAccount => ({ balance: START, debt: 0, interest: 0, positions: {}, called: false, cuts: 0, trades: [], opened: now, peak: START, slot, pair });
@@ -79,6 +79,8 @@ function settle(a: BookAccount, pair: string, usd: Usd, how: BookTrade["how"], n
   const mid = cross(usd, pair);
   a.trades.push({ pair, side: pos.side, leverage: pos.leverage, entry: pos.entry, exit: fill(mid, -pos.side as Side), how, pnl: Math.round(pnl), pct: pnl / pos.margin, at: now });
   a.trades = a.trades.slice(-50);
+  // the history keeps fifty, so the day's count is kept apart from it
+  if (a.dayTrades !== undefined) a.dayTrades++;
   a.balance += pnl;
   delete a.positions[pair];
   // Losses still offset the rest of the portfolio until the final position closes.
@@ -246,11 +248,13 @@ export function rollDay(a: BookAccount, usd: Usd, now: number): boolean {
   if (a.day === today) return false;
   const nowWorth = Math.round(worth(a, usd));
   if (a.day !== undefined && a.dayWorth !== undefined) {
-    const since = a.trades.filter((t) => sydneyDay(t.at) === a.day).length;
+    // an account saved before the count is read from its history, which is all there is of that day
+    const since = a.dayTrades ?? a.trades.filter((t) => sydneyDay(t.at) === a.day).length;
     a.yesterday = { day: a.day, change: nowWorth - a.dayWorth, trades: since };
   }
   a.day = today;
   a.dayWorth = nowWorth;
+  a.dayTrades = 0;
   return true;
 }
 
