@@ -18,3 +18,10 @@ The comic's seven characters traded Live's real prices on private one-pair desks
 ## 4 Consequences
 
 Live has company that can be watched, beaten and outlasted, and a bankruptcy on the board can be a character's as well as a person's. Live's saved accounts now hold seven more, one per character. The strategies are unchanged, so a habit tuned for a round's two minutes now plays across days.
+
+## 5 A Later Change: Bots Do Not Pause Live
+
+Added 10 November 2026, after the showcase's first day of play. Yahoo leaves about one 15-minute bar in ten out for at least one of Live's six currencies, and Live waits for a recent missing bar before settling any account that holds a position or owes credit, so that no stop-out is skipped. With seven house traders holding positions most of the time, that wait paused Live for the people playing, who saw "Waiting for history".
+
+Peter chose that a house trader's account no longer counts as exposed when Live decides whether to wait. A person's still does, so their stop-outs are never skipped. A bot may skip one over a missing bar; it is a character and the cost falls on nobody. A check holds both halves.
+

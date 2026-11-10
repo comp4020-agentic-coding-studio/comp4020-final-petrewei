@@ -389,6 +389,32 @@ it("waits for an internal history gap and charges every recovered trading slot e
   expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
 });
 
+// A skipped bar of Yahoo's holds Live for people with credit or a position, so no stop-out is settled over it. A house
+// trader's account is not worth that wait (ADR 0097): it is a character, and a skipped stop-out costs nobody anything,
+// so it never pauses Live for the people playing.
+it("does not wait on missing history for a house trader's account alone", async () => {
+  const start = Date.parse("2026-11-04T10:00:00Z");
+  let now = start;
+  const quotes = new Feed(async () => {
+    const times = now === start ? [start - SLOT_MS] : [start + SLOT_MS];
+    return spark(now / 1000, times.map((time) => time / 1000));
+  }, () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-bot-gap-"));
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  expect(m.act("bot:kurumi", { kind: "borrow" }, now)).toBeNull();
+  expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
+  now += 3 * SLOT_MS;
+  await m.refresh(now);
+  expect(m.view("trader", {}).historyGap, "a person with credit is still waited for").toBe(true);
+  m.accounts.get("trader")!.debt = 0;
+  await m.refresh(now);
+  expect(m.view("trader", {}).historyGap, "the house trader's credit alone does not pause Live").toBe(false);
+});
+
 it("does not advance one slot when an exposed currency has not supplied that slot yet", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;

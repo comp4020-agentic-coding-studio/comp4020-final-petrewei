@@ -185,7 +185,8 @@ export class Live {
   // them: settling those accounts on later prices would skip a stop-out or a bankruptcy that happened in between.
   private missingHistory(now: number): boolean {
     if (!this.slot || (this.quotes.slots.at(-1)?.slot ?? 0) <= this.slot || now - this.slot * SLOT_MS > HISTORY_MS) return false;
-    const exposed = [...this.accounts.values()].filter((a) => a.debt > 0 || used(a) > 0);
+    // only people are waited for: a house trader (ADR 0097) is a character, and a stop-out it skips costs nobody
+    const exposed = [...this.accounts].filter(([k, a]) => !k.startsWith("bot:") && (a.debt > 0 || used(a) > 0)).map(([, a]) => a);
     return exposed.length > 0 && !this.quotes.coversSince(this.slot + 1, exposed.flatMap((a) => Object.keys(a.positions)));
   }
 
