@@ -10,15 +10,18 @@ import { STEP } from "../src/fx.ts";
 import { spark } from "./yahoo-fake.ts";
 const who: Who = { nameAt: () => ({ name: "Test", draw: null }), named: () => true, key: (key) => key, short: (key) => key.slice(0, 6), name: () => "Test", draw: () => null, face: () => "p0", faceAt: () => "p0" };
 const quiet = () => { const news = new News(async () => "[]"); news.banks = async () => []; return news; };
-it("does not settle an extended refresh that finishes after the account owner stops", async () => {
+// A refresh still running when the market stops, whichever fetch it waits on, settles nothing and tells no one. The slow
+// fetch is the hourly backfill, the one that still runs now that a skipped bar is carried and no longer waited for.
+it("does not settle a refresh that finishes after the account owner stops", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z"); let now = start;
   const dir = mkdtempSync(join(tmpdir(), "losscut-pending-refresh-"));
   let release!: (value: ReturnType<typeof spark>) => void;
   let requested!: () => void;
   const requestedPromise = new Promise<void>((resolve) => { requested = resolve; });
   const pending = new Promise<ReturnType<typeof spark>>((resolve) => { release = resolve; });
+  let slowBackfill = false;
   const quotes = new Feed(async (url) => {
-    if (url.includes("range=1mo")) { requested(); return pending; }
+    if (slowBackfill && url.includes("range=5d")) { requested(); return pending; }
     return spark(now / 1000, [(now === start ? start : start + SLOT_MS) / 1000]);
   }, () => now);
   let changes = 0;
@@ -27,7 +30,8 @@ it("does not settle an extended refresh that finishes after the account owner st
     await market.refresh(now);
     expect(market.act("trader", { kind: "borrow" }, now)).toBeNull();
     const before = market.slot; const events = changes;
-    now += 3 * SLOT_MS;
+    now += 2 * 3_600_000;
+    slowBackfill = true;
     const refreshing = market.refresh(now);
     await requestedPromise;
     market.dispose();
