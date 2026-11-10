@@ -30,4 +30,3 @@ Peter chose that a house trader's account no longer counts as exposed when Live 
 Added 10 November 2026. A missing bar had still paused Live as a whole: no one could trade and every page said "Waiting for history". Peter asked that it never block every price and every trader.
 
 A missing bar now holds only an account with a position or credit, and never a house trader's. Everyone else sees Live open and trades on, and prices and the chart keep moving. Settlement is unchanged: it still waits for the bar before any account is charged or stopped out, so each missed slot is charged once. While it waits, the house traders do not trade, since they trade after settlement. A per-account settlement cursor, so that a held account is caught up alone, is the next step and is not built.
-
