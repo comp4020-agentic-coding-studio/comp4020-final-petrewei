@@ -36,6 +36,8 @@ const BOARD = 10;
 // Yahoo keeps a month of fifteen-minute closes: history missing from further back never comes, so trading resumes on
 // what there is rather than staying paused for everyone.
 const HISTORY_MS = 30 * 86_400_000;
+// how old a market story may be and still be told; the feed lists newest first, so an older story only fills the tail
+const NEWS_AGE_MS = 24 * 3_600_000;
 
 export class Live {
   quotes: Feed;
@@ -122,7 +124,8 @@ export class Live {
 
   say(text: string, kind: string, key: string, args: Record<string, string | number> = {}): void {
     // each line is stamped when it is said, so the feed shows the time of a trade and a story alike
-    this.feed = [...this.feed, { text, kind, key, args, when: this.clock.now() }].slice(-60);
+    // newest first, as the page lists it and as the rounds' feed does; the cap keeps the newest sixty
+    this.feed = [{ text, kind, key, args, when: this.clock.now() }, ...this.feed].slice(0, 60);
   }
 
   // Polls run only while someone has the tab open; the first look fetches the days before.
@@ -205,7 +208,8 @@ export class Live {
       // newest sits at the top; the page pins the most important of the recent news
       const stories = await this.news.markets(now).catch(() => this.news.stories);
       if (this.disposed) return;
-      for (const x of stories.filter((x) => !this.toldStories.has(x.id)).sort((a, b) => a.at - b.at)) {
+      // only the last day's: an older story is no longer news, and the outlet's feed lists days back
+      for (const x of stories.filter((x) => !this.toldStories.has(x.id) && now - x.at < NEWS_AGE_MS).sort((a, b) => a.at - b.at)) {
         this.toldStories.add(x.id);
         this.say(`${x.source}: ${x.title}`, "news", "market", { source: x.source, title: x.title, link: x.link, at: x.at, score: x.score });
       }

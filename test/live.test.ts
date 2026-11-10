@@ -354,6 +354,52 @@ it("keeps an AI agent marked on the board through a restart", async () => {
   again.dispose();
 });
 
+// The feed reads newest first, as the page lists it and as the rounds' feed does: a story told later sits above one told
+// earlier, and the cap drops the oldest. Stories older than a day are never told, so a restart does not bring back what
+// is no longer news.
+describe("Live's feed", () => {
+  const hour = 3_600_000;
+  const stories = (at: number) => [
+    { id: "a", source: "Investing.com", title: "Dollar steadies after jobs report", at: at - 40 * hour, link: "https://www.investing.com/a", score: 8 },
+    { id: "b", source: "Investing.com", title: "Sterling today: pound firms", at: at - 20 * hour, link: "https://www.investing.com/b", score: 5 },
+    { id: "c", source: "Investing.com", title: "Euro yields linger at one-month lows", at: at - 2 * hour, link: "https://www.investing.com/c", score: 10 },
+  ];
+  const market = async (at: number) => {
+    const now = at;
+    const quotes = new Feed(async () => spark(now / 1000, [now / 1000]), () => now);
+    const news = new News(async () => "[]");
+    news.banks = async () => [];
+    news.markets = async () => stories(now);
+    const dir = mkdtempSync(join(tmpdir(), "losscut-feed-order-"));
+    const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+    onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+    await m.refresh(now);
+    return m;
+  };
+
+  it("lists the newest line first", async () => {
+    const m = await market(Date.parse("2026-11-10T10:00:00Z"));
+    const lines = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => (f.args as Record<string, unknown>).title);
+    expect(lines[0], "the story told last is on top").toBe("Euro yields linger at one-month lows");
+  });
+
+  it("tells no story older than a day", async () => {
+    const m = await market(Date.parse("2026-11-10T10:00:00Z"));
+    const titles = m.view("reader", {}).feed.filter((f) => f.kind === "news").map((f) => (f.args as Record<string, unknown>).title);
+    expect(titles).not.toContain("Dollar steadies after jobs report");
+    expect(titles).toContain("Sterling today: pound firms");
+  });
+
+  it("keeps the newest sixty lines and drops the oldest", async () => {
+    const m = await market(Date.parse("2026-11-10T10:00:00Z"));
+    for (let i = 0; i < 70; i++) m.say(`line ${i}`, "info", "x");
+    const lines = m.view("reader", {}).feed;
+    expect(lines).toHaveLength(60);
+    expect(lines[0].text, "the last said is first").toBe("line 69");
+    expect(lines.at(-1)!.text, "the oldest kept is the sixty-first from the end").toBe("line 10");
+  });
+});
+
 it("carries a skipped slot instead of waiting, and charges every slot exactly once", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
