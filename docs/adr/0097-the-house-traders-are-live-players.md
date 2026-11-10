@@ -30,3 +30,11 @@ Peter chose that a house trader's account no longer counts as exposed when Live 
 Added 10 November 2026. A missing bar had still paused Live as a whole: no one could trade and every page said "Waiting for history". Peter asked that it never block every price and every trader.
 
 A missing bar now holds only an account with a position or credit, and never a house trader's. Everyone else sees Live open and trades on, and prices and the chart keep moving. Settlement is unchanged: it still waits for the bar before any account is charged or stopped out, so each missed slot is charged once. While it waits, the house traders do not trade, since they trade after settlement. A per-account settlement cursor, so that a held account is caught up alone, is the next step and is not built.
+
+## 7 A Later Change: A Skipped Bar Is Carried, Never Waited For
+
+Added 10 November 2026. Peter's reasoning: the game is play money, so a stop-out missed over a skipped price bar is no real harm, and Live should not pause for it. Yahoo skips about one 15-minute bar in ten, and a pause of up to an hour for every skipped bar held people and the house traders alike.
+
+A hole in an open market is now carried at once from the price before it, so settlement never waits, nobody is held, and the house traders keep trading. Each slot is still charged exactly once, in order, and a test holds that.
+
+The cost, accepted: a crash that happens in a slot the source skipped or sends late is settled at the price before it, so an account the market wiped out in that slot is stopped out on the first real price that shows the loss, not at that slot. A player can survive a skipped crash. The earlier holds in sections 5 and 6, and the page's "Waiting for history" message, remain in the code but no longer fire.
