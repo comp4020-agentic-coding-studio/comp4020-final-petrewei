@@ -101,10 +101,9 @@ export class Feed {
       throw e;
     }
   }
-  // Whether every trading slot from `slot` on has a price of its own for each of these pairs' currencies, so that
-  // settling an account across them misses nothing. Yahoo leaves a few fifteen-minute bars out of most weeks and never
-  // sends them; a slot older than SETTLED_MS is therefore taken as final, its hole carried over from the slot before,
-  // and only a recent slot, which may still arrive, is waited for.
+  // Whether every trading slot from `slot` on has a price of its own for each of these pairs' currencies. Yahoo leaves
+  // about one fifteen-minute bar in ten out and often never sends it, so a hole is carried over from the slot before at
+  // once (see slotQuality) and nothing is waited for; this is true unless a quality other than carried is ever added.
   coversSince(slot: number, pairs: readonly string[]): boolean {
     const last = this.slots.at(-1)?.slot;
     if (last === undefined) return false;

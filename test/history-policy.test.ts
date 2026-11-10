@@ -2,16 +2,18 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { Feed, SLOT_MS } from "../src/feed.ts";
 import { parseQuotes } from "../src/quotes.ts";
-it("classifies observed, recent pending, settled carried and closed slots from a recorded provider answer", async () => {
+it("classifies observed, carried and closed slots from a recorded provider answer, with no slot left pending", async () => {
   const fixture: unknown = JSON.parse(readFileSync("test/fixtures/spark-sparse.json", "utf8"));
   let now = 1793786400 * 1000;
   const quotes = new Feed(async () => fixture, () => now);
   await quotes.backfill();
   const slot = Math.floor(now / SLOT_MS);
   expect(quotes.quality(slot, ["AUD/USD"])).toBe("observed");
-  expect(quotes.quality(slot - 1, ["AUD/USD"])).toBe("pending");
+  // a skipped bar is carried from the price before it at once, never waited for: the game is play money, so a recent
+  // hole is settled on the carried price instead of pausing Live (ADR 0097)
+  expect(quotes.quality(slot - 1, ["AUD/USD"])).toBe("carried");
   expect(quotes.quality(slot - 5, ["AUD/USD"])).toBe("carried");
-  expect(quotes.coversSince(slot - 8, ["AUD/USD"])).toBe(false);
+  expect(quotes.coversSince(slot - 8, ["AUD/USD"])).toBe(true);
   now += 60 * 60_000;
   expect(quotes.coversSince(slot - 8, ["AUD/USD"])).toBe(true);
   expect(quotes.quality(Math.floor(Date.parse("2026-11-07T12:00:00Z") / SLOT_MS))).toBe("closed");

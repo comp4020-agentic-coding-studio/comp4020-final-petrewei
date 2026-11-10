@@ -36,5 +36,9 @@ export function nextOpen(now: number): number | null {
 export function slotQuality(slot: number, required: readonly Currency[], observed: ReadonlySet<Currency> | undefined, traded: boolean, now: number): Quality {
   if (required.every((cur) => cur === "USD" || observed?.has(cur))) return "observed";
   if (!traded && !tradingSlot(slot)) return "closed";
-  return slot <= Math.floor((now - SETTLED_MS) / SLOT_MS) ? "carried" : "pending";
+  // A hole is carried from the price before it at once. Waiting an hour for the provider to send a bar it often never
+  // sends paused Live for everyone, and a stop-out settled on the carried price instead is no loss in a play-money game
+  // (ADR 0097). "pending" is no longer produced; the type keeps it so saved diagnostics and older callers still read.
+  void now;
+  return "carried";
 }

@@ -236,25 +236,27 @@ describe("the live feed", () => {
     const quotes = new Feed(async () => answer, () => (start + 2700) * 1000);
     await quotes.backfill();
     expect(quotes.coversSince(start * 1000 / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
-    expect(quotes.coversSince(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
+    // a hole in the pound is carried from the price before it, not waited for (ADR 0097)
+    expect(quotes.coversSince(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
+    expect(quotes.quality(start * 1000 / SLOT_MS + 1, ["GBP/USD"])).toBe("carried");
   });
 
   it.each([
     ["2026-07-03T20:45:00Z", "2026-07-05T21:00:00Z"],
     ["2026-11-06T21:45:00Z", "2026-11-08T22:00:00Z"],
     ["2026-10-30T20:45:00Z", "2026-11-01T22:00:00Z"],
-  ])("allows the weekly closure from %s to %s, and waits for the last trading slot only while it may still come", async (friday, sunday) => {
+  ])("allows the weekly closure from %s to %s, and carries a last trading slot that never came", async (friday, sunday) => {
     const last = Date.parse(friday);
     const opens = Date.parse(sunday);
     const complete = new Feed(async () => spark(opens / 1000, [last / 1000]), () => opens);
     await complete.backfill();
     expect(complete.coversSince(last / SLOT_MS + 1, ["EUR/USD"])).toBe(true);
-    // Friday's last bar not yet sent, asked minutes after it: it may still come, so it is waited for
+    // Friday's last bar not yet sent, asked minutes after it: it is carried at once and not waited for
     let now = last + 20 * 60_000;
     const missing = new Feed(async () => spark(now / 1000, [(last - SLOT_MS) / 1000]), () => now);
     await missing.backfill();
-    expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(false);
-    // still not sent when the market opens two days later: Yahoo never will, and waiting would never end
+    expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(true);
+    // and the same when the market opens two days later
     now = opens;
     expect(missing.coversSince(last / SLOT_MS, ["EUR/USD"])).toBe(true);
   });
@@ -263,7 +265,7 @@ describe("the live feed", () => {
     ["2025-12-24T21:45:00Z", "2025-12-25T22:00:00Z"],
     ["2025-12-31T21:45:00Z", "2026-01-01T22:00:00Z"],
     ["2026-12-24T21:45:00Z", "2026-12-27T22:00:00Z"],
-  ])("allows the holiday closure from %s to %s, and a bar that proves the feed traded is waited for only while recent", async (before, after) => {
+  ])("allows the holiday closure from %s to %s, and carries a bar that proves the feed traded but never came", async (before, after) => {
     const last = Date.parse(before);
     const opens = Date.parse(after);
     const closed = new Feed(async () => spark(opens / 1000, [last / 1000]), () => opens);
@@ -273,12 +275,12 @@ describe("the live feed", () => {
     const pound = answer.spark.result.find((row) => row.symbol === "GBPUSD=X")!;
     const prices: (number | null)[] = pound.response[0].indicators.quote[0].close;
     prices[1] = null;
-    // asked minutes after the slot the euro traded in and the pound has not yet been sent: the pound is waited for
+    // asked minutes after the slot the euro traded in and the pound has not been sent: the pound is carried, not waited for
     let now = last + 2 * SLOT_MS + 5 * 60_000;
     const partial = new Feed(async () => answer, () => now);
     await partial.backfill();
-    expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(false);
-    // once the holiday is over, a bar never sent is not waited for
+    expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
+    // and the same once the holiday is over
     now = opens;
     expect(partial.coversSince(last / SLOT_MS + 1, ["GBP/USD"])).toBe(true);
   });
@@ -352,7 +354,7 @@ it("keeps an AI agent marked on the board through a restart", async () => {
   again.dispose();
 });
 
-it("waits for an internal history gap and charges every recovered trading slot exactly once", async () => {
+it("carries a skipped slot instead of waiting, and charges every slot exactly once", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
   let recover = false;
@@ -371,77 +373,24 @@ it("waits for an internal history gap and charges every recovered trading slot e
   expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
   now += 3 * SLOT_MS;
   await m.refresh(now);
-  expect(m.slot).toBe(start / SLOT_MS);
-  expect(m.view("trader", {}).historyGap).toBe(true);
-  expect(m.accounts.get("trader")!.debt).toBe(STEP);
-  // the exposed account is held; a bystander with nothing open is not (see the scoped-gap test below)
-  expect(m.act("trader", { kind: "buy", leverage: 10 }, now)).toMatch(/missing price history/);
-  now += 60_000;
-  await m.refresh(now);
-  expect(m.accounts.get("trader")!.debt).toBe(STEP);
-  recover = true;
-  now += 61 * 60_000;
-  await m.refresh(now);
+  // nothing waits: the skipped slots are carried from the price before them, so Live has moved on and nobody is held
   const slots = Math.floor((now - start) / SLOT_MS);
   expect(m.view("trader", {}).historyGap).toBe(false);
   expect(m.slot).toBe(Math.floor(now / SLOT_MS));
+  expect(m.act("new", { kind: "buy", leverage: 10 }, now), "a newcomer trades").toBeNull();
+  expect(m.act("trader", { kind: "close" }, now), "and so does the one with credit").not.toMatch(/missing price history/);
+  // every slot, carried or sent, charged once: the interest on the debt compounds exactly one slot at a time
+  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
+  // the late bars arriving afterwards charge nothing more
+  recover = true;
+  now += 60_000;
+  await m.refresh(now);
   expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
   await m.refresh(now);
   expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96) ** slots, 8);
 });
 
-// A skipped bar of Yahoo's holds Live for people with credit or a position, so no stop-out is settled over it. A house
-// trader's account is not worth that wait (ADR 0097): it is a character, and a skipped stop-out costs nobody anything,
-// so it never pauses Live for the people playing.
-it("does not wait on missing history for a house trader's account alone", async () => {
-  const start = Date.parse("2026-11-04T10:00:00Z");
-  let now = start;
-  const quotes = new Feed(async () => {
-    const times = now === start ? [start - SLOT_MS] : [start + SLOT_MS];
-    return spark(now / 1000, times.map((time) => time / 1000));
-  }, () => now);
-  const news = new News(async () => "[]");
-  news.banks = async () => [];
-  const dir = mkdtempSync(join(tmpdir(), "losscut-bot-gap-"));
-  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
-  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
-  await m.refresh(now);
-  expect(m.act("bot:kurumi", { kind: "borrow" }, now)).toBeNull();
-  expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
-  now += 3 * SLOT_MS;
-  await m.refresh(now);
-  expect(m.view("trader", {}).historyGap, "a person with credit is still waited for").toBe(true);
-  m.accounts.get("trader")!.debt = 0;
-  await m.refresh(now);
-  expect(m.view("trader", {}).historyGap, "the house trader's credit alone does not pause Live").toBe(false);
-});
-
-// A missing bar holds settlement, so no stop-out is skipped, but it does not stop Live: a person with nothing open
-// trades on, and only the people exposed to the hole are held, on what the hole touches.
-it("holds only the exposed from trading while history is missing, and keeps the others trading", async () => {
-  const start = Date.parse("2026-11-04T10:00:00Z");
-  let now = start;
-  const quotes = new Feed(async () => {
-    const times = now === start ? [start - SLOT_MS] : [start + SLOT_MS];
-    return spark(now / 1000, times.map((time) => time / 1000));
-  }, () => now);
-  const news = new News(async () => "[]");
-  news.banks = async () => [];
-  const dir = mkdtempSync(join(tmpdir(), "losscut-scoped-gap-"));
-  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
-  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
-  await m.refresh(now);
-  expect(m.act("exposed", { kind: "borrow" }, now)).toBeNull();
-  now += 3 * SLOT_MS;
-  await m.refresh(now);
-  expect(m.view("exposed", {}).historyGap, "the one with credit is held").toBe(true);
-  expect(m.act("exposed", { kind: "buy", leverage: 10 }, now), "and cannot open a trade over the hole").toMatch(/missing price history/);
-  expect(m.view("newcomer", {}).historyGap, "a newcomer with nothing open is not held").toBe(false);
-  expect(m.view("newcomer", {}).live, "and Live is open for them").toBe(true);
-  expect(m.act("newcomer", { kind: "buy", leverage: 10 }, now), "and trades").toBeNull();
-});
-
-it("does not advance one slot when an exposed currency has not supplied that slot yet", async () => {
+it("advances a slot whose newest quote is stale and charges it once, not again when the quote refreshes", async () => {
   const start = Date.parse("2026-11-04T10:00:00Z");
   let now = start;
   let recover = false;
@@ -459,58 +408,49 @@ it("does not advance one slot when an exposed currency has not supplied that slo
   expect(m.act("trader", { kind: "borrow" }, now)).toBeNull();
   now += SLOT_MS;
   await m.refresh(now);
-  expect(m.slot).toBe(start / SLOT_MS);
-  expect(m.accounts.get("trader")!.debt).toBe(STEP);
+  // nothing waits for the Australian dollar's quote: the slot is settled, and charged once
+  expect(m.slot).toBe(now / SLOT_MS);
+  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96), 8);
   recover = true;
   await m.refresh(now);
   expect(m.slot).toBe(now / SLOT_MS);
-  expect(m.accounts.get("trader")!.debt).toBeCloseTo(STEP * (1 + 0.005 / 96), 8);
+  expect(m.accounts.get("trader")!.debt, "the refreshed quote charges nothing more").toBeCloseTo(STEP * (1 + 0.005 / 96), 8);
 });
 
-it("waits for missing history, then settles a missed bankruptcy before a new trade can open", async () => {
+// The cost of never waiting, accepted for a play-money game (ADR 0097): a crash in a slot the source skipped is carried
+// at the price before it, so an account that the market wiped out in that slot is not stopped out at that slot. It is
+// stopped out when a real price shows the loss, and trading is never held in the meantime.
+it("carries a slot the server slept through, and stops the account out on the first real price that shows the loss", async () => {
   const friday = Date.parse("2026-11-06T10:00:00Z");
   const monday = Date.parse("2026-11-09T10:00:00Z");
   let now = friday;
-  let recover = false;
-  const quotes = new Feed(async (url) => {
-    // Recovery supplies every trading slot, omitting only the Friday 17:00–Sunday 17:00 New York closure.
-    const recovered = Array.from({ length: Math.floor((now - friday) / SLOT_MS) + 1 }, (_, i) => friday + i * SLOT_MS)
-      .filter((time) => time < Date.parse("2026-11-06T22:00:00Z") || time >= Date.parse("2026-11-08T22:00:00Z"));
-    const times = now === friday ? [friday - SLOT_MS]
-      : recover && url.includes("range=1mo") ? recovered
-      : [monday - SLOT_MS];
-    // the Australian dollar halves in the slot after Friday's close: a bankruptcy the server slept through
-    return spark(now / 1000, times.map((t) => t / 1000), (symbol, p, t) => (symbol === "AUDUSD=X" && t * 1000 === friday + SLOT_MS ? p / 2 : p));
+  const quotes = new Feed(async () => {
+    const times = now === friday ? [friday - SLOT_MS] : [monday - SLOT_MS];
+    // the Australian dollar halves after Friday's close and stays there: Monday's real price shows the loss
+    return spark(now / 1000, times.map((t) => t / 1000), (symbol, p, t) => (symbol === "AUDUSD=X" && t * 1000 >= friday + SLOT_MS ? p / 2 : p));
   }, () => now);
-  let releaseNews!: () => void;
   const news = new News(async () => "");
-  news.banks = () => new Promise((resolve) => { releaseNews = () => resolve([]); });
+  news.banks = async () => [];
   const dir = mkdtempSync(join(tmpdir(), "losscut-live-test-"));
   const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
   onTestFinished(() => {
     m.save();
     rmSync(dir, { recursive: true, force: true });
   });
-  const first = m.refresh(now);
-  await expect.poll(() => m.slot).toBe(friday / SLOT_MS);
+  await m.refresh(now);
   expect(m.view("spectator", {}).you.equity).toBe(START);
   expect(m.accounts.has("spectator")).toBe(false);
   expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toBeNull();
-  releaseNews();
-  await first;
-  news.banks = async () => [];
   now = monday;
   await m.refresh(now);
-  expect(m.slot).toBe(friday / SLOT_MS);
-  // the account that was exposed when the market crashed is held until the history is settled
-  expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toMatch(/missing price history/);
-  recover = true;
-  now += 61 * 60_000;
+  expect(m.slot, "Live has moved on over the weekend and the slots it missed").toBe(Math.floor(monday / SLOT_MS));
+  expect(m.view("trader", {}).historyGap, "nobody is held").toBe(false);
+  // Monday's real price is half of Friday's, so the 100x position is stopped out on it, and the account is settled once
+  expect(m.runs.length, "settled once, not twice").toBe(1);
+  expect(m.waits.get("trader")).toBe(nextSydneyMidnight(m.runs[0].ended));
+  expect(m.act("trader", { kind: "buy", leverage: 100 }, now), "and a new account waits for Sydney midnight").toMatch(/./);
   await m.refresh(now);
-  expect(m.runs[0].ended).toBe(friday + SLOT_MS);
-  expect(m.waits.get("trader")).toBe(nextSydneyMidnight(friday + SLOT_MS));
-  expect(m.act("trader", { kind: "buy", leverage: 100 }, now)).toBeNull();
-  expect(m.accounts.get("trader")?.trades).toEqual([]);
+  expect(m.runs.length, "a second refresh settles nothing more").toBe(1);
 });
 
 it("trades again after a sleep longer than the source's month of history, rather than pausing for ever", async () => {
