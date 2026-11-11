@@ -287,18 +287,6 @@ it("keeps ticket exits independent of the open position's exits and preserves a 
   }
 });
 
-// The feed is news and actions only: upcoming releases and their forecasts are not listed over it.
-it("lists no upcoming releases over the feed", async () => {
-  const { dom, w, emit } = await app();
-  try {
-    await emit({ calendar: [{ cur: "USD", kind: "cpi", d: 1, h: 4, outcome: null }] });
-    expect((w.document.getElementById("calendar") as HTMLElement).hidden).toBe(true);
-    expect(w.document.querySelectorAll("#calendar li")).toHaveLength(0);
-  } finally {
-    dom.window.close();
-  }
-});
-
 it("keeps Live account returns and risk marks fixed when the chart changes pairs", async () => {
   const { dom, w, base, emit } = await app();
   try {
@@ -406,7 +394,7 @@ it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", asyn
   }
 });
 
-// Every zone the browser knows is offered, by region, the common few first, so a player anywhere finds their own.
+// Every zone the browser knows is offered, grouped by its offset from UTC, so a player anywhere finds their own.
 it("offers every time zone the browser knows in Settings, by its time with UTC+0 first, and browser time", async () => {
   const { dom, w } = await app();
   try {

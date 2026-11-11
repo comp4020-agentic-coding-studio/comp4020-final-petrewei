@@ -13,8 +13,7 @@ export const baseUrl = inject("baseUrl");
 export const live = new URL(baseUrl).hostname.endsWith(".fly.dev");
 
 export type { Trader, Mode } from "../public/protocol.js";
-import type { Mode, RoundState, StateFor } from "../public/protocol.js";
-export type State = RoundState;
+import type { Mode, StateFor } from "../public/protocol.js";
 
 // The requests a visitor makes, against any server: the app under test
 // here, or a test's own server in test/ (`client(s.base)`).

@@ -128,22 +128,6 @@ it("keeps the indicator switches above the lobby", async () => {
   expect(doc!.querySelectorAll("#studies button")).toHaveLength(3);
 });
 
-// A module the page imports but the server doesn't serve leaves a blank
-// market, and every other check passes: so each import must answer.
-it("serves every module a page script imports", async () => {
-  const { readFileSync, readdirSync } = await import("node:fs");
-  const imports = new Set<string>();
-  for (const f of readdirSync("public").filter((n) => n.endsWith(".js"))) {
-    for (const m of readFileSync(`public/${f}`, "utf8").matchAll(/^import [^;]* from "(\/[^"]+)";/gm)) imports.add(m[1]);
-  }
-  expect(imports.size).toBeGreaterThanOrEqual(5);
-  for (const path of imports) {
-    const res = await fetch(new URL(path, baseUrl));
-    expect(res.status, path).toBe(200);
-    expect(res.headers.get("content-type"), path).toMatch(/javascript/);
-  }
-});
-
 // Prose flows and wraps as the page allows, never mid-word: Japanese and
 // Chinese break at phrases and keep 。、ー off a line's start, and the
 // About page names the game by its full title in each language.

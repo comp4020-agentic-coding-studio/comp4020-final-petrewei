@@ -13,17 +13,14 @@ it("starts a new visitor at the first lesson, alone", async () => {
   expect(s.traders).toEqual([]);
 });
 
-// The tutorial rests stopped until Play, as a disc does; these play it first. An older server has no
-// Play and refuses it as unknown, but is playing already, so the checks below hold on both.
+// The tutorial rests stopped until Play, as a disc does; these play it first.
 const play = async (cookie: string): Promise<void> => {
   await attempt({ mode: "tutorial", kind: "play" }, cookie);
 };
 
 it("waits stopped for Play, and says so to a move made before it", async () => {
   const me = await visitor();
-  const state0 = (await state(me, "tutorial")) as unknown as { transport?: string };
-  if (state0.transport === undefined) return; // a server from before the transport
-  expect(state0.transport).toBe("stopped");
+  expect((await state(me, "tutorial")).transport).toBe("stopped");
   const res = await attempt({ mode: "tutorial", kind: "next" }, me);
   expect(res.status).toBe(409);
   expect((await res.json()).error).toMatch(/Press Play/);

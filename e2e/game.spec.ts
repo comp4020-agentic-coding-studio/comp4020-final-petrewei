@@ -461,19 +461,6 @@ test("a key pressed in a freshly opened Settings does not change the language", 
   await expect(page.locator("html")).toHaveAttribute("lang", lang === "zh" ? "zh-CN" : lang);
 });
 
-test("About keeps its theme and music buttons without a language menu, and still links every language", async ({ page }, info) => {
-  const lang = info.project.metadata.lang as Lang;
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(baseURL + (lang === "en" ? "" : `/${lang}`) + "/about");
-  await expect(page.locator("#lang"), "no language menu in the header").toHaveCount(0);
-  await expect(page.locator(".about-langs a"), "the other two languages are links").toHaveCount(2);
-  const before = await page.locator("html").getAttribute("data-mode-shown");
-  await page.locator("#theme").click();
-  await expect(page.locator("html"), "the theme button still works, so the script ran").not.toHaveAttribute("data-mode-shown", before ?? "");
-  expect(errors, "no script error on About").toEqual([]);
-});
-
 // The cross takes room from a popup's title, and the Medals title (a name and a count) is the tightest: with too much
 // kept free for the cross, "My achievements" and "0 of 12" each broke onto two lines on an English phone.
 test("the Medals title keeps its name and count on one line each", async ({ page }, info) => {

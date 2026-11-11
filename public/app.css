@@ -655,14 +655,6 @@ th:first-child, td:first-child { text-align: left; }
    busy round, never pushes the panels below. */
 #feed { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.7rem; font-size: 0.85rem; height: 15rem; overflow: auto; }
 /* the latest market news stays at the top, marked, so a headline is never buried under chatter */
-/* Random's economic calendar (ADR 0085): a short list over the feed, upcoming releases plain, told ones coloured
-   by whether they lifted or sank their currency. */
-.calendar { margin: 0; padding: 0.4rem 0.9rem; list-style: none; border-bottom: 1px solid var(--line); background: var(--raise); font-size: 0.8rem; }
-.calendar[hidden] { display: none; }
-.calendar li { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.5rem; padding: 0.15rem 0; align-items: baseline; }
-.calendar .when { font: 0.76rem var(--mono); color: var(--muted); white-space: nowrap; }
-.calendar .upcoming .what { color: var(--soft); }
-.calendar .told .what { color: var(--ink); }
 #feed li.pinned { position: sticky; top: -0.4rem; z-index: 1; margin: -0.4rem -0.9rem 0.2rem; padding: 0.35rem 0.9rem; background: var(--raise); border-bottom: 1px solid var(--line); white-space: normal; }
 #feed li { padding: 0.15rem 0; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #feed .ico { display: inline-block; width: 1.4rem; text-align: center; }
@@ -1135,7 +1127,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .what-if li.yours { font-weight: 800; }
 .what-if li em { font: italic 400 0.75rem var(--sans, inherit); color: var(--muted); }
 /* Live (ADR 0087): a market with no round, so no lobby, praying or round controls; the board in the room's place,
-   the account's other pairs under the position, and the real calendar. A pending order works per pair, as a click. */
+   the account's other pairs under the position. A pending order works per pair, as a click. */
 body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
 .board { list-style: none; margin: 0; padding: 0.3rem 0.9rem; display: grid; gap: 0.25rem; }
 .board li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; min-width: 0; }

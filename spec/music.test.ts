@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { baseUrl } from "./helpers.ts";
+import { baseUrl, live } from "./helpers.ts";
 
 // The optional background music (ADR 0020). The track is served as the
 // file's exact bytes, in ranges, so playback starts before the whole
@@ -16,7 +16,7 @@ it("serves the track as audio, byte for byte", async () => {
   const body = new Uint8Array(await res.arrayBuffer());
   // a valid MP4 file starts with its ftyp box
   expect(new TextDecoder().decode(body.slice(4, 8))).toBe("ftyp");
-  if (!baseUrl.includes("fly.dev")) expect(body.length).toBe(readFileSync("public/audio/bgm.m4a").length);
+  if (!live) expect(body.length).toBe(readFileSync("public/audio/bgm.m4a").length);
 });
 
 it("serves a range, so playback starts and seeks without the whole file", async () => {

@@ -191,7 +191,9 @@ it("tags each action and its request with one ID, readably, on stdout", async ()
   await open(30);
   await act(a, { kind: "buy", leverage: 3 });
   await act(a, { kind: "sell", leverage: 7 });
-  await new Promise((r) => setTimeout(r, 200));
+  // the server writes its log a moment after it answers: wait for the line rather than a fixed time
+  await expect.poll(() => s.out.some((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l))).toBe(true);
+  await expect.poll(() => s.out.some((l) => /\] POST \/api\/act 409 \d+ms/.test(l))).toBe(true);
   const opened = s.out.find((l) => / open who=[0-9a-f]{6} /.test(l) && /side=buy/.test(l));
   expect(opened, s.out.join("\n")).toMatch(/^\[[0-9a-f]{6}\] open who=[0-9a-f]{6} name=[A-Z][a-z]+ mode=rewind .*side=buy leverage=3/);
   const id = opened!.slice(1, 7);

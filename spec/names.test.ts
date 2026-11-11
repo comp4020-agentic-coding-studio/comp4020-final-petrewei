@@ -101,8 +101,7 @@ it.skipIf(live)("says a newcomer is not yet named, until they choose a name", as
   expect((await post(me, { name: `Newbie ${Math.random().toString(36).slice(2, 7)}` })).status).toBe(200);
   expect((await state(me)).you.named).toBe(true);
 });
-it("saves the name a newcomer keeps from the box, even their dealt one", async () => {
-  if (live) return;
+it.skipIf(live)("saves the name a newcomer keeps from the box, even their dealt one", async () => {
   // A dealt name is one of a few hundred, so another visitor on this server may already
   // hold it, and the server rightly refuses; the next visitor is dealt another.
   for (let tries = 0; tries < 30; tries++) {

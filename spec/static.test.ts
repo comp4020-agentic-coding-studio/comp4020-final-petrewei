@@ -42,9 +42,9 @@ it("tells a reload that already has a script it is unchanged, and never keeps a 
   expect(page.headers.etag).toBeUndefined();
 });
 
-// Every module a page imports, and every module those import, is served: a script left off the server's list would
-// break the page that loads it. The tips are among them (ADR 0025).
-it("serves every module the pages import", async () => {
+// Every module a page imports, and every module those import, is served as a script: a module left off the server's
+// list leaves a blank market while every other check passes. The tips are among them (ADR 0025).
+it("serves every module the pages import, as JavaScript", async () => {
   const { readFileSync } = await import("node:fs");
   const seen = new Set<string>();
   const queue = ["app.js", "about-controls.js"];
@@ -55,5 +55,9 @@ it("serves every module the pages import", async () => {
     for (const [, dep] of readFileSync(`public/${file}`, "utf8").matchAll(/^\s*import[^"']*["']\.?\/([\w-]+\.js)["']/gm)) queue.push(dep);
   }
   expect(seen.has("tips.js")).toBe(true);
-  for (const file of seen) expect((await raw(`/${file}`)).status, file).toBe(200);
+  for (const file of seen) {
+    const res = await raw(`/${file}`);
+    expect(res.status, file).toBe(200);
+    expect(String(res.headers["content-type"]), file).toMatch(/javascript/);
+  }
 });

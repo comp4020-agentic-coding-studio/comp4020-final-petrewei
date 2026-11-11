@@ -250,7 +250,7 @@ describe("the live feed", () => {
     expect(quotes.live(["GBP/USD"]), "two hours stale is an outage").toBe(false);
   });
 
-  it("requires intermediate quotes for the account's currencies, even when another currency has the slot", async () => {
+  it("carries a hole in one currency's quotes from the price before it, rather than waiting for it", async () => {
     const start = Date.parse("2026-11-04T10:00:00Z") / 1000;
     const answer = spark(start + 2700, [start, start + 900, start + 1800]);
     const pound = answer.spark.result.find((row) => row.symbol === "GBPUSD=X")!;

@@ -80,16 +80,16 @@ describe("times", () => {
       expect(seen.size, "and nothing else is listed").toBe(cities().length);
     });
 
-    it("puts UTC+0 first, then the east, then the west, and names no common zones on top", async () => {
+    it("puts UTC+0 first, then the east, then the west, with every group named by its offset", async () => {
       const { zoneGroups } = await import("../public/format.js");
       const heads = [...zoneGroups(winter).keys()];
+      for (const h of heads) expect(h, "every group is an offset, with no common-zones group").toMatch(/^UTC[+-]\d+(?::\d+)?$/);
       expect(heads[0], "the list begins at UTC+0").toBe("UTC+0");
       const minutes = heads.map((h) => { const m = h.match(/^UTC([+-])(\d+)(?::(\d+))?$/)!; return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)); });
       const east = minutes.filter((m) => m > 0), west = minutes.filter((m) => m < 0);
       expect(minutes[0]).toBe(0);
       expect(minutes.slice(1, 1 + east.length), "then the east, nearest first").toEqual([...east].sort((a, b) => a - b));
       expect(minutes.slice(1 + east.length), "then the west, nearest first").toEqual([...west].sort((a, b) => b - a));
-      expect(heads, "no unnamed group of common zones").not.toContain("");
     });
 
     it("gives every city in a group the same offset at that moment, and labels it by its city alone", async () => {

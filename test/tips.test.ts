@@ -72,7 +72,6 @@ it("draws each prop as a 16-by-16 grid of known colours, as pixels only", () => 
 // toggle, the stop loss on the left and the take profit on the right, over
 // one joined track with a thumb for each. Both are always shown, grey when
 // their toggle is off, and show a percentage only.
-const appCss = readFileSync("public/app.css", "utf8");
 it("gives the stop loss and the take profit a toggle each, one on the left and one on the right, over one joined track", () => {
   const exits = page.querySelector("#exits")!;
   expect(exits).not.toBeNull();
@@ -382,7 +381,6 @@ it("offers credit only to a broke player with room on the line, when the server 
 // all three languages. How it behaves is checked in a browser, not by reading
 // the page's source.
 const lessonHtml = marketIn("en");
-const lessonApp = readFileSync("public/app.js", "utf8");
 it("puts the lesson in the chart's box, with the words on the left, and four transport keys drawn as shapes", () => {
   const doc = new JSDOM(lessonHtml).window.document;
   const card = doc.getElementById("lesson")!;
@@ -545,9 +543,3 @@ it("puts ESMA's real odds under the bell's leverage replay, in every language", 
   for (const lang of LANGS) expect(T[lang].ui.whatIfOdds, lang).toMatch(/74\s?[–〜-]\s?89\s?%/);
 });
 
-// Live shows no release calendar (its feed is news and trades alone), so the page keeps no list for one and no words
-// for its figures: they would be a promise of a feature that is not there.
-it("keeps no list or words for a release calendar Live no longer shows", () => {
-  expect(page.querySelector("#real-calendar"), "no list for Live's calendar").toBeNull();
-  for (const lang of LANGS) for (const key of ["calActual", "calForecast", "calPrevious"]) expect(T[lang].ui, `${lang}.${key}`).not.toHaveProperty(key);
-});

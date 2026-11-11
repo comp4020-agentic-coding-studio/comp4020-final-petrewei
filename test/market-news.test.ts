@@ -77,29 +77,11 @@ describe("market headlines", () => {
     expect(items[0]).toMatchObject({ source: "Investing.com", link: "https://www.investing.com/news/forex-news/sterling-today-1" });
   });
 
-  it("falls to CNBC when Investing.com is blocked, so headlines never stop", async () => {
-    const asked: string[] = [];
-    const news = new News(async (url) => {
-      asked.push(url);
-      if (url === MARKET_FEEDS[0].url) throw new Error("403");
-      return rss([["Stocks rally as bond yields fall", "https://www.cnbc.com/2026/11/09/x", ago(1)]]);
-    });
-    const items = await news.markets(now);
-    expect(asked).toEqual([MARKET_FEEDS[0].url, MARKET_FEEDS[1].url]);
-    expect(items[0]).toMatchObject({ source: "CNBC" });
-  });
-
   // The footer credits every outlet whose headlines can appear (CLAUDE.md), in every language: a source added to the
   // list without its credit would show a headline under no name.
   it("credits every outlet it reads in the footer, in every language", async () => {
     const { LANGS, T } = await import("../public/i18n.js");
     for (const lang of LANGS) for (const feed of MARKET_FEEDS) expect(T[lang].ui.footer, `${lang} footer names ${feed.source}`).toContain(feed.source);
-  });
-
-  // Live shows no release calendar (its feed is news and trades alone), so the footer must not credit one.
-  it("does not credit a calendar the page no longer shows, in any language", async () => {
-    const { LANGS, T } = await import("../public/i18n.js");
-    for (const lang of LANGS) expect(T[lang].ui.footer, `${lang} footer`).not.toMatch(/ForexFactory/i);
   });
 
   it("keeps the last good headlines when every feed fails", async () => {

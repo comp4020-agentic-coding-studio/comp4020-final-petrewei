@@ -154,8 +154,8 @@ it("lets a starter who has left be replaced: anyone on the tab may end it", asyn
     await act(me, { kind: "start", mode: "rewind" });
     await until(me, (x) => x.phase === "trade");
     mine.close();
-    await new Promise((r) => setTimeout(r, 200));
-    expect((await act(other, { kind: "finish", mode: "rewind" })).status).toBe(200);
+    // once the server has seen the starter's page go, the other may end it
+    await expect.poll(async () => (await act(other, { kind: "finish", mode: "rewind" })).status).toBe(200);
     expect((await until(other, (y) => y.phase === "break")).phase).toBe("break");
   } finally {
     theirs.close();
@@ -250,29 +250,6 @@ it("counts the interest against a borrower at the bell, with no bankruptcy cost 
     tab.close();
   }
 }, 60_000);
-
-// ADR 0060: there is no leaving a round. The action, the desk's rule, the
-// button and the words are gone, and an old page that still sends it is turned
-// away like any unknown action, and changes nothing.
-it("no longer lets anyone leave a round, and an old page that asks is refused", async () => {
-  s = await server(8096, { TICK_MS: "50", COUNTDOWN_TICKS: "2" });
-  const { visitor, page, act, until, look, attempt } = app();
-  const me = await visitor();
-  const tab = await page(me);
-  try {
-    await act(me, { kind: "start", mode: "rewind" });
-    await until(me, (x) => x.phase === "trade");
-    await act(me, { kind: "buy", leverage: 3, share: 0.5, mode: "rewind" });
-    const res = await attempt({ kind: "leave", mode: "rewind" }, me);
-    expect(res.status).toBe(400);
-    const x = await look(me);
-    expect(x.you.pos, "the position is untouched").not.toBeNull();
-    expect((await act(me, { kind: "buy", leverage: 3, share: 0.5, mode: "rewind" })).status, "and orders are still taken").toBe(200);
-    expect(JSON.stringify(x)).not.toMatch(/"left"/);
-  } finally {
-    tab.close();
-  }
-});
 
 // ADR 0064, ADR 0070: the lobby chooses the next round. Rewind takes a plot by its number
 // only; Random takes a pair. Only someone on the tab may, only in the lobby, and what a

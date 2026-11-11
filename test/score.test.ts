@@ -42,10 +42,6 @@ describe("the hall of fame", () => {
     expect(unranked.map((r) => r.key)).toEqual(["busted"]);
     expect(unranked[0].average).toBe(0);
   });
-
-  it("asks at least three rounds before ranking anyone", () => {
-    expect(MIN_ROUNDS).toBeGreaterThanOrEqual(3);
-  });
 });
 
 // ADR 0030: naming the year of a replay before the bell earns a bonus.

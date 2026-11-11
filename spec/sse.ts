@@ -1,5 +1,5 @@
 // Reading a server-sent event stream: each `data:` line, parsed. Plain
-// TypeScript with no test framework, so scripts/load.ts can use it too.
+// TypeScript with no test framework, shared by spec/ and test/.
 export type Event = Record<string, unknown>;
 
 export type Listener = {
@@ -61,10 +61,4 @@ export function listen(body: ReadableStream<Uint8Array>): Listener {
       }
     },
   };
-}
-
-// Every event, in order, until the stream closes.
-export async function* events(body: ReadableStream<Uint8Array>): AsyncGenerator<Event> {
-  const stream = listen(body);
-  for (let e = await stream.next(() => true); e; e = await stream.next(() => true)) yield e;
 }
