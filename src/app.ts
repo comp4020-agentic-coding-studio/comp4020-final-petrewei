@@ -587,6 +587,9 @@ export function createApp(options: AppOptions = {}) {
       // Duels (ADR 0095): a challenge from one person to another in the room, by who was challenged, and the pairs who
       // accepted, compared at the bell on the round's own score. Set up again with each round.
       challenges = new Map<string, string>();
+      // the rematches asked for at the bell, to whom from whom, and those both asked for, for the next round
+      rematches = new Map<string, string>();
+      agreed: [string, string][] = [];
       duels: [string, string][] = [];
       // Each trader's guess at a rewind's year, private until the bell.
       guesses = new Map<string, number>();
@@ -803,14 +806,18 @@ export function createApp(options: AppOptions = {}) {
         return this.duels.some(([a, b]) => a === who || b === who);
       }
       // Challenge another person in the room to a duel over this round (ADR 0095), before the bell.
-      // At the bell, the only challenge is a rematch: the two who just duelled, for the next round.
+      // At the bell, the only challenge is a rematch: either of two who just duelled, for the next round.
       challenge(who: string, code: unknown): string | null {
         const them = this.personHere(code);
         if (this.phase === "break") {
-          const rematch = them && this.result?.duels?.some((d) => d.keys.includes(key(who)) && d.keys.includes(key(them)));
-          if (!rematch) return "The round is over. Challenge someone in the next.";
-          if (this.challenges.get(them) === who) return null;
-          this.challenges.set(them, who);
+          const duelled = them && them !== who && this.result?.duels?.some((d) => d.keys.includes(key(who)) && d.keys.includes(key(them)));
+          if (!duelled) return "The round is over. Challenge someone in the next.";
+          if (this.rematches.get(them) === who) return null;
+          // both asked: a rematch is agreed, and is a duel as soon as the next lobby opens
+          if (this.rematches.get(who) === them) {
+            this.rematches.delete(who);
+            this.agreed.push([them, who]);
+          } else this.rematches.set(them, who);
           this.say(`${nameOf(who)} wants a rematch with ${nameOf(them)}.`, "info", "rematch", { who: short(who), them: short(them) });
           return null;
         }
@@ -836,10 +843,12 @@ export function createApp(options: AppOptions = {}) {
       // The bell is over and the room goes back to the lobby: duels were for the round just played, so they go with it
       // (ADR 0095); a duel made in the lobby stays for the round it was made for, however the lobby is redrawn.
       afterBell(): void {
-        // a rematch offered at the bell waits in the next lobby; any other challenge goes with the round
-        const rematches = [...this.challenges].filter(([them, from]) => this.result?.duels?.some((d) => d.keys.includes(key(them)) && d.keys.includes(key(from))));
-        this.challenges = new Map(rematches);
-        this.duels = [];
+        // a rematch offered at the bell waits in the next lobby, and one both asked for is a duel already; any other
+        // challenge goes with the round
+        this.challenges = this.rematches;
+        this.duels = this.agreed;
+        this.rematches = new Map();
+        this.agreed = [];
         this.ready();
       }
 
@@ -1007,6 +1016,8 @@ export function createApp(options: AppOptions = {}) {
         this.result.duels = duels;
         log(null, "end", { mode: this.mode, ranking: ranking.map((r) => [short(r.who), r.net]) });
         this.phase = "break";
+        this.rematches = new Map();
+        this.agreed = [];
         this.breakLeft = BREAK_TICKS;
         this.breakElapsed = 0;
       }
@@ -1236,8 +1247,9 @@ export function createApp(options: AppOptions = {}) {
           })(),
           // the rematch you offered at the bell, by the other's short code, so your page shows it sent
           rematch: (() => {
-            const asked = this.phase === "break" && [...this.challenges].find(([, from]) => from === who);
-            return asked ? short(asked[0]) : null;
+            if (this.phase !== "break") return null;
+            const asked = [...this.rematches].find(([, from]) => from === who) ?? this.agreed.find((pair) => pair.includes(who));
+            return asked ? short(asked[0] === who ? asked[1] : asked[0]) : null;
           })(),
           result: this.result && { ...this.result, duels: this.result.duels?.map(({ keys, ...d }) => ({ ...d, you: keys.includes(me) })), debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
           career: hallFor(me, shared.hall),

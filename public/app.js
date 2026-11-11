@@ -1154,6 +1154,18 @@ function botLine(p) {
   return line;
 }
 const lastLine = new Map();
+// Say a line to a screen reader. Lines in one moment are joined, so a margin call is not overwritten by the stop-out
+// after it; a new moment empties the region a frame before it writes, so the same words twice are said twice.
+let saying = [];
+function announce(text) {
+  saying.push(text);
+  if (saying.length > 1) return;
+  $("announce").textContent = "";
+  requestAnimationFrame(() => {
+    $("announce").textContent = saying.join(" ");
+    saying = [];
+  });
+}
 function popText(p) {
   const said = botLine(p);
   if (said) return p.kind === "close" ? `${said} ${p.pnl >= 0 ? "+" : ""}${cash(p.pnl)}` : said;
@@ -1183,7 +1195,7 @@ function effects(s, price) {
       if (p.n <= popped) continue;
       // your own moments have a sound, when sound is on (ADR 0083)
       if (p.who === s.you.code) sound(p.kind === "close" ? (p.pnl > 0 ? "win" : "fill") : p.kind === "call" ? "call" : p.kind === "stopout" || p.kind === "zerocut" ? "cut" : "fill");
-      if (p.who === s.you.code) $("announce").textContent = popText(p).replace(/[\p{Extended_Pictographic}\uFE0F]/gu, "").trim();
+      if (p.who === s.you.code) announce(popText(p).replace(/[\p{Extended_Pictographic}\uFE0F]/gu, "").trim());
       const at = popAt(p, s);
       if (!at) continue;
       // Your own losscut has the full-screen stamp; a bubble would only cover it.
@@ -1311,7 +1323,7 @@ function renderRoom(s) {
       return li;
     }),
   );
-  if (focused) list.querySelector(`li[data-id="${CSS.escape(focused)}"][tabindex]`)?.focus();
+  if (focused) list.querySelector(`li[data-id="${CSS.escape(focused)}"][tabindex]`)?.focus({ preventScroll: true });
   // a challenge made to you, with its Accept, or the duel you are in
   $("duel").hidden = !duel;
   if (duel) {
@@ -1587,7 +1599,7 @@ function render(s) {
   // earlier lesson leaves only older lines, the tail of what was shown, and says nothing.
   const mine = s.feed.filter((f) => f.key.startsWith("you-"));
   const seen = mine.map((f) => f.text).join("\n");
-  if (lastMine !== undefined && mine.length && seen !== lastMine && !lastMine.endsWith(seen)) $("announce").textContent = news(lang, mine[0], nameOf);
+  if (lastMine !== undefined && mine.length && seen !== lastMine && !lastMine.endsWith(seen)) announce(news(lang, mine[0], nameOf));
   lastMine = seen;
   // The hall of fame changes only on busts and at the bell.
   const famed = JSON.stringify(s.career);
@@ -1733,6 +1745,7 @@ function watch(next) {
   cuts = null;
   bankrupt = null;
   popped = null;
+  lastMine = undefined;
   creditOffered = false;
   $("error").textContent = "";
   transport.start(mode);

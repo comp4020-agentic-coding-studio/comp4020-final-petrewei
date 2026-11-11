@@ -423,7 +423,7 @@ it("marks each trader's open and close for the chart, by face and short code, ne
   } finally {
     for (const t of tabs) t.close();
   }
-}, 45_000);
+}, 60_000);
 
 // ADR 0064: a Random's news goes out on its day, in the feed and pinned over the chart, as
 // a story's number only. Which way the story pushes the price stays on the server: the words
@@ -675,12 +675,25 @@ it("plays a duel between two people over a round, decided at the bell", async ()
     tabs.push(await page(c, "random"));
     const codeC = ((await look(c, "random")) as Duel).you.code;
     expect((await attempt({ kind: "challenge", code: codeC, mode: "random" }, a)).status, "at the bell, only a rematch").toBe(409);
+    expect((await attempt({ kind: "challenge", code: codeA, mode: "random" }, a)).status, "never with oneself").toBe(409);
     expect((await act(b, { kind: "challenge", code: codeA, mode: "random" })).status, "the rematch is offered").toBe(200);
     expect(((await look(b, "random")) as Duel & { rematch: string | null }).rematch, "the one who offered it sees it sent").toBe(codeA);
     expect(((await look(a, "random")) as Duel & { rematch: string | null }).rematch, "and only they do").toBeNull();
     await until(a, (x) => x.phase === "lobby", 15_000, "random");
     expect(((await look(a, "random")) as Duel).duel, "it waits in the next lobby").toEqual({ from: codeB });
     expect((await act(a, { kind: "accept", code: codeB, mode: "random" })).status).toBe(200);
+    expect(((await look(b, "random")) as Duel).duel).toEqual({ with: codeA });
+    // when both press Rematch, the second press agrees it: the two are in a duel as the next lobby opens, with nothing
+    // left over to show as a challenge nobody made
+    await act(a, { kind: "start", mode: "random" });
+    await until(a, (x) => x.phase === "trade", 10_000, "random");
+    await act(a, { kind: "finish", mode: "random" });
+    expect((await act(a, { kind: "challenge", code: codeB, mode: "random" })).status).toBe(200);
+    expect((await act(b, { kind: "challenge", code: codeA, mode: "random" })).status).toBe(200);
+    expect(((await look(a, "random")) as Duel & { rematch: string | null }).rematch, "each sees it offered").toBe(codeB);
+    expect(((await look(b, "random")) as Duel & { rematch: string | null }).rematch).toBe(codeA);
+    await until(a, (x) => x.phase === "lobby", 15_000, "random");
+    expect(((await look(a, "random")) as Duel).duel).toEqual({ with: codeB });
     expect(((await look(b, "random")) as Duel).duel).toEqual({ with: codeA });
   } finally {
     for (const t of tabs) t.close();

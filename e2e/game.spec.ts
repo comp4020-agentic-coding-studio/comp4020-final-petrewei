@@ -404,6 +404,13 @@ test("goes straight to any lesson from the lesson list, and back", async ({ page
   await expect(pick).toHaveValue("4");
   await pick.selectOption("1");
   await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, LESSONS[1].id));
+  // a keyboard arrows to a lesson without moving there, and goes with Enter
+  await pick.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("#lesson-title"), "arrowing does not move").toHaveText(lessonTitle(lang, LESSONS[1].id));
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, LESSONS[3].id));
   await expect(page.locator("#error")).toHaveText("");
 });
 

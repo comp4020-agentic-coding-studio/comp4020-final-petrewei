@@ -324,9 +324,14 @@ export class Tutorial {
       this.restore(at);
       return null;
     }
+    // all or nothing: a lesson between that would not finish leaves the player where they were
+    const from = this.index;
     while (this.index < at) {
       const failed = this.skip();
-      if (failed) return failed;
+      if (failed) {
+        this.restore(from);
+        return failed;
+      }
     }
     return null;
   }

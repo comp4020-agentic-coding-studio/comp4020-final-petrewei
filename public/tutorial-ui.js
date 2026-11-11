@@ -22,7 +22,16 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   $("lesson-play").onclick = () => transportOf(playing() ? "pause" : "play")();
   $("lesson-stop").onclick = transportOf("stop");
   $("lesson-skip").onclick = () => act("skip");
-  $("lesson-n").onchange = (e) => act("lesson", { at: Number(/** @type {HTMLSelectElement} */ (e.target).value) });
+  // A closed select fires change on every arrow key in some browsers, which would skip a lesson a keypress: a keyboard
+  // chooses with Enter, and a pointer or a picker that closes on a choice with change.
+  const pickLesson = () => act("lesson", { at: Number(/** @type {HTMLSelectElement} */ ($("lesson-n")).value) });
+  let arrowed = false;
+  $("lesson-n").onkeydown = (e) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") arrowed = true;
+    if (e.key === "Enter" && arrowed) (e.preventDefault(), (arrowed = false), pickLesson());
+  };
+  $("lesson-n").onchange = () => !arrowed && pickLesson();
+  $("lesson-n").onblur = () => (arrowed = false);
   // Previous, as on a disc: once starts this lesson over, twice within two seconds goes to the one before.
   let lastBack = 0;
   $("lesson-back").onclick = () => {
@@ -83,7 +92,8 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
     if ([...pick.options].map((o) => o.text).join("\n") !== labels.join("\n")) {
       pick.replaceChildren(...labels.map((text, i) => Object.assign(document.createElement("option"), { value: String(i), text, disabled: i === l.all.length })));
     }
-    pick.value = String(l.finished ? l.all.length : l.n - 1);
+    // never under a player choosing in it
+    if (document.activeElement !== pick) pick.value = String(l.finished ? l.all.length : l.n - 1);
     pick.disabled = transport === "stopped";
     $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
     $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
