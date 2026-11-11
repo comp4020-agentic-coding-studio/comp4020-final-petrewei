@@ -203,3 +203,23 @@ it("keeps the chosen face on Tutorial and on its hall of fame", async () => {
     tab.close();
   }
 });
+
+it("uses the bundled Random rates when the provider returns a non-numeric rate", async () => {
+  s = await server(8190, {
+    TICK_MS: "20", COUNTDOWN_TICKS: "1", CHOOSE_MS: "0",
+    ...preload('globalThis.fetch = async () => ({ ok: true, json: async () => ({ date: "2026-10-30", rates: { USD: 2, JPY: "200" } }) });'),
+  });
+  const c = client(s.base);
+  const me = await c.visitor();
+  const tab = await c.page(me, "random");
+  try {
+    await c.act(me, { kind: "choose", what: "USD/JPY", mode: "random" });
+    expect((await c.act(me, { kind: "start", mode: "random" })).status).toBe(200);
+    expect(await tab.next((event) => event.phase === "trade", 2000)).not.toBeNull();
+    await c.act(me, { kind: "finish", mode: "random" });
+    const bell = await c.state(me, "random") as unknown as { result: { facts: { source: string } } };
+    expect(bell.result.facts.source).toBe("ECB, bundled");
+  } finally {
+    tab.close();
+  }
+});

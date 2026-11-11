@@ -32,7 +32,7 @@ import { Live } from "./live.ts";
 import { systemClock, type Clock, type Timer } from "./clock.ts";
 import { Feed } from "./feed.ts";
 import type { News } from "./news.ts";
-import { jsonStorage, type Storage } from "./storage.ts";
+import { finite, jsonStorage, record as isRecord, type Storage } from "./storage.ts";
 import { namesValid, migrateNames, facesValid, careerValid } from "./saved.ts";
 import { Mcp } from "./mcp.ts";
 
@@ -422,7 +422,7 @@ export function createApp(options: AppOptions = {}) {
     // Today's real rates for live rounds (ADR 0085): fetched again when a Random round is set up and the last fetch is
     // ten minutes old, so a refresh brings the latest; a failed fetch is tried again after a minute rather than an hour.
     // Without them, the newest ECB row in the bundled history.
-    let today: { date: string; rates: Record<string, number> } | null = null;
+    let today: { date: string; rates: Record<string, unknown> } | null = null;
     let fetched = 0;
     let failed = 0;
     let refreshing: Promise<void> | null = null;
@@ -435,9 +435,12 @@ export function createApp(options: AppOptions = {}) {
         try {
           const res = await fetchRates("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,JPY,GBP,CHF,AUD,CNY", { signal: AbortSignal.timeout(5_000) });
           if (!res.ok) throw new Error(`rates returned HTTP ${res.status}`);
-          const data = (await res.json()) as { date: string; rates: Record<string, number> };
+          const data: unknown = await res.json();
           if (stopped) return;
-          today = { date: data.date, rates: { EUR: 1, ...data.rates } };
+          if (!isRecord(data) || !isRecord(data.rates) || typeof data.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+            throw new Error("Invalid latest-rate response");
+          }
+          today = { date: data.date, rates: { ...data.rates, EUR: 1 } };
           fetched = clock.now();
           log(null, "rates", { date: data.date });
         } catch (error) {
@@ -450,7 +453,14 @@ export function createApp(options: AppOptions = {}) {
     }
     function todayRate(pair: AnyPair): { rate: number; date: string; source: string } {
       const [base, quote] = pair.split("/");
-      if (today && today.rates[base] && today.rates[quote]) return { rate: today.rates[quote] / today.rates[base], date: today.date, source: "Frankfurter (ECB and central banks)" };
+      if (today) {
+        const from = today.rates[base];
+        const to = today.rates[quote];
+        if (finite(from) && from > 0 && finite(to) && to > 0) {
+          const rate = to / from;
+          if (finite(rate) && rate > 0) return { rate, date: today.date, source: "Frankfurter (ECB and central banks)" };
+        }
+      }
       const day = history.latest(pair);
       return { rate: day.rate, date: day.date, source: "ECB, bundled" };
     }
@@ -1427,6 +1437,7 @@ export function createApp(options: AppOptions = {}) {
     // told no in a few bytes, and it is sent gzipped, worked out once, to a browser that takes it.
     const packed = new Map<string, { tag: string; gz: Buffer }>();
     const send = (res: ServerResponse, [content, type]: [string, string], req?: IncomingMessage): void => {
+      if (type === HTML) res.setHeader("content-security-policy", pagePolicy);
       if (type === HTML || !req) {
         res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
         return void res.end(content);
@@ -1580,6 +1591,24 @@ export function createApp(options: AppOptions = {}) {
       "/log": [read("public/log.html"), HTML],
       "/log.js": [read("public/log.js"), "text/javascript; charset=utf-8"],
     };
+    // Only the theme bootstrap and the log's module loader run inline.
+    const scriptHashes = [...LOG_PAGES["/log"][0].matchAll(/<script(?: type="module")?>([\s\S]*?)<\/script>/g)]
+      .map(([, script]) => "'sha256-" + createHash("sha256").update(script).digest("base64") + "'");
+    const pagePolicy = [
+      "default-src 'self'",
+      "script-src 'self' " + scriptHashes.join(" "),
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob:",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; ");
+    // The production image is served through Fly's HTTPS proxy.
+    const production = env.NODE_ENV === "production";
+    const secureCookie = production ? "; Secure" : "";
+
     const equalSecret = (a: string, b: string): boolean => {
       const x = Buffer.from(a);
       const y = Buffer.from(b);
@@ -1610,16 +1639,16 @@ export function createApp(options: AppOptions = {}) {
       const cookies: string[] = [];
       if (!who) {
         who = randomUUID();
-        cookies.push(`v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
+        cookies.push(`v=${who}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${secureCookie}`);
       }
       // ?debug=KEY turns debug mode on for this visitor; ?debug=off turns it off.
       let debug = debugging(req, who);
       if (req.method === "GET" && url.searchParams.has("debug")) {
         if (url.searchParams.get("debug") === "off") {
-          cookies.push("dbg=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+          cookies.push(`dbg=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict${secureCookie}`);
           debug = false;
         } else if (equalSecret(url.searchParams.get("debug") ?? "", STATS_KEY)) {
-          cookies.push(`dbg=${debugToken(who)}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict`);
+          cookies.push(`dbg=${debugToken(who)}; Path=/; Max-Age=86400; HttpOnly; SameSite=Strict${secureCookie}`);
           debug = true;
           log(who, "debug", { action: "on" });
         }
@@ -1636,6 +1665,7 @@ export function createApp(options: AppOptions = {}) {
       if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [PAGES[url.pathname][0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
       if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
       if (path === "/mcp") {
+        res.setHeader("cache-control", "no-store");
         const message = req.method === "POST" ? await readJson(req, 64 * 1024, "null").catch(() => undefined) : null;
         if (req.method === "POST" && message === undefined) return json(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error." } });
         const session = req.headers["mcp-session-id"];
@@ -1809,6 +1839,9 @@ export function createApp(options: AppOptions = {}) {
     // they finish, with status, time and who sent them; page loads and the
     // event stream are left out, as noise.
     const http = createServer((req, res) => {
+      res.setHeader("referrer-policy", "no-referrer");
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("x-frame-options", "DENY");
       const id = randomBytes(3).toString("hex");
       const began = performance.now();
       if (req.method === "POST") {

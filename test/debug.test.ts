@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, expect, it } from "vitest";
 import { client } from "../spec/helpers.ts";
 import { type Server, server } from "./server.ts";
@@ -208,3 +209,33 @@ it("removes one Live account by its short code, for the operator alone", async (
     feed.close();
   }
 }, 40_000);
+
+it("protects production cookies and operator responses", async () => {
+  s = await server(8098, { NODE_ENV: "production", STATS_KEY: KEY });
+  const page = await fetch(s.base + "/?debug=" + KEY);
+  const cookies = page.headers.getSetCookie();
+  expect(cookies).toHaveLength(2);
+  expect(cookies[0]).toMatch(/; HttpOnly; SameSite=Lax; Secure$/);
+  expect(cookies[1]).toMatch(/; HttpOnly; SameSite=Strict; Secure$/);
+  // no HSTS: fly.toml sends every HTTP request to HTTPS, and a year of "never try HTTP" in a visitor's browser is not
+  // worth it for a play-money game, and cannot be taken back
+  expect(page.headers.get("strict-transport-security")).toBeNull();
+  for (const response of [page, await fetch(s.base + "/log?key=" + KEY)]) {
+    expect(response.status).toBe(200);
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    const policy = response.headers.get("content-security-policy");
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).toContain("script-src 'self'");
+    const html = await response.text();
+    for (const [, script] of html.matchAll(/<script(?: type="module")?>([\s\S]*?)<\/script>/g)) {
+      expect(policy).toContain("'sha256-" + createHash("sha256").update(script).digest("base64") + "'");
+    }
+  }
+  expect((await fetch(s.base + "/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "ping", id: 1 }),
+  })).headers.get("cache-control")).toBe("no-store");
+});
