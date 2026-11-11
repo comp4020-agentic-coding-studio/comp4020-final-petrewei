@@ -333,6 +333,58 @@ test("opens a tab from its name in the address", async ({ page }, info) => {
   }
 });
 
+// A popup closes from its top-right corner with a cross and from its bottom-right with Done, where a hand expects them;
+// Done at the bottom-left, as it was, is where nothing is. Both close it, and Escape still does. Placed by the page's
+// own styles, so it is measured in a real browser.
+for (const [name, open, dialog] of [["Settings", "#settings-btn", "#settings"], ["Join on a phone", "#join-btn", "#join-box"], ["Medals", "#feats-mine", "#feats"]] as const) {
+  test(`${name} closes from a cross at its top right and Done at its bottom right`, async ({ page }, info) => {
+    const lang = info.project.metadata.lang as Lang;
+    await join(page, lang);
+    await page.evaluate(() => document.querySelectorAll(".panel.folded").forEach((p) => p.classList.remove("folded")));
+    const box = page.locator(dialog);
+    await page.locator(open).first().click();
+    await expect(box).toBeVisible();
+    const card = (await box.boundingBox())!;
+    const cross = (await box.locator(".dialog-x").boundingBox())!;
+    const done = (await box.locator('button[id$="-close"]').boundingBox())!;
+    // the cross sits in the top-right corner of the card, the Done button in the bottom-right
+    expect(cross.x + cross.width, "the cross is at the right").toBeGreaterThan(card.x + card.width - 48);
+    expect(cross.y, "the cross is at the top").toBeLessThan(card.y + 48);
+    expect(done.x + done.width, "Done is at the right").toBeGreaterThan(card.x + card.width - 48);
+    expect(done.y + done.height, "Done is at the bottom").toBeGreaterThan(card.y + card.height - 48);
+    // the cross is not the Done button, and the two do not overlap
+    expect(cross.y + cross.height, "the cross is above Done").toBeLessThan(done.y);
+    await expect(box.locator(".dialog-x")).toHaveAccessibleName(T[lang].ui.featsDone);
+    await box.locator(".dialog-x").click();
+    await expect(box).toBeHidden();
+    await page.locator(open).first().click();
+    await expect(box).toBeVisible();
+    await box.locator('button[id$="-close"]').click();
+    await expect(box).toBeHidden();
+    await page.locator(open).first().click();
+    await page.keyboard.press("Escape");
+    await expect(box).toBeHidden();
+  });
+}
+
+// A popup is as wide as the screen allows, and no wider: its content must not push past it, which on a phone showed as
+// a sideways scrollbar with the title cut off and the cross scrolled away. The time-zone list holds long names, such as
+// America/Argentina/ComodRivadavia, which set the width of its row until the control was allowed to shrink.
+test("no popup scrolls sideways", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  await page.evaluate(() => document.querySelectorAll(".panel.folded").forEach((p) => p.classList.remove("folded")));
+  for (const [open, dialog] of [["#settings-btn", "#settings"], ["#join-btn", "#join-box"], ["#feats-mine", "#feats"]] as const) {
+    await page.locator(open).first().click();
+    const box = page.locator(dialog);
+    await expect(box).toBeVisible();
+    const { client, scroll } = await box.evaluate((d) => ({ client: d.clientWidth, scroll: d.scrollWidth }));
+    expect(scroll, `${dialog} content is no wider than the box`).toBeLessThanOrEqual(client);
+    await page.keyboard.press("Escape");
+    await expect(box).toBeHidden();
+  }
+});
+
 // The tutorial is one player's own lesson, so it has no room to share: no join code is offered there, and a code made on
 // another tab still opens the market it names. Hidden by the page's own styles, so it is read from a real browser.
 test("offers no join code in the tutorial, and brings it back on a market", async ({ page }, info) => {

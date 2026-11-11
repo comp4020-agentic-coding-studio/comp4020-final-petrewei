@@ -469,6 +469,8 @@ $("join-btn").onclick = () => {
 };
 $("join-close").onclick = () => $("join-box").close();
 $("history-close").onclick = () => $("history-box").close();
+// The cross at a popup's top right closes the popup it is in; one handler for them all.
+for (const x of document.querySelectorAll("button[data-close]")) x.onclick = () => x.closest("dialog").close();
 
 // The daily rate on a debt, by the broker's tiers (ADR 0080); an upper bound of null is the last tier.
 const creditRate = (debt) => (broker.tiers.find(([upTo]) => upTo === null || debt <= upTo) ?? broker.tiers.at(-1))[1];

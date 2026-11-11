@@ -432,6 +432,7 @@
         <button id="set-calm" class="toggle" type="button" role="switch" aria-checked="false" data-t-aria="setCalm"><span class="track" aria-hidden="true"><span class="knob"></span></span></button></li>
     </ul>
     <div class="row"><button type="button" class="ghost" id="settings-close" data-t="featsDone">Done</button></div>
+    <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
   </dialog>
   <!-- A trader's achievements (ADR 0082, 0085), opened from the hall of fame: anyone's, since the hall is public. -->
   <dialog id="feats" class="card feats" aria-labelledby="feats-title">
@@ -439,6 +440,7 @@
     <div class="feat-bar" aria-hidden="true"><span id="feat-bar"></span></div>
     <ul class="feat-list" id="feat-list"></ul>
     <div class="row"><button type="button" class="ghost" id="feats-close" data-t="featsDone">Done</button></div>
+    <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
   </dialog>
   <!-- This tab's address as a QR code, for a room to join from their phones (docs/product.md, candidate 1). -->
   <dialog id="join-box" class="card join-box" aria-labelledby="join-title">
@@ -447,6 +449,7 @@
     <div id="join-qr" class="join-qr"></div>
     <p class="join-url"><code id="join-url"></code></p>
     <div class="row"><button type="button" class="ghost" id="join-close" data-t="featsDone">Done</button></div>
+    <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
   </dialog>
   <dialog id="history-box" class="card history-box history" aria-labelledby="history-title">
     <h2 id="history-title"><span data-t="historyTitle">Closed Trades</span></h2>
@@ -457,6 +460,7 @@
       </table>
     </div>
     <div class="row"><button type="button" class="ghost" id="history-close" data-t="featsDone">Done</button></div>
+    <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
   </dialog>
   <dialog id="credit-offer" class="credit-offer" aria-labelledby="credit-offer-title">
     <h2 id="credit-offer-title" data-t="creditOfferTitle">Emergency Credit</h2>
