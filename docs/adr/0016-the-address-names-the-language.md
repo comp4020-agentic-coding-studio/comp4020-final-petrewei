@@ -1,6 +1,6 @@
 # ADR 0016: The Address Names the Language
 
-Status: accepted, 21 October 2026. Changes how [ADR 0015](0015-three-languages-and-the-comics-characters.md) picks the language; the rest of it stands.
+Status: accepted, 21 October 2026. Changes how [ADR 0015](0015-three-languages-and-the-comics-characters.md) picks the language; the rest of it stands. [ADR 0099](0099-the-language-is-a-setting-and-the-bare-address-follows-it.md) changes how the bare address picks it: from a saved choice or the browser's language, where `/ja/` and `/zh/` still name theirs.
 
 ## 1 Context
 

@@ -31,6 +31,7 @@ The modes were renamed twice. Records written before 7 November use the names in
 - [0096](0096-an-ai-agent-plays-live-through-mcp.md) An AI agent plays Live through MCP
 - [0097](0097-the-house-traders-are-live-players.md) The house traders are Live players
 - [0098](0098-live-news-from-investing-com-and-no-release-calendar.md) Live's news from Investing.com, and no release calendar
+- [0099](0099-the-language-is-a-setting-and-the-bare-address-follows-it.md) The language is a setting, and the bare address follows it
 
 ## 2 Replaced or Superseded
 
