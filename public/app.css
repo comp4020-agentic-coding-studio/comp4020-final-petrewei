@@ -1035,6 +1035,11 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 /* On a phone a slider's note has the label's row to share with its name and value and was cut to an ellipsis, so it
    takes a line of its own under them, whole, wrapping if it must. */
 @media (max-width: 560px) {
+  /* A heading keeps its name on one line; the note beside it gives way and wraps. */
+  .panel h2 > span:not(.aside):not(.ico) { white-space: nowrap; }
+  .panel h2 > .aside { min-width: 0; text-align: right; }
+  /* A feed line wraps rather than ending in "…", so a stop-out can be read whole. */
+  #feed li:not(.pinned) { white-space: normal; overflow: visible; }
   .slide .label:has(.fee) { flex-wrap: wrap; height: auto; row-gap: 0.1rem; }
   .slide .label #fee-note, .slide .label #margin-note { order: 1; flex-basis: 100%; white-space: normal; overflow: visible; }
 }
