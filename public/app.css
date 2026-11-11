@@ -114,6 +114,11 @@
   --loan-ink: #7a4500;
   color-scheme: light;
 }
+/* Colour-blind safe (Settings): the market's up and down in blue and orange, which stay apart for red-green colour
+   blindness. Every fill, line and chart colour reads --up and --down, so these two are the whole change. */
+:root.cvd { --up: #4db2ff; --down: #ffa13d; --on-fill: #0d0a1a; }
+@media (prefers-color-scheme: light) { :root.cvd:not([data-theme="dark"]) { --up: #0a5cb0; --down: #9c4c00; --on-fill: #ffffff; } }
+:root.cvd[data-theme="light"] { --up: #0a5cb0; --down: #9c4c00; --on-fill: #ffffff; }
 * { box-sizing: border-box; }
 /* Simplified Chinese reads best in a Simplified face; the rounded face
    would draw some characters in their Japanese forms. Korean likewise

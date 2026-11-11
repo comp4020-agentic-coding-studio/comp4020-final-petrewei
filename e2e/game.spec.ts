@@ -367,6 +367,24 @@ for (const [name, open, dialog] of [["Settings", "#settings-btn", "#settings"], 
   });
 }
 
+// Up and down in blue and orange, for a viewer who cannot tell green from red: one Settings switch, kept in this browser.
+test("colour-blind colours turn the market's green and red to blue and orange, and stay", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  const buy = page.locator(".side.buy");
+  const colour = () => buy.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const before = await colour();
+  await page.locator("#settings-btn").click();
+  await page.locator("#set-cvd").click();
+  await expect(page.locator("#set-cvd")).toHaveAttribute("aria-checked", "true");
+  const after = await colour();
+  const [r, , b] = after.match(/\d+/g)!.map(Number);
+  expect(after, "Buy changed colour").not.toBe(before);
+  expect(b, "Buy is blue, not green").toBeGreaterThan(r);
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/cvd/);
+});
+
 // ADR 0099: the language is chosen in Settings, not in the header; the choice is kept in a cookie the server reads, so the
 // bare address then opens in it; and a language's own address always shows that language.
 test("chooses the language in Settings, and the bare address then follows it", async ({ page, context }, info) => {

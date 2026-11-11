@@ -543,9 +543,9 @@ $("start").onclick = () => act("start", { ironman });
 // files, and a calm screen, the page's own reduced-motion rules on demand. Music and the theme keep their own buttons.
 const prefs = (() => {
   try {
-    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, zone: "", ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
+    return { sound: false, calm: false, cvd: false, confirm: false, margin: 0.25, leverage: 30, zone: "", ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
   } catch {
-    return { sound: false, calm: false, confirm: false, margin: 0.25, leverage: 30, zone: "" };
+    return { sound: false, calm: false, cvd: false, confirm: false, margin: 0.25, leverage: 30, zone: "" };
   }
 })();
 const savePrefs = () => {
@@ -570,19 +570,22 @@ const savePrefs = () => {
 const showPrefs = () => {
   $("set-sound").setAttribute("aria-checked", String(prefs.sound));
   $("set-calm").setAttribute("aria-checked", String(prefs.calm));
+  $("set-cvd").setAttribute("aria-checked", String(prefs.cvd));
   $("set-confirm").setAttribute("aria-checked", String(prefs.confirm));
   $("set-margin").value = String(prefs.margin);
   $("set-leverage").value = String(prefs.leverage);
   $("set-zone").value = prefs.zone;
   setZone(prefs.zone);
   document.documentElement.classList.toggle("calm", prefs.calm);
+  document.documentElement.classList.toggle("cvd", prefs.cvd);
 };
 showPrefs();
-for (const k of ["sound", "calm", "confirm"]) $(`set-${k}`).onclick = () => {
+for (const k of ["sound", "calm", "cvd", "confirm"]) $(`set-${k}`).onclick = () => {
   prefs[k] = !prefs[k];
   savePrefs();
   showPrefs();
   if (k === "sound" && prefs.sound) sound("fill");
+  if (k === "cvd" && state) draw(state);
 };
 // Where a new order starts, kept for this viewer: a margin the slider holds and a rung of the leverage ladder. It
 // applies at once to an order not yet shaped, and to every sit-down after.
