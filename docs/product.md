@@ -91,9 +91,9 @@ Reach is people out of an expected 100 in the showcase and marking week. Impact 
 | 14 | A 30-second "one trade" try before choosing a name | Education | 80 | 2 | 50% | 4 | 20 | Consider: the first five minutes | — |
 | 15 | Phone: the feed folded under the chart by default | UI | 50 | 1 | 80% | 2 | 20 | Build after freeze | — |
 | 16 | Projector view: chart, board and feed only, large | UI | 30 | 2 | 80% | 3 | 16 | Consider for the showcase screen | — |
-| 17 | Rematch after a duel | Actions | 20 | 1 | 80% | 1 | 16 | Build after freeze | — |
+| 17 | Rematch after a duel | Actions | 20 | 1 | 80% | 1 | 16 | Build after freeze | Built, from the bell |
 | 18 | An example agent prompt beside the MCP line | Education | 10 | 1 | 80% | 0.5 | 16 | Build: one line in the README | Built, in the README |
-| 19 | Skip to any tutorial lesson | Education | 30 | 0.5 | 80% | 1 | 12 | Build after freeze | — |
+| 19 | Skip to any tutorial lesson | Education | 30 | 0.5 | 80% | 1 | 12 | Build after freeze | Built: the lesson number is a list |
 | 20 | The price tag pulses on a big move | Art | 60 | 0.25 | 80% | 1 | 12 | Optional | — |
 | 21 | A weekly Live season: longest survival this week | Mechanics | 40 | 1 | 80% | 3 | 11 | Consider: the board already ranks survival | — |
 | 22 | Live falls back to a labelled replay when Yahoo fails | Elements | 40 | 2 | 50% | 4 | 10 | Consider: the showcase's biggest risk | — |
@@ -113,7 +113,7 @@ Reach is people out of an expected 100 in the showcase and marking week. Impact 
 | 36 | A personal record across rounds | UI | 30 | 1 | 50% | 5 | 3 | Defer | — |
 | 37 | Two more Rewind plots | Elements | 40 | 0.5 | 80% | 6 | 3 | Defer | — |
 | 38 | A real economic calendar in Live | Elements | 30 | 1 | 50% | 6 | 2 | Reject: removed on purpose; news is in the feed | — |
-| 39 | Screen-reader announcements of fills | UI | 5 | 1 | 80% | 2 | 2 | Consider: accessibility, rubric-adjacent | — |
+| 39 | Screen-reader announcements of fills | UI | 5 | 1 | 80% | 2 | 2 | Consider: accessibility, rubric-adjacent | Built: your own moments are said aloud |
 | 40 | A crypto pair in Live | Elements | 20 | 0.5 | 50% | 6 | 0.8 | Reject: off the FX idea | Rejected |
 
 The deposit bonus and the paid prayers score in the middle but break the game's first rule, play money only. They show RICE's blind spot: it scores reach and effort, not whether a feature betrays the idea.
