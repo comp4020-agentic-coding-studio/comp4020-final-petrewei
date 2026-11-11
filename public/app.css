@@ -831,6 +831,10 @@ body.tutorial .room, body.tutorial .fame, body.tutorial .prayers { display: none
 .lesson { position: absolute; z-index: 42; left: 10px; bottom: 10px; right: 28%; max-height: calc(100% - 20px); overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 0.5rem 1rem; align-items: start; text-align: left; padding: 0.6rem 0.85rem 0.7rem; border: 1px solid var(--pink); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 20px rgb(0 0 0 / 0.3), 0 0 0 4px var(--glow); }
 .lesson-main { min-width: 0; text-align: left; }
 .lesson-n { margin: 0 0 0.15rem; font-size: 0.72rem; color: var(--pink); white-space: nowrap; }
+/* the number is a select of every lesson, drawn as the label it was: small pink text, with the browser's own caret */
+.lesson-n select { field-sizing: content; max-width: 100%; min-height: 0; margin-left: -0.3rem; padding: 0.05rem 0.2rem; border: 1px solid transparent; border-radius: 6px; background-color: transparent; color: var(--pink); font: inherit; cursor: pointer; }
+.lesson-n select:hover:not(:disabled), .lesson-n select:focus-visible { border-color: var(--pink); }
+.lesson-n select:disabled { cursor: default; opacity: 1; }
 .lesson h2 { margin: 0 0 0.35rem; padding: 0; border: none; font-size: 1rem; line-height: 1.25; color: var(--ink); }
 .lesson p { margin: 0 0 0.3rem; font-size: 0.82rem; line-height: 1.5; color: var(--soft); }
 .lesson-side { display: grid; gap: 0.5rem; justify-items: end; min-width: 0; }

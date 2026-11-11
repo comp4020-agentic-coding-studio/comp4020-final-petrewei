@@ -803,9 +803,17 @@ export function createApp(options: AppOptions = {}) {
         return this.duels.some(([a, b]) => a === who || b === who);
       }
       // Challenge another person in the room to a duel over this round (ADR 0095), before the bell.
+      // At the bell, the only challenge is a rematch: the two who just duelled, for the next round.
       challenge(who: string, code: unknown): string | null {
-        if (this.phase === "break") return "The round is over. Challenge someone in the next.";
         const them = this.personHere(code);
+        if (this.phase === "break") {
+          const rematch = them && this.result?.duels?.some((d) => d.keys.includes(key(who)) && d.keys.includes(key(them)));
+          if (!rematch) return "The round is over. Challenge someone in the next.";
+          if (this.challenges.get(them) === who) return null;
+          this.challenges.set(them, who);
+          this.say(`${nameOf(who)} wants a rematch with ${nameOf(them)}.`, "info", "rematch", { who: short(who), them: short(them) });
+          return null;
+        }
         if (!them) return "Challenge someone in this room.";
         if (them === who) return "You cannot challenge yourself.";
         if (this.inDuel(who) || this.inDuel(them)) return "One of you is already in a duel.";
@@ -828,7 +836,9 @@ export function createApp(options: AppOptions = {}) {
       // The bell is over and the room goes back to the lobby: duels were for the round just played, so they go with it
       // (ADR 0095); a duel made in the lobby stays for the round it was made for, however the lobby is redrawn.
       afterBell(): void {
-        this.challenges.clear();
+        // a rematch offered at the bell waits in the next lobby; any other challenge goes with the round
+        const rematches = [...this.challenges].filter(([them, from]) => this.result?.duels?.some((d) => d.keys.includes(key(them)) && d.keys.includes(key(from))));
+        this.challenges = new Map(rematches);
         this.duels = [];
         this.ready();
       }
@@ -1224,6 +1234,11 @@ export function createApp(options: AppOptions = {}) {
             const from = this.challenges.get(who);
             return from ? { from: short(from) } : null;
           })(),
+          // the rematch you offered at the bell, by the other's short code, so your page shows it sent
+          rematch: (() => {
+            const asked = this.phase === "break" && [...this.challenges].find(([, from]) => from === who);
+            return asked ? short(asked[0]) : null;
+          })(),
           result: this.result && { ...this.result, duels: this.result.duels?.map(({ keys, ...d }) => ({ ...d, you: keys.includes(me) })), debrief: this.debriefs.get(me) ?? null, ranking: this.result.ranking.map(({ key: k, ...r }) => ({ ...r, you: k === me })) },
           career: hallFor(me, shared.hall),
           leverages: whole ? LEVERAGES : undefined,
@@ -1352,7 +1367,7 @@ export function createApp(options: AppOptions = {}) {
         clock: { key: "clockTutorial" as const },
         // a beginner's chart: plain, and its grid lines every five candles carry no day
         chart: { studies: false, days: "none" as const },
-        lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
+        lesson: { id: l.id, moves: t.moves, next: l.allow({ kind: "next" }, t) === null, n: Math.min(t.index, LESSONS.length - 1) + 1, of: LESSONS.length, all: LESSONS.map((x) => ({ id: x.id, title: x.title })), title: l.title, text: l.text, task: l.task, plan: l.plan, finished: t.finished() },
         // credit while the price stands still for the player's move; a finished tutorial lends no more, its last lesson
         // leaving the player bankrupt, the credit's teaching done
         you: { ...youOn(t.desk, who, "me"), lending: !t.moving() && !t.finished() },
@@ -1798,6 +1813,7 @@ export function createApp(options: AppOptions = {}) {
               else t.back();
             }
           } else if (kind === "skip") error = t.skip();
+          else if (kind === "lesson") error = t.goTo(input.at as number);
           else if (kind === "next") error = t.act({ kind: "next" });
           else if (action?.kind === "pend" || action?.kind === "unpend") error = "Pending orders aren't part of the tutorial yet. Try one in Rewind, Random or Live.";
           else if (action && action.kind !== "pray") error = t.act(action as Move);

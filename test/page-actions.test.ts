@@ -42,6 +42,7 @@ const OFFERED: Record<string, { modes: readonly string[]; fields?: Record<string
   next: { modes: ["tutorial"] },
   back: { modes: ["tutorial"] },
   again: { modes: ["tutorial"] },
+  lesson: { modes: ["tutorial"], fields: { at: 3 } },
 };
 
 it("builds every action a page offers, in every mode it offers it", () => {

@@ -88,6 +88,10 @@ test("a newcomer learns to buy with the keyboard and can reach Close on a phone"
   }
   await page.locator(phone ? "#mobile-close" : "#close").click();
   await expect(page.locator("#pos-row")).not.toBeVisible();
+  // a close is a bubble and a sound to a sighted player; a screen reader hears it from a polite live region
+  const said = page.locator("#announce");
+  await expect(said).toHaveAttribute("aria-live", "polite");
+  await expect(said, "the close is said aloud, with its money").toHaveText(/\d/);
   await expect(page.locator("#position-bar")).not.toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
   await page.goto(baseURL + (lang === "en" ? "" : "/" + lang) + "/about");
@@ -385,6 +389,24 @@ test("colour-blind colours turn the market's green and red to blue and orange, a
   await expect(page.locator("html")).toHaveClass(/cvd/);
 });
 
+// The lesson number is a list of every lesson: a player who knows the basics goes straight to the one they want, and
+// back, without stepping through the rest.
+test("goes straight to any lesson from the lesson list, and back", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang, true);
+  const pick = page.locator("#lesson-n");
+  await expect(pick, "it waits for Play, like the other track keys").toBeDisabled();
+  await page.locator("#lesson-play").click();
+  await expect(pick).toBeEnabled();
+  await expect(pick.locator("option")).toHaveCount(LESSONS.length);
+  await pick.selectOption("4");
+  await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, LESSONS[4].id));
+  await expect(pick).toHaveValue("4");
+  await pick.selectOption("1");
+  await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, LESSONS[1].id));
+  await expect(page.locator("#error")).toHaveText("");
+});
+
 // ADR 0099: the language is chosen in Settings, not in the header; the choice is kept in a cookie the server reads, so the
 // bare address then opens in it; and a language's own address always shows that language.
 test("chooses the language in Settings, and the bare address then follows it", async ({ page, context }, info) => {
@@ -563,8 +585,14 @@ test("challenges someone to a duel from the room, and sets and cancels a price a
     for (const p of [page, rival]) await p.locator('[data-mode="random"]').click();
     // the row is a control a keyboard reaches: focused and sent with Enter, as the rubric's top band tests
     const rivalRow = page.locator("#traders li.challengeable").filter({ hasText: rivalName });
-    await rivalRow.focus();
-    await expect(rivalRow).toBeFocused();
+    // the room redraws with every state; focusing can land on a row just replaced, so focus until it holds, and the page
+    // then keeps it on that person's row through every redraw
+    await expect(async () => {
+      await rivalRow.focus();
+      await expect(rivalRow).toBeFocused({ timeout: 300 });
+    }).toPass({ timeout: 5_000 });
+    await page.waitForTimeout(1_000);
+    await expect(rivalRow, "still focused after the room has redrawn").toBeFocused();
     await page.keyboard.press("Enter");
     await expect(rival.locator("#duel")).toBeVisible();
     await expect(rival.locator("#duel-accept")).toBeVisible();
@@ -572,6 +600,18 @@ test("challenges someone to a duel from the room, and sets and cancels a price a
     await expect(page.locator("#duel")).toBeVisible();
     await expect(page.locator("#duel-accept")).toBeHidden();
     await expect(page.locator("#traders li").filter({ hasText: rivalName }).locator(".badge", { hasText: "⚔" })).toBeVisible();
+    await expect(page.locator("#error")).toHaveText("");
+    // the bell decides it, and offers a rematch for the next round, which the rival accepts from the next lobby
+    await page.locator("#start").click();
+    await expect(page.locator("#finish")).toBeVisible({ timeout: 15_000 });
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator("#finish").click();
+    await expect(page.locator("#duel-result")).toBeVisible();
+    await page.locator("#rematch").click();
+    await expect(page.locator("#rematch")).toBeHidden();
+    await expect(page.locator("#duel-result")).toContainText(rivalName);
+    await page.locator("#dismiss").click();
+    await expect(rival.locator("#duel-accept")).toBeVisible();
     await expect(page.locator("#error")).toHaveText("");
   } finally {
     await other.close();

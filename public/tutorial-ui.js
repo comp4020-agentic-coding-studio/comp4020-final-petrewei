@@ -22,6 +22,7 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
   $("lesson-play").onclick = () => transportOf(playing() ? "pause" : "play")();
   $("lesson-stop").onclick = transportOf("stop");
   $("lesson-skip").onclick = () => act("skip");
+  $("lesson-n").onchange = (e) => act("lesson", { at: Number(/** @type {HTMLSelectElement} */ (e.target).value) });
   // Previous, as on a disc: once starts this lesson over, twice within two seconds goes to the one before.
   let lastBack = 0;
   $("lesson-back").onclick = () => {
@@ -74,7 +75,16 @@ export function createTutorial({ getState, getMode, getChoice, getLadder, getLan
     const moving = s.phase === "moving";
     // The lesson in this language; in English, as the server sent it.
     const own = T[getLanguage()].lessons[l.id] ?? l;
-    $("lesson-n").textContent = l.finished ? t("lessonDone") : t("lessonN", { n: l.n, of: l.of });
+    // the number is a list of every lesson, its own shown as "Lesson n of 10", the rest by title; it waits for Play
+    const pick = /** @type {HTMLSelectElement} */ ($("lesson-n"));
+    // at the end, an extra "done" entry is the one shown, and every lesson is still there to go back to
+    const labels = l.all.map((x, i) => (i === l.n - 1 && !l.finished ? t("lessonN", { n: l.n, of: l.of }) : `${i + 1}. ${T[getLanguage()].lessons[x.id]?.title ?? x.title}`));
+    if (l.finished) labels.push(t("lessonDone"));
+    if ([...pick.options].map((o) => o.text).join("\n") !== labels.join("\n")) {
+      pick.replaceChildren(...labels.map((text, i) => Object.assign(document.createElement("option"), { value: String(i), text, disabled: i === l.all.length })));
+    }
+    pick.value = String(l.finished ? l.all.length : l.n - 1);
+    pick.disabled = transport === "stopped";
     $("lesson-title").textContent = l.finished ? t("doneTitle") : own.title;
     $("lesson-text").textContent = l.finished ? t("doneText") : own.text;
     $("lesson-task").textContent = l.finished ? t("doneTask") : transport === "stopped" ? t("pressPlay") : transport === "paused" ? t("pausedTask") : moving ? t("watch") : own.task;

@@ -314,6 +314,23 @@ export class Tutorial {
     return this.index === at ? "That lesson would not finish." : null;
   }
 
+  // Go to any lesson (the lesson list): back to where one already reached began, or forward by skipping the lessons
+  // between, so it begins with the money and price they leave, as if each had been played.
+  goTo(at: number): string | null {
+    const idle = this.idle();
+    if (idle) return idle;
+    if (!Number.isInteger(at) || at < 0 || at >= LESSONS.length) return "No such lesson.";
+    if (at <= this.index && this.begins[at]) {
+      this.restore(at);
+      return null;
+    }
+    while (this.index < at) {
+      const failed = this.skip();
+      if (failed) return failed;
+    }
+    return null;
+  }
+
   lesson(): Lesson {
     return LESSONS[Math.min(this.index, LESSONS.length - 1)];
   }

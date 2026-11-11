@@ -15,6 +15,8 @@
 <body>
 {{header}}
 
+  <!-- What happens to you, said aloud for a screen reader: a bubble or a sound is all a sighted player gets. -->
+  <p id="announce" class="sr-only" role="status" aria-live="polite"></p>
   <p id="connection" class="connection" role="status" data-t="connectionConnecting" hidden>Connecting…</p>
   <main>
     <!-- One grid (ADR 0078). The first screen: the chart, and beside it one Account / Order panel as tall as it, the
@@ -85,7 +87,8 @@
              lesson's text on the right, which is always shown. -->
         <section class="lesson" id="lesson" hidden aria-live="polite">
           <div class="lesson-main">
-            <p class="lesson-n" id="lesson-n"></p>
+            <!-- The lesson number is also the list of lessons: choose one to go straight to it. -->
+            <p class="lesson-n"><select id="lesson-n" data-t-aria="lessonPick" data-tip="lessonPick"></select></p>
             <h2 id="lesson-title"></h2>
             <p id="lesson-text"></p>
           </div>
@@ -173,7 +176,7 @@
       <div class="bell-body">
       <p id="reveal"></p>
       <!-- The bell's "what if" (ADR 0095): your biggest trade as it would have gone at 1x, 30x and 1000x. -->
-      <p class="duel-result" id="duel-result" hidden></p>
+      <p class="duel-result" id="duel-result" hidden><span id="duel-result-text"></span> <button type="button" class="ghost mini" id="rematch" data-t="rematch" data-tip="rematch" hidden>Rematch</button></p>
       <section id="what-if" class="what-if" hidden>
         <h3 data-t="whatIfTitle">Your biggest trade, at other leverage</h3>
         <ol id="what-if-rows"></ol>

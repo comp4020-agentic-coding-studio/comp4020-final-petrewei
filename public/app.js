@@ -123,6 +123,8 @@ let cuts = null;
 let bankrupt = null;
 // The last pop shown, by number; the first message's pops are old news.
 let popped = null;
+// Your own feed lines as last drawn, so each is announced once and the history is not read out on load.
+let lastMine;
 let lastPrice = null;
 let fame = "";
 // the closed trades last drawn, so the list is rebuilt only when it changes
@@ -1181,6 +1183,7 @@ function effects(s, price) {
       if (p.n <= popped) continue;
       // your own moments have a sound, when sound is on (ADR 0083)
       if (p.who === s.you.code) sound(p.kind === "close" ? (p.pnl > 0 ? "win" : "fill") : p.kind === "call" ? "call" : p.kind === "stopout" || p.kind === "zerocut" ? "cut" : "fill");
+      if (p.who === s.you.code) $("announce").textContent = popText(p).replace(/[\p{Extended_Pictographic}\uFE0F]/gu, "").trim();
       const at = popAt(p, s);
       if (!at) continue;
       // Your own losscut has the full-screen stamp; a bubble would only cover it.
@@ -1265,6 +1268,8 @@ function renderRoom(s) {
   // You first, then the other people, then the house traders, each by net worth as the server ranks them (ADR 0078).
   const rank = (tr) => (tr.you ? 0 : tr.bot ? 2 : 1);
   const order = [...s.traders].sort((a, b) => rank(a) - rank(b) || b.equity - a.equity);
+  // the list is rebuilt with every state, so a row a keyboard is on gets its focus back, or Tab would lose its place
+  const focused = list.contains(document.activeElement) ? document.activeElement.closest("li")?.dataset.id : null;
   list.replaceChildren(
     ...order.map((tr) => {
       const li = document.createElement("li");
@@ -1306,6 +1311,7 @@ function renderRoom(s) {
       return li;
     }),
   );
+  if (focused) list.querySelector(`li[data-id="${CSS.escape(focused)}"][tabindex]`)?.focus();
   // a challenge made to you, with its Accept, or the duel you are in
   $("duel").hidden = !duel;
   if (duel) {
@@ -1576,6 +1582,13 @@ function render(s) {
   const latest = pool.reduce((best, f) => (Number(f.args?.score ?? 0) > Number(best?.args?.score ?? 0) ? f : best), pool[0]);
   const pinned = latest ? [Object.assign(line(latest), { className: "k-news pinned" })] : [];
   $("feed").replaceChildren(...pinned, ...talk, ...s.feed.filter((f) => f !== latest).map(line));
+  // The tutorial writes your own moments as "you-" lines rather than pops; the newest new one is said aloud too.
+  // Tutorial lines carry no time and the feed keeps ten, so the lines as a whole change when one is added; a rewind to an
+  // earlier lesson leaves only older lines, the tail of what was shown, and says nothing.
+  const mine = s.feed.filter((f) => f.key.startsWith("you-"));
+  const seen = mine.map((f) => f.text).join("\n");
+  if (lastMine !== undefined && mine.length && seen !== lastMine && !lastMine.endsWith(seen)) $("announce").textContent = news(lang, mine[0], nameOf);
+  lastMine = seen;
   // The hall of fame changes only on busts and at the bell.
   const famed = JSON.stringify(s.career);
   if (famed !== fame) {
@@ -1662,7 +1675,12 @@ function render(s) {
     $("duel-result").hidden = !mine;
     if (mine) {
       const other = mine.a === s.you.code ? mine.b : mine.a;
-      $("duel-result").textContent = t(mine.winner === null ? "duelDrew" : mine.winner === s.you.code ? "duelWon" : "duelLost", { who: nameOf(other) });
+      $("duel-result-text").textContent = t(mine.winner === null ? "duelDrew" : mine.winner === s.you.code ? "duelWon" : "duelLost", { who: nameOf(other) });
+      // a rematch for the next round, while the other is still here; once offered, the button says so and goes
+      const offered = s.rematch === other;
+      $("rematch").hidden = offered || !s.traders.some((x) => x.id === other);
+      if (offered) $("duel-result-text").textContent += ` ${t("rematchSent", { who: nameOf(other) })}`;
+      $("rematch").onclick = () => act("challenge", { code: other });
     }
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(

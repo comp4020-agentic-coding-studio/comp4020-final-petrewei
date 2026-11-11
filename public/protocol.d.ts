@@ -3,7 +3,7 @@ export type Mode = "rewind" | "random" | "live" | "tutorial";
 // `pnl` is this position's own result, in every mode; `you.pnl` is the account's, which in Live sums several pairs.
 export type Position = { side: number; entry: number; leverage: number; margin: number; stop: number | null; take?: number | null; call?: number | null; cut?: number | null; called?: boolean; pnl?: number };
 export type Trader = { id: string; name: string; draw: number | null; bot: boolean; motto?: string; equity: number; side: number; leverage: number; out: boolean; you: boolean };
-export type Lesson = { id: string; moves: number; next: boolean; n: number; of: number; title: string; text: string; task: string; plan: { target: string; until: string; say: string; move?: number }[]; finished: boolean };
+export type Lesson = { id: string; moves: number; next: boolean; n: number; of: number; all: { id: string; title: string }[]; title: string; text: string; task: string; plan: { target: string; until: string; say: string; move?: number }[]; finished: boolean };
 export type Player = { name: string; draw: number | null; named: boolean; face: string; code: string; balance: number; equity: number; pnl: number; level: number | null; out: boolean; broke: boolean; debt: number; cuts: number; pos: Position | null; used: number; guess?: number | null; credit: number; bankrupt: boolean; opened?: number | null; alerts?: { pair: string; at: number; above: boolean }[]; today?: number | null; yesterday?: { day: string; change: number; trades: number } | null; days?: number; peak?: number | null;
   // whether emergency credit can be drawn or repaid now, as the server decides it for its own market (ADR 0080)
   lending?: boolean;
@@ -40,7 +40,7 @@ export type CommonState = {
   pops: { n: number; who: string; kind: string; lev?: number; pnl?: number; way?: number }[];
   marks?: { tick: number; face: string; you: boolean; kind: string; side: number }[];
 };
-export type RoundState = CommonState & { duel?: { with: string } | { from: string } | null; mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
+export type RoundState = CommonState & { duel?: { with: string } | { from: string } | null; rematch?: string | null; mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
 export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
   board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean; agent?: boolean }[];
 };
@@ -55,4 +55,4 @@ export type TradeAction = { kind: "buy" | "sell"; leverage: number; share?: numb
 export type Action =
   | ({ mode: "rewind" | "random" } & (TradeAction | { kind: "start"; ironman?: boolean } | { kind: "pause" | "resume" | "finish" | "fast" | "normal" | "cancel" | "hold" | "dismiss" } | { kind: "choose"; what: number | string } | { kind: "guess"; year: number } | { kind: "pray"; way: 1 | -1 } | { kind: "challenge" | "accept"; code: string } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))
   | ({ mode: "live"; pair?: string } & (TradeAction | { kind: "pair"; pair: string } | { kind: "alert" | "unalert"; at: number } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))
-  | ({ mode: "tutorial" } & (TradeAction | { kind: "play" | "pause" | "stop" | "skip" | "back" | "again" | "restart" | "next" }));
+  | ({ mode: "tutorial" } & (TradeAction | { kind: "play" | "pause" | "stop" | "skip" | "back" | "again" | "restart" | "next" } | { kind: "lesson"; at: number }));

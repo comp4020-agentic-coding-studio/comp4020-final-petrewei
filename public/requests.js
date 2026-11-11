@@ -21,6 +21,7 @@ export function makeAction(mode, kind, fields = {}) {
     if (kind === "unpend") return { mode, kind, ...pair };
   } else if (mode === "tutorial") {
     if (kind === "stop" && typeof fields.pct === "number") return { mode, kind, pct: number(fields.pct) };
+    if (kind === "lesson") return { mode, kind, at: number(fields.at) };
     if (kind === "play" || kind === "pause" || kind === "stop" || kind === "skip" || kind === "back" || kind === "again" || kind === "restart" || kind === "next") return { mode, kind };
     if (chosen) return { mode, ...chosen };
   } else {

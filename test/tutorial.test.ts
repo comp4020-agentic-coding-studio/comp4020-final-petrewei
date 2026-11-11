@@ -111,6 +111,29 @@ describe("the tutorial", () => {
     expect(t.skip()).toMatch(/finished/);
   });
 
+  it("goes to any lesson: forward by playing the ones between, back to where one began, the same as stepping", () => {
+    const stepped = playing();
+    const begun: { price: number; balance: number }[] = [];
+    for (let i = 0; i < LESSONS.length; i++) {
+      begun.push({ price: stepped.price(), balance: stepped.desk.account("me").balance });
+      stepped.skip();
+    }
+    const t = playing();
+    const last = LESSONS.length - 1;
+    expect(t.goTo(last)).toBeNull();
+    expect(t.lesson().id).toBe(LESSONS[last].id);
+    expect(t.price(), "forward plays every lesson between").toBe(begun[last].price);
+    expect(t.desk.account("me").balance).toBe(begun[last].balance);
+    expect(t.goTo(2)).toBeNull();
+    expect(t.lesson().id).toBe(LESSONS[2].id);
+    expect(t.price(), "back lands where that lesson began").toBe(begun[2].price);
+    expect(t.desk.account("me").balance).toBe(begun[2].balance);
+    expect(t.goTo(2), "the lesson already open starts again").toBeNull();
+    for (const bad of [-1, LESSONS.length, 1.5, NaN]) expect(t.goTo(bad), String(bad)).toMatch(/lesson/i);
+    t.stop();
+    expect(t.goTo(1), "stopped, it waits for Play like the other track keys").not.toBeNull();
+  });
+
   it("goes back to the start of the lesson before, with that lesson's money and price", () => {
     const t = playing();
     while (t.lesson().id !== "take-profit") { t.act(t.lesson().solve(t)); run(t); }
