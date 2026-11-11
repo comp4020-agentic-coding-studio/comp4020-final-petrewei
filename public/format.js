@@ -9,28 +9,62 @@ export const locale = (lang) => (lang === "en" ? "en-AU" : lang);
 // The time zone times are shown in: the browser's own unless the viewer chose one in Settings. A zone the browser
 // does not know falls back to its own, so a time never fails to show.
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-let zone = "";
+let selectedZone = "";
+let resolvedZone;
+let calendarDay;
+const timeFormats = new Map();
+
 export const zoneNow = () => {
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: zone || browserZone() });
-    return zone || browserZone();
-  } catch {
-    return browserZone();
+  if (resolvedZone) return resolvedZone;
+  if (selectedZone) {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: selectedZone });
+      return resolvedZone = selectedZone;
+    } catch { /* fall back to the browser's zone */ }
   }
+  return resolvedZone = browserZone();
 };
-export const setZone = (z) => (zone = z || "");
-// A moment as a page shows it: the weekday and time in the viewer's zone, on a 24-hour clock in the page's language,
-// so a time never runs to "am" or "pm" and a narrow clock never overflows.
-export const localTime = (ms, lang) => new Date(ms).toLocaleString(locale(lang), { timeZone: zoneNow(), weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-// A feed line's time: the hour and minute on a 24-hour clock in the viewer's zone, with the weekday too when it was
-// an earlier day, so a timeline reads "14:05" today and "Sat 09:12" for older news.
+
+export function setZone(value) {
+  const next = value || "";
+  if (next !== selectedZone || !next) {
+    selectedZone = next;
+    resolvedZone = undefined;
+    calendarDay = undefined;
+    timeFormats.clear();
+  }
+  return selectedZone;
+}
+
+function formatsFor(lang) {
+  let formats = timeFormats.get(lang);
+  if (!formats) {
+    const timeZone = zoneNow();
+    const time = { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+    formats = {
+      time: new Intl.DateTimeFormat(locale(lang), time),
+      weekday: new Intl.DateTimeFormat(locale(lang), { ...time, weekday: "short" }),
+      zone: new Intl.DateTimeFormat(locale(lang), { timeZone, timeZoneName: "short" }),
+    };
+    timeFormats.set(lang, formats);
+  }
+  return formats;
+}
+
+// A moment on a 24-hour clock in the viewer's language and zone.
+export const localTime = (ms, lang) => Number.isFinite(ms) ? formatsFor(lang).weekday.format(ms) : new Date(ms).toLocaleString(locale(lang));
+
+// A feed line shows a weekday only when it is from an earlier day in the viewer's zone.
 export const feedTime = (ms, lang, now = Date.now()) => {
-  const day = (t) => new Date(t).toLocaleDateString("en-CA", { timeZone: zoneNow() });
-  const opts = { timeZone: zoneNow(), hour: "2-digit", minute: "2-digit", hourCycle: "h23", ...(day(ms) === day(now) ? {} : { weekday: "short" }) };
-  return new Date(ms).toLocaleString(locale(lang), opts);
+  if (!Number.isFinite(ms)) return new Date(ms).toLocaleString(locale(lang));
+  calendarDay ??= new Intl.DateTimeFormat("en-CA", { timeZone: zoneNow(), year: "numeric", month: "numeric", day: "numeric" });
+  const formats = formatsFor(lang);
+  const sameDay = Number.isFinite(now) && calendarDay.format(ms) === calendarDay.format(now);
+  return (sameDay ? formats.time : formats.weekday).format(ms);
 };
-// The zone's short name at a moment, as "AEDT" or "GMT+9", for a line that says which zone a time is in.
-export const zoneName = (ms, lang) => new Intl.DateTimeFormat(locale(lang), { timeZone: zoneNow(), timeZoneName: "short" }).formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName")?.value ?? "";
+
+// The zone's short name at a moment, as "AEDT" or "GMT+9".
+export const zoneName = (ms, lang) => formatsFor(lang).zone.formatToParts(ms).find((p) => p.type === "timeZoneName")?.value ?? "";
 // Every zone the browser knows (the IANA list it ships, so none is kept by hand), as Settings offers them: the common
 // few first, then the rest by region, each with its offset now, as "Tokyo (GMT+9)". A browser without the list keeps
 // the common few.

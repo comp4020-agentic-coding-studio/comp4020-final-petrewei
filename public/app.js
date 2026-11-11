@@ -1526,7 +1526,8 @@ function render(s) {
   if (price !== undefined) effects(s, price);
   // What house traders off screen just said leads the feed, with their
   // face and name, for twenty seconds (ADR 0031).
-  const talk = said.filter((x) => Date.now() - x.at < 20_000).map((x) => {
+  const feedNow = Date.now();
+  const talk = said.filter((x) => feedNow - x.at < 20_000).map((x) => {
     const li = document.createElement("li");
     li.className = "k-said";
     li.append(avatar(x.who, 16), Object.assign(document.createElement("b"), { textContent: nameOf(x.who) }), t("quote", { text: x.text }));
@@ -1542,7 +1543,7 @@ function render(s) {
     // when it happened, in the viewer's zone, before the line
     // a headline's own time is when it was published; anything else, when it was said
     const at = Number((f.kind === "news" ? f.args?.at ?? f.when : f.when) ?? 0);
-    const when = at ? [Object.assign(document.createElement("time"), { className: "when", dateTime: new Date(at).toISOString(), textContent: feedTime(at, lang) })] : [];
+    const when = at ? [Object.assign(document.createElement("time"), { className: "when", dateTime: new Date(at).toISOString(), textContent: feedTime(at, lang, feedNow) })] : [];
     li.append(...when, Object.assign(document.createElement("span"), { className: "ico", textContent: ICONS.news[f.key.replace(/^you-/, "")] ?? "·", ariaHidden: "true" }), text);
     return li;
   };
@@ -1551,7 +1552,7 @@ function render(s) {
   // feed, newest first, news and trades together. The pinned news is not listed twice.
   // the last six hours' news if there is any, else all of it, so a quiet weekend still has one story pinned
   const allNews = s.feed.filter((f) => f.kind === "news");
-  const fresh = allNews.filter((f) => f.args?.at === undefined || Date.now() - Number(f.args.at) < 6 * 3_600_000);
+  const fresh = allNews.filter((f) => f.args?.at === undefined || feedNow - Number(f.args.at) < 6 * 3_600_000);
   const pool = fresh.length ? fresh : allNews;
   const latest = pool.reduce((best, f) => (Number(f.args?.score ?? 0) > Number(best?.args?.score ?? 0) ? f : best), pool[0]);
   const pinned = latest ? [Object.assign(line(latest), { className: "k-news pinned" })] : [];

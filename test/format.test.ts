@@ -38,6 +38,28 @@ describe("times", () => {
     setZone("");
   });
 
+  // The formatters are kept per language and zone, so a second look is not slower; a change of either must show at once.
+  it("shows a change of language after the same moment was written in another, and of zone after both", async () => {
+    const { localTime, feedTime, zoneName, setZone } = await import("../public/format.js");
+    const at = Date.parse("2026-11-09T13:05:00Z");
+    const now = Date.parse("2026-11-12T00:00:00Z");
+    setZone("Asia/Tokyo");
+    const english = [localTime(at, "en"), feedTime(at, "en", now), zoneName(at, "en")];
+    const japanese = [localTime(at, "ja"), feedTime(at, "ja", now), zoneName(at, "ja")];
+    expect(japanese[0], "the weekday is in the page's language").not.toBe(english[0]);
+    expect(japanese[0]).toMatch(/月/);
+    expect(english[0]).toMatch(/Mon/);
+    // asked again after the other language, each is still its own
+    expect(localTime(at, "en")).toBe(english[0]);
+    expect(localTime(at, "ja")).toBe(japanese[0]);
+    // and a zone chosen after both is seen in both
+    setZone("Europe/London");
+    expect(localTime(at, "en")).toMatch(/13:05/);
+    expect(localTime(at, "ja")).toMatch(/13:05/);
+    expect(localTime(at, "en")).not.toBe(english[0]);
+    setZone("");
+  });
+
   it("writes a feed line's time as the hour today, with the weekday for an earlier day", async () => {
     const { feedTime, setZone } = await import("../public/format.js");
     setZone("UTC");

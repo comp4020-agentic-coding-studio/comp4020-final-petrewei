@@ -32,8 +32,11 @@ const baseOf = (pair: string) => pair.split("/")[0] as Currency;
 
 // A position's result in dollars at these rates, closed at the bid or ask, its fees taken.
 export function pnlOf(pos: BookPosition, pair: string, usd: Usd): number {
-  const mid = cross(usd, pair);
-  return pos.side * pos.units * (fill(mid, -pos.side as Side) - pos.entry) * convert(usd, quoteOf(pair), "AUD") - pos.fees;
+  return positionPnl(pos, cross(usd, pair), convert(usd, quoteOf(pair), "AUD"));
+}
+
+function positionPnl(pos: BookPosition, mid: number, quoteInAud: number): number {
+  return pos.side * pos.units * (fill(mid, -pos.side as Side) - pos.entry) * quoteInAud - pos.fees;
 }
 export const openPnl = (a: BookAccount, usd: Usd): number => Object.entries(a.positions).reduce((n, [p, pos]) => n + pnlOf(pos, p, usd), 0);
 export const equity = (a: BookAccount, usd: Usd): number => a.balance + openPnl(a, usd);
@@ -47,30 +50,60 @@ export const worth = (a: BookAccount, usd: Usd): number => equity(a, usd) - a.de
 // Where one pair's price would bring the whole account to a margin call and a stop-out, every other currency's dollar
 // rate as it is now. The pair's price moves its quote currency's worth in dollars too, so the line is found by halving
 // the range, from the account's own equity, not by a formula that would hold that worth still.
-export function lines(a: BookAccount, pair: string, usd: Usd): { call: number; cut: number } | null {
-  if (!a.positions[pair]) return null;
-  const base = baseOf(pair);
-  const quote = quoteOf(pair);
-  // the pair's price times f: the base's dollar rate times f, or, for a pair priced in dollars of the base, the quote's over f
-  const at = (f: number): Usd => (base !== "USD" ? { ...usd, [base]: usd[base] * f } : { ...usd, [quote]: usd[quote] / f });
-  const mid = cross(usd, pair);
-  // Other positions sharing the currency can reverse the selected position's exposure.
-  const low = level(a, at(1e-3));
-  const high = level(a, at(1e3));
-  const find = (target: number): number => {
-    if (Math.min(low, high) > target) return NaN;
-    let near = 0;
-    let far = Math.log(low <= high ? 1e-3 : 1e3);
-    for (let i = 0; i < 60; i++) {
-      const m = (near + far) / 2;
-      if (level(a, at(Math.exp(m))) > target) near = m;
-      else far = m;
+export function marginLines(a: BookAccount, usd: Usd) {
+  const positions = Object.entries(a.positions).map(([pair, pos]) => ({ pos, base: baseOf(pair), quote: quoteOf(pair) }));
+  const margin = used(a);
+  const rates = { ...usd };
+  const factors = new Map<string, { call: number; cut: number }>();
+
+  // Pairs with the same base shock the same currency by the same factor. USD-first pairs shock their quote instead.
+  // The results belong to this account projection and are discarded when the view is sent.
+  return (pair: string): { call: number; cut: number } | null => {
+    if (!a.positions[pair]) return null;
+    const base = baseOf(pair);
+    const quote = quoteOf(pair);
+    const inverted = base === "USD";
+    const currency = inverted ? quote : base;
+    const key = inverted ? pair : base;
+    let solved = factors.get(key);
+    if (!solved) {
+      const marginLevelAt = (factor: number): number => {
+        if (!margin) return Infinity;
+        rates[currency] = inverted ? usd[currency] / factor : usd[currency] * factor;
+        let pnl = 0;
+        for (const { pos, base, quote } of positions) {
+          pnl += positionPnl(pos, rates[base] / rates[quote], rates[quote] / rates.AUD);
+        }
+        return (a.balance + pnl) / margin;
+      };
+      // Other positions sharing the currency can reverse the selected position's exposure.
+      const low = marginLevelAt(1e-3);
+      const high = marginLevelAt(1e3);
+      const find = (target: number): number => {
+        if (Math.min(low, high) > target) return NaN;
+        let near = 0;
+        let far = Math.log(low <= high ? 1e-3 : 1e3);
+        for (let i = 0; i < 60; i++) {
+          const mid = (near + far) / 2;
+          if (mid === near || mid === far) break;
+          if (marginLevelAt(Math.exp(mid)) > target) near = mid;
+          else far = mid;
+        }
+        return Math.exp((near + far) / 2);
+      };
+      solved = { call: find(CALL), cut: find(STOP_OUT) };
+      rates[currency] = usd[currency];
+      factors.set(key, solved);
     }
-    return mid * Math.exp((near + far) / 2);
+    const mid = cross(usd, pair);
+    const call = mid * solved.call;
+    const cut = mid * solved.cut;
+    return { call: Number.isFinite(call) ? call : (null as unknown as number), cut: Number.isFinite(cut) ? cut : (null as unknown as number) };
   };
-  const call = find(CALL);
-  const cut = find(STOP_OUT);
-  return { call: Number.isFinite(call) ? call : (null as unknown as number), cut: Number.isFinite(cut) ? cut : (null as unknown as number) };
+}
+
+export function lines(a: BookAccount, pair: string, usd: Usd): { call: number; cut: number } | null {
+  return marginLines(a, usd)(pair);
 }
 
 function settle(a: BookAccount, pair: string, usd: Usd, how: BookTrade["how"], now: number): BookFill {
@@ -239,7 +272,8 @@ export function ringAlerts(a: BookAccount, usd: Usd): Alert[] {
 }
 
 // The date in Sydney at `now`, as YYYY-MM-DD: the name of a Live day, which daylight saving cannot shift.
-export const sydneyDay = (now: number): string => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
+const sydneyDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" });
+export const sydneyDay = (now: number): string => sydneyDate.format(now);
 
 // A new Sydney day for an account (ADR 0095): the day that ends is kept as yesterday, its change in net worth and how
 // many trades closed in it, and the new day starts from net worth now. Nothing changes within a day.

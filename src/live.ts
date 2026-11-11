@@ -9,7 +9,7 @@ import type { LiveState } from "../public/protocol.js";
 // the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
 // order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
 import { join } from "node:path";
-import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, cancelPending, ringAlerts, setAlert, setPending, triggerPending, charge, close, enforce, equity, exit, fresh, level, lines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
+import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, cancelPending, ringAlerts, setAlert, setPending, triggerPending, charge, close, enforce, equity, exit, fresh, level, marginLines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
 import { LiveBots } from "./live-bots.ts";
@@ -218,10 +218,10 @@ export class Live {
   // Charge each slot that has passed since the last, in order, with that slot's prices, and act on the rules at each.
   advance(now = this.clock.now()): void {
     if (this.disposed) return;
-    const slots = this.quotes.settlementSlots();
-    if (!slots.length) return;
-    const last = slots.at(-1)!.slot;
+    const last = this.quotes.slots.at(-1)?.slot;
+    if (last === undefined) return;
     if (!this.slot) this.slot = last;
+    const slots = last > this.slot ? this.quotes.settlementSlots() : [];
     for (const { slot, usd } of slots) {
       if (slot <= this.slot) continue;
       const at = slot * SLOT_MS;
@@ -474,7 +474,8 @@ export class Live {
     const pair = a?.pair ?? "AUD/USD";
     const { prices, last } = this.quotes.series(pair);
     const mid = prices.at(-1) ?? 1;
-    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(k, a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...lines(a, p, usd) })) : [];
+    const risk = a && usd ? marginLines(a, usd) : null;
+    const positions = a && usd ? Object.entries(a.positions).map(([p, pos]) => ({ pair: p, side: pos.side, entry: pos.entry, leverage: pos.leverage, margin: pos.margin, stop: pos.stop, take: pos.take, now: cross(usd, p), live: this.tradable(k, a, p), pnl: Math.round(pnlOf(pos, p, usd)), ...risk?.(p) })) : [];
     const pos = positions.find((p) => p.pair === pair) ?? null;
     const eq = a ? (usd ? equity(a, usd) : a.balance) : 0;
     const live = this.tradable(k, a, pair);

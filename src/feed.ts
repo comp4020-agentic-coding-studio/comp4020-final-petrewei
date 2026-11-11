@@ -134,12 +134,14 @@ export class Feed {
   }
 
   live(pairs?: readonly string[]): boolean {
+    if (!this.slots.length) return false;
     const currencies = pairs ? currenciesFor(pairs) : CURRENCIES;
     const now = this.now();
-    return this.slots.length > 0 && [...currencies].every((cur) => {
+    const maxAge = weekOpen(now) ? WEEK_STALE_MS : STALE_MS;
+    return [...currencies].every((cur) => {
       if (cur === "USD") return true;
       const at = this.times[cur];
-      return at !== undefined && at <= now && now - at < (weekOpen(now) ? WEEK_STALE_MS : STALE_MS);
+      return at !== undefined && at <= now && now - at < maxAge;
     });
   }
   latest(): Usd | null {
@@ -147,7 +149,8 @@ export class Feed {
   }
   // A pair's closes, oldest first, and the slot number of the newest.
   series(pair: string): { prices: number[]; last: number } {
-    return { prices: this.slots.map((x) => cross(x.usd, pair)), last: this.slots.at(-1)?.slot ?? 0 };
+    const [base, quote] = pair.split("/") as [Currency, Currency];
+    return { prices: this.slots.map(({ usd }) => usd[base] / usd[quote]), last: this.slots.at(-1)?.slot ?? 0 };
   }
 }
 

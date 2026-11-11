@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
-import { bankrupt, borrow, charge, close, enforce, equity, fresh, level, lines, nextSydneyMidnight, order, pnlOf, worth } from "../src/book.ts";
+import { bankrupt, borrow, charge, close, enforce, equity, fresh, level, lines, marginLines, nextSydneyMidnight, order, pnlOf, worth } from "../src/book.ts";
 import { START, STEP } from "../src/fx.ts";
 import { cross, Feed, SLOT_MS, type Usd } from "../src/feed.ts";
 import { News, parseFeed } from "../src/news.ts";
@@ -671,6 +671,52 @@ it("runs a Live account on the server across pairs and a restart, and shuts with
     tab.close();
   }
 }, 30_000);
+
+// A margin line is the price at which the whole account's level falls to the target, so at that price the level is the
+// target, however the line was found. Positions that share a currency are solved once and reused, so they are asked
+// through one closure as the server does, in any order, and each answer must still be its own pair's.
+it("puts every position's margin and stop-out lines where the account's level reaches them, whichever pair is asked first", () => {
+  const quotes = usd();
+  const account = fresh(0, 0);
+  const held: [string, 1 | -1, number][] = [["AUD/USD", 1, 30], ["AUD/JPY", -1, 100], ["EUR/AUD", 1, 10], ["USD/CHF", -1, 30], ["GBP/AUD", -1, 10], ["EUR/GBP", 1, 3]];
+  for (const [pair, side, leverage] of held) expect(order(account, pair, quotes, side, leverage, 0.08, {}, 0), pair).toEqual(expect.any(Array));
+  const asked = [...held].reverse().concat(held).map(([pair]) => pair);
+  const risk = marginLines(account, quotes);
+  const seen = new Map<string, string>();
+  let located = 0;
+  for (const pair of asked) {
+    const line = risk(pair);
+    expect(line, pair).not.toBeNull();
+    // the same pair asked again, in another place in the order, gives the same answer
+    const text = JSON.stringify(line);
+    expect(seen.get(pair) ?? text, `${pair} asked again`).toBe(text);
+    seen.set(pair, text);
+    for (const [target, price] of [[0.5, line!.call], [0.2, line!.cut]] as const) {
+      if (price === null) continue;
+      // the pair's price moved to the line, as the line is defined: its base's dollar rate by the ratio, or its quote's by the inverse
+      const [base, quote] = pair.split("/") as [keyof Usd, keyof Usd];
+      const ratio = price / (quotes[base] / quotes[quote]);
+      const moved = base !== "USD" ? { ...quotes, [base]: quotes[base] * ratio } : { ...quotes, [quote]: quotes[quote] / ratio };
+      expect(level(account, moved), `${pair} level at its line for ${target}`).toBeCloseTo(target, 6);
+      located++;
+    }
+  }
+  expect(located, "lines were found and checked").toBeGreaterThan(6);
+});
+
+// The margin lines are priced by arithmetic written out in the loop, because going through cross() and convert() for
+// every step of every search cost seven times as much. The two must stay the same number: a level worked out by the
+// margin code at a rate equals the level worked out by level(), which prices through cross() and convert().
+it("prices a position in the margin lines as level() does, through cross() and convert()", () => {
+  const quotes = usd({ AUD: 0.66, JPY: 1 / 151, EUR: 1.09 });
+  const account = fresh(0, 0);
+  for (const [pair, side, leverage] of [["AUD/JPY", 1, 30], ["EUR/USD", -1, 10], ["CHF/JPY", 1, 100]] as const) order(account, pair, quotes, side, leverage, 0.1, {}, 0);
+  const line = marginLines(account, quotes)("AUD/JPY")!;
+  expect(Number.isFinite(line.cut) && Number.isFinite(line.call), "a line exists for this account").toBe(true);
+  const [b, q] = ["AUD", "JPY"] as const;
+  const ratio = line.cut / (quotes[b] / quotes[q]);
+  expect(level(account, { ...quotes, [b]: quotes[b] * ratio })).toBeCloseTo(0.2, 6);
+});
 
 it("locates the stop-out in the direction the whole account loses", () => {
   const quotes = usd();
