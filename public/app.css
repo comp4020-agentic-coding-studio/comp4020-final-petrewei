@@ -595,7 +595,10 @@ th:first-child, td:first-child { text-align: left; }
 /* Achievements (ADR 0082, 0085): a dialog for anyone's, opened from the hall: a medal count on each row, and your own
    from the hall's heading. */
 .feats { width: min(40rem, calc(100vw - 2rem)); }
-.feats h2 { display: flex; align-items: center; gap: 0.4rem; }
+/* the title is a medal, a name and a count: where they do not fit in a row the count drops under the name as a whole, and
+   neither breaks in the middle ("0 of / 12") */
+.feats h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.4rem; }
+.feats h2 > span { white-space: nowrap; }
 .feats-mine { grid-column: 1 / -1; justify-self: start; margin: 0.5rem 0.9rem 0; height: 1.9rem; padding: 0 0.7rem; font-size: 0.8rem; }
 .feats-mine b:empty { display: none; }
 .medals { padding: 0.15rem 0.5rem; border-radius: 999px; font: 600 0.78rem var(--mono); white-space: nowrap; }
@@ -999,7 +1002,7 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 .set-list .toggle, .set-list select { grid-column: 2; grid-row: 1 / 3; }
 /* a control may not ask for more than the row has: a select is as wide as its longest option, and the zone list has names such
    as America/Argentina/ComodRivadavia, which pushed every row past the popup on a phone. A long one is clipped in its box. */
-.set-list select { max-width: min(12rem, 45vw); text-overflow: ellipsis; }
+.set-list select { max-width: min(10rem, 42vw); text-overflow: ellipsis; }
 .set-list .toggle[aria-checked="true"] .track { background: var(--pink); border-color: var(--pink); }
 
 /* The info button (ADR 0049): a small circled i beside a term's label. Its
@@ -1141,7 +1144,7 @@ body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
 .settings > .row, .feats > .row, .join-box > .row, .history-box > .row { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .dialog-x { position: absolute; top: 0.5rem; right: 0.5rem; width: 2rem; height: 2rem; padding: 0; display: grid; place-items: center; border-radius: 50%; background: transparent; border: 1px solid transparent; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; }
 .dialog-x:hover, .dialog-x:focus-visible { color: var(--ink); background: var(--raise); border-color: var(--line); }
-.card:has(> .dialog-x) h2 { padding-right: 2.2rem; }
+.card:has(> .dialog-x) h2 { padding-right: 1.1rem; }
 /* the phone join code: square, dark on white whatever the theme, so every camera reads it */
 .join-open { position: absolute; z-index: 1; top: 0.2rem; right: 2.1rem; margin: 0; }
 .join-open button { min-height: 32px; padding: 0.2rem 0.6rem; }

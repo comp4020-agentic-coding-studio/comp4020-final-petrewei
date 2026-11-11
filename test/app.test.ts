@@ -407,15 +407,19 @@ it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", asyn
 });
 
 // Every zone the browser knows is offered, by region, the common few first, so a player anywhere finds their own.
-it("offers every time zone the browser knows in Settings, grouped by region", async () => {
+it("offers every time zone the browser knows in Settings, by its time with UTC+0 first, and browser time", async () => {
   const { dom, w } = await app();
   try {
     const zone = w.document.getElementById("set-zone") as HTMLSelectElement;
     const offered = new Set([...zone.options].map((o) => o.value));
-    for (const z of Intl.supportedValuesOf("timeZone")) expect(offered, z).toContain(z);
-    expect(offered).toContain("");
-    expect(zone.querySelectorAll("optgroup").length).toBeGreaterThan(5);
-    expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toMatch(/Tokyo.*GMT\+9/);
+    for (const z of Intl.supportedValuesOf("timeZone").filter((z) => z.includes("/"))) expect(offered, z).toContain(z);
+    expect(offered, "browser time is still an option").toContain("");
+    const groups = [...zone.querySelectorAll("optgroup")].map((g) => g.label);
+    expect(groups[0], "the list starts at UTC+0").toBe("UTC+0");
+    expect(groups.length, "a heading for each offset in use").toBeGreaterThan(30);
+    expect(zone.options[0].value, "browser time is the first option, above the groups").toBe("");
+    // each option says its offset and its city, so the closed control still tells which time was chosen
+    expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toBe("UTC+9 · Tokyo");
   } finally {
     dom.window.close();
   }

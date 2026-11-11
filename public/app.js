@@ -70,7 +70,7 @@ function translate() {
   for (const el of document.querySelectorAll("[data-t-label]")) el.dataset.label = t(el.dataset.tLabel);
   if (ladder.length) sliders();
   for (const el of document.querySelectorAll("[data-t-aria]")) el.setAttribute("aria-label", t(el.dataset.tAria));
-  $("lang").value = $("n-lang").value = lang;
+  $("set-lang").value = $("n-lang").value = lang;
   $("borrow").replaceChildren(Object.assign(document.createElement("span"), { className: "art", innerHTML: prop("piggy", 22) }), t("borrow", { amount: money(lang, broker.step) }));
   // the row's button is words alone, no art, so the row holds what is owed, the rate and the button on one line, as the
   // position's empty line does
@@ -80,9 +80,17 @@ function translate() {
   retip();
   document.title = `${t("logo")}${t("titleJoin")}${t("sub")}`;
 }
-// Another language is another address. The market keeps running and the
-// tab is remembered, so the page comes back to the same room.
-for (const id of ["lang", "n-lang"]) $(id).onchange = () => location.assign(home($(id).value));
+// Another language is another address. The market keeps running and the tab is remembered, so the page comes back to
+// the same room. The choice is also kept in the lang cookie, which the server reads to open the bare address in it
+// (ADR 0099): it names a language and no person, so script may write it, and Secure only where the page is https, since
+// a browser drops a Secure cookie from plain http, which is how the checks and a local server run.
+function chooseLanguage(code) {
+  if (!LANGS.includes(code)) return;
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `lang=${code}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  location.assign(home(code));
+}
+for (const id of ["set-lang", "n-lang"]) $(id).onchange = () => chooseLanguage($(id).value);
 
 let state = null;
 let fresh = false;
@@ -547,18 +555,17 @@ const savePrefs = () => {
     // a private window: the choice lasts this visit
   }
 };
-// Settings offers every zone the browser knows: the browser's own time, the common few, then each region's.
+// Settings offers every zone the browser knows by its time: the browser's own, then UTC+0 and east to +14 and west to -12,
+// each city under its offset. The offsets are as they are now, so a zone with summer time sits where its clock does.
 (() => {
   const select = $("set-zone");
   const browser = select.querySelector('option[value=""]');
-  const groups = [...zoneGroups()].map(([region, zones]) => {
-    const options = zones.map((z) => Object.assign(document.createElement("option"), { value: z.value, textContent: z.label }));
-    if (!region) return options;
-    const g = Object.assign(document.createElement("optgroup"), { label: region });
-    g.append(...options);
-    return [g];
+  const groups = [...zoneGroups()].map(([offset, zones]) => {
+    const g = Object.assign(document.createElement("optgroup"), { label: offset });
+    g.append(...zones.map((z) => Object.assign(document.createElement("option"), { value: z.value, textContent: `${offset} · ${z.label}` })));
+    return g;
   });
-  select.replaceChildren(...(browser ? [browser] : []), ...groups.flat());
+  select.replaceChildren(...(browser ? [browser] : []), ...groups);
 })();
 const showPrefs = () => {
   $("set-sound").setAttribute("aria-checked", String(prefs.sound));

@@ -367,6 +367,85 @@ for (const [name, open, dialog] of [["Settings", "#settings-btn", "#settings"], 
   });
 }
 
+// ADR 0099: the language is chosen in Settings, not in the header; the choice is kept in a cookie the server reads, so the
+// bare address then opens in it; and a language's own address always shows that language.
+test("chooses the language in Settings, and the bare address then follows it", async ({ page, context }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  await expect(page.locator("header #lang, .tools #lang"), "the header no longer holds the language").toHaveCount(0);
+  await page.locator("#settings-btn").click();
+  const choose = page.locator("#settings #set-lang");
+  await expect(choose, "Settings holds it").toBeVisible();
+  await expect(choose, "set to the language the page is in").toHaveValue(lang);
+  // each language chooses another, so across the three, English is chosen too: the case only the cookie can serve, as a
+  // browser that asks for Japanese and is given English asked for it
+  const target: Lang = { en: "ja", ja: "zh", zh: "en" }[lang] as Lang;
+  const htmlLang = (l: Lang) => (l === "zh" ? "zh-CN" : l);
+  await choose.selectOption(target);
+  await page.waitForURL(baseURL + (target === "en" ? "/" : `/${target}/`));
+  await expect(page.locator("html")).toHaveAttribute("lang", htmlLang(target));
+  const saved = (await context.cookies()).find((c) => c.name === "lang");
+  expect(saved?.value, "the choice is kept in the lang cookie").toBe(target);
+  // the bare address opens in the chosen language
+  await page.goto(baseURL + "/");
+  await expect(page.locator("html")).toHaveAttribute("lang", htmlLang(target));
+  // /ja/ and /zh/ are their language whatever is saved: a link means what it says. English has no such address, as its
+  // own is the bare one, which follows the choice; English is chosen back in Settings, which saves it
+  for (const own of ["ja", "zh"] as const) {
+    await page.goto(baseURL + `/${own}/`);
+    await expect(page.locator("html"), `/${own}/ ignores the saved ${target}`).toHaveAttribute("lang", htmlLang(own));
+  }
+});
+
+// A popup focuses its first control when it opens, and a select takes the arrow keys: with the language first, one press
+// of an arrow in a freshly opened Settings changed the language and loaded another page. Language is not the first control,
+// so what a stray key does there is harmless.
+test("a key pressed in a freshly opened Settings does not change the language", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  await page.locator("#settings-btn").click();
+  await expect(page.locator("#settings")).toBeVisible();
+  const first = await page.evaluate(() => document.activeElement?.id);
+  expect(first, "the language is not what is focused on opening").not.toBe("set-lang");
+  const path = new URL(page.url()).pathname;
+  for (const key of ["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Space"]) await page.keyboard.press(key);
+  await page.waitForTimeout(800);
+  expect(new URL(page.url()).pathname, "still on the same address").toBe(path);
+  await expect(page.locator("html")).toHaveAttribute("lang", lang === "zh" ? "zh-CN" : lang);
+});
+
+test("About keeps its theme and music buttons without a language menu, and still links every language", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(baseURL + (lang === "en" ? "" : `/${lang}`) + "/about");
+  await expect(page.locator("#lang"), "no language menu in the header").toHaveCount(0);
+  await expect(page.locator(".about-langs a"), "the other two languages are links").toHaveCount(2);
+  const before = await page.locator("html").getAttribute("data-mode-shown");
+  await page.locator("#theme").click();
+  await expect(page.locator("html"), "the theme button still works, so the script ran").not.toHaveAttribute("data-mode-shown", before ?? "");
+  expect(errors, "no script error on About").toEqual([]);
+});
+
+// The cross takes room from a popup's title, and the Medals title (a name and a count) is the tightest: with too much
+// kept free for the cross, "My achievements" and "0 of 12" each broke onto two lines on an English phone.
+test("the Medals title keeps its name and count on one line each", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  // a narrow phone, where the wrap showed: the popup 358 wide, not the 388 of a wider one, which hid it
+  await page.setViewportSize({ width: 360, height: 760 });
+  await join(page, lang);
+  await page.evaluate(() => document.querySelectorAll(".panel.folded").forEach((p) => p.classList.remove("folded")));
+  await page.locator("#feats-mine").first().click();
+  await expect(page.locator("#feats")).toBeVisible();
+  for (const id of ["#feats-who", "#feats-count"]) {
+    const lines = await page.locator(id).evaluate((el) => el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight));
+    expect(Math.round(lines), `${id} is one line`).toBe(1);
+  }
+  const count = (await page.locator("#feats-count").boundingBox())!;
+  const cross = (await page.locator("#feats .dialog-x").boundingBox())!;
+  expect(count.x + count.width, "the count stops short of the cross").toBeLessThanOrEqual(cross.x);
+});
+
 // A popup is as wide as the screen allows, and no wider: its content must not push past it, which on a phone showed as
 // a sideways scrollbar with the title cut off and the cross scrolled away. The time-zone list holds long names, such as
 // America/Argentina/ComodRivadavia, which set the width of its row until the control was allowed to shrink.

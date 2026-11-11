@@ -43,6 +43,43 @@ it("has no subtitle after the logo but the language's own", async () => {
   }
 });
 
+// ADR 0099: the bare address follows the language chosen in Settings (the lang cookie), else the browser's, else English;
+// /ja/ and /zh/ always show their own, whatever is sent. Each is the page that language's address serves, byte for byte.
+const asked = async (path: string, headers: Record<string, string>) => {
+  const res = await fetch(new URL(path, baseUrl), { redirect: "manual", headers });
+  const html = await res.text();
+  return { res, html, lang: new JSDOM(html).window.document.documentElement.lang };
+};
+
+it("shows the bare address in the browser's language, and English when it has none of ours", async () => {
+  expect((await asked("/", {})).lang, "nothing sent").toBe("en");
+  expect((await asked("/", { "accept-language": "ja-JP,ja;q=0.9,en;q=0.5" })).lang).toBe("ja");
+  expect((await asked("/", { "accept-language": "zh-TW,zh;q=0.8" })).lang).toBe("zh-CN");
+  expect((await asked("/", { "accept-language": "fr-FR,fr;q=0.9" })).lang, "a language we lack").toBe("en");
+  const ja = await asked("/", { "accept-language": "ja" });
+  expect(ja.html, "the same page /ja/ serves, not a lookalike").toBe((await asked("/ja/", {})).html);
+});
+
+it("lets a chosen language beat the browser's, on the bare address only", async () => {
+  expect((await asked("/", { cookie: "lang=zh", "accept-language": "ja" })).lang, "the choice wins").toBe("zh-CN");
+  expect((await asked("/", { cookie: "lang=en", "accept-language": "ja" })).lang, "English chosen against a Japanese browser").toBe("en");
+  expect((await asked("/ja/", { cookie: "lang=zh", "accept-language": "en" })).lang, "/ja/ is Japanese whatever is sent").toBe("ja");
+  expect((await asked("/zh/", { cookie: "lang=ja", "accept-language": "ja" })).lang).toBe("zh-CN");
+});
+
+it("tells a cache that the bare address depends on what the browser sends, and reads junk as nothing", async () => {
+  const bare = await asked("/", {});
+  expect(bare.res.headers.get("vary") ?? "", "a shared cache must not hand one language to another").toMatch(/accept-language/i);
+  expect(bare.res.headers.get("vary") ?? "").toMatch(/cookie/i);
+  const odd: Record<string, string>[] = [{ cookie: "lang=<script>", "accept-language": "ja" }, { cookie: "lang=" + "x".repeat(4000) }, { "accept-language": "x".repeat(8000) }, { cookie: "lang=ja ;lang=zh" }];
+  for (const headers of odd) {
+    const r = await asked("/", headers);
+    expect(r.res.status, JSON.stringify(headers).slice(0, 40)).toBe(200);
+    expect(["en", "ja", "zh-CN"]).toContain(r.lang);
+  }
+  expect((await asked("/", { cookie: "lang=<script>", "accept-language": "ja" })).lang, "a cookie that is not a code is ignored").toBe("ja");
+});
+
 it("serves a player's About page in each language, and keeps the course README", async () => {
   for (const [path, lang] of [["/about", "en"], ["/ja/about", "ja"], ["/zh/about", "zh-CN"]]) {
     const { res, doc } = await get(path);
@@ -63,7 +100,10 @@ it("serves a player's About page in each language, and keeps the course README",
 it("gives every About page the header tools and footer, but no tabs or name button", async () => {
   for (const path of ["/about", "/ja/about", "/zh/about"]) {
     const { doc } = await get(path);
-    for (const id of ["lang", "theme", "music", "bgm"]) expect(doc!.getElementById(id), `${path} #${id}`).not.toBeNull();
+    for (const id of ["theme", "music", "bgm"]) expect(doc!.getElementById(id), `${path} #${id}`).not.toBeNull();
+    // the language is chosen in Settings, not in the header (ADR 0099); About lists the other languages as links instead
+    expect(doc!.getElementById("lang"), `${path} has no language menu`).toBeNull();
+    expect(doc!.querySelectorAll(".about-langs a").length, `${path} links the other two languages`).toBe(2);
     expect(doc!.querySelector("header.top"), path).not.toBeNull();
     expect(doc!.querySelector("footer")?.textContent?.trim().length, `${path} footer`).toBeGreaterThan(10);
     expect(doc!.querySelector("[role=tab]"), `${path} has no market tabs`).toBeNull();

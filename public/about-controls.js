@@ -1,9 +1,6 @@
 import { T } from "/i18n.js";
 const lang = document.documentElement.lang.startsWith("ja") ? "ja" : document.documentElement.lang.startsWith("zh") ? "zh" : "en";
 const words = T[lang].ui;
-const menu = document.getElementById("lang");
-menu.value = lang;
-menu.onchange = () => location.assign((menu.value === "en" ? "" : "/" + menu.value) + "/about");
 const theme = document.getElementById("theme");
 const isLight = () => document.documentElement.dataset.theme === "light" || (!document.documentElement.dataset.theme && !matchMedia("(prefers-color-scheme: dark)").matches);
 function label() {

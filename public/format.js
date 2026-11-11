@@ -65,22 +65,35 @@ export const feedTime = (ms, lang, now = Date.now()) => {
 
 // The zone's short name at a moment, as "AEDT" or "GMT+9".
 export const zoneName = (ms, lang) => formatsFor(lang).zone.formatToParts(ms).find((p) => p.type === "timeZoneName")?.value ?? "";
-// Every zone the browser knows (the IANA list it ships, so none is kept by hand), as Settings offers them: the common
-// few first, then the rest by region, each with its offset now, as "Tokyo (GMT+9)". A browser without the list keeps
-// the common few.
-export const COMMON_ZONES = ["Australia/Sydney", "Asia/Tokyo", "Asia/Shanghai", "Asia/Singapore", "Europe/London", "Europe/Zurich", "America/New_York", "UTC"];
+// Every zone the browser knows (the IANA list it ships, so none is kept by hand), as Settings offers them: grouped by the
+// time each has at that moment, UTC+0 first, then east to +14 and west from -1 to -12, each city under its offset and
+// named by itself, so a player finds their time and then their city. A zone that has summer time moves a group when
+// its clocks change, as the clock a player reads does. A browser without the list offers none, and "Browser time"
+// still works.
+const OFFSET = /^GMT(?:([+-])(\d\d):(\d\d))?$/;
 export function zoneGroups(now = Date.now()) {
   /** @type {string[]} */
   let all = [];
   try { all = Intl.supportedValuesOf("timeZone"); } catch { /* an older browser */ }
-  const offset = (z) => { try { return new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "shortOffset" }).formatToParts(new Date(now)).find((p) => p.type === "timeZoneName")?.value ?? ""; } catch { return ""; } };
-  const label = (z) => `${z.split("/").slice(1).join(" / ").replaceAll("_", " ") || z} (${offset(z)})`;
-  /** @type {Map<string, { value: string, label: string }[]>} */
-  const groups = new Map([["", COMMON_ZONES.map((z) => ({ value: z, label: label(z) }))]]);
+  /** @param {string} zone minutes east of UTC at `now`, or null if the browser cannot say */
+  const minutes = (zone) => {
+    try {
+      const text = new Intl.DateTimeFormat("en", { timeZone: zone, timeZoneName: "longOffset" }).formatToParts(new Date(now)).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+      const m = OFFSET.exec(text);
+      return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) : null;
+    } catch { return null; }
+  };
+  const name = (min) => `UTC${min < 0 ? "-" : "+"}${Math.floor(Math.abs(min) / 60)}${Math.abs(min) % 60 ? ":" + String(Math.abs(min) % 60).padStart(2, "0") : ""}`;
+  /** @type {Map<number, { value: string, label: string }[]>} */
+  const byOffset = new Map();
   for (const z of all) {
-    if (!z.includes("/") || COMMON_ZONES.includes(z)) continue;
-    const region = z.split("/")[0];
-    groups.set(region, [...(groups.get(region) ?? []), { value: z, label: label(z) }]);
+    if (!z.includes("/")) continue;
+    const min = minutes(z);
+    if (min === null) continue;
+    byOffset.set(min, [...(byOffset.get(min) ?? []), { value: z, label: z.split("/").at(-1)?.replaceAll("_", " ") ?? z }]);
   }
-  return groups;
+  // UTC+0, then the east nearest first, then the west nearest first
+  const order = [...byOffset.keys()].sort((a, b) => rank(a) - rank(b));
+  function rank(min) { return min === 0 ? -Infinity : min > 0 ? min : 1e6 - min; }
+  return new Map(order.map((min) => [name(min), (byOffset.get(min) ?? []).sort((a, b) => a.label.localeCompare(b.label))]));
 }

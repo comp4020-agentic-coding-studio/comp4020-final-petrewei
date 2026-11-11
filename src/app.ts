@@ -24,7 +24,7 @@ import { pipOf } from "../public/ticket.js";
 import { LANGS as LANG_LIST, T, clueDates, news } from "../public/i18n.js";
 import { drawn, GIVEN } from "../public/names.js";
 import { renderMarkdown } from "./markdown.ts";
-import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, type Lang, marketIn, prefix } from "./pages.ts";
+import { alternates, escape, FONTS, HTMLLANG, headerIn, LANGS, languageFor, type Lang, marketIn, prefix } from "./pages.ts";
 import { BACK_AFTER, CANDLE, DAY_TICKS, EVENTS, SWAN_DAY, History, Minutes, ALL_PAIRS, PAIRS, isPair, random, replayRound, simulation, storyOf, type AnyPair, type Pair, type Round } from "./market.ts";
 import { LESSONS, type Move, Tutorial } from "./tutorial.ts";
 import { Live } from "./live.ts";
@@ -1609,6 +1609,17 @@ export function createApp(options: AppOptions = {}) {
     const production = env.NODE_ENV === "production";
     const secureCookie = production ? "; Secure" : "";
 
+    // The page an address serves. The bare address alone adapts (ADR 0099): to the language chosen in Settings, kept in the
+    // `lang` cookie, else the browser's; /ja/ and /zh/ always show their own, so a link means what it says. Both are read
+    // from the request as untrusted, and a cache is told the page depends on them.
+    const pageFor = (pathname: string, req: IncomingMessage, res: ServerResponse): [string, string] | undefined => {
+      if (pathname !== "/") return PAGES[pathname];
+      res.setHeader("vary", "Accept-Language, Cookie");
+      const chosen = req.headers.cookie?.match(/(?:^|;\s*)lang=([^;]*)/)?.[1];
+      const lang = languageFor(chosen, req.headers["accept-language"]);
+      return PAGES[`${prefix(lang)}/`];
+    };
+
     const equalSecret = (a: string, b: string): boolean => {
       const x = Buffer.from(a);
       const y = Buffer.from(b);
@@ -1662,7 +1673,7 @@ export function createApp(options: AppOptions = {}) {
         return void res.end();
       }
       // A debugger's page loads the console too; nobody else's does.
-      if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [PAGES[url.pathname][0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
+      if (req.method === "GET" && debug && DEBUG_PAGES.has(url.pathname)) return send(res, [pageFor(url.pathname, req, res)![0].replace("</body>", `  <script type="module" src="/debug.js"></script>\n</body>`), HTML]);
       if (req.method === "GET" && path === "/debug.js") return debug ? send(res, DEBUG_JS) : json(res, 404, { error: "Not found." });
       if (path === "/mcp") {
         res.setHeader("cache-control", "no-store");
@@ -1684,7 +1695,7 @@ export function createApp(options: AppOptions = {}) {
       }
       if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/audio/bgm.m4a") return sendAudio(req, res);
       if (req.method === "GET" && url.pathname === "/public/screenshot.png") return void (res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" }), res.end(SHOT));
-      if (req.method === "GET" && PAGES[url.pathname]) return send(res, PAGES[url.pathname], req);
+      if (req.method === "GET" && PAGES[url.pathname]) return send(res, pageFor(url.pathname, req, res)!, req);
       if (req.method === "GET" && PAGES[path]) return send(res, PAGES[path], req);
       if (req.method === "GET" && (LOG_PAGES[path] || path === "/api/log") && !operator(url)) {
         return json(res, 404, { error: "Not found." });

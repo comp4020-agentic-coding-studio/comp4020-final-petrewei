@@ -60,6 +60,62 @@ describe("times", () => {
     setZone("");
   });
 
+  // Settings offers the zones by their time, UTC+0 first, then east to +14 and west from -1 to -12, with every city under
+  // the offset it has at that moment (ADR 0099's neighbour in the same popup; the rule is Peter's): a player finds their
+  // time and then their city, and nothing is listed twice or left out.
+  describe("the time-zone list", () => {
+    const winter = Date.parse("2026-01-15T12:00:00Z");
+    const summer = Date.parse("2026-07-15T12:00:00Z");
+    const cities = () => Intl.supportedValuesOf("timeZone").filter((z) => z.includes("/"));
+
+    it("lists every city once, under the offset it has at that moment, and no group empty", async () => {
+      const { zoneGroups } = await import("../public/format.js");
+      const groups = zoneGroups(winter);
+      const seen = new Map<string, number>();
+      for (const [, zones] of groups) {
+        expect(zones.length, "a group is never empty").toBeGreaterThan(0);
+        for (const z of zones) seen.set(z.value, (seen.get(z.value) ?? 0) + 1);
+      }
+      for (const z of cities()) expect(seen.get(z), `${z} is listed once`).toBe(1);
+      expect(seen.size, "and nothing else is listed").toBe(cities().length);
+    });
+
+    it("puts UTC+0 first, then the east, then the west, and names no common zones on top", async () => {
+      const { zoneGroups } = await import("../public/format.js");
+      const heads = [...zoneGroups(winter).keys()];
+      expect(heads[0], "the list begins at UTC+0").toBe("UTC+0");
+      const minutes = heads.map((h) => { const m = h.match(/^UTC([+-])(\d+)(?::(\d+))?$/)!; return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)); });
+      const east = minutes.filter((m) => m > 0), west = minutes.filter((m) => m < 0);
+      expect(minutes[0]).toBe(0);
+      expect(minutes.slice(1, 1 + east.length), "then the east, nearest first").toEqual([...east].sort((a, b) => a - b));
+      expect(minutes.slice(1 + east.length), "then the west, nearest first").toEqual([...west].sort((a, b) => b - a));
+      expect(heads, "no unnamed group of common zones").not.toContain("");
+    });
+
+    it("gives every city in a group the same offset at that moment, and labels it by its city alone", async () => {
+      const { zoneGroups } = await import("../public/format.js");
+      const offsetOf = (z: string, at: number) => new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")!.value;
+      for (const [head, zones] of zoneGroups(summer)) {
+        const offsets = new Set(zones.map((z) => offsetOf(z.value, summer).replace("GMT", "") || "+00:00"));
+        expect(offsets.size, `${head} holds one offset`).toBe(1);
+        for (const z of zones) expect(z.label, "a city, not a path or an offset").toBe(z.value.split("/").at(-1)!.replaceAll("_", " "));
+      }
+    });
+
+    it("moves a city when its clocks change: London is UTC+0 in winter and UTC+1 in summer", async () => {
+      const { zoneGroups } = await import("../public/format.js");
+      const groupOf = (at: number, zone: string) => [...zoneGroups(at)].find(([, zs]) => zs.some((z) => z.value === zone))![0];
+      expect(groupOf(winter, "Europe/London")).toBe("UTC+0");
+      expect(groupOf(summer, "Europe/London")).toBe("UTC+1");
+      // India has no summer time and a half-hour offset; a browser lists it as Asia/Calcutta or Asia/Kolkata, the old
+      // spelling or the new, so whichever it has is the one asked
+      const india = ["Asia/Kolkata", "Asia/Calcutta"].find((z) => Intl.supportedValuesOf("timeZone").includes(z))!;
+      expect(india, "the browser lists India under one of its two names").toBeDefined();
+      expect(groupOf(winter, india)).toBe("UTC+5:30");
+      expect(groupOf(summer, india)).toBe("UTC+5:30");
+    });
+  });
+
   it("writes a feed line's time as the hour today, with the weekday for an earlier day", async () => {
     const { feedTime, setZone } = await import("../public/format.js");
     setZone("UTC");

@@ -16,6 +16,25 @@ export const LANGS = ["en", "ja", "zh"] as const;
 export type Lang = (typeof LANGS)[number];
 export const HTMLLANG: Record<Lang, string> = { en: "en", ja: "ja", zh: "zh-CN" };
 export const prefix = (lang: Lang): string => (lang === "en" ? "" : `/${lang}`);
+
+const isLang = (code: string | undefined): code is Lang => LANGS.includes(code as Lang);
+
+// The language the bare address shows (ADR 0099): the one chosen in Settings, kept in the `lang` cookie; else the first
+// language of ours in the browser's Accept-Language, by its weight, a region such as zh-TW reading as zh; else English.
+// Both come from the request, so each is read as untrusted: a cookie is a code of ours exactly or nothing, and a header is
+// read only as far as the first sixty tags, since a browser sends a handful and anything longer is not one.
+export function languageFor(chosen: string | undefined, acceptLanguage: string | undefined): Lang {
+  if (isLang(chosen)) return chosen;
+  const tags = (acceptLanguage ?? "").split(",", 60).map((part, order) => {
+    const [tag, ...params] = part.trim().toLowerCase().split(";");
+    const given = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+    const weight = given === undefined ? 1 : Number(given.slice(2));
+    return { code: tag.split("-")[0], weight, order };
+  });
+  const usable = tags.filter((t) => isLang(t.code) && Number.isFinite(t.weight) && t.weight > 0 && t.weight <= 1);
+  usable.sort((a, b) => b.weight - a.weight || a.order - b.order);
+  return (usable[0]?.code as Lang | undefined) ?? "en";
+}
 export const escape = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export const alternates = (page: "" | "about"): string =>
   LANGS.map((l) => `  <link rel="alternate" hreflang="${HTMLLANG[l]}" href="${prefix(l)}/${page}">`).join("\n") +
