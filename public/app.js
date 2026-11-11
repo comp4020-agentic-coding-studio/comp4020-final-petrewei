@@ -453,13 +453,14 @@ $("feats-close").onclick = () => $("feats").close();
 $("history-btn").onclick = () => $("history-box").showModal();
 // This tab's address as a QR code, drawn when opened, so a room joins from their phones; the address carries no secret.
 $("join-btn").onclick = () => {
-  const url = location.href.split("#")[0];
+  const url = new URL(home(lang) + "#" + mode, location.origin).href;
+  $("join-note").textContent = t("joinNote", { mode: t(mode) });
   $("join-url").textContent = url;
   try {
     const code = qrcode(0, "M");
     code.addData(url);
     code.make();
-    $("join-qr").innerHTML = code.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+    $("join-qr").innerHTML = code.createSvgTag({ cellSize: 5, scalable: true });
   } catch {
     // a code that cannot be drawn leaves the address, written out under it
     $("join-qr").replaceChildren();
@@ -773,6 +774,12 @@ function openNames(first) {
   $("name-box").dataset.first = String(first);
   $("name-row").hidden = first;
   $("name-first").hidden = !first;
+  $("name-play-note").hidden = !first;
+  if (first) {
+    const begin = mode === "tutorial" ? "rewind" : mode;
+    $("name-free").value = begin;
+    $("name-free").textContent = t("namePlayMode", { mode: t(begin) });
+  }
   $("name-title").textContent = t(first ? "nameWelcome" : "nameTitle");
   if (!$("name-box").open) $("name-box").showModal();
   $("name-input").select();
@@ -1679,6 +1686,10 @@ function render(s) {
 // One stream at a time, on the chosen market. Switching tabs closes it and
 // opens the other; the two markets keep running either way.
 const transport = createTransport({ onState: render, onConnection: connection, reconnect: watch });
+const marketTabs = [...document.querySelectorAll(".tabs [role=tab]")];
+function setTabStop(tab) {
+  for (const option of marketTabs) option.tabIndex = option === tab ? 0 : -1;
+}
 function watch(next) {
   mode = next;
   try {
@@ -1686,7 +1697,8 @@ function watch(next) {
   } catch {
     // a private window: the tab lasts this visit
   }
-  for (const tab of document.querySelectorAll("[role=tab]")) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
+  for (const tab of marketTabs) tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
+  setTabStop(marketTabs.find((tab) => tab.dataset.mode === mode));
   clearPointer();
   cuts = null;
   bankrupt = null;
@@ -1695,7 +1707,23 @@ function watch(next) {
   $("error").textContent = "";
   transport.start(mode);
 }
-for (const tab of document.querySelectorAll("[role=tab]")) tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
+for (const [index, tab] of marketTabs.entries()) {
+  tab.onclick = () => tab.dataset.mode !== mode && watch(tab.dataset.mode);
+  tab.onkeydown = (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    let next;
+    switch (event.key) {
+      case "ArrowRight": next = (index + 1) % marketTabs.length; break;
+      case "ArrowLeft": next = (index + marketTabs.length - 1) % marketTabs.length; break;
+      case "Home": next = 0; break;
+      case "End": next = marketTabs.length - 1; break;
+      default: return;
+    }
+    event.preventDefault();
+    setTabStop(marketTabs[next]);
+    marketTabs[next].focus();
+  };
+}
 addEventListener("pagehide", (event) => {
   clearTimeout(connectionTimer);
   if (event.persisted) { transport.suspend(); clearPointer(); return; }

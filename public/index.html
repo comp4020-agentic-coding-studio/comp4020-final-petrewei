@@ -23,6 +23,7 @@
          the panels stack in the order a phone needs. -->
     <section class="panel chart-panel" data-fold="chart" aria-label="Chart">
       <h2><span class="ico" aria-hidden="true">📈</span><span data-t="chartTitle">Chart</span></h2>
+        <p class="join-open"><button type="button" class="ghost mini" id="join-btn" data-tip="joinOpen"><span aria-hidden="true">📱</span> <span data-t="joinTitle">Join on a phone</span></button></p>
       <div class="chart-box">
         <!-- The broker's warning, while your margin level is low: red in a
              margin call, amber on the way there. -->
@@ -342,7 +343,6 @@
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
       <h2 data-tip="room"><span class="ico" aria-hidden="true">👥</span><span data-t="room">Room</span> <span class="aside" id="count"></span></h2>
-      <p class="join-open"><button type="button" class="ghost mini" id="join-btn" data-tip="joinOpen"><span aria-hidden="true">📱</span> <span data-t="joinTitle">Join on a phone</span></button></p>
       <!-- Duels (ADR 0095): a challenge made to you, with Accept, or the duel you are in this round. -->
       <p class="duel" id="duel" hidden><span id="duel-text"></span> <button type="button" class="mini" id="duel-accept" data-t="duelAccept" data-tip="duelAccept">Accept</button></p>
       <ol id="traders"></ol>
@@ -401,6 +401,7 @@
         </button>
       </div>
       <p id="name-error" class="error" role="status"></p>
+      <p class="name-play-note" id="name-play-note" data-t="lobbyNote" hidden>Play money only. Real FX trading can lose everything you put in.</p>
       <div class="row" id="name-row">
         <button id="name-cancel" class="ghost" type="button" data-t="nameCancel" data-tip="nameCancel">Cancel</button>
         <button id="name-save" class="next" type="submit" data-t="nameSave" data-tip="nameSave">Save</button>
@@ -408,7 +409,7 @@
       <!-- A newcomer chooses where to begin: the tutorial, or the markets. -->
       <div class="row first" id="name-first" hidden>
         <button id="name-learn" class="ghost" type="submit" value="tutorial" data-t="nameLearn" data-tip="nameLearn">Start the tutorial</button>
-        <button id="name-free" class="next" type="submit" value="rewind" data-t="nameFree" data-tip="nameFree">Play freely</button>
+        <button id="name-free" class="next" type="submit" value="rewind" data-tip="nameFree">Play freely</button>
       </div>
     </form>
   </dialog>
@@ -442,7 +443,7 @@
   <!-- This tab's address as a QR code, for a room to join from their phones (docs/product.md, candidate 1). -->
   <dialog id="join-box" class="card join-box" aria-labelledby="join-title">
     <h2 id="join-title" data-t="joinTitle">Join on a phone</h2>
-    <p data-t="joinNote">Scan to open this tab on a phone. Everyone who scans trades the same price.</p>
+    <p id="join-note"></p>
     <div id="join-qr" class="join-qr"></div>
     <p class="join-url"><code id="join-url"></code></p>
     <div class="row"><button type="button" class="ghost" id="join-close" data-t="featsDone">Done</button></div>

@@ -488,6 +488,35 @@ it.each([["en", "Kurumi"], ["ja", "くるみ"], ["zh", "久留美"]] as const)("
 
 // A room joins from a phone by a QR code of this tab's own address (docs/product.md, candidate 1): the button opens
 // it, the code is drawn, and the address is written out under it for anyone who cannot scan.
+// A QR code is read only with a blank border of four modules on every side, the standard's quiet zone; thinner and a
+// camera in poor light or at an angle can fail to find it. The drawing carries that border itself, so it holds in any
+// box, white or dark, wide or narrow. The library draws one background rect and one path, a unit square per dark
+// module, so the border is read from where the first and last of those squares begin.
+it("draws the join code with the four-module quiet zone around it", async () => {
+  const { dom, w, emit } = await app();
+  try {
+    await emit();
+    (w.document.querySelector('[data-mode="live"]') as HTMLElement).click();
+    w.HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+    w.document.getElementById("join-btn")!.click();
+    const svg = w.document.querySelector("#join-qr svg")!;
+    const [, , size] = svg.getAttribute("viewBox")!.split(" ").map(Number);
+    const path = svg.querySelector("path")!.getAttribute("d")!;
+    const squares = [...path.matchAll(/M(\d+),(\d+)l(\d+),0/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]), cell: Number(m[3]) }));
+    expect(squares.length, "dark modules are drawn").toBeGreaterThan(100);
+    const cell = squares[0].cell;
+    const borders = {
+      left: Math.min(...squares.map((q) => q.x)),
+      top: Math.min(...squares.map((q) => q.y)),
+      right: size - Math.max(...squares.map((q) => q.x + cell)),
+      bottom: size - Math.max(...squares.map((q) => q.y + cell)),
+    };
+    for (const [side, edge] of Object.entries(borders)) expect(edge / cell, `the ${side} border, in modules`).toBeGreaterThanOrEqual(4);
+  } finally {
+    dom.window.close();
+  }
+});
+
 it("shows a QR code of this tab's address, to join from a phone", async () => {
   const { dom, w, emit } = await app();
   try {
@@ -498,7 +527,7 @@ it("shows a QR code of this tab's address, to join from a phone", async () => {
     w.document.getElementById("join-btn")!.click();
     expect((w.document.getElementById("join-box") as HTMLDialogElement).open).toBe(true);
     expect(w.document.querySelector("#join-qr svg, #join-qr img"), "the code is drawn").not.toBeNull();
-    expect(w.document.getElementById("join-url")!.textContent).toBe(w.location.href.split("#")[0]);
+    expect(w.document.getElementById("join-url")!.textContent).toBe("http://localhost/#live");
   } finally {
     dom.window.close();
   }

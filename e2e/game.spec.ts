@@ -333,6 +333,71 @@ test("opens a tab from its name in the address", async ({ page }, info) => {
   }
 });
 
+// The tutorial is one player's own lesson, so it has no room to share: no join code is offered there, and a code made on
+// another tab still opens the market it names. Hidden by the page's own styles, so it is read from a real browser.
+test("offers no join code in the tutorial, and brings it back on a market", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  const share = page.locator("#join-btn");
+  await expect(share).toBeVisible();
+  await page.locator('[data-mode="tutorial"]').click();
+  await expect(page.locator("body")).toHaveClass(/tutorial/);
+  await expect(share).toBeHidden();
+  await page.locator('[data-mode="rewind"]').click();
+  await expect(share).toBeVisible();
+});
+
+test("shares the selected market with a newcomer and supports keyboard tab navigation", async ({ page, browser }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang);
+  const tabs = page.getByRole("tablist");
+  const rewind = tabs.locator('[data-mode="rewind"]');
+  const random = tabs.locator('[data-mode="random"]');
+  const live = tabs.locator('[data-mode="live"]');
+  await rewind.focus();
+  await page.keyboard.press("End");
+  await expect(tabs.locator('[data-mode="tutorial"]')).toBeFocused();
+  await expect(rewind).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  await expect(random).toBeFocused();
+  await expect(rewind).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+  await expect(random).toHaveAttribute("aria-selected", "true");
+
+  await page.evaluate(() => history.replaceState(null, "", "?from=showcase"));
+  await page.locator(".chart-panel > h2").click();
+  await expect(page.locator("#chart")).toBeHidden();
+  for (const mode of ["random", "live"]) {
+    if (mode === "live") await live.click();
+    const share = page.locator("#join-btn");
+    await expect(share).toBeInViewport();
+    await share.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.locator("#join-box");
+    await expect(dialog).toBeVisible();
+    const url = (await dialog.locator("#join-url").textContent())!;
+    expect(url).toBe(baseURL + (lang === "en" ? "/" : `/${lang}/`) + "#" + mode);
+    await expect(dialog.locator("#join-qr svg")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(share).toBeFocused();
+
+    const newcomer = await browser.newPage();
+    try {
+      await newcomer.goto(url);
+      await expect(newcomer.locator("#name-box")).toBeVisible();
+      await expect(newcomer.locator("#name-box")).toContainText(T[lang].ui.lobbyNote);
+      await newcomer.locator("#name-input").fill(`Guest${randomUUID().slice(0, 8)}`);
+      await expect(newcomer.locator("#name-free")).toContainText(T[lang].ui[mode]);
+      await newcomer.locator("#name-free").click();
+      await expect(newcomer.locator("#name-box")).toBeHidden();
+      await expect(newcomer.locator(`[data-mode="${mode}"]`)).toHaveAttribute("aria-selected", "true");
+    } finally {
+      await newcomer.close();
+    }
+  }
+});
+
 // ADR 0095: a duel and an alert go through the page's own buttons to the server, which only a browser shows; the
 // server's rules for both are checked in the unit tests.
 test("challenges someone to a duel from the room, and sets and cancels a price alert in Live", async ({ page, browser }, info) => {

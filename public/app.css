@@ -231,7 +231,7 @@ body:not(.tutorial) .desk-body > .account.folded > .account-body, body:not(.tuto
 /* A heading is its icon and label on the left, and an optional note or
    count, marked .aside, at the right and muted. */
 .panel h2 > .aside { margin-left: auto; padding-left: 1rem; font-weight: 400; color: var(--muted); }
-.chart-panel { overflow: hidden; }
+.chart-panel { position: relative; overflow: hidden; }
 /* A panel with a heading folds to that heading (ADR 0039); the tutorial
    keeps every control in view. */
 .panel[data-fold] > h2 { cursor: pointer; user-select: none; }
@@ -725,6 +725,7 @@ body.bell-up .ticket { display: none; }
 .name-box .row.first[hidden], .name-box .row[hidden] { display: none; }
 .name-box h2 { margin: 0; }
 .name-hint { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.name-play-note { margin: 0; padding: 0.5rem 0.7rem; background: var(--screen); border-inline-start: 2px solid var(--pink); border-radius: 4px; color: var(--soft); font-size: 0.8rem; }
 .name-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; }
 /* The face to try on: click for another. A small arrow says it changes. */
 .face-draw { position: relative; width: 34px; height: 34px; padding: 0; border-radius: 8px; background: var(--av-tile); line-height: 0; }
@@ -1133,8 +1134,12 @@ body.live .prayers, body.live #round-ctl, body.live #guess { display: none; }
   .tabs button .ico { display: none; }
 }
 /* the phone join code: square, dark on white whatever the theme, so every camera reads it */
-.join-open { margin: 0.2rem 0 0.4rem; }
-.join-box { text-align: center; }
-.join-qr { width: min(240px, 70vw); margin: 0.6rem auto; padding: 8px; background: #fff; border-radius: 8px; }
+.join-open { position: absolute; z-index: 1; top: 0.2rem; right: 2.1rem; margin: 0; }
+.join-open button { min-height: 32px; padding: 0.2rem 0.6rem; }
+body:not(.tutorial) .chart-panel.folded > .join-open { display: block; }
+body.tutorial .join-open { display: none; }
+.join-box { width: min(24rem, calc(100% - 2rem)); text-align: center; }
+.join-box::backdrop { background: var(--scrim); }
+.join-qr { width: min(240px, 100%); margin: 0.6rem auto; padding: 8px; background: #fff; border-radius: 8px; }
 .join-qr svg { display: block; width: 100%; height: auto; }
 .join-url code { font-size: 0.75rem; overflow-wrap: anywhere; }
