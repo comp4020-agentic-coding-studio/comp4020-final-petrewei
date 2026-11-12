@@ -189,7 +189,9 @@ it("removes one Live account by its short code, for the operator alone", async (
     expect((await debug(cookie, { kind: "remove-live", name: "nobody-has-this" })).status, "no such name").toBe(409);
     // the board shows names, not codes, so the operator removes by the name it shows
     const junkName = ((await (await fetch(`${s.base}/api/state?mode=live`, { headers: { cookie: junk } })).json()) as { you: { name: string } }).you.name;
-    expect((await debug(cookie, { kind: "remove-live", name: junkName })).status).toBe(200);
+    // this once answered 409 in a full run and passed alone every time since; the reply says why, so a recurrence is read
+    const removed = await debug(cookie, { kind: "remove-live", name: junkName });
+    expect(removed.status, `removing "${junkName}" (junk's own name) answered ${await removed.clone().text()}; the board was ${JSON.stringify((await board()).board)}`).toBe(200);
     expect((await board()).board.map((r) => r.name), "only the kept account left").not.toContain(junkName);
     expect((await board()).board.length).toBe(1);
     s.proc.kill("SIGTERM");
