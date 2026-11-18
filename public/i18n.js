@@ -6,7 +6,7 @@
 // Shared by the market page and test/i18n.test.ts.
 
 import { aud } from "./format.js";
-import { CLUES, EVENTS, LESSONS, LINES, NEWS, RELEASES, SITUATIONS } from "./i18n-long.js";
+import { BELL_LINES, CLUES, EVENTS, LESSONS, LINES, NEWS, RELEASES, SITUATIONS } from "./i18n-long.js";
 
 export const LANGS = ["en", "ja", "zh"];
 
@@ -1824,6 +1824,7 @@ for (const lang of LANGS) {
   T[lang].clues = CLUES[lang];
   // What each house trader says, in character (ADR 0031).
   T[lang].lines = LINES[lang];
+  T[lang].bellLines = BELL_LINES[lang];
 }
 // For the checks: English lessons and days exist wherever the others do.
 // A replay's clues are told by number, never by the date they lead to, which

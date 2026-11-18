@@ -130,6 +130,23 @@ it("keeps every fixed-width label inside its slot in every language", () => {
 // ADR 0031: the house traders speak in character. A bot's bubble, at each
 // moment a pop marks, is one of its own lines, in every language; a bot
 // with nothing to say for a moment falls back to the plain pop.
+// The bell ends on a line in the show's voice, by how the round went: a win, a loss, a forced cut or a wipe-out. Every
+// language has at least two of each, so it is not the same line twice running.
+describe("the bell's closing lines", () => {
+  it("has two or more for every way a round ends, in every language, and the same ways in each", async () => {
+    const { LANGS, T } = await import("../public/i18n.js");
+    for (const lang of LANGS) {
+      const lines = T[lang].bellLines;
+      expect(lines, lang).toBeDefined();
+      expect(Object.keys(lines).sort(), lang).toEqual(["bankrupt", "cut", "lose", "win"]);
+      for (const [way, list] of Object.entries(lines) as [string, string[]][]) {
+        expect(list.length, `${lang} ${way}`).toBeGreaterThanOrEqual(2);
+        for (const l of list) expect([...l].length, `${lang} ${way}: ${l}`).toBeGreaterThan(3);
+      }
+    }
+  });
+});
+
 describe("the bots' lines", () => {
   const MOMENTS = ["wild", "add", "win", "loss", "call", "stopout", "zerocut", "borrow", "pray"];
   it("give every bot lines for every moment, in every language", async () => {

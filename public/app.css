@@ -353,7 +353,9 @@ body.tutorial .studies { display: none; }
 .round-ctl[hidden] { display: none; }
 .ghost.danger { color: var(--down); border-color: var(--down); }
 .bell-foot { display: flex; align-items: center; gap: 0.4rem; }
-.bell-foot .bell-next { flex: 1; min-width: 0; }
+.bell-quip { margin: 0.4rem 0 0; font-style: italic; color: var(--soft); text-wrap: pretty; }
+.bell-quip[hidden] { display: none; }
+.bell-next { flex: 1; min-width: 0; }
 .lobby p { margin: 0; max-width: 100%; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lobby-go { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
 .lobby-go .start { margin-top: 0; }

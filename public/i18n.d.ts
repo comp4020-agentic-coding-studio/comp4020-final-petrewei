@@ -20,6 +20,7 @@ type Lang = {
   stories: string[];
   clues: Record<string, string[]>;
   lines: Record<string, Record<string, string[]>>;
+  bellLines: Record<"win" | "lose" | "cut" | "bankrupt", string[]>;
 };
 export declare const LANGS: ("en" | "ja" | "zh")[];
 export declare const T: Record<"en" | "ja" | "zh", Lang> & Record<string, Lang>;

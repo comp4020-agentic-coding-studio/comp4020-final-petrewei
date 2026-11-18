@@ -1694,6 +1694,14 @@ function render(s) {
       if (offered) $("duel-result-text").textContent += ` ${t("rematchSent", { who: nameOf(other) })}`;
       $("rematch").onclick = () => act("challenge", { code: other });
     }
+    // the show's voice on how it went, for a round you traded in; picked once per bell, so it does not change under you
+    const quip = $("bell-quip");
+    quip.hidden = !d;
+    if (d) {
+      const way = d.bankruptPenalty ? "bankrupt" : d.cuts ? "cut" : d.net >= s.start ? "win" : "lose";
+      const key = `${s.round}:${way}`;
+      if (quip.dataset.key !== key) (quip.dataset.key = key, (quip.textContent = pick(T[lang].bellLines[way])));
+    }
     $("bell-next").textContent = t("bellNext", { s: s.breakLeft });
     $("ranking").replaceChildren(
       ...s.result.ranking.map((r) => {

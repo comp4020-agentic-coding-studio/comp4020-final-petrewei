@@ -223,6 +223,17 @@ test("two independent players see orders, recover from offline and receive their
     await page.locator("#debrief summary").click();
     await expect(page.locator("#debrief-lines")).toBeVisible();
     await expect(page.locator("#debrief-lines")).toContainText(T[lang].ui.financingPaid);
+    // the bell closes on a line in the show's voice, for a round you traded in, one of the language's own for how it went
+    const quip = page.locator("#bell-quip");
+    await expect(quip).toBeVisible();
+    const all = Object.values(T[lang].bellLines).flat();
+    expect(all, "one of the language's own closing lines").toContain((await quip.textContent())!.trim());
+    // and the buttons under it are still reached, on a phone as on a desktop
+    for (const id of ["#hold", "#dismiss"]) {
+      await page.locator(id).scrollIntoViewIfNeeded();
+      const box = (await page.locator(id).boundingBox())!;
+      expect(box.y + box.height, `${id} is on screen`).toBeLessThanOrEqual(page.viewportSize()!.height);
+    }
     await expect(observer.locator("#bell")).toBeVisible();
     await expect(page.locator("#paused")).toBeHidden();
     await expect(observer.locator("#paused")).toBeHidden();
@@ -644,5 +655,24 @@ test("shows the leverage's and margin's notes whole, at either end of the slider
         expect(await note.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), `${mode} ${key} ${id}: ${await note.textContent()}`).toBe(true);
       }
     }
+  }
+});
+
+// The lesson list shows every lesson's title; the longer, show-style titles must still sit inside a phone's width.
+test("the lesson list fits a phone with the show-style titles", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await join(page, lang, true);
+  await page.locator("#lesson-play").click();
+  const pick = page.locator("#lesson-n");
+  await expect(pick).toBeEnabled();
+  const box = (await pick.boundingBox())!;
+  expect(box.x + box.width, "the list is inside the viewport").toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
+  // every title, open in turn, keeps the page from scrolling sideways
+  for (let i = 0; i < LESSONS.length; i++) {
+    await pick.selectOption(String(i));
+    await expect(page.locator("#lesson-title")).toHaveText(lessonTitle(lang, LESSONS[i].id));
+    const b = (await pick.boundingBox())!;
+    expect(b.x + b.width, `lesson ${i + 1}: the list stays in the viewport`).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
 });

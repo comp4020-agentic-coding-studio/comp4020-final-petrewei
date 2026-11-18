@@ -65,7 +65,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "buy",
-    title: "Buy: Betting the Price Rises",
+    title: "Long? Short? Buy: Betting the Price Rises",
     text: "To buy is to bet the price will rise. Leverage multiplies your bet: 1× borrows nothing. Margin is the share of your money you put in.",
     task: "Slide Leverage to 1×, then press Buy.",
     plan: [
@@ -108,7 +108,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "leverage",
-    title: "Leverage: The Magnifying Glass",
+    title: "I've Got Leverage♪ The Magnifying Glass",
     text: "At 30× your A$10,000 controls A$300,000, so a 1% move changes your money by 30%, either way. 30× is Australia's legal cap for retail traders.",
     task: "Set Leverage to 30× and Margin to 100%, then press Buy.",
     plan: [
@@ -124,7 +124,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "cut-loss",
-    title: "Margin Call: Cut the Loss",
+    title: "Do I Have to Cut It? Margin Call: Cut the Loss",
     text: "A 2% fall cost about half your money: Margin Level is under 50%, a margin call. At 20% the broker stops you out: 強制ロスカット. Cut a loss yourself while you can.",
     task: "Press Close to cut your loss.",
     plan: [
@@ -137,7 +137,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "stop",
-    title: "Stop Loss: Decide in Advance",
+    title: "A Stop, Decided in Advance",
     text: "A Stop Loss closes the position if the price moves against you by a set amount. Decide what you can afford to lose before the trade. At 10×, a stop 1% away keeps the loss near 10%.",
     task: "Set Leverage to 10× and Margin to 100%, press Buy, then drag the Stop Loss thumb to 1%, beside the middle line.",
     plan: [
@@ -162,7 +162,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "highest",
-    title: "The Highest Leverage: 1000×",
+    title: "The Highest Leverage: 1000× Is Fine, Right?",
     text: "Offshore brokers offer 1000×: your A$10,000 controls A$10,000,000, so a 0.1% move is your whole account. The spread alone costs a fifth the moment you buy.",
     task: "Set Leverage to 1000× and Margin to 100%, then press Buy.",
     plan: [
@@ -179,7 +179,7 @@ export const LESSONS: Lesson[] = [
   },
   {
     id: "credit",
-    title: "Emergency Credit",
+    title: "Emergency Credit: Easing Is a Wild Party",
     text: "Margin call at 50%, stop-out at 20%: your round is over, unless you borrow. Emergency credit lends A$1,000 at a time, and charges interest every day on what you owe, more the more you owe.",
     task: "Draw emergency credit in the pop-up.",
     plan: [
