@@ -598,7 +598,15 @@ test("challenges someone to a duel from the room, and sets and cancels a price a
     }).toPass({ timeout: 5_000 });
     await page.waitForTimeout(1_000);
     await expect(rivalRow, "still focused after the room has redrawn").toBeFocused();
+    // Enter opens the rival's card (ADR 0100): their closed trades, none yet, and a Challenge, reached by Tab
     await page.keyboard.press("Enter");
+    await expect(page.locator("#player-card")).toBeVisible();
+    await expect(page.locator("#player-name")).toHaveText(rivalName);
+    await expect(page.locator("#player-empty"), "no closed trades yet").toBeVisible();
+    await expect(page.locator("#player-challenge")).toBeVisible();
+    await page.locator("#player-challenge").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#player-card")).toBeHidden();
     await expect(rival.locator("#duel")).toBeVisible();
     await expect(rival.locator("#duel-accept")).toBeVisible();
     await rival.locator("#duel-accept").click();
@@ -738,4 +746,95 @@ test("keeps a saved city's clock, and shows the line it is on in Settings", asyn
   expect(shown).toContain("Berlin");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("prefs")!).zone);
   expect(saved, "the saved choice is left as it was").toBe("Europe/Berlin");
+});
+
+// Each panel's heading carries one button of its own (ADR 0100), on the heading's row: Feed, Players only; Hall of Fame,
+// My achievements; Emergency Credit, Repay all. Each is a real button beside the heading, never inside it (the heading
+// itself is the fold's button), stays when its panel is folded, and leaves the heading's own note readable.
+test("puts a button on the Feed, Hall of Fame and Credit headings, beside the heading, kept when folded", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await join(page, lang);
+  // Repay all shows only while something is owed: start a round and draw a step
+  await page.locator("#start").click();
+  await expect.poll(async () => (await (await page.request.get(`${baseURL}/api/state?mode=rewind`)).json()).phase, { timeout: 15_000 }).toBe("trade");
+  await page.locator("#credit-borrow").click();
+  await expect(page.locator("#credit-repay-all")).toBeVisible();
+  for (const [panel, id] of [["feed", "#feed-players"], ["fame", "#feats-mine"], ["credit", "#credit-repay-all"]] as const) {
+    const section = page.locator(`.panel[data-fold="${panel}"]`);
+    const head = section.locator("> h2");
+    const button = page.locator(id);
+    await expect(button, `${panel}: its button exists`).toHaveCount(1);
+    expect(await button.evaluate((b) => !!b.closest("h2")), `${panel}: the button is not inside the heading`).toBe(false);
+    await expect(button, `${panel}: shown`).toBeVisible();
+    const b = (await button.boundingBox())!, h = (await head.boundingBox())!;
+    expect(b.y >= h.y - 1 && b.y + b.height <= h.y + h.height + 1, `${panel}: on the heading's row (button ${JSON.stringify(b)}, heading ${JSON.stringify(h)})`).toBe(true);
+    expect(b.x + b.width, `${panel}: inside the page`).toBeLessThanOrEqual(page.viewportSize()!.width);
+    // the fold's caret stays at the heading's right end, to the right of the button, as on every other panel
+    const caret = await head.evaluate((h) => { const r = h.getBoundingClientRect(); const cs = getComputedStyle(h, "::after"); return r.right - parseFloat(getComputedStyle(h).paddingRight) - parseFloat(cs.width); });
+    expect(b.x + b.width, `${panel}: the button ends before the caret`).toBeLessThanOrEqual(caret + 1);
+    // the heading's own note, where it has one, is not covered by the button
+    const aside = head.locator(".aside");
+    // (on a phone the hall's note gives way to its button, so a hidden note is not checked)
+    if (await aside.count() && (await aside.first().isVisible())) {
+      const a = (await aside.first().boundingBox())!;
+      if (a.width > 0) expect(a.x + a.width <= b.x + 1 || a.x >= b.x + b.width - 1, `${panel}: the note and the button do not overlap`).toBe(true);
+    }
+    // folding the panel keeps the button, and pressing the button does not fold it
+    await head.click({ position: { x: 12, y: 10 } });
+    await expect(section).toHaveClass(/folded/);
+    await expect(button, `${panel}: kept when folded`).toBeVisible();
+    await head.click({ position: { x: 12, y: 10 } });
+    await expect(section).not.toHaveClass(/folded/);
+  }
+  // Repay all pays the whole debt in one press, and goes when nothing is owed
+  await page.locator("#credit-repay-all").click();
+  await expect(page.locator("#credit-repay-all")).toBeHidden();
+  // Players only leaves out the news and the house traders, and is kept for the next visit
+  await page.locator("#feed-players").click();
+  await expect(page.locator("#feed-players")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#feed li.k-news, #feed li.k-said")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("#feed-players")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#feed-players").click();
+  // end the round so the next project finds the room fresh
+  await page.evaluate(() => fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "finish", mode: "rewind" }) }));
+  await page.evaluate(() => fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "dismiss", mode: "rewind" }) }));
+  expect(errors).toEqual([]);
+});
+
+// ADR 0100: another person's row opens their card with their closed trades this round, asked for from the server; the
+// card shows the trade they closed, with the same columns as your own Closed Trades, and nothing they keep open.
+test("opens another player's card from the room, with the trade they closed", async ({ page, browser }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  test.skip(info.project.name !== `${lang}-desktop`, "one viewport per language carries the clicks");
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await join(page, lang);
+  const other = await browser.newContext({ viewport: page.viewportSize()! });
+  try {
+    const rival = await other.newPage();
+    rival.on("pageerror", (e) => errors.push(e.message));
+    const rivalName = await join(rival, lang);
+    await rival.locator("#start").click();
+    await expect.poll(async () => (await (await rival.request.get(`${baseURL}/api/state?mode=rewind`)).json()).phase, { timeout: 15_000 }).toBe("trade");
+    await rival.locator("#buy").click();
+    await expect(rival.locator("#pos-row")).toBeVisible();
+    await rival.locator("#close").click();
+    await expect(rival.locator("#history")).toBeVisible();
+    const row = page.locator("#traders li.opens").filter({ hasText: rivalName });
+    await row.click();
+    await expect(page.locator("#player-card")).toBeVisible();
+    await expect(page.locator("#player-name")).toHaveText(rivalName);
+    await expect(page.locator("#player-rows tr"), "the one trade the rival closed").toHaveCount(1);
+    await expect(page.locator("#player-rows tr td").nth(3)).toHaveText((T[lang].ui.how as unknown as Record<string, string>).close);
+    await page.locator("#player-close").click();
+    await expect(page.locator("#player-card")).toBeHidden();
+    // the round ends for the next project, as the rival started it
+    for (const kind of ["finish", "dismiss"]) await rival.evaluate((k) => fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: k, mode: "rewind" }) }), kind);
+  } finally {
+    await other.close();
+  }
+  expect(errors).toEqual([]);
 });

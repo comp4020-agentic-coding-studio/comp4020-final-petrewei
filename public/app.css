@@ -597,6 +597,22 @@ th:first-child, td:first-child { text-align: left; }
 .history-open[hidden] { display: none; }
 /* a folded panel keeps this button, which sits on the heading's own row: it is how a player reads the round's trades */
 body:not(.tutorial) .positions.folded > .history-open:not([hidden]) { display: block; }
+/* A panel's own button on its heading's row (ADR 0100): beside the heading rather than in it, as the heading is the
+   fold's button, placed over the heading's right end, left of the fold's caret. The heading keeps that much room free,
+   so its note (the room's count, the hall's "all-time profit") ends before the button instead of under it. */
+.panel:has(> .head-tool) { position: relative; }
+.head-tool { position: absolute; top: 0.32rem; right: 2.2rem; margin: 0; }
+.head-tool button { height: 1.6rem; padding: 0 0.55rem; font-size: 0.75rem; white-space: nowrap; }
+.head-tool[hidden] { display: none; }
+/* the caret stays at the heading's right end, as on every panel; the note (an .aside) stops short of the button */
+.panel:has(> .head-tool:not([hidden])) > h2 > .aside { margin-right: calc(var(--tool, 7rem) + 0.4rem); }
+.feed { --tool: 6.5rem; }
+.fame { --tool: 9.5rem; }
+.credit { --tool: 5.5rem; }
+body:not(.tutorial) .panel.folded > .head-tool:not([hidden]) { display: block; }
+/* on a phone the hall's note and its button do not both fit beside its name: the note goes, as the table says it */
+@media (max-width: 560px) { .fame:has(> .head-tool:not([hidden])) > h2 > .aside { display: none; } }
+#feed-players[aria-pressed="true"] { border-color: var(--pink); color: var(--pink); }
 /* wide enough for every column; .card.history-box outranks .card, which comes later and would cap it at 34rem */
 .card.history-box { width: min(56rem, calc(100vw - 2rem)); max-width: min(56rem, calc(100vw - 2rem)); }
 .history-scroll { max-height: min(60vh, 32rem); overflow: auto; }
@@ -608,7 +624,7 @@ body:not(.tutorial) .positions.folded > .history-open:not([hidden]) { display: b
    neither breaks in the middle ("0 of / 12") */
 .feats h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem 0.4rem; }
 .feats h2 > span { white-space: nowrap; }
-.feats-mine { grid-column: 1 / -1; justify-self: start; margin: 0.5rem 0.9rem 0; height: 1.9rem; padding: 0 0.7rem; font-size: 0.8rem; }
+.feats-mine b:not(:empty) { margin-left: 0.15rem; }
 .feats-mine b:empty { display: none; }
 .medals { padding: 0.15rem 0.5rem; border-radius: 999px; font: 600 0.78rem var(--mono); white-space: nowrap; }
 /* Settings, named on its button so it is found (ADR 0084). */
@@ -1104,8 +1120,11 @@ body.readme h2 { margin-top: 1.8rem; font-size: 1.15rem; }
 }
 
 /* Duels (ADR 0095): a person's row you can challenge, the banner over the room, and the bell's outcome. */
-#traders li.challengeable { cursor: pointer; }
-#traders li.challengeable:hover { background: var(--raise); }
+/* a person's row opens their card (ADR 0100) */
+#traders li.opens, .board li.opens { cursor: pointer; border-radius: 6px; }
+#traders li.opens:hover, .board li.opens:hover, #traders li.opens:focus-visible, .board li.opens:focus-visible { background: var(--raise); }
+#player-title { display: flex; align-items: center; gap: 0.4rem; }
+.player-empty { margin: 0.6rem 0; color: var(--muted); }
 .duel { margin: 0; padding: 0.4rem 0.9rem; font-size: 0.82rem; color: var(--ink); background: var(--raise); }
 .duel[hidden], .duel-result[hidden] { display: none; }
 .duel-result { margin: 0.3rem 0; font-weight: 700; }

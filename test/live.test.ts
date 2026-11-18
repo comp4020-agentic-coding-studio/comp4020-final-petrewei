@@ -728,3 +728,33 @@ it("locates the stop-out in the direction the whole account loses", () => {
   expect(cut).toBeLessThan(quotes.AUD + 0.02);
   expect(level(account, { ...quotes, AUD: cut! })).toBeCloseTo(0.2, 8);
 });
+
+// ADR 0100: a Live player's closed trades are shown on request by the code the board shows: only a running account on
+// the board, only the trade's own fields, and a Repay all pays the whole debt in one action, with its true amount said.
+it("shows a running Live account's closed trades by its code, nothing private, and repays all at once", async () => {
+  const now = Date.parse("2026-11-04T10:00:00Z");
+  const quotes = new Feed(async () => spark(now / 1000, [now / 1000 - 900]), () => now);
+  const news = new News(async () => "[]");
+  news.banks = async () => [];
+  const dir = mkdtempSync(join(tmpdir(), "losscut-live-trades-"));
+  const m = new Live(dir, people, { quotes, news, watching: () => 0, onChange: () => {}, log: () => {} });
+  onTestFinished(() => { m.save(); rmSync(dir, { recursive: true, force: true }); });
+  await m.refresh(now);
+  // "a1b2c3d4" is a key; its first six letters are the code the board shows
+  expect(m.act("a1b2c3d4", { kind: "buy", pair: "AUD/USD", leverage: 10, share: 0.5, sl: 5, tp: 10 }, now)).toBeNull();
+  expect(m.act("a1b2c3d4", { kind: "close", pair: "AUD/USD" }, now)).toBeNull();
+  expect(m.act("a1b2c3d4", { kind: "buy", pair: "EUR/USD", leverage: 3, share: 0.25, sl: 5 }, now), "one left open").toBeNull();
+  const found = m.tradesOf("a1b2c3", now)!;
+  expect(found, "found by the board's code").not.toBeNull();
+  expect(found.trades).toHaveLength(1);
+  expect(Object.keys(found.trades[0]).sort()).toEqual(["entry", "exit", "how", "leverage", "pair", "pct", "pnl", "side"]);
+  expect(found.trades[0]).toMatchObject({ pair: "AUD/USD", leverage: 10, how: "close" });
+  expect(m.tradesOf("ffffff", now), "nobody with that code").toBeNull();
+  // Repay all: four steps drawn, all paid in one action, and the feed says the amount paid, not a step
+  for (let i = 0; i < 4; i++) expect(m.act("a1b2c3d4", { kind: "borrow" }, now)).toBeNull();
+  m.feed.length = 0;
+  expect(m.act("a1b2c3d4", { kind: "repay", all: true }, now)).toBeNull();
+  const line = m.feed.find((f) => f.key === "repaid")!;
+  expect(line.args.debt).toBe(0);
+  expect(line.args.amount, "the amount actually repaid").toBe(4 * STEP);
+});

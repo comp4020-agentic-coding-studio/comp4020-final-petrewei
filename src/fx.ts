@@ -53,9 +53,10 @@ export function borrowStep(debt: number): number | string {
   const room = Math.floor(LIMIT - debt);
   return room <= 0 ? "Your credit line is used up." : Math.min(STEP, room);
 }
-export function repayStep(debt: number, free: number): number | string {
+// A step, or with `all` (ADR 0100) as much of the debt as free cash allows; either way from free cash only, never a position.
+export function repayStep(debt: number, free: number, all = false): number | string {
   if (debt <= 0) return "You owe nothing.";
-  const pay = Math.min(STEP, Math.ceil(debt), Math.floor(free));
+  const pay = Math.min(all ? Infinity : STEP, Math.ceil(debt), Math.floor(free));
   return pay <= 0 ? "You have no free cash to repay with." : pay;
 }
 // The numbers a page shows from the desk's rules, sent with every state so it keeps no copy.
@@ -429,9 +430,9 @@ export class Desk {
   }
 
   // Repay a step, or what is owed if less, from free cash, which is the balance less the margin in use.
-  repay(who: string): string | null {
+  repay(who: string, all = false): string | null {
     const account = this.account(who);
-    const pay = repayStep(account.debt, account.balance - this.used(who));
+    const pay = repayStep(account.debt, account.balance - this.used(who), all);
     if (typeof pay === "string") return pay;
     account.balance -= pay;
     account.debt = Math.max(0, account.debt - pay);

@@ -566,6 +566,46 @@ describe("emergency credit", () => {
     expect(desk.repay("a")).toBeNull();
     expect(desk.account("a").debt).toBe(0);
   });
+  // ADR 0100: Repay all pays as much of the debt as free cash allows in one action, with a step's refusals, and never
+  // from the margin in use.
+  it("repays all it can in one action from free cash, the rest left owed, and refuses as a step does", async () => {
+    const { repay: repayBook, borrow: borrowBook, fresh, order: orderBook, used } = await import("../src/book.ts");
+    const desk = new Desk(100);
+    desk.join("a");
+    expect(desk.repay("a", true)).toMatch(/owe nothing/);
+    for (let i = 0; i < 5; i++) desk.borrow("a");
+    expect(desk.account("a").debt).toBe(5 * STEP);
+    expect(desk.repay("a", true), "all at once").toBeNull();
+    expect(desk.account("a")).toMatchObject({ debt: 0, balance: START });
+    // free cash short of the debt: pays what it can, the rest owed, the position untouched
+    for (let i = 0; i < 3; i++) desk.borrow("a");
+    desk.order("a", 1, 10, 1);
+    const free = desk.account("a").balance - desk.used("a");
+    expect(free, "nearly all of it is in the position").toBeLessThan(3 * STEP);
+    const pos = desk.account("a").pos;
+    if (free >= 1) {
+      expect(desk.repay("a", true)).toBeNull();
+      expect(desk.account("a").debt).toBeCloseTo(3 * STEP - Math.floor(free), 6);
+    } else expect(desk.repay("a", true)).toMatch(/no free cash/);
+    expect(desk.account("a").pos, "the position is never touched").toBe(pos);
+    // Live's book, the same rule
+    const a = fresh(0, 0);
+    for (let i = 0; i < 4; i++) borrowBook(a);
+    expect(repayBook(a, true)).toBeNull();
+    expect(a.debt).toBe(0);
+    expect(repayBook(a, true)).toMatch(/owe nothing/);
+    for (let i = 0; i < 2; i++) borrowBook(a);
+    orderBook(a, "AUD/USD", { "AUD/USD": 1 } as never, 1, 10, 1, {}, 0);
+    const before = Object.keys(a.positions).length;
+    repayBook(a, true);
+    expect(Object.keys(a.positions).length, "a Live position is never touched").toBe(before);
+    expect(a.balance - used(a)).toBeGreaterThanOrEqual(0);
+    // a step still pays a step
+    const b = fresh(0, 0);
+    for (let i = 0; i < 3; i++) borrowBook(b);
+    expect(repayBook(b)).toBeNull();
+    expect(b.debt).toBe(2 * STEP);
+  });
   it("is bankrupt only when what you have, less what you owe, is under nothing", () => {
     const desk = new Desk(100);
     desk.join("a");

@@ -42,7 +42,7 @@ export type CommonState = {
 };
 export type RoundState = CommonState & { duel?: { with: string } | { from: string } | null; rematch?: string | null; mode: "rewind" | "random"; phase: "lobby" | "countdown" | "trade" | "break"; countdown: number; startedBy: string | null; startedCode: string | null; startedDraw: number | null | ""; breakLeft: number; rewindPlots: { n: number; pair: string }[] | null; rewindPlot: number | null; pairs: readonly string[] | null };
 export type LiveState = CommonState & { mode: "live"; phase: "trade" | "shut" | "waiting"; live: boolean; priceAt: number; reopens: number | null; pairs: readonly string[]; currencies: readonly string[];
-  board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; days: string; you: boolean; agent?: boolean }[];
+  board: { name: string; draw: number | null; face: string; opened: number; ended: number; peak: number; how: "bankrupt" | "running"; worth: number; code?: string; days: string; you: boolean; agent?: boolean }[];
 };
 export type TutorialState = CommonState & { mode: "tutorial"; phase: "moving" | "waiting"; transport: "stopped" | "paused" | "playing"; lesson: Lesson };
 export type State = RoundState | LiveState | TutorialState;
@@ -51,7 +51,7 @@ export type State = RoundState | LiveState | TutorialState;
 export type Kept = "feed" | "desk" | "leverages" | "minRounds" | "pairs" | "rewindPlots";
 export type Sent<S extends State> = Omit<S, Kept> & Partial<Pick<S, Extract<Kept, keyof S>>>;
 export type StateFor<M extends Mode> = M extends "rewind" | "random" ? RoundState & { mode: M } : Extract<State, { mode: M }>;
-export type TradeAction = { kind: "buy" | "sell"; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" | "borrow" | "repay" } | { kind: "stop" | "take"; pct?: number | null };
+export type TradeAction = { kind: "buy" | "sell"; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" | "borrow" } | { kind: "repay"; all?: boolean } | { kind: "stop" | "take"; pct?: number | null };
 export type Action =
   | ({ mode: "rewind" | "random" } & (TradeAction | { kind: "start"; ironman?: boolean } | { kind: "pause" | "resume" | "finish" | "fast" | "normal" | "cancel" | "hold" | "dismiss" } | { kind: "choose"; what: number | string } | { kind: "guess"; year: number } | { kind: "pray"; way: 1 | -1 } | { kind: "challenge" | "accept"; code: string } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))
   | ({ mode: "live"; pair?: string } & (TradeAction | { kind: "pair"; pair: string } | { kind: "alert" | "unalert"; at: number } | { kind: "pend"; side: 1 | -1; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" }))

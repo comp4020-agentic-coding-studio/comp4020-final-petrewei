@@ -5,7 +5,8 @@ function distance(value) { return value == null ? null : number(value); }
 /** @param {string} kind @param {Record<string, unknown>} fields @returns {import("./protocol.js").TradeAction | null} */
 function trade(kind, fields) {
   if (kind === "buy" || kind === "sell") return { kind, leverage: number(fields.leverage), share: fields.share === undefined ? 1 : number(fields.share), sl: distance(fields.sl), tp: distance(fields.tp) };
-  if (kind === "close" || kind === "borrow" || kind === "repay") return { kind };
+  if (kind === "repay") return fields.all === true ? { kind, all: true } : { kind };
+  if (kind === "close" || kind === "borrow") return { kind };
   if (kind === "stop" || kind === "take") return { kind, pct: distance(fields.pct) };
   return null;
 }

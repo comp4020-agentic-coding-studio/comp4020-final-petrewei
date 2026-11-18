@@ -796,6 +796,14 @@ export function createApp(options: AppOptions = {}) {
       }
 
       // After the bell: close it now, or hold it longer, by anyone on the tab.
+      // A person's closed trades this round, by the short code the room shows (ADR 0100): anyone the room lists, on the tab
+      // or not, but never a house trader, and only the trade's own fields, never a stop, a take or a margin line.
+      tradesOf(code: string): { name: string; trades: Pick<Trade, "side" | "leverage" | "entry" | "exit" | "how" | "pnl" | "pct">[] } | null {
+        const row = this.room().traders.find((r) => !r.bot && r.id === code);
+        if (!row) return null;
+        const trades = (this.desk.account(row.who).trades ?? []).slice(-20).reverse().map(({ side, leverage, entry, exit, how, pnl, pct }) => ({ side, leverage, entry, exit, how, pnl, pct }));
+        return { name: row.name, trades };
+      }
       // Someone in this room, by the short code it shows, if a person here now; never a house trader.
       private personHere(code: unknown): string | null {
         if (typeof code !== "string") return null;
@@ -1137,7 +1145,7 @@ export function createApp(options: AppOptions = {}) {
         }
         // Emergency credit (ADR 0080): a step drawn or repaid, said in the feed, since a room sees who is in debt.
         if (action.kind === "borrow" || action.kind === "repay") {
-          const refused = action.kind === "borrow" ? desk.borrow(who) : desk.repay(who);
+          const refused = action.kind === "borrow" ? desk.borrow(who) : desk.repay(who, action.all === true);
           if (refused) return refused;
           const debt = Math.round(desk.account(who).debt);
           award(this, who, fromCredit(action.kind, debt));
@@ -1755,6 +1763,17 @@ export function createApp(options: AppOptions = {}) {
         broadcastAll(listener);
         room.opened();
         return;
+      }
+
+      // Another person's closed trades, asked for by the short code the room or Live's board shows (ADR 0100). A code is six
+      // hex digits or it is refused; one not in the room, or not running on the board, is not found; the tutorial has no room.
+      if (req.method === "GET" && path === "/api/trades") {
+        const code = url.searchParams.get("code") ?? "";
+        if (!/^[0-9a-f]{6}$/.test(code)) return json(res, 400, { error: "Give a trader's six-letter code." });
+        const tab = tabOf(url.searchParams.get("mode"));
+        const found = tab === "tutorial" ? null : tab === "live" ? liveMarket.tradesOf(code) : markets[tab].tradesOf(code);
+        if (!found) return json(res, 404, { error: "No such trader in this room." });
+        return json(res, 200, found);
       }
 
       if (req.method === "GET" && path === "/api/state") {

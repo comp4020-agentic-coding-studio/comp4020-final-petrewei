@@ -205,8 +205,8 @@ export function borrow(a: BookAccount): string | null {
   a.debt += take;
   return null;
 }
-export function repay(a: BookAccount): string | null {
-  const pay = repayStep(a.debt, a.balance - used(a));
+export function repay(a: BookAccount, all = false): string | null {
+  const pay = repayStep(a.debt, a.balance - used(a), all);
   if (typeof pay === "string") return pay;
   a.balance -= pay;
   a.debt = Math.max(0, a.debt - pay);

@@ -9,7 +9,8 @@ export function tradeAction(input: Record<string, unknown>): Action | null {
   const share = typeof input.share === "number" ? input.share : typeof input.stake === "number" ? input.stake : 1;
   if (kind === "buy" || kind === "sell") return { kind: "order", side: kind === "buy" ? 1 : -1, leverage: Number(input.leverage), share, sl: dist(input.sl), tp: dist(input.tp) };
   if (kind === "pray") return { kind, way: input.way === -1 ? -1 : 1 };
-  if (kind === "close" || kind === "borrow" || kind === "repay" || kind === "unpend") return { kind };
+  if (kind === "repay") return { kind, all: input.all === true };
+  if (kind === "close" || kind === "borrow" || kind === "unpend") return { kind };
   if (kind === "pend") return { kind, side: input.side === -1 ? -1 : 1, at: Number(input.at), leverage: Number(input.leverage), share, sl: dist(input.sl), tp: dist(input.tp) };
   if (kind === "stop" || kind === "take") return { kind, pct: dist(input.pct) };
   return null;

@@ -6,7 +6,7 @@
 // its own account and the recent prices and returns at most one action.
 import type { Position, Side } from "./fx.ts";
 
-export type Action = { kind: "order"; side: Side; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" } | { kind: "repay" } | { kind: "pend"; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" };
+export type Action = { kind: "order"; side: Side; leverage: number; share?: number; sl?: number | null; tp?: number | null } | { kind: "close" } | { kind: "stop"; pct: number | null } | { kind: "take"; pct: number | null } | { kind: "pray"; way: 1 | -1 } | { kind: "borrow" } | { kind: "repay"; all?: boolean } | { kind: "pend"; side: Side; at: number; leverage: number; share: number; sl: number | null; tp: number | null } | { kind: "unpend" };
 export type BotDesk = {
   account(who: string): { pos: (Pick<Position, "side" | "leverage" | "margin"> & Partial<Pick<Position, "stop">>) | null };
   pnl(who: string): number;

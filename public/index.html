@@ -327,6 +327,7 @@
          the same over a year, and a step either way; the server sets every amount. -->
     <section class="panel credit" id="credit" data-fold="credit" aria-label="Emergency credit">
       <h2><span class="ico" aria-hidden="true">💰</span><span data-t="creditOfferTitle">Emergency Credit</span><button class="info" type="button" data-info="credit" data-t-aria="info_credit" aria-expanded="false">ⓘ</button></h2>
+      <p class="head-tool"><button type="button" class="ghost" id="credit-repay-all" data-t="repayAll" data-tip="repayAll">Repay all</button></p>
       <div class="credit-body">
         <!-- one row, as the position's empty line: what is owed (or nothing) and its rate, Borrow at the end; while
              anything is owed, Repay joins it and a bar shows how much of the line is drawn -->
@@ -341,6 +342,8 @@
     </section>
     <section class="panel feed" data-fold="feed" aria-label="Feed">
       <h2><span class="ico" aria-hidden="true">📰</span><span data-t="feed">Feed</span></h2>
+      <!-- A button on the heading's row, beside it rather than in it, as the heading is the fold's own button (ADR 0100). -->
+      <p class="head-tool"><button type="button" class="ghost" id="feed-players" aria-pressed="false" data-t="feedPlayers" data-tip="feedPlayers">Players only</button></p>
       <ul id="feed"></ul>
     </section>
     <section class="panel room" data-fold="room" aria-label="Traders in this room">
@@ -355,7 +358,7 @@
     </section>
     <section class="panel fame" data-fold="fame" aria-label="Hall of fame">
       <h2 data-tip="fame"><span class="ico" aria-hidden="true">🏆</span><span data-t="fame">Hall of Fame</span> <span class="aside" data-t="fameNote">all-time profit</span></h2>
-      <button type="button" class="ghost feats-mine" id="feats-mine" data-tip="feats"><span aria-hidden="true">🏅</span> <span data-t="featsMine">My achievements</span> <b id="feats-mine-n"></b></button>
+      <p class="head-tool"><button type="button" class="ghost feats-mine" id="feats-mine" data-tip="feats"><span aria-hidden="true">🏅</span> <span data-t="featsMine">My achievements</span> <b id="feats-mine-n"></b></button></p>
       <table><thead><tr><th data-t="thTrader">Trader</th><th data-t="thRounds">Rounds</th><th><span data-t="thAvg">Avg Score</span><button class="info" type="button" data-info="thAvg" data-t-aria="info_thAvg" aria-expanded="false">ⓘ</button></th><th data-t="thBestPct">Best</th><th data-t="thWins">Wins</th><th data-t="thBusts">Busts</th><th data-t="thTrend">Last 20</th><th data-t="thFeats">Medals</th></tr></thead><tbody id="career"></tbody></table>
       <p class="fame-empty" data-t="fameEmpty">No one has finished a round yet. Be the first.</p>
       <!-- The score of each of a trader's recent rounds, as bars, for whoever is picked in the table: yourself at first. -->
@@ -466,6 +469,20 @@
       </table>
     </div>
     <div class="row"><button type="button" class="ghost" id="history-close" data-t="featsDone">Done</button></div>
+    <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
+  </dialog>
+  <!-- A player's card (ADR 0100): their closed trades this round, from a click on their row in the room or Live's board,
+       and the Challenge to a duel when one can be made (ADR 0095). Asked for when opened, so the room's state stays small. -->
+  <dialog id="player-card" class="card history-box history" aria-labelledby="player-title">
+    <h2 id="player-title"><span id="player-face" aria-hidden="true"></span> <span id="player-name"></span></h2>
+    <p class="player-empty" id="player-empty" data-t="playerNoTrades" hidden>No closed trades yet.</p>
+    <div class="history-scroll" id="player-trades">
+      <table>
+        <thead><tr><th data-t="thPosition">Position</th><th data-t="thEntry">Entry</th><th data-t="thExit">Exit</th><th data-t="thHow">How</th><th data-t="thPnl">P&amp;L</th><th data-t="thPnlPct">P&amp;L %</th><th data-t="thVerdict">Verdict</th></tr></thead>
+        <tbody id="player-rows"></tbody>
+      </table>
+    </div>
+    <div class="row"><button type="button" class="ghost" id="player-challenge" data-t="challenge" data-tip="challenge" hidden>Challenge</button><button type="button" class="ghost" id="player-close" data-t="featsDone">Done</button></div>
     <button type="button" class="dialog-x" data-close data-t-aria="featsDone"><span aria-hidden="true">✕</span></button>
   </dialog>
   <dialog id="credit-offer" class="credit-offer" aria-labelledby="credit-offer-title">

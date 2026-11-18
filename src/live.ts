@@ -9,7 +9,7 @@ import type { LiveState } from "../public/protocol.js";
 // the broker's rules act on every poll. When the server wakes after sleeping, the slots it missed are replayed in
 // order, so a stop or a stop-out that would have filled in the night fills at its own slot's price.
 import { join } from "node:path";
-import { type BookAccount, type BookFill, borrow, bankrupt, cancelAlert, cancelPending, ringAlerts, setAlert, setPending, triggerPending, charge, close, enforce, equity, exit, fresh, level, marginLines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
+import { type BookAccount, type BookFill, type BookTrade, borrow, bankrupt, cancelAlert, cancelPending, ringAlerts, setAlert, setPending, triggerPending, charge, close, enforce, equity, exit, fresh, level, marginLines, nextSydneyMidnight, openPnl, order, pnlOf, repay, rollDay, used, worth } from "./book.ts";
 import { LEVERAGES, LIMIT, quote, RULES, START } from "./fx.ts";
 import { tradeAction } from "./actions.ts";
 import { LiveBots } from "./live-bots.ts";
@@ -421,8 +421,9 @@ export class Live {
     } else if (action?.kind === "stop" || action?.kind === "take") {
       result = exit(a, pair, usd, action.kind, action.pct);
     } else if (action?.kind === "borrow" || action?.kind === "repay") {
-      result = action.kind === "borrow" ? borrow(a) : repay(a);
-      if (!result) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: RULES.step, debt: Math.round(a.debt) });
+      const owed = a.debt;
+      result = action.kind === "borrow" ? borrow(a) : repay(a, action.all === true);
+      if (!result) this.say(kind === "borrow" ? `${this.w.name(who)} drew emergency credit.` : `${this.w.name(who)} repaid credit.`, kind === "borrow" ? "wild" : "info", kind === "borrow" ? "borrowed" : "repaid", { who: this.w.short(who), name: this.w.name(who), draw: this.w.draw(who) ?? -1, amount: kind === "borrow" ? RULES.step : Math.round(owed - a.debt), debt: Math.round(a.debt) });
     } else return "Unknown action.";
     if (typeof result === "string") return result;
     if (Array.isArray(result)) for (const fill of result) this.told(who, fill);
@@ -445,6 +446,16 @@ export class Live {
     const args = { who: this.w.short(who), name, draw: this.w.draw(who) ?? -1, pair: f.pair, pnl: Math.round(f.pnl), lev: f.leverage ?? 0 };
     if (f.kind === "open" || f.kind === "add") this.say(`${name} ${f.side === 1 ? "bought" : "sold"} ${f.pair} at ${f.leverage}×`, f.side === 1 ? "buy" : "sell", f.side === 1 ? "m-bought" : "m-sold", args);
     else if (f.kind === "close") this.say(`${name} closed ${f.pair}`, f.pnl >= 0 ? "win" : "loss", "m-closed", args);
+  }
+
+  // A running account's closed trades, by the short code the board shows (ADR 0100): only an account still running and
+  // on the board, so a bankrupt past run has none, and only the trade's own fields, never a stop, a take or a margin line.
+  tradesOf(code: string, now = this.clock.now()): { name: string; trades: Pick<BookTrade, "pair" | "side" | "leverage" | "entry" | "exit" | "how" | "pnl" | "pct">[] } | null {
+    const row = this.board(now).find((r) => r.how === "running" && r.key.slice(0, 6) === code);
+    const account = row && this.accounts.get(row.key);
+    if (!row || !account) return null;
+    const trades = account.trades.slice(-20).reverse().map(({ pair, side, leverage, entry, exit, how, pnl, pct }) => ({ pair, side, leverage, entry, exit, how, pnl, pct }));
+    return { name: row.name, trades };
   }
 
   board(now = this.clock.now()): (Run & { you?: boolean })[] {
@@ -557,7 +568,8 @@ export class Live {
       pops: [],
       marks: [],
       result: null,
-      board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, days: days(r.ended - r.opened), you: rk === k, agent: this.agents.has(rk) })),
+      // a running account carries the code its trades are asked for by (ADR 0100), the key's first six letters, never the key
+      board: this.board(now).map(({ key: rk, ...r }) => ({ ...r, ...(r.how === "running" ? { code: rk.slice(0, 6) } : {}), days: days(r.ended - r.opened), you: rk === k, agent: this.agents.has(rk) })),
       career: [],
       leverages: LEVERAGES,
       desk: { ...RULES, ticksPerMinute: 60_000 / SLOT_MS },

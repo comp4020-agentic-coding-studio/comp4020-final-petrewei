@@ -96,7 +96,7 @@ let state = null;
 let fresh = false;
 let connectionStatus = "connectionConnecting";
 let connectionTimer = null;
-const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "rewind-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back"];
+const marketControls = ["buy", "sell", "pend-place", "pend-cancel", "pend-row-cancel", "close", "mobile-close", "warn-close", "psl-on", "ptp-on", "psl-dist", "ptp-dist", "start", "cancel", "pause", "resume", "finish", "hold", "dismiss", "borrow", "credit-borrow", "credit-repay", "pray-rise", "pray-fall", "rewind-pair", "pair-base", "pair-quote", "guess-year", "lesson-play", "lesson-stop", "lesson-skip", "lesson-back", "credit-repay-all"];
 function blockStaleControls() {
   if (!fresh) {
     for (const id of marketControls) $(id).disabled = true;
@@ -458,6 +458,11 @@ function feats(s) {
   $("feats-mine-n").textContent = n ? String(n) : "";
 }
 $("feats-mine").onclick = () => state && showFeats(null, state.you.feats ?? []);
+$("feed-players").onclick = () => {
+  prefs.players = !prefs.players;
+  savePrefs();
+  if (state) render(state);
+};
 $("feats-close").onclick = () => $("feats").close();
 // the closed trades open in a window from the position panel's button (ADR 0081)
 $("history-btn").onclick = () => $("history-box").showModal();
@@ -494,6 +499,7 @@ function creditSlots() {
 // once it is (ADR 0080).
 $("credit-borrow").onclick = () => act("borrow");
 $("credit-repay").onclick = () => act("repay");
+$("credit-repay-all").onclick = () => act("repay", { all: true });
 $("borrow").onclick = () => {
   act("borrow");
   creditOffered = true;
@@ -545,9 +551,9 @@ $("start").onclick = () => act("start", { ironman });
 // files, and a calm screen, the page's own reduced-motion rules on demand. Music and the theme keep their own buttons.
 const prefs = (() => {
   try {
-    return { sound: false, calm: false, cvd: false, confirm: false, margin: 0.25, leverage: 30, zone: "", ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
+    return { sound: false, calm: false, cvd: false, confirm: false, players: false, margin: 0.25, leverage: 30, zone: "", ...JSON.parse(localStorage.getItem("prefs") ?? "{}") };
   } catch {
-    return { sound: false, calm: false, cvd: false, confirm: false, margin: 0.25, leverage: 30, zone: "" };
+    return { sound: false, calm: false, cvd: false, confirm: false, players: false, margin: 0.25, leverage: 30, zone: "" };
   }
 })();
 const savePrefs = () => {
@@ -1073,6 +1079,17 @@ function board(s) {
     if (r.agent) who.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: ROWS.bot.badge, ariaLabel: t("agentTag") }));
     li.append(avatar(r.face, 18), who, Object.assign(document.createElement("span"), { className: "aside", textContent: `${r.days} · ${t(r.how === "running" ? "boardRunning" : "boardBust")} · ${cash(r.worth)}` }));
     li.dataset.tipText = t("boardPeak", { peak: cash(r.peak) });
+    // a running account that is not yours opens its card (ADR 0100): its closed trades, no duel, since Live has no rounds
+    if (r.code && !r.you) {
+      li.classList.add("opens");
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.onclick = li.onkeydown = (e) => {
+        if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        openPlayer(r.code, T[lang].bots[r.face]?.name ?? nameIn(r.name, r.draw), r.face, false);
+      };
+    }
     return li;
   }));
 }
@@ -1311,16 +1328,18 @@ function renderRoom(s) {
       li.append(avatar(tr.face, 24), n, p, e);
       // another person in a round's room can be challenged to a duel over the round (ADR 0095): click their row
       if (duelWith === tr.id) n.append(" ", Object.assign(document.createElement("span"), { className: "badge", textContent: "⚔", ariaLabel: t("duelBadge") }));
-      if (!tr.you && !tr.bot && canChallenge) {
-        li.classList.add("challengeable");
+      // another person's row opens their card (ADR 0100): their closed trades this round, and a Challenge when a duel can
+      // be made. One control per row, which a keyboard reaches too: focus, then Enter or Space.
+      if (!tr.you && !tr.bot) {
+        li.classList.add("opens");
+        if (canChallenge) li.classList.add("challengeable");
         li.dataset.tipText += ` · ${t("duelOffer")}`;
-        // a control a keyboard reaches too, as every control must be: focus, then Enter or Space
         li.tabIndex = 0;
         li.setAttribute("role", "button");
         li.onclick = li.onkeydown = (e) => {
           if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
-          act("challenge", { code: tr.id });
+          openPlayer(tr.id, names.get(tr.id), tr.face, canChallenge);
         };
       }
       return li;
@@ -1339,6 +1358,48 @@ function renderRoom(s) {
 
 // The pair Live's chart showed last, so a change of pair brings back the choice kept for the new one.
 let livePair = null;
+// A closed trade as a row of the Closed Trades table: side, pair and leverage, entry, exit, how it ended, the result in
+// money and as a share of its margin, and the dry verdict. Yours and another player's are drawn the same way.
+function tradeRow(tr, pair) {
+  const ui = T[lang].ui;
+  const row = document.createElement("tr");
+  const side = Object.assign(document.createElement("span"), { className: `tag ${tr.side === 1 ? "long" : "short"}`, textContent: tr.side === 1 ? t("long") : t("short") });
+  const cells = [[side, ` ${tr.pair ?? pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], cash(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
+  cells.forEach((c, i) => {
+    const td = document.createElement("td");
+    if (Array.isArray(c)) td.append(...c);
+    else td.textContent = c;
+    if (i === 4 || i === 5) td.className = tone(tr.pnl);
+    if (i === 6) td.className = "verdict";
+    row.append(td);
+  });
+  return row;
+}
+// A player's card (ADR 0100): asked for when opened, by the short code the room shows, so the room's state carries no
+// one's trades. The server says who may be seen; a code it does not know is answered "not found", shown as no trades.
+let cardFor = null;
+async function openPlayer(code, name, face, challenge) {
+  cardFor = code;
+  $("player-name").textContent = name ?? code;
+  $("player-face").replaceChildren(avatar(face, 24));
+  $("player-rows").replaceChildren();
+  $("player-empty").hidden = true;
+  $("player-challenge").hidden = !challenge;
+  $("player-challenge").onclick = () => (act("challenge", { code }), $("player-card").close());
+  $("player-card").showModal();
+  let trades = [];
+  try {
+    const res = await fetch(`/api/trades?mode=${mode}&code=${encodeURIComponent(code)}`);
+    if (res.ok) trades = (await res.json()).trades ?? [];
+  } catch {
+    // offline: the card says there is nothing to show
+  }
+  if (cardFor !== code) return;
+  $("player-rows").replaceChildren(...trades.map((tr) => tradeRow(tr, state?.pair)));
+  $("player-empty").hidden = trades.length > 0;
+  $("player-trades").hidden = !trades.length;
+}
+$("player-close").onclick = () => $("player-card").close();
 function render(s) {
   state = s;
   if (s.mode === "live" && seated && s.pair !== livePair) {
@@ -1451,6 +1512,9 @@ function render(s) {
   $("credit-rate").textContent = t("creditRate", { rate: ratePct(rate), year: `${Math.round(rate * 365 * 100)}%` });
   $("credit-borrow").disabled = !lending || !!s.paused || y.credit <= 0;
   $("credit-repay").disabled = !lending || !!s.paused || !y.debt;
+  // Repay all is on the heading's row, so it shows only while something is owed, as the Repay beside the amount does
+  $("credit-repay-all").closest(".head-tool").hidden = !y.debt;
+  $("credit-repay-all").disabled = $("credit-repay").disabled;
   const offer = y.broke && y.credit > 0 && lending && !s.paused;
   $("borrow").hidden = !offer;
   if (!offer) {
@@ -1506,21 +1570,7 @@ function render(s) {
   const traded = JSON.stringify(trades) + lang;
   if (traded !== historyShown) {
     historyShown = traded;
-    const ui = T[lang].ui;
-    $("history-rows").replaceChildren(...trades.map((tr) => {
-      const row = document.createElement("tr");
-      const side = Object.assign(document.createElement("span"), { className: `tag ${tr.side === 1 ? "long" : "short"}`, textContent: tr.side === 1 ? t("long") : t("short") });
-      const cells = [[side, ` ${tr.pair ?? s.pair} ${tr.leverage}×`], quoted(tr.entry), quoted(tr.exit), ui.how?.[tr.how] ?? T.en.ui.how[tr.how], cash(tr.pnl), pct(tr.pct), (ui.verdicts ?? T.en.ui.verdicts)[verdict(tr.how, tr.pct)]];
-      cells.forEach((c, i) => {
-        const td = document.createElement("td");
-        if (Array.isArray(c)) td.append(...c);
-        else td.textContent = c;
-        if (i === 4 || i === 5) td.className = tone(tr.pnl);
-        if (i === 6) td.className = "verdict";
-        row.append(td);
-      });
-      return row;
-    }));
+    $("history-rows").replaceChildren(...trades.map((tr) => tradeRow(tr, s.pair)));
   }
   // the empty line only says something when nothing is open or waiting
   $("pos-empty").hidden = !!y.pos || !!waiting;
@@ -1595,7 +1645,14 @@ function render(s) {
   const pool = fresh.length ? fresh : allNews;
   const latest = pool.reduce((best, f) => (Number(f.args?.score ?? 0) > Number(best?.args?.score ?? 0) ? f : best), pool[0]);
   const pinned = latest ? [Object.assign(line(latest), { className: "k-news pinned" })] : [];
-  $("feed").replaceChildren(...pinned, ...talk, ...s.feed.filter((f) => f !== latest).map(line));
+  // Players only (ADR 0100): what people in the room did, by a line's own trader (a person's short code, never a house
+  // trader's "bot:" one); the news, the pinned headline and the traders' talk are left out. A viewer's choice, kept here.
+  const players = !!prefs.players;
+  $("feed-players").setAttribute("aria-pressed", String(players));
+  const person = (f) => typeof f.args?.who === "string" && !f.args.who.startsWith("bot:");
+  const shown = players ? s.feed.filter(person).map(line) : [...pinned, ...talk, ...s.feed.filter((f) => f !== latest).map(line)];
+  if (players && !shown.length) shown.push(Object.assign(document.createElement("li"), { className: "k-info", textContent: t("feedNoPlayers") }));
+  $("feed").replaceChildren(...shown);
   // The tutorial writes your own moments as "you-" lines rather than pops; the newest new one is said aloud too.
   // Tutorial lines carry no time and the feed keeps ten, so the lines as a whole change when one is added; a rewind to an
   // earlier lesson leaves only older lines, the tail of what was shown, and says nothing.

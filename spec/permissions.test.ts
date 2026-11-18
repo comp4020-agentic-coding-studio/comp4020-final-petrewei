@@ -68,16 +68,39 @@ it.skipIf(live)("keeps someone with only an achievement out of the hall of fame"
   expect(seen.career.some((c) => c.you), "not in the hall for drawing credit").toBe(false);
 });
 
-// ADR 0081: a player's closed trades are their own; another visitor's state never carries them.
-it.skipIf(live)("shows each player their own closed trades, and nobody else's", async () => {
+// ADR 0100 (superseding ADR 0081's privacy line): a player's closed trades this round are shown to the room, on request,
+// by short code, for someone in the same room. The state still never carries another's trades; the answer carries the
+// trades alone, never a stop, a take profit, a margin line or a cookie; anyone not in the room, or a code that is not a
+// code, is refused.
+it.skipIf(live)("shows a player's closed trades to the room on request, by short code, and nothing private", async () => {
   const a = await visitor();
   const b = await visitor();
-  await open();
-  expect((await act(a, { kind: "buy", leverage: 10, share: 0.5 })).status).toBe(200);
-  expect((await act(a, { kind: "close" })).status).toBe(200);
-  const mine = (await state(a)).you as unknown as { trades: { how: string; leverage: number }[] };
-  expect(mine.trades[0]).toMatchObject({ how: "close", leverage: 10 });
-  expect(((await state(b)).you as unknown as { trades: unknown[] }).trades).toEqual([]);
+  const tabs = [await page(a), await page(b)];
+  try {
+    await open();
+    expect((await act(a, { kind: "buy", leverage: 10, share: 0.5, sl: 5, tp: 10 })).status).toBe(200);
+    expect((await act(a, { kind: "close" })).status).toBe(200);
+    expect((await act(a, { kind: "buy", leverage: 3, share: 0.25, sl: 5, tp: 10 })).status, "a second trade, left open").toBe(200);
+    const codeA = (await state(a)).you.code;
+    // the state still carries only one's own
+    expect(((await state(b)).you as unknown as { trades: unknown[] }).trades).toEqual([]);
+    // asked for, the trades come, with the trader's name and only the closed one
+    const res = await fetch(new URL(`/api/trades?mode=rewind&code=${codeA}`, baseUrl), { headers: { cookie: b } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.trades).toHaveLength(1);
+    expect(body.trades[0]).toMatchObject({ how: "close", leverage: 10 });
+    expect(Object.keys(body.trades[0]).sort(), "the trade's own fields and no others").toEqual(["entry", "exit", "how", "leverage", "pct", "pnl", "side"]);
+    const text = JSON.stringify(body);
+    for (const secret of [a, "stop", "take", "call", "cut", "margin", "key"]) expect(text, `the answer never carries ${secret === a ? "the cookie" : secret}`).not.toContain(secret);
+    // refused: a code that is not a code, someone not in the room, the tutorial
+    expect((await fetch(new URL("/api/trades?mode=rewind&code=nope", baseUrl), { headers: { cookie: b } })).status).toBe(400);
+    expect((await fetch(new URL("/api/trades?mode=rewind&code=abcdef", baseUrl), { headers: { cookie: b } })).status).toBe(404);
+    expect((await fetch(new URL(`/api/trades?mode=random&code=${codeA}`, baseUrl), { headers: { cookie: b } })).status, "not in the Random room").toBe(404);
+    expect((await fetch(new URL(`/api/trades?mode=tutorial&code=${codeA}`, baseUrl), { headers: { cookie: b } })).status).toBe(404);
+  } finally {
+    for (const t of tabs) t.close();
+  }
 });
 
 it.skipIf(live)("refuses an order the broker does not offer, even one that would close a position", async () => {
