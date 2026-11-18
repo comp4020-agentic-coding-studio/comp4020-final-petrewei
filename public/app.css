@@ -595,6 +595,8 @@ th:first-child, td:first-child { text-align: left; }
 .history-open { position: absolute; top: 0.32rem; right: 2.2rem; margin: 0; }
 .history-open button { padding: 0.15rem 0.55rem; font-size: 0.75rem; }
 .history-open[hidden] { display: none; }
+/* a folded panel keeps this button, which sits on the heading's own row: it is how a player reads the round's trades */
+body:not(.tutorial) .positions.folded > .history-open:not([hidden]) { display: block; }
 /* wide enough for every column; .card.history-box outranks .card, which comes later and would cap it at 34rem */
 .card.history-box { width: min(56rem, calc(100vw - 2rem)); max-width: min(56rem, calc(100vw - 2rem)); }
 .history-scroll { max-height: min(60vh, 32rem); overflow: auto; }

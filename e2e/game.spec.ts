@@ -677,6 +677,55 @@ test("the lesson list fits a phone with the show-style titles", async ({ page },
   }
 });
 
+// A folded panel shrinks to its heading, but the Closed Trades button sits on that heading's row and is how a player
+// reads this round's trades, so folding must not take it away; and an open position can still be closed from a folded
+// panel (on a phone, from the bar under the page; on a desktop, the panel opens again with one click).
+test("folding the position panel keeps the Closed Trades button, and an open position can still be closed", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  const phone = info.project.name.endsWith("phone");
+  await join(page, lang);
+  await page.locator("#start").click();
+  await expect(page.locator("#buy")).toBeEnabled({ timeout: 15_000 });
+  try {
+  await page.locator("#buy").click();
+  await expect(page.locator("#pos-row")).toBeVisible();
+  await page.locator(phone ? "#mobile-close" : "#close").click();
+  await expect(page.locator("#history")).toBeVisible();
+  const panel = page.locator('.panel[data-fold="position"]');
+  // a player taps the heading's name, at its left; its middle and right belong to the Closed Trades button and the caret
+  await panel.locator("> h2").click({ position: { x: 12, y: 10 } });
+  await expect(panel, "the panel is folded").toHaveClass(/folded/);
+  await expect(page.locator("#history-btn"), "Closed Trades is still there on the folded heading").toBeVisible();
+  await expect(page.locator("#history-btn"), "the button says only its name, with no count beside it").toHaveText(T[lang].ui.historyTitle);
+  const box = (await page.locator("#history-btn").boundingBox())!;
+  const head = (await panel.locator("> h2").boundingBox())!;
+  expect(box.y + box.height, "it sits within the heading's row, not below it").toBeLessThanOrEqual(head.y + head.height + 1);
+  await page.locator("#history-btn").click();
+  await expect(page.locator("#history-box")).toBeVisible();
+  await page.keyboard.press("Escape");
+  // a position opened while folded still has a Close within reach
+  await page.locator("#buy").click();
+  if (phone) {
+    await expect(page.locator("#mobile-close")).toBeVisible();
+    await expect(page.locator("#mobile-close")).toBeEnabled();
+  } else {
+    await panel.locator("> h2").click({ position: { x: 12, y: 10 } });
+    await expect(page.locator("#close")).toBeVisible();
+    await expect(page.locator("#close")).toBeEnabled();
+  }
+  } finally {
+    // end the round for everyone and go back to the lobby, so the next project finds the room as a fresh one. It is sent
+    // from the page, with the page's own cookie (the round's starter is the only one who may end it), as its buttons
+    // would, since a button may be folded or off screen by now.
+    // A round can only be ended once it is trading, and Buy is enabled during the five-second countdown too, so wait
+    // for the room itself to say so.
+    const act = (kind: string) => page.evaluate((k) => fetch("/api/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: k, mode: "rewind" }) }).then((r) => r.status), kind);
+    await expect.poll(async () => (await (await page.request.get(`${baseURL}/api/state?mode=rewind`)).json()).phase, { timeout: 15_000 }).not.toBe("countdown");
+    await act("finish");
+    await act("dismiss");
+  }
+});
+
 // A zone saved before the list was merged to one line per time (Europe/Berlin, no line's own zone) keeps the player's
 // clock, and Settings shows the line it is on now, with the choice itself left as it was.
 test("keeps a saved city's clock, and shows the line it is on in Settings", async ({ page }, info) => {

@@ -1506,7 +1506,6 @@ function render(s) {
   const traded = JSON.stringify(trades) + lang;
   if (traded !== historyShown) {
     historyShown = traded;
-    $("history-count").textContent = t("historyCount", { n: trades.length });
     const ui = T[lang].ui;
     $("history-rows").replaceChildren(...trades.map((tr) => {
       const row = document.createElement("tr");
