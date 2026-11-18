@@ -114,7 +114,7 @@ What the game must never do, from my own decisions and its ADRs.
 - **Rewind's dates and event:** keep them off the page until the bell, including in the message the server sends, since guessing the year is part of the round.
 - **Start a round only when someone on its tab asks:** never let a market run by itself, so an empty tab costs nothing and nobody joins a round already half over.
 - **Give every string the page shows, and every message the server sends, all three languages:** the server speaks English; pages translate, in natural Japanese and Chinese.
-- **Put the language in the address, never the market:** see ADR 0016. People reading any language share the same rooms.
+- **Put the language in the address or a setting, never the market:** `/ja/` and `/zh/` always show their own; the bare address follows the Settings choice, else the browser, else English (ADR 0099, ADR 0016). People reading any language share the same rooms.
 - **Satirise the habits and the system, never the people they hurt:** never use Kurumi's mother or her death, in any language.
 - **Use no official art or music, and copy no passage from the comic:** its characters may appear by name (ADR 0015); every public page says it is an unaffiliated fan parody.
 - **An AI agent trades only through Live's own action:** every MCP tool in `src/mcp.ts` calls `liveMarket.act`, the action a page sends, never its own logic, so an agent can bend no rule a person cannot; agents play Live only, by ADR 0096.

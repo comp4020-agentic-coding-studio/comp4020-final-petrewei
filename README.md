@@ -46,7 +46,7 @@ Checked in CI before each deploy by `spec/` and `test/`, with the reasons in the
 - margin calls, stop-outs, credit and bankruptcy follow `src/fx.ts`
 - Rewind passes every real close, and a clue never names its date
 - a Live account survives a restart, and a damaged save recovers from its backup
-- every string has English, Japanese and Chinese, each at its own address
+- every string has English, Japanese and Chinese, and `/ja/` and `/zh/` stay their own
 - every action a page offers reaches the server
 
 Judged by people:
