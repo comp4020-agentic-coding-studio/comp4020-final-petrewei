@@ -32,6 +32,7 @@ The modes were renamed twice. Records written before 7 November use the names in
 - [0097](0097-the-house-traders-are-live-players.md) The house traders are Live players
 - [0098](0098-live-news-from-investing-com-and-no-release-calendar.md) Live's news from Investing.com, and no release calendar
 - [0099](0099-the-language-is-a-setting-and-the-bare-address-follows-it.md) The language is a setting, and the bare address follows it
+- [0100](0100-a-players-closed-trades-are-shown-to-the-room-and-credit-can-be-repaid-at-once.md) A player's closed trades are shown to the room, and credit can be repaid at once
 
 ## 2 Replaced or Superseded
 

@@ -1,6 +1,6 @@
 # ADR 0081: Closed Trades, Each with a Verdict
 
-Status: accepted, 5 November 2026. Peter asked for what the demo games do well to be learned, not copied.
+Status: accepted, 5 November 2026; its privacy line is superseded by [ADR 0100](0100-a-players-closed-trades-are-shown-to-the-room-and-credit-can-be-repaid-at-once.md), which shows a player's closed trades to the room on request. Peter asked for what the demo games do well to be learned, not copied.
 
 ## 1 Decision
 

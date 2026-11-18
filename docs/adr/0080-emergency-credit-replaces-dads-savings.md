@@ -1,6 +1,6 @@
 # ADR 0080: Emergency Credit Replaces Dad's Savings
 
-Status: accepted, 5 November 2026. Supersedes [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md), and changes the score of [ADR 0029](0029-a-fairer-score.md) and the last lessons of the tutorial. Peter asked, from two demo games he shared, for Dad's savings to become emergency credit with heavy interest, so that a negative endgame, bankruptcy, is plain.
+Status: accepted, 5 November 2026; [ADR 0100](0100-a-players-closed-trades-are-shown-to-the-room-and-credit-can-be-repaid-at-once.md) adds a way to repay the whole debt at once, beside the step. Supersedes [ADR 0057](0057-dads-savings-are-taken-not-borrowed.md), and changes the score of [ADR 0029](0029-a-fairer-score.md) and the last lessons of the tutorial. Peter asked, from two demo games he shared, for Dad's savings to become emergency credit with heavy interest, so that a negative endgame, bankruptcy, is plain.
 
 ## 1 Context
 
