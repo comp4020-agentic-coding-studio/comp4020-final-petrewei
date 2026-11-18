@@ -394,20 +394,20 @@ it("shows Live's clock in the zone chosen in Settings, on a 24-hour clock", asyn
   }
 });
 
-// Every zone the browser knows is offered, grouped by its offset from UTC, so a player anywhere finds their own.
-it("offers every time zone the browser knows in Settings, by its time with UTC+0 first, and browser time", async () => {
+// Settings offers one line for each time in use, "UTC+9 · Tokyo, Seoul", UTC+0 first, and browser time above them.
+it("offers one line for each time in Settings, with UTC+0 first and browser time above", async () => {
   const { dom, w } = await app();
   try {
     const zone = w.document.getElementById("set-zone") as HTMLSelectElement;
-    const offered = new Set([...zone.options].map((o) => o.value));
-    for (const z of Intl.supportedValuesOf("timeZone").filter((z) => z.includes("/"))) expect(offered, z).toContain(z);
-    expect(offered, "browser time is still an option").toContain("");
-    const groups = [...zone.querySelectorAll("optgroup")].map((g) => g.label);
-    expect(groups[0], "the list starts at UTC+0").toBe("UTC+0");
-    expect(groups.length, "a heading for each offset in use").toBeGreaterThan(30);
-    expect(zone.options[0].value, "browser time is the first option, above the groups").toBe("");
-    // each option says its offset and its city, so the closed control still tells which time was chosen
-    expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toBe("UTC+9 · Tokyo");
+    const options = [...zone.options];
+    expect(options[0].value, "browser time is the first option").toBe("");
+    const lines = options.slice(1);
+    expect(lines.length, "about forty lines, not a line for every city").toBeGreaterThan(30);
+    expect(lines.length).toBeLessThan(45);
+    expect(zone.querySelectorAll("optgroup").length, "no group headings now").toBe(0);
+    expect(lines[0].textContent, "the list starts at UTC+0").toMatch(/^UTC\+0 · /);
+    // each line says its offset and a few cities, so the closed control still tells which time was chosen
+    expect(zone.querySelector('option[value="Asia/Tokyo"]')!.textContent).toBe("UTC+9 · Tokyo, Seoul");
   } finally {
     dom.window.close();
   }

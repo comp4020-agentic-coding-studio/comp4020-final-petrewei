@@ -14,7 +14,7 @@ import { PERIODS, spanIn } from "/indicators.js";
 import { SHARES, exitAt, exitPos, feePerDay, fillSpan, hue, levAt, levHeat, levPos, movePerPct, pct, shareBar, shareMargin, verdict } from "/ticket.js";
 import { ICONS, prop } from "/art.js";
 import { clauses } from "/clauses.js";
-import { feedTime, localTime, quoted, setZone, tone, zoneGroups, zoneName } from "/format.js";
+import { feedTime, lineOf, localTime, quoted, setZone, tone, zoneLines, zoneName } from "/format.js";
 import qrcode from "/qrcode.js";
 import { refresh as retip, useClauses, useInfo, useWords } from "/tips.js";
 
@@ -562,12 +562,8 @@ const savePrefs = () => {
 (() => {
   const select = $("set-zone");
   const browser = select.querySelector('option[value=""]');
-  const groups = [...zoneGroups()].map(([offset, zones]) => {
-    const g = Object.assign(document.createElement("optgroup"), { label: offset });
-    g.append(...zones.map((z) => Object.assign(document.createElement("option"), { value: z.value, textContent: `${offset} · ${z.label}` })));
-    return g;
-  });
-  select.replaceChildren(...(browser ? [browser] : []), ...groups);
+  const lines = zoneLines().map((l) => Object.assign(document.createElement("option"), { value: l.value, textContent: `${l.offset} · ${l.cities.join(", ")}` }));
+  select.replaceChildren(...(browser ? [browser] : []), ...lines);
 })();
 const showPrefs = () => {
   $("set-sound").setAttribute("aria-checked", String(prefs.sound));
@@ -576,7 +572,14 @@ const showPrefs = () => {
   $("set-confirm").setAttribute("aria-checked", String(prefs.confirm));
   $("set-margin").value = String(prefs.margin);
   $("set-leverage").value = String(prefs.leverage);
-  $("set-zone").value = prefs.zone;
+  // a zone saved before the list was merged (Europe/Berlin) is no line's own zone, so the select shows the line it is on
+  // now, and the choice itself is kept as it was, so the clock does not move
+  const zoneSelect = $("set-zone");
+  zoneSelect.value = prefs.zone;
+  if (prefs.zone && zoneSelect.value !== prefs.zone) {
+    const line = lineOf(Date.now(), prefs.zone);
+    zoneSelect.value = [...zoneSelect.options].find((o) => o.textContent.startsWith(`${line} ·`))?.value ?? "";
+  }
   setZone(prefs.zone);
   document.documentElement.classList.toggle("calm", prefs.calm);
   document.documentElement.classList.toggle("cvd", prefs.cvd);

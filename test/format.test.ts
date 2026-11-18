@@ -60,59 +60,83 @@ describe("times", () => {
     setZone("");
   });
 
-  // Settings offers the zones by their time, UTC+0 first, then east to +14 and west from -1 to -12, with every city under
-  // the offset it has at that moment (ADR 0099's neighbour in the same popup; the rule is Peter's): a player finds their
-  // time and then their city, and nothing is listed twice or left out.
+  // Settings offers one line per time, UTC+0 first, then east to +14 and west from -1 to -12: "UTC+9 · Tokyo, Seoul". It
+  // is the shape of Windows' own time-zone list ("(UTC+09:00) Osaka, Sapporo, Tokyo"), with the cities merged under their
+  // offset as a long list is shortened in selectors such as Slack's (NN/g, "It's Time We Addressed Time-Zone
+  // Selectors"). A player picks their time, never a city, and the clock follows the time zone behind that line.
   describe("the time-zone list", () => {
     const winter = Date.parse("2026-01-15T12:00:00Z");
     const summer = Date.parse("2026-07-15T12:00:00Z");
-    const cities = () => Intl.supportedValuesOf("timeZone").filter((z) => z.includes("/"));
+    const ianaCities = () => Intl.supportedValuesOf("timeZone").filter((z) => z.includes("/"));
 
-    it("lists every city once, under the offset it has at that moment, and no group empty", async () => {
-      const { zoneGroups } = await import("../public/format.js");
-      const groups = zoneGroups(winter);
-      const seen = new Map<string, number>();
-      for (const [, zones] of groups) {
-        expect(zones.length, "a group is never empty").toBeGreaterThan(0);
-        for (const z of zones) seen.set(z.value, (seen.get(z.value) ?? 0) + 1);
+    it("has one line for each offset in use, with 1 to 4 well-known cities named after it", async () => {
+      const { zoneLines } = await import("../public/format.js");
+      for (const at of [winter, summer]) {
+        const lines = zoneLines(at);
+        expect(lines.length, "about forty lines, not hundreds").toBeLessThan(45);
+        expect(new Set(lines.map((l: { offset: string }) => l.offset)).size, "an offset is listed once").toBe(lines.length);
+        for (const l of lines as { offset: string; cities: string[]; value: string }[]) {
+          expect(l.cities.length, `${l.offset} names cities`).toBeGreaterThanOrEqual(1);
+          expect(l.cities.length, `${l.offset} names few enough to read in one line`).toBeLessThanOrEqual(4);
+          expect(ianaCities(), `${l.offset}'s zone exists in this browser`).toContain(l.value);
+        }
       }
-      for (const z of cities()) expect(seen.get(z), `${z} is listed once`).toBe(1);
-      expect(seen.size, "and nothing else is listed").toBe(cities().length);
     });
 
-    it("puts UTC+0 first, then the east, then the west, with every group named by its offset", async () => {
-      const { zoneGroups } = await import("../public/format.js");
-      const heads = [...zoneGroups(winter).keys()];
-      for (const h of heads) expect(h, "every group is an offset, with no common-zones group").toMatch(/^UTC[+-]\d+(?::\d+)?$/);
+    it("puts UTC+0 first, then the east, then the west, nearest first", async () => {
+      const { zoneLines } = await import("../public/format.js");
+      const heads = (zoneLines(winter) as { offset: string }[]).map((l) => l.offset);
       expect(heads[0], "the list begins at UTC+0").toBe("UTC+0");
       const minutes = heads.map((h) => { const m = h.match(/^UTC([+-])(\d+)(?::(\d+))?$/)!; return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)); });
       const east = minutes.filter((m) => m > 0), west = minutes.filter((m) => m < 0);
-      expect(minutes[0]).toBe(0);
       expect(minutes.slice(1, 1 + east.length), "then the east, nearest first").toEqual([...east].sort((a, b) => a - b));
       expect(minutes.slice(1 + east.length), "then the west, nearest first").toEqual([...west].sort((a, b) => b - a));
     });
 
-    it("gives every city in a group the same offset at that moment, and labels it by its city alone", async () => {
-      const { zoneGroups } = await import("../public/format.js");
-      const offsetOf = (z: string, at: number) => new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")!.value;
-      for (const [head, zones] of zoneGroups(summer)) {
-        const offsets = new Set(zones.map((z) => offsetOf(z.value, summer).replace("GMT", "") || "+00:00"));
-        expect(offsets.size, `${head} holds one offset`).toBe(1);
-        for (const z of zones) expect(z.label, "a city, not a path or an offset").toBe(z.value.split("/").at(-1)!.replaceAll("_", " "));
+    it("sets the clock to the offset it names: the zone behind each line has that offset at that moment", async () => {
+      const { zoneLines } = await import("../public/format.js");
+      const offsetOf = (z: string, at: number) => new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")!.value.replace("GMT", "") || "+00:00";
+      const minutes = (o: string) => { const m = o.match(/^([+-])(\d\d):(\d\d)$/)!; return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])); };
+      for (const at of [winter, summer]) for (const l of zoneLines(at) as { offset: string; value: string }[]) {
+        const m = l.offset.match(/^UTC([+-])(\d+)(?::(\d+))?$/)!;
+        const want = (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+        expect(minutes(offsetOf(l.value, at)), `${l.offset} is ${l.value}`).toBe(want);
       }
     });
 
-    it("moves a city when its clocks change: London is UTC+0 in winter and UTC+1 in summer", async () => {
-      const { zoneGroups } = await import("../public/format.js");
-      const groupOf = (at: number, zone: string) => [...zoneGroups(at)].find(([, zs]) => zs.some((z) => z.value === zone))![0];
-      expect(groupOf(winter, "Europe/London")).toBe("UTC+0");
-      expect(groupOf(summer, "Europe/London")).toBe("UTC+1");
-      // India has no summer time and a half-hour offset; a browser lists it as Asia/Calcutta or Asia/Kolkata, the old
-      // spelling or the new, so whichever it has is the one asked
-      const india = ["Asia/Kolkata", "Asia/Calcutta"].find((z) => Intl.supportedValuesOf("timeZone").includes(z))!;
-      expect(india, "the browser lists India under one of its two names").toBeDefined();
-      expect(groupOf(winter, india)).toBe("UTC+5:30");
-      expect(groupOf(summer, india)).toBe("UTC+5:30");
+    // The cities named on a line are the cities that keep that time: Adelaide is not on the line Darwin is, and Sydney
+    // is not on Brisbane's, in either season, whatever the one zone behind the line says.
+    it("names only cities that really have that offset at that moment, in winter and in summer", async () => {
+      const { zoneLines, CITY_ZONES } = await import("../public/format.js");
+      const offsetOf = (z: string, at: number) => new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")!.value.replace("GMT", "") || "+00:00";
+      const name = (o: string) => { const m = o.match(/^([+-])(\d\d):(\d\d)$/); if (!m) return "UTC+0"; const mins = Number(m[2]) * 60 + Number(m[3]); return `UTC${m[1]}${Math.floor(mins / 60)}${mins % 60 ? ":" + String(mins % 60).padStart(2, "0") : ""}`; };
+      for (const at of [winter, summer]) for (const l of zoneLines(at) as { offset: string; cities: string[] }[]) {
+        for (const city of l.cities) {
+          const zone = CITY_ZONES[city];
+          expect(zone, `${city} has a zone`).toBeDefined();
+          expect(name(offsetOf(zone, at)), `${city} is on ${l.offset} at ${new Date(at).toISOString().slice(0, 7)}`).toBe(l.offset);
+        }
+      }
+    });
+
+    it("lists every offset any of its cities has, winter or summer, so none is left out", async () => {
+      const { zoneLines, CITY_ZONES } = await import("../public/format.js");
+      const offsetOf = (z: string, at: number) => new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(at).find((p) => p.type === "timeZoneName")!.value.replace("GMT", "") || "+00:00";
+      for (const at of [winter, summer]) {
+        const wanted = new Set(Object.values(CITY_ZONES as Record<string, string>).map((z) => offsetOf(z, at)));
+        const lines = zoneLines(at) as { offset: string }[];
+        expect(lines.length, "a line for each offset a city has").toBe(wanted.size);
+      }
+    });
+
+    it("moves with summer time: London is on the UTC+0 line in winter and UTC+1 in summer, and India stays on UTC+5:30", async () => {
+      const { zoneLines, lineOf } = await import("../public/format.js");
+      expect(lineOf(winter, "Europe/London")).toBe("UTC+0");
+      expect(lineOf(summer, "Europe/London")).toBe("UTC+1");
+      const india = ["Asia/Kolkata", "Asia/Calcutta"].find((z) => ianaCities().includes(z))!;
+      expect(lineOf(winter, india)).toBe("UTC+5:30");
+      expect(lineOf(summer, india)).toBe("UTC+5:30");
+      expect((zoneLines(winter) as { offset: string }[]).length).toBeGreaterThan(30);
     });
   });
 

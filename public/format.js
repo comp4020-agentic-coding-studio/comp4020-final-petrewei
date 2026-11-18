@@ -65,35 +65,69 @@ export const feedTime = (ms, lang, now = Date.now()) => {
 
 // The zone's short name at a moment, as "AEDT" or "GMT+9".
 export const zoneName = (ms, lang) => formatsFor(lang).zone.formatToParts(ms).find((p) => p.type === "timeZoneName")?.value ?? "";
-// Every zone the browser knows (the IANA list it ships, so none is kept by hand), as Settings offers them: grouped by the
-// time each has at that moment, UTC+0 first, then east to +14 and west from -1 to -12, each city under its offset and
-// named by itself, so a player finds their time and then their city. A zone that has summer time moves a group when
-// its clocks change, as the clock a player reads does. A browser without the list offers none, and "Browser time"
-// still works.
+// Settings' time zones, one line for each time in use: "UTC+9 · Tokyo, Seoul". It is the shape of Windows' own list
+// ("(UTC+09:00) Osaka, Sapporo, Tokyo"), with the cities merged under their offset, as selectors such as Slack's shorten
+// a long list; a zone for every city was 418 lines. Each well-known city is kept with its own zone, and at any moment a
+// line is the cities that keep the same time right then, so a line never names a city that is an hour away, and a city
+// that changes its clocks moves to another line, as the clock a player reads does. The cities are Windows' own picks
+// for each region. A line's zone is its first city's, so the clock keeps that zone's summer-time rules. A browser
+// without the IANA list offers none, and "Browser time" still works.
+// [city, its IANA zone], in the order a line names them
+export const CITY_ZONES = {
+  London: "Europe/London", Dublin: "Europe/Dublin", Lisbon: "Europe/Lisbon", Reykjavik: "Atlantic/Reykjavik",
+  Paris: "Europe/Paris", Berlin: "Europe/Berlin", Rome: "Europe/Rome", Madrid: "Europe/Madrid", Lagos: "Africa/Lagos",
+  Athens: "Europe/Athens", Helsinki: "Europe/Helsinki", Kyiv: "Europe/Kiev", Cairo: "Africa/Cairo", Johannesburg: "Africa/Johannesburg",
+  Moscow: "Europe/Moscow", Istanbul: "Europe/Istanbul", Riyadh: "Asia/Riyadh", Nairobi: "Africa/Nairobi",
+  Tehran: "Asia/Tehran", Dubai: "Asia/Dubai", Baku: "Asia/Baku", Kabul: "Asia/Kabul",
+  Karachi: "Asia/Karachi", Tashkent: "Asia/Tashkent", Mumbai: "Asia/Calcutta", "New Delhi": "Asia/Calcutta", Colombo: "Asia/Colombo",
+  Kathmandu: "Asia/Katmandu", Dhaka: "Asia/Dhaka", Almaty: "Asia/Almaty", Yangon: "Asia/Rangoon",
+  Bangkok: "Asia/Bangkok", Jakarta: "Asia/Jakarta", Beijing: "Asia/Shanghai", "Hong Kong": "Asia/Hong_Kong", Singapore: "Asia/Singapore", Perth: "Australia/Perth",
+  Eucla: "Australia/Eucla", Tokyo: "Asia/Tokyo", Seoul: "Asia/Seoul",
+  Darwin: "Australia/Darwin", Adelaide: "Australia/Adelaide", Brisbane: "Australia/Brisbane", Sydney: "Australia/Sydney", Melbourne: "Australia/Melbourne",
+  "Lord Howe Island": "Australia/Lord_Howe", Noumea: "Pacific/Noumea", Magadan: "Asia/Magadan", Auckland: "Pacific/Auckland", Wellington: "Pacific/Auckland", Fiji: "Pacific/Fiji",
+  "Chatham Islands": "Pacific/Chatham", Tonga: "Pacific/Tongatapu", Samoa: "Pacific/Apia", Kiritimati: "Pacific/Kiritimati",
+  Azores: "Atlantic/Azores", "Cabo Verde": "Atlantic/Cape_Verde", "South Georgia": "Atlantic/South_Georgia", "Sao Paulo": "America/Sao_Paulo", "Buenos Aires": "America/Argentina/Buenos_Aires", Montevideo: "America/Montevideo",
+  Newfoundland: "America/St_Johns", Halifax: "America/Halifax", Caracas: "America/Caracas", Santiago: "America/Santiago",
+  "New York": "America/New_York", Toronto: "America/Toronto", Bogota: "America/Bogota", Lima: "America/Lima",
+  Chicago: "America/Chicago", "Mexico City": "America/Mexico_City", Winnipeg: "America/Winnipeg",
+  Denver: "America/Denver", Phoenix: "America/Phoenix", Calgary: "America/Edmonton", "Los Angeles": "America/Los_Angeles", Vancouver: "America/Vancouver", Tijuana: "America/Tijuana",
+  Anchorage: "America/Anchorage", "Marquesas Islands": "Pacific/Marquesas", Honolulu: "Pacific/Honolulu", Tahiti: "Pacific/Tahiti", "Pago Pago": "Pacific/Pago_Pago", Midway: "Pacific/Midway",
+};
 const OFFSET = /^GMT(?:([+-])(\d\d):(\d\d))?$/;
-export function zoneGroups(now = Date.now()) {
+const minutesAt = (zone, at) => {
+  try {
+    const text = new Intl.DateTimeFormat("en", { timeZone: zone, timeZoneName: "longOffset" }).formatToParts(new Date(at)).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+    const m = OFFSET.exec(text);
+    return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) : null;
+  } catch { return null; }
+};
+const offsetName = (min) => `UTC${min < 0 ? "-" : "+"}${Math.floor(Math.abs(min) / 60)}${Math.abs(min) % 60 ? ":" + String(Math.abs(min) % 60).padStart(2, "0") : ""}`;
+const rank = (min) => (min === 0 ? -Infinity : min > 0 ? min : 1e6 - min);
+// Four cities are enough to find a time by; a line names no more than that, however many share it.
+const MOST = 4;
+/** @returns {{ offset: string, value: string, cities: string[] }[]} the lines at that moment: UTC+0, then east, then west */
+export function zoneLines(at = Date.now()) {
   /** @type {string[]} */
-  let all = [];
-  try { all = Intl.supportedValuesOf("timeZone"); } catch { /* an older browser */ }
-  /** @param {string} zone minutes east of UTC at `now`, or null if the browser cannot say */
-  const minutes = (zone) => {
-    try {
-      const text = new Intl.DateTimeFormat("en", { timeZone: zone, timeZoneName: "longOffset" }).formatToParts(new Date(now)).find((p) => p.type === "timeZoneName")?.value ?? "GMT";
-      const m = OFFSET.exec(text);
-      return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) : null;
-    } catch { return null; }
-  };
-  const name = (min) => `UTC${min < 0 ? "-" : "+"}${Math.floor(Math.abs(min) / 60)}${Math.abs(min) % 60 ? ":" + String(Math.abs(min) % 60).padStart(2, "0") : ""}`;
-  /** @type {Map<number, { value: string, label: string }[]>} */
-  const byOffset = new Map();
-  for (const z of all) {
-    if (!z.includes("/")) continue;
-    const min = minutes(z);
+  let known = [];
+  try { known = Intl.supportedValuesOf("timeZone"); } catch { /* an older browser */ }
+  if (!known.length) return [];
+  // a zone this browser lists under its old or its new name is stored as the one it lists, so a saved choice is known
+  const ALIAS = { "Europe/Kiev": "Europe/Kyiv", "Asia/Calcutta": "Asia/Kolkata", "Asia/Katmandu": "Asia/Kathmandu", "Asia/Rangoon": "Asia/Yangon" };
+  const listed = (zone) => [zone, ALIAS[zone], Object.keys(ALIAS).find((k) => ALIAS[k] === zone)].find((z) => z && known.includes(z));
+  /** @type {Map<number, { offset: string, value: string, cities: string[] }>} */
+  const byMinutes = new Map();
+  for (const [city, zone] of Object.entries(CITY_ZONES)) {
+    const value = listed(zone);
+    const min = value ? minutesAt(value, at) : null;
     if (min === null) continue;
-    byOffset.set(min, [...(byOffset.get(min) ?? []), { value: z, label: z.split("/").at(-1)?.replaceAll("_", " ") ?? z }]);
+    const line = byMinutes.get(min) ?? { offset: offsetName(min), value, cities: [] };
+    if (line.cities.length < MOST && !line.cities.includes(city)) line.cities.push(city);
+    byMinutes.set(min, line);
   }
-  // UTC+0, then the east nearest first, then the west nearest first
-  const order = [...byOffset.keys()].sort((a, b) => rank(a) - rank(b));
-  function rank(min) { return min === 0 ? -Infinity : min > 0 ? min : 1e6 - min; }
-  return new Map(order.map((min) => [name(min), (byOffset.get(min) ?? []).sort((a, b) => a.label.localeCompare(b.label))]));
+  return [...byMinutes.entries()].sort((a, b) => rank(a[0]) - rank(b[0])).map((e) => e[1]);
+}
+/** The line a zone sits on at that moment, such as "UTC+1" for Europe/London in summer, or null if it has none. */
+export function lineOf(at, zone) {
+  const min = minutesAt(zone, at);
+  return min === null ? null : offsetName(min);
 }

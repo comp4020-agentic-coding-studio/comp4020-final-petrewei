@@ -676,3 +676,17 @@ test("the lesson list fits a phone with the show-style titles", async ({ page },
     expect(b.x + b.width, `lesson ${i + 1}: the list stays in the viewport`).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
 });
+
+// A zone saved before the list was merged to one line per time (Europe/Berlin, no line's own zone) keeps the player's
+// clock, and Settings shows the line it is on now, with the choice itself left as it was.
+test("keeps a saved city's clock, and shows the line it is on in Settings", async ({ page }, info) => {
+  const lang = info.project.metadata.lang as Lang;
+  await page.addInitScript(() => localStorage.setItem("prefs", JSON.stringify({ zone: "Europe/Berlin" })));
+  await join(page, lang);
+  await page.locator("#settings-btn").click();
+  const shown = await page.locator("#set-zone").evaluate((s: HTMLSelectElement) => s.options[s.selectedIndex].textContent);
+  expect(shown, "the select shows the line Berlin is on, not browser time").toMatch(/^UTC\+[12] · /);
+  expect(shown).toContain("Berlin");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("prefs")!).zone);
+  expect(saved, "the saved choice is left as it was").toBe("Europe/Berlin");
+});
